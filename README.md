@@ -4,6 +4,10 @@
 
 See is a desktop app for exploring source code in a focused native interface. Open a folder, navigate its files, search across the workspace, and follow symbols to their definitions—all in a native interface built with [MyGo](https://github.com/egoist/mygo), without a web view.
 
+
+<img width="3146" height="2132" alt="CleanShot 2026-10-28 at 20 55 47@2x" src="https://github.com/user-attachments/assets/231c9a8b-96d5-4db0-9652-189ec76d6aa8" />
+
+
 ## Features
 
 - Open multiple project folders in separate windows, browse files in tabs, and arrange editors side by side or vertically.
