@@ -11,8 +11,8 @@ import (
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 
-	"nsr/internal/lsp"
-	"nsr/internal/search"
+	"see/internal/lsp"
+	"see/internal/search"
 )
 
 func TestSplitAndMoveTabs(t *testing.T) {

@@ -1,4 +1,4 @@
-// Native Source Reader is a desktop source code reader: a file tree,
+// See is a desktop source code reader: a file tree,
 // tabs, a read-only code editor and Go to Definition through gopls, drawn
 // natively by MyGo's ui, with no web view.
 package main
@@ -14,7 +14,7 @@ import (
 )
 
 func main() {
-	cfg := loadConfig(configPath())
+	cfg := loadAppConfig(configPath())
 	a := newApp(cfg)
 	var (
 		win, welcome *mygo.Window
@@ -25,11 +25,11 @@ func main() {
 	// Light, dark, or the system's, from the start.
 	a.setAppearance = func(s string) { mygo.Theme.SetSource(themeSource(s)) }
 	a.setAppearance(cfg.Appearance)
-	mygo.App.SetName("Native Source Reader")
+	mygo.App.SetName("See")
 	mygo.App.WhenReady(func() {
 		a.version = mygo.App.Version()
 		win = mygo.NewWindow(mygo.WindowOptions{
-			Title:     "Native Source Reader",
+			Title:     "See",
 			Width:     1280,
 			Height:    820,
 			MinWidth:  480,
@@ -50,7 +50,7 @@ func main() {
 		// The welcome window, as Xcode's: of its own, of one size, its
 		// buttons over its left side.
 		welcome = mygo.NewWindow(mygo.WindowOptions{
-			Title:           "Welcome to Native Source Reader",
+			Title:           "Welcome to See",
 			Width:           welcomeWidth,
 			Height:          welcomeHeight,
 			DisableResize:   true,
@@ -176,7 +176,7 @@ func appearanceMenu(a *app) []*mygo.MenuItem {
 
 // appMenu is the app's menu, with Settings… as macOS apps have it.
 func appMenu(a *app) *mygo.MenuItem {
-	return &mygo.MenuItem{Label: "Native Source Reader", Submenu: []*mygo.MenuItem{
+	return &mygo.MenuItem{Label: "See", Submenu: []*mygo.MenuItem{
 		{Role: mygo.RoleAbout},
 		mygo.Separator(),
 		{Label: "Settings…", Accelerator: "CmdOrCtrl+,", Click: func(*mygo.MenuItem, *mygo.Window) { a.openSettings() }},

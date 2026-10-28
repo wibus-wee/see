@@ -17,17 +17,21 @@ import (
 
 	"github.com/sahilm/fuzzy"
 
-	"nsr/internal/workspace"
+	"see/internal/workspace"
 )
 
 // ErrNoRipgrep is returned when ripgrep is not installed.
 var ErrNoRipgrep = errors.New("ripgrep (rg) is not installed")
 
-// FindRipgrep finds rg: $NSR_RG, then PATH. One inside the workspace is
+// FindRipgrep finds rg: $SEE_RG (or the legacy $NSR_RG), then PATH. One inside the workspace is
 // never used.
 func FindRipgrep(root string) (string, error) {
 	var candidates []string
-	if p := os.Getenv("NSR_RG"); p != "" {
+	p, ok := os.LookupEnv("SEE_RG")
+	if !ok {
+		p = os.Getenv("NSR_RG")
+	}
+	if p != "" {
 		candidates = append(candidates, p)
 	}
 	if p, err := exec.LookPath("rg"); err == nil {

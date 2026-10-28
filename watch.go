@@ -8,7 +8,7 @@ import (
 
 	"github.com/egoist/mygo"
 
-	"nsr/internal/workspace"
+	"see/internal/workspace"
 )
 
 // watchFiles starts a watch; it is mygo.WatchFiles in the app, and a

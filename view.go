@@ -13,8 +13,8 @@ import (
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 
-	"nsr/internal/search"
-	"nsr/internal/workspace"
+	"see/internal/search"
+	"see/internal/workspace"
 )
 
 // editorBindings take from the editor the keys that are the app's.
@@ -48,7 +48,7 @@ func editorBindings() []editor.Binding {
 // startTime is when the process started, for the startup trace.
 var startTime = time.Now()
 
-var startTrace = os.Getenv("NSR_TRACE_STARTUP") != ""
+var startTrace = os.Getenv("SEE_TRACE_STARTUP") != "" || os.Getenv("NSR_TRACE_STARTUP") != ""
 
 func (a *app) view(c *ui.Context) {
 	if startTrace {

@@ -5,7 +5,7 @@ import (
 
 	"github.com/egoist/mygo/ui/editor"
 
-	"nsr/internal/lsp"
+	"see/internal/lsp"
 )
 
 // group is an editor area with tabs of its own, as Xcode's editors

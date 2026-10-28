@@ -37,7 +37,7 @@ func (a *app) fileMenu(run func(func())) *mygo.MenuItem {
 		mygo.Separator(),
 		{Label: "Close Folder", Accelerator: closeKey, Click: do(a.closeFolder)},
 		mygo.Separator(),
-		{Label: "Welcome to Native Source Reader", Click: do(func() { a.showWelcome = true })},
+		{Label: "Welcome to See", Click: do(func() { a.showWelcome = true })},
 	}}
 }
 

@@ -44,7 +44,7 @@ func (a *app) welcomeIntro(c *ui.Context) {
 		ui.Box(c).Height(26) // under the window's buttons
 		ui.Column(c).Grow(1).FillWidth().AlignItems(ui.Center).Gap(6).Children(func() {
 			ui.Image(c, appIcon).Size(136, 136)
-			ui.Text(c, "Native Source Reader").FontSize(28).Bold().TextColor(colText).TextAlign(ui.Center)
+			ui.Text(c, "See").FontSize(28).Bold().TextColor(colText).TextAlign(ui.Center)
 			if a.version != "" {
 				ui.Text(c, "Version "+a.version).FontSize(13).TextColor(colMuted)
 			}

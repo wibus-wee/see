@@ -11,7 +11,7 @@ import (
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 
-	"nsr/internal/nav"
+	"see/internal/nav"
 )
 
 // waitTerm draws frames until the terminal's text holds want: its shell
@@ -136,9 +136,9 @@ func TestTerminalLinksOpenInTheEditor(t *testing.T) {
 }
 
 func TestTerminalScreenshot(t *testing.T) {
-	dir := os.Getenv("NSR_SHOT")
+	dir := os.Getenv("SEE_SHOT")
 	if dir == "" {
-		t.Skip("set NSR_SHOT to a directory")
+		t.Skip("set SEE_SHOT to a directory")
 	}
 	h := termHarness(t)
 	h.tt.SetSize(1280, 800)

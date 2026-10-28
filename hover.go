@@ -14,7 +14,7 @@ import (
 	"github.com/egoist/mygo/ui/editor"
 	"github.com/egoist/mygo/ui/markdown"
 
-	"nsr/internal/lsp"
+	"see/internal/lsp"
 )
 
 // hoverState follows the hovers asked of gopls: only the latest one

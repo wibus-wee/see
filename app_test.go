@@ -14,7 +14,7 @@ import (
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 
-	"nsr/internal/lsp"
+	"see/internal/lsp"
 )
 
 func init() { watchFiles = nil } // tests feed file events themselves
@@ -696,5 +696,34 @@ func TestF12GoesToDefinition(t *testing.T) {
 	h.settle(func() bool { return h.a.activePath() == bPath })
 	if len(h.a.hist.Back) != 1 || h.a.hist.Back[0].Path != a.path {
 		t.Errorf("history %v", h.a.hist.Back)
+	}
+}
+
+func TestRenamedConfigMigration(t *testing.T) {
+	dir := t.TempDir()
+	old := filepath.Join(dir, "NativeSourceReader", "config.json")
+	path := filepath.Join(dir, "See", "config.json")
+	if err := os.MkdirAll(filepath.Dir(old), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(old, []byte(`{"appearance":"dark","recentWorkspaces":["/project"]}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	c := loadAppConfig(path)
+	if c.Appearance != "dark" || len(c.Recent) != 1 || c.path != path {
+		t.Fatalf("legacy config: %+v", c)
+	}
+	if err := c.save(); err != nil {
+		t.Fatal(err)
+	}
+	c.Appearance = "light"
+	if err := c.save(); err != nil {
+		t.Fatal(err)
+	}
+	if got := loadAppConfig(path).Appearance; got != "light" {
+		t.Fatalf("new config not preferred: %q", got)
+	}
+	if got := loadConfig(old).Appearance; got != "dark" {
+		t.Fatalf("legacy config modified: %q", got)
 	}
 }

@@ -149,7 +149,7 @@ func (c *Client) HasDefinition() bool { return c.defs }
 func (c *Client) initialize(ctx context.Context) error {
 	params := map[string]any{
 		"processId":  os.Getpid(),
-		"clientInfo": map[string]any{"name": "Native Source Reader", "version": "0.1"},
+		"clientInfo": map[string]any{"name": "See", "version": "0.1"},
 		"rootUri":    c.opts.RootURI,
 		"rootPath":   c.opts.RootPath,
 		"workspaceFolders": []map[string]any{

@@ -21,12 +21,12 @@ func tree(t *testing.T, files map[string]string) string {
 	return root
 }
 
-// ripgrep finds rg for the test, which needs it installed (or NSR_RG).
+// ripgrep finds rg for the test, which needs it installed (or SEE_RG).
 func ripgrep(t *testing.T) string {
 	t.Helper()
 	rg, err := FindRipgrep("")
 	if err != nil {
-		t.Skip("ripgrep is not installed; set NSR_RG")
+		t.Skip("ripgrep is not installed; set SEE_RG")
 	}
 	return rg
 }

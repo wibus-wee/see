@@ -11,8 +11,8 @@ import (
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 
-	"nsr/internal/search"
-	"nsr/internal/workspace"
+	"see/internal/search"
+	"see/internal/workspace"
 )
 
 // The settings window, after macOS 27's System Settings: the panes in a
@@ -121,10 +121,10 @@ func (a *app) settingsSidebar(c *ui.Context) {
 	// The app's own row, as System Settings shows the account's.
 	if q == "" {
 		chosen := s.pane == "about"
-		sidebarRow(c, chosen, "Native Source Reader", func() { a.settingsGo("about") }).Padding(6, 6).Gap(8).Children(func() {
+		sidebarRow(c, chosen, "See", func() { a.settingsGo("about") }).Padding(6, 6).Gap(8).Children(func() {
 			ui.Image(c, appIcon).Size(34, 34).Shrink(0)
 			ui.Column(c).Grow(1).Shrink(1).Gap(1).Children(func() {
-				ui.Text(c, "Native Source Reader").FontSize(13).Bold().SingleLine().TextColor(rowText(chosen, colText))
+				ui.Text(c, "See").FontSize(13).Bold().SingleLine().TextColor(rowText(chosen, colText))
 				ui.Text(c, a.versionLabel()).FontSize(11).SingleLine().TextColor(rowText(chosen, colMuted))
 			})
 		})
@@ -235,7 +235,7 @@ func (a *app) versionLabel() string {
 
 func (a *app) settingsContent(c *ui.Context, bar ui.TitleBar) {
 	s := &a.settings
-	title := "Native Source Reader"
+	title := "See"
 	for _, p := range settingsPanes {
 		if p.id == s.pane {
 			title = p.title
@@ -485,7 +485,7 @@ func (a *app) shortcutsPane(c *ui.Context) {
 func (a *app) aboutPane(c *ui.Context) {
 	ui.Column(c).FillWidth().Padding(24, 0).Gap(8).AlignItems(ui.Center).Children(func() {
 		ui.Image(c, appIcon).Size(96, 96)
-		ui.Text(c, "Native Source Reader").FontSize(20).Bold()
+		ui.Text(c, "See").FontSize(20).Bold()
 		ui.Text(c, a.versionLabel()).TextColor(colMuted)
 		ui.Text(c, "Fast, focused reading of source code, drawn natively.").FontSize(12).TextColor(colMuted)
 	})

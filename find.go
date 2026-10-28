@@ -12,7 +12,7 @@ import (
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 
-	"nsr/internal/search"
+	"see/internal/search"
 )
 
 // ----- The find navigator: text in the workspace, with ripgrep -----

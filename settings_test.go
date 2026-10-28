@@ -66,9 +66,9 @@ func TestSettingsPanes(t *testing.T) {
 }
 
 func TestSettingsScreenshot(t *testing.T) {
-	dir := os.Getenv("NSR_SHOT")
+	dir := os.Getenv("SEE_SHOT")
 	if dir == "" {
-		t.Skip("set NSR_SHOT to a directory")
+		t.Skip("set SEE_SHOT to a directory")
 	}
 	h := newHarness(t, writeTree(t, map[string]string{"a.go": ""}))
 	h.a.cfg.trust(h.a.root)

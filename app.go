@@ -16,10 +16,10 @@ import (
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 
-	"nsr/internal/lsp"
-	"nsr/internal/nav"
-	"nsr/internal/uri"
-	"nsr/internal/workspace"
+	"see/internal/lsp"
+	"see/internal/nav"
+	"see/internal/uri"
+	"see/internal/workspace"
 )
 
 // app is the reader's state. It lives on the UI thread: background work
@@ -262,7 +262,7 @@ func (a *app) closeWorkspace() {
 	a.hover = hoverState{}
 	a.find.reset()
 	a.quick = quickOpen{}
-	a.setTitle("Native Source Reader")
+	a.setTitle("See")
 }
 
 // saveConfigSoon saves the settings once they stop changing for a

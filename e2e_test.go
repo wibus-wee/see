@@ -9,17 +9,17 @@ import (
 
 	"github.com/egoist/mygo/ui/editor"
 
-	"nsr/internal/lsp"
+	"see/internal/lsp"
 )
 
 // TestRealGopls jumps across files with a real gopls, through Unicode
 // before the symbol on both sides. (Größe名字: exported, as 名字 alone
-// would not be, which gopls rightly finds no definition for.) It runs when NSR_GOPLS names gopls:
+// would not be, which gopls rightly finds no definition for.) It runs when SEE_GOPLS names gopls:
 //
-//	NSR_GOPLS=$(which gopls) go test -run RealGopls .
+//	SEE_GOPLS=$(which gopls) go test -run RealGopls .
 func TestRealGopls(t *testing.T) {
-	if os.Getenv("NSR_GOPLS") == "" {
-		t.Skip("set NSR_GOPLS to the path of gopls")
+	if os.Getenv("SEE_GOPLS") == "" {
+		t.Skip("set SEE_GOPLS to the path of gopls")
 	}
 	root := writeTree(t, map[string]string{
 		"go.mod": "module example.com/w\n\ngo 1.21\n",
@@ -27,7 +27,7 @@ func TestRealGopls(t *testing.T) {
 		"b/b.go": "package b\n\n// Größe名字 is 🎉.\nvar _ = \"😀\"; func Größe名字() {}\n",
 	})
 	h := newHarness(t, root)
-	h.a.startLSP = startGopls // the real one, found through NSR_GOPLS
+	h.a.startLSP = startGopls // the real one, found through SEE_GOPLS
 	h.a.lsp = newGoLSP(h.a.root, h.a.startLSP(testLogf(t)), func(s lspState, err error) {
 		h.a.post(func() { h.a.lspState, h.a.lspErr = s, err })
 	})

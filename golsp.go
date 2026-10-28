@@ -13,7 +13,7 @@ import (
 
 	"github.com/egoist/mygo/ui/editor"
 
-	"nsr/internal/lsp"
+	"see/internal/lsp"
 )
 
 // langClient is what the app needs of a language client; *lsp.Client is
@@ -309,11 +309,15 @@ func (m *goLSP) stopWait(timeout time.Duration) {
 	}
 }
 
-// findGopls finds gopls: $NSR_GOPLS, then PATH, then Go's bin
+// findGopls finds gopls: $SEE_GOPLS (or the legacy $NSR_GOPLS), then PATH, then Go's bin
 // directories. A gopls inside the workspace is never used.
 func findGopls(root string) (string, error) {
 	var candidates []string
-	if p := os.Getenv("NSR_GOPLS"); p != "" {
+	p, ok := os.LookupEnv("SEE_GOPLS")
+	if !ok {
+		p = os.Getenv("NSR_GOPLS")
+	}
+	if p != "" {
 		candidates = append(candidates, p)
 	}
 	if p, err := exec.LookPath("gopls"); err == nil {
