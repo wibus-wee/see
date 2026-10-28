@@ -6,11 +6,11 @@ See is a desktop app for exploring source code in a focused native interface. Op
 
 ## Features
 
-- Browse a folder in a file tree, open files in tabs, and arrange editors side by side or vertically.
+- Open multiple project folders in separate windows, browse files in tabs, and arrange editors side by side or vertically.
 - Find text in a file or across a workspace, with case, whole-word, regular expression, and path filters.
 - Open files quickly by fuzzy name search and navigate backward and forward through your reading history.
 - Preview Markdown with native formatting, code blocks, tables, and local images, or switch back to its source.
-- Explore Go, TypeScript, and JavaScript code with definition lookup and symbol hover information via language servers.
+- Explore Go, TypeScript, and JavaScript code with definitions, references, callers, diagnostics, and symbol hover information via language servers.
 - Use a built-in terminal with tabs and split panes, rooted in the open workspace.
 - Choose system, light, or dark appearance and adjust editor and terminal preferences.
 - Reopen recent folders and see changes made to files on disk.
@@ -43,6 +43,8 @@ Open the command palette with **Cmd+Shift+P** and choose **Shell Command: Instal
 
 To remove the link, choose **Shell Command: Uninstall 'see' Command from PATH** in the command palette. It removes only a link pointing to the running executable.
 
+Open another folder while a project is open to show it in a separate window. Use **File → New Window** or **Cmd+Shift+N** to start another window; closing a window checks that window for unsaved changes.
+
 Click a file to open it as a preview; opening another file replaces that preview. Double-click the file, its tab, or its name in the path bar, or use **Keep Preview Tab** in the command palette, to keep it. Tabs appear when more than one file is open.
 
 For a Markdown file, use the preview button in the editor bar or **Cmd+Shift+V** to switch between rendered Markdown and source. The preview uses the current buffer, including unsaved edits.
@@ -56,7 +58,9 @@ When running from source, the terminal's emulator library may be downloaded on f
 
 - **TypeScript / JavaScript:** Install **tsrs** in **Settings → Code Intelligence**. See installs it in its own data folder using Bun, or npm if Bun is unavailable; remove it from the same page. You can instead set `SEE_TYPESCRIPT_LANGUAGE_SERVER` to the absolute path of a tsrs executable. See also looks for `tsrs` on `PATH`. Running See’s installation requires Node.js or Bun. tsrs is a TypeScript 7 implementation under active development.
 
-The app asks you to trust a folder before running a language server there: servers can invoke project tools and download dependencies or toolchains. Reading files does not require trust. Server executables inside the open workspace are not used.
+The app asks you to trust a folder when you open a supported source file: servers can invoke project tools and download dependencies or toolchains. Reading files does not require trust. Server executables inside the open workspace are not used. Use **Show Output** in the command palette or select **Output** in the bottom panel to inspect server activity and errors. Output is kept in memory for the current session.
+
+Use **Related Items** in the editor jump bar, or **Find References** and **Find Callers** in the command palette, to navigate to locations. Callers uses the language server’s incoming call hierarchy; availability depends on server support.
 
 ## Keyboard shortcuts
 
@@ -66,6 +70,7 @@ These are the macOS shortcuts; on other platforms, use Ctrl in place of Cmd. The
 | --- | --- |
 | Command palette | Cmd+Shift+P |
 | Open folder | Cmd+O |
+| New window | Cmd+Shift+N |
 | Save / Save all | Cmd+S / Cmd+Shift+S |
 | Open Quickly | Cmd+Shift+O or Cmd+P |
 | Search workspace symbols | Cmd+T (or type `#` in Open Quickly) |
@@ -74,6 +79,7 @@ These are the macOS shortcuts; on other platforms, use Ctrl in place of Cmd. The
 | Toggle navigator | Cmd+B or Cmd+0 |
 | Toggle Markdown preview | Cmd+Shift+V |
 | Go to definition | F12 |
+| Find references | Shift+F12 |
 | Navigate back / forward | Ctrl+- / Ctrl+Shift+- |
 | Add editor right / below | Cmd+D / Cmd+Shift+D |
 | Switch tabs | Cmd+1–8, Cmd+9 for the last tab, Ctrl+Tab / Ctrl+Shift+Tab |
