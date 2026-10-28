@@ -38,3 +38,34 @@ func TestWorkspaceSessionRestoresTabsAndSplit(t *testing.T) {
 		t.Fatalf("cursor = %+v", got)
 	}
 }
+
+func TestWorkspaceWindowSizeRestoresPerProject(t *testing.T) {
+	first, second := t.TempDir(), t.TempDir()
+	h := newHarness(t, first)
+	configFile := filepath.Join(t.TempDir(), "config.json")
+	h.a.cfg.path = configFile
+	h.a.resizedWorkspace(1050, 700)
+	h.a.saveConfig()
+	h.a.openWorkspace(second)
+	if h.a.windowWidth != defaultWindowWidth || h.a.windowHeight != defaultWindowHeight {
+		t.Fatal("new project did not use default size")
+	}
+	h.a.resizedWorkspace(1440, 900)
+	h.a.saveConfig()
+	h.a.cfg = loadConfig(configFile)
+	var width, height int
+	h.a.setWorkspaceSize = func(w, h int) { width, height = w, h }
+	h.a.openWorkspace(first)
+	if width != 1050 || height != 700 {
+		t.Fatalf("first size = %d x %d", width, height)
+	}
+	h.a.openWorkspace(second)
+	if width != 1440 || height != 900 {
+		t.Fatalf("second size = %d x %d", width, height)
+	}
+	h.a.closeWorkspace()
+	h.a.resizedWorkspace(welcomeWidth, welcomeHeight)
+	if got := h.a.cfg.Workspaces[second]; got.WindowWidth != 1440 || got.WindowHeight != 900 {
+		t.Fatalf("welcome changed project size: %+v", got)
+	}
+}

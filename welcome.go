@@ -158,7 +158,7 @@ func (a *app) openRecent(p string) {
 		a.showWelcome = false
 		return
 	}
-	a.openWorkspace(p)
+	a.openProject(p)
 }
 
 // tildePath shows a path in the home directory with ~.

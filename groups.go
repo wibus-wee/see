@@ -226,6 +226,9 @@ func (a *app) releaseIfUnused(path string) {
 		return
 	}
 	delete(a.docs, path)
+	if d.untitled {
+		removeDraft(d)
+	}
 	d.seq++ // drop a load on its way
 	if m := a.serverFor(d.path); m != nil {
 		m.close(d.uri)

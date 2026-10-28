@@ -104,6 +104,8 @@ func (a *app) welcomeView(c *ui.Context) {
 	a.applyAppearance(c)
 	c.SetTheme(a.theme)
 	switch {
+	case c.Shortcut(ui.Cmd|ui.Shift, ui.KeyN) && a.newProjectWindow != nil:
+		a.newProjectWindow()
 	case c.Shortcut(ui.Cmd, ui.KeyO):
 		a.openFolderDialog()
 	case c.Shortcut(ui.Cmd, ui.KeyComma) && a.openSettings != nil:

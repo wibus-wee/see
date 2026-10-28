@@ -19,7 +19,13 @@ type command struct {
 
 func commands() []command {
 	cmds := []command{
+		{"New File", "Cmd+", "N", ui.Cmd, ui.KeyN, func(a *app) { a.newFile() }},
 		{"Command Palette", "Cmd+Shift+", "P", ui.Cmd | ui.Shift, ui.KeyP, func(a *app) { a.openPalette() }},
+		{"New Window", "Cmd+Shift+", "N", ui.Cmd | ui.Shift, ui.KeyN, func(a *app) {
+			if a.newProjectWindow != nil {
+				a.newProjectWindow()
+			}
+		}},
 		{"Open Folder", "Cmd+", "O", ui.Cmd, ui.KeyO, func(a *app) { a.openFolderDialog() }},
 		{"Open Quickly", "Cmd+Shift+", "O", ui.Cmd | ui.Shift, ui.KeyO, func(a *app) { a.openQuickly() }},
 		{"Search Workspace Symbols", "Cmd+", "T", ui.Cmd, ui.KeyT, func(a *app) { a.openQuickPanel("#") }},

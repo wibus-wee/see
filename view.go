@@ -29,6 +29,7 @@ func editorBindings() []editor.Binding {
 		none(ui.Cmd, ui.KeyS),
 		none(ui.Cmd|ui.Shift, ui.KeyS),
 		none(ui.Cmd, ui.KeyO),
+		none(ui.Cmd, ui.KeyN),
 		none(ui.Cmd, ui.KeyP),
 		none(ui.Cmd, ui.KeyB),
 		none(ui.Cmd|ui.Shift, ui.KeyP),
@@ -79,7 +80,9 @@ func (a *app) view(c *ui.Context) {
 	if a.root == "" {
 		// The main window hides without a folder (windows.sync); the
 		// welcome window shows instead.
-		if c.Shortcut(ui.Cmd, ui.KeyO) {
+		if c.Shortcut(ui.Cmd|ui.Shift, ui.KeyN) && a.newProjectWindow != nil {
+			a.newProjectWindow()
+		} else if c.Shortcut(ui.Cmd, ui.KeyO) {
 			a.openFolderDialog()
 		}
 		a.welcomeWindow(c)
@@ -94,7 +97,7 @@ func (a *app) view(c *ui.Context) {
 	progress := min(max(root.AnimateTo("sidebar", target, ui.Animation{Spring: ui.SpringOptions{Duration: 250 * time.Millisecond}}), 0), 1)
 	root.Children(func() {
 		a.toolbar(c, progress, vibrant)
-		if a.confirm != nil {
+		if a.confirm != nil && a.confirmDirty == nil {
 			q := a.confirm
 			a.banner(c, colWarnBg, q.message, q.actions)
 		}
@@ -1197,7 +1200,11 @@ func (a *app) tabBar(c *ui.Context, g *group) {
 			case hovered:
 				tab.Background(colTabHover)
 			}
-			tab.Tooltip(relPath(a.root, p))
+			if d.untitled {
+				tab.Tooltip(d.name)
+			} else {
+				tab.Tooltip(relPath(a.root, p))
+			}
 			tab.Children(func() {
 				// The close button shows on the left, as Xcode's, while the
 				// tab is hovered.
@@ -1263,12 +1270,22 @@ func (a *app) jumpBar(c *ui.Context, g *group) {
 				a.findUsagesAt(false, ui.Point{X: g.relatedBounds.X, Y: g.relatedBounds.Y + g.relatedBounds.H}, true)
 			}
 		})
+		outside := !within(a.root, p)
+		if d := a.docs[p]; d != nil && d.untitled {
+			outside = false
+		}
 		folderGlyph(c, false, 13)
-		ui.Text(c, filepath.Base(a.root)).FontSize(12).TextColor(colMuted).SingleLine()
+		if outside {
+			ui.Text(c, tildePath(filepath.Dir(p))).FontSize(12).TextColor(colMuted).SingleLine().Shrink(1)
+		} else {
+			ui.Text(c, filepath.Base(a.root)).FontSize(12).TextColor(colMuted).SingleLine()
+		}
 		ui.Icon(c, icChevron).Size(9, 9).TextColor(colDim)
 		parts := strings.Split(relPath(a.root, p), "/")
-		if !within(a.root, p) {
-			parts = []string{p}
+		if d := a.docs[p]; d != nil && d.untitled {
+			parts = []string{d.name}
+		} else if outside {
+			parts = []string{filepath.Base(p)}
 		}
 		for i, part := range parts {
 			if i > 0 {
@@ -1313,7 +1330,11 @@ func (a *app) jumpBar(c *ui.Context, g *group) {
 			ui.Box(c).Grow(1)
 		}
 		if len(g.order) == 1 {
-			if glyphButton(c, icClose, "Close "+filepath.Base(p), "Close File", false, false).Clicked() {
+			name := filepath.Base(p)
+			if d := a.docs[p]; d != nil {
+				name = d.name
+			}
+			if glyphButton(c, icClose, "Close "+name, "Close File", false, false).Clicked() {
 				a.closeTab(g, p)
 			}
 		}
@@ -1369,6 +1390,9 @@ func (a *app) document(c *ui.Context, g *group, d *doc) {
 		if v := d.buf.Version(); v != d.lspVersion {
 			a.invalidateHover()
 			d.lspVersion = v
+			if d.untitled {
+				a.cacheDraft(d)
+			}
 			if m := a.serverFor(d.path); m != nil {
 				m.changed(d.uri, d.buf.Snapshot())
 			}

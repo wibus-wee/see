@@ -13,6 +13,27 @@ type workspaceSession struct {
 	Layout        *sessionLayout `json:"layout,omitempty"`
 	SidebarHidden bool           `json:"sidebarHidden,omitempty"`
 	Navigator     int            `json:"navigator,omitempty"`
+	WindowWidth   int            `json:"windowWidth,omitempty"`
+	WindowHeight  int            `json:"windowHeight,omitempty"`
+}
+
+const defaultWindowWidth, defaultWindowHeight = 1280, 820
+
+func workspaceSize(s workspaceSession) (int, int) {
+	if s.WindowWidth < 480 || s.WindowHeight < 320 || s.WindowWidth > 10000 || s.WindowHeight > 10000 {
+		return defaultWindowWidth, defaultWindowHeight
+	}
+	return s.WindowWidth, s.WindowHeight
+}
+
+func (a *app) resizedWorkspace(width, height int) {
+	if a.root == "" || width < 480 || height < 320 || width > 10000 || height > 10000 {
+		return
+	}
+	if a.windowWidth != width || a.windowHeight != height {
+		a.windowWidth, a.windowHeight = width, height
+		a.saveConfigSoon()
+	}
 }
 
 type sessionLayout struct {
@@ -28,6 +49,8 @@ type sessionLayout struct {
 
 type sessionTab struct {
 	Path            string `json:"path"`
+	Untitled        bool   `json:"untitled,omitempty"`
+	Name            string `json:"name,omitempty"`
 	Line            int    `json:"line,omitempty"`
 	Column          int    `json:"column,omitempty"`
 	MarkdownPreview bool   `json:"markdownPreview,omitempty"`
@@ -46,6 +69,9 @@ func (a *app) captureSession() {
 		s := &sessionLayout{Active: g.active, Preview: g.preview, Focused: g == a.focus}
 		for _, path := range g.order {
 			tab := sessionTab{Path: path, MarkdownPreview: g.markdownPreview[path]}
+			if d := a.docs[path]; d != nil && d.untitled {
+				tab.Untitled, tab.Name = true, d.name
+			}
 			if ed := g.eds[path]; ed != nil {
 				p := ed.CursorPos()
 				tab.Line, tab.Column = p.Line, p.Col
@@ -59,7 +85,7 @@ func (a *app) captureSession() {
 	if a.cfg.Workspaces == nil {
 		a.cfg.Workspaces = make(map[string]workspaceSession)
 	}
-	a.cfg.Workspaces[a.root] = workspaceSession{Layout: snapshot(a.layout), SidebarHidden: a.sidebarOff, Navigator: a.navigator}
+	a.cfg.Workspaces[a.root] = workspaceSession{Layout: snapshot(a.layout), SidebarHidden: a.sidebarOff, Navigator: a.navigator, WindowWidth: a.windowWidth, WindowHeight: a.windowHeight}
 }
 
 func (a *app) restoreSession() {
@@ -97,6 +123,17 @@ func (a *app) restoreSession() {
 				continue
 			}
 			pos := editor.Pos{Line: max(tab.Line, 0), Col: max(tab.Column, 0)}
+			if tab.Untitled && a.docs[tab.Path] == nil {
+				if !validDraftPath(tab.Path) {
+					continue
+				}
+				d := &doc{path: tab.Path, uri: uriOf(tab.Path), name: tab.Name, untitled: true, cache: &draftCache{}}
+				if d.name == "" {
+					d.name = "Untitled"
+				}
+				a.docs[tab.Path] = d
+				a.loadDoc(d)
+			}
 			a.openIn(g, tab.Path, goTo{pos: &pos})
 			if tab.MarkdownPreview {
 				if g.markdownPreview == nil {

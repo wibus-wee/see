@@ -9,6 +9,68 @@ import (
 	"github.com/egoist/mygo/ui/editor"
 )
 
+func TestNewFileShortcut(t *testing.T) {
+	root := writeTree(t, map[string]string{"existing.txt": "keep"})
+	h := newHarness(t, root)
+	h.a.cfg.path = filepath.Join(t.TempDir(), "config.json")
+	path := filepath.Join(root, "new.txt")
+	called := false
+	h.a.pickNewFile = func(dir string) (string, error) { called = true; return path, nil }
+	h.tt.Key(ui.Cmd, ui.KeyN)
+	d := h.a.docs[h.a.activePath()]
+	if d == nil || !d.untitled || called {
+		t.Fatal("new file did not open directly")
+	}
+	if h.tt.HasText(d.path) {
+		t.Fatal("cache path is visible")
+	}
+	d.buf.Set("draft text")
+	h.tt.Frame()
+	cachePath := d.path
+	t.Cleanup(func() { os.Remove(cachePath) })
+	h.settle(func() bool { b, _ := os.ReadFile(cachePath); return string(b) == "draft text" })
+	h.a.saveConfig()
+	h.a.closeWorkspace()
+	h.a.cfg = loadConfig(h.a.cfg.path)
+	h.a.openWorkspace(root)
+	h.settle(func() bool { return h.a.docs[cachePath] != nil && h.a.docs[cachePath].buf != nil })
+	d = h.a.docs[cachePath]
+	if !d.untitled || d.buf.String() != "draft text" || !d.buf.Modified() {
+		t.Fatal("draft was not restored")
+	}
+	h.tt.Key(ui.Cmd, ui.KeyS)
+	h.settle(func() bool { return h.a.docs[path] == d })
+	if data, err := os.ReadFile(path); err != nil || string(data) != "draft text" || d.untitled {
+		t.Fatalf("saved file = %q, %v", data, err)
+	}
+}
+
+func TestEmptyUntitledClosesWithoutConfirmation(t *testing.T) {
+	h := newHarness(t, t.TempDir())
+	h.tt.Key(ui.Cmd, ui.KeyN)
+	path := h.a.activePath()
+	h.tt.Key(ui.Cmd, ui.KeyW)
+	if h.a.confirm != nil || h.a.docs[path] != nil {
+		t.Fatal("empty file did not close")
+	}
+}
+
+func TestDirtyConfirmationUsesDialog(t *testing.T) {
+	h := newHarness(t, t.TempDir())
+	h.tt.Key(ui.Cmd, ui.KeyN)
+	d := h.a.docs[h.a.activePath()]
+	d.buf.Set("draft")
+	h.a.confirmDirty = func(string) (int, error) { return 2, nil }
+	h.tt.Key(ui.Cmd, ui.KeyW)
+	h.settle(func() bool { return h.a.confirm == nil })
+	if h.a.docs[d.path] != d {
+		t.Fatal("cancel closed the file")
+	}
+	h.a.confirmDirty = func(string) (int, error) { return 1, nil }
+	h.tt.Key(ui.Cmd, ui.KeyW)
+	h.settle(func() bool { return h.a.docs[d.path] == nil })
+}
+
 func TestEditingSavePreservesEncodingAndProtectsExternalChanges(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "a.txt")

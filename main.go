@@ -8,32 +8,48 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"time"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 )
 
+func dirtyDialog(parent *mygo.Window) func(string) (int, error) {
+	return func(message string) (int, error) {
+		result, err := mygo.Dialog.Message(mygo.MessageOptions{
+			Parent: parent, Type: mygo.MessageWarning, Title: "Unsaved Changes",
+			Message: message, Detail: "Do you want to save your changes?",
+			Buttons: []string{"Save", "Discard Changes", "Cancel"}, CancelButton: 2,
+		})
+		return result.Button, err
+	}
+}
+
 func main() {
 	cfg := loadAppConfig(configPath())
 	a := newApp(cfg)
 	var (
-		win, welcome *mygo.Window
-		wins         = &windows{a: a}
-		quitting     bool
+		win, welcome  *mygo.Window
+		wins          = &windows{a: a}
+		quitting      bool
+		quitApproved  bool
+		projects      []*projectWindow
+		active        *projectWindow
+		varSetMenu    func()
+		createProject func(string)
 	)
 	mygo.App.OnBeforeQuit(func(e *mygo.QuitEvent) {
-		if !a.quitApproved && len(a.dirtyDocs()) > 0 {
-			e.PreventDefault()
-			if win != nil {
-				win.Update(func() {
-					a.showWelcome = false
-					a.guardDirty(a.dirtyDocs(), func() { a.quitApproved = true; mygo.App.Quit() })
-				})
+		if !quitApproved {
+			for _, project := range projects {
+				if len(project.app.dirtyDocs()) > 0 {
+					e.PreventDefault()
+					approveProjectQuit(append([]*projectWindow(nil), projects...), func() { quitApproved = true; mygo.App.Quit() })
+					return
+				}
 			}
-			return
 		}
-		a.quitApproved = false
+		quitApproved = false
 		quitting = true
 	})
 	// Light, dark, or the system's, from the start.
@@ -44,8 +60,8 @@ func main() {
 		a.version = mygo.App.Version()
 		win = mygo.NewWindow(mygo.WindowOptions{
 			Title:     "See",
-			Width:     1280,
-			Height:    820,
+			Width:     defaultWindowWidth,
+			Height:    defaultWindowHeight,
 			MinWidth:  480,
 			MinHeight: 320,
 			// The toolbar shares a line with the window controls, and the
@@ -75,8 +91,148 @@ func main() {
 			Content:         ui.View(func(c *ui.Context) { a.welcomeView(c); wins.sync(welcome) }),
 		})
 		wins.main, wins.welcome = win, welcome
+		primary := &projectWindow{app: a, win: win}
+		projects = append(projects, primary)
+		active = primary
+		activate := func(p *projectWindow) {
+			active = p
+			if varSetMenu != nil {
+				varSetMenu()
+			}
+		}
+		win.OnFocus(func() { activate(primary) })
+		welcome.OnFocus(func() { activate(primary) })
+		createProject = func(path string) {
+			a.showWelcome = false
+			wins.sync(nil)
+			if path != "" {
+				if root, err := canonicalRoot(path); err == nil {
+					for _, p := range projects {
+						if p.app.root == root {
+							p.win.Show()
+							p.win.Focus()
+							return
+						}
+					}
+				}
+			}
+			child := newApp(cfg)
+			child.version = a.version
+			child.setAppearance = a.setAppearance
+			width, height := defaultWindowWidth, defaultWindowHeight
+			if path == "" {
+				width, height = welcomeWidth, welcomeHeight
+			}
+			var childWin *mygo.Window
+			childWin = mygo.NewWindow(mygo.WindowOptions{
+				Title: "See", Width: width, Height: height, MinWidth: 480, MinHeight: 320,
+				DisableResize: path == "", DisableMinimize: path == "", DisableMaximize: path == "",
+				TitleBarStyle: mygo.TitleBarHidden, TitleBarHeight: toolbarHeight,
+				TrafficLightPosition: &mygo.Point{X: 20, Y: (toolbarHeight - trafficLightSize) / 2},
+				Vibrancy:             mygo.VibrancySidebar, Content: ui.View(child.view),
+			})
+			p := &projectWindow{app: child, win: childWin}
+			projects = append(projects, p)
+			child.post = func(fn func()) { childWin.Update(fn) }
+			child.setWorkspaceSize = func(width, height int) {
+				childWin.SetResizable(true)
+				childWin.SetMinimizable(true)
+				childWin.SetMaximizable(true)
+				childWin.SetSize(width, height)
+				childWin.Center()
+			}
+			childWin.OnResize(func() {
+				childWin.Update(func() {
+					if !childWin.IsMaximized() && !childWin.IsFullScreen() {
+						width, height := childWin.Size()
+						child.resizedWorkspace(width, height)
+					}
+				})
+			})
+			welcomeSize := path == ""
+			child.setTitle = func(title string) {
+				childWin.SetTitle(title)
+				wantWelcome := child.root == ""
+				if wantWelcome != welcomeSize {
+					welcomeSize = wantWelcome
+					if wantWelcome {
+						childWin.SetSize(welcomeWidth, welcomeHeight)
+						childWin.SetResizable(false)
+						childWin.SetMinimizable(false)
+						childWin.SetMaximizable(false)
+					}
+					childWin.Center()
+				}
+			}
+			child.popupMenu = func(x, y int, items []*mygo.MenuItem) { go mygo.NewMenu(items).PopupAt(childWin, x, y) }
+			child.pickFolder = func() (string, error) {
+				paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Parent: childWin, Title: "Open Folder", Directory: true})
+				if err != nil || len(paths) == 0 {
+					return "", err
+				}
+				return paths[0], nil
+			}
+			child.pickNewFile = func(root string) (string, error) {
+				return mygo.Dialog.Save(mygo.SaveDialogOptions{Parent: childWin, Title: "New File", DefaultPath: root, ButtonLabel: "Create"})
+			}
+			child.confirmDirty = dirtyDialog(childWin)
+			child.openProjectWindow = createProject
+			child.newProjectWindow = func() { createProject("") }
+			child.openSettings, child.closeSettings = settingsWindow(child)
+			child.refreshMenu = func() {
+				if varSetMenu != nil {
+					varSetMenu()
+				}
+			}
+			childWin.OnFocus(func() { activate(p) })
+			childWin.OnClose(func(e *mygo.CloseEvent) {
+				if quitting {
+					return
+				}
+				e.PreventDefault()
+				childWin.Update(func() {
+					var closeProject func()
+					closeProject = func() {
+						if child.guardDirty(child.dirtyDocs(), closeProject) {
+							return
+						}
+						child.closeWorkspace()
+						projects = slices.DeleteFunc(projects, func(item *projectWindow) bool { return item == p })
+						if child.closeSettings != nil {
+							child.closeSettings()
+						}
+						childWin.Destroy()
+						if active == p {
+							activate(primary)
+						}
+						if len(projects) == 1 && a.root == "" {
+							wins.reopen()
+						}
+					}
+					closeProject()
+				})
+			})
+			activate(p)
+			if path != "" {
+				child.openWorkspace(path)
+			}
+			childWin.Show()
+			childWin.Focus()
+		}
+		a.openProjectWindow = createProject
+		a.newProjectWindow = func() { createProject("") }
+
 		a.post = func(fn func()) { win.Update(func() { fn(); wins.sync(nil) }) }
 		a.setTitle = win.SetTitle
+		a.setWorkspaceSize = func(width, height int) { win.SetSize(width, height); win.Center() }
+		win.OnResize(func() {
+			win.Update(func() {
+				if !win.IsMaximized() && !win.IsFullScreen() {
+					width, height := win.Size()
+					a.resizedWorkspace(width, height)
+				}
+			})
+		})
 		// The project switcher is a native menu, as Xcode's Open Recent:
 		// PopupAt waits for the menu to close, so it runs off the UI
 		// thread, and its choices come back through post.
@@ -91,7 +247,22 @@ func main() {
 		win.OnClose(func(e *mygo.CloseEvent) {
 			if !quitting {
 				e.PreventDefault()
-				win.Update(wins.closeMain)
+				win.Update(func() {
+					if len(projects) <= 1 {
+						wins.closeMain()
+						return
+					}
+					var closePrimary func()
+					closePrimary = func() {
+						if a.guardDirty(a.dirtyDocs(), closePrimary) {
+							return
+						}
+						a.closeWorkspace()
+						a.showWelcome = false
+						wins.sync(nil)
+					}
+					closePrimary()
+				})
 			}
 		})
 		welcome.OnClose(func(e *mygo.CloseEvent) {
@@ -113,17 +284,20 @@ func main() {
 		// The menu bar, built again as the recent folders and the
 		// appearance change, since its items show them.
 		setMenu := func() {
+			current := active
+			if current == nil {
+				current = primary
+			}
+			currentApp, currentWin := current.app, current.win
 			mygo.App.SetMenu(mygo.NewMenu([]*mygo.MenuItem{
-				appMenu(a),
-				a.fileMenu(win.Update),
-				{Role: mygo.RoleEditMenu},
+				appMenu(currentApp), currentApp.fileMenu(currentWin.Update), {Role: mygo.RoleEditMenu},
 				{Label: "View", Submenu: []*mygo.MenuItem{
-					{Label: "Command Palette…", Click: func(*mygo.MenuItem, *mygo.Window) { win.Update(a.openPalette) }},
-					{Label: "Appearance", Submenu: appearanceMenu(a)},
-				}},
-				{Role: mygo.RoleWindowMenu},
+					{Label: "Command Palette…", Click: func(*mygo.MenuItem, *mygo.Window) { currentWin.Update(currentApp.openPalette) }},
+					{Label: "Appearance", Submenu: appearanceMenu(currentApp)},
+				}}, {Role: mygo.RoleWindowMenu},
 			}))
 		}
+		varSetMenu = setMenu
 		cfg.onRecent = setMenu
 		a.refreshMenu = setMenu
 		setMenu()
@@ -138,6 +312,10 @@ func main() {
 			}
 			return paths[0], nil
 		}
+		a.pickNewFile = func(root string) (string, error) {
+			return mygo.Dialog.Save(mygo.SaveDialogOptions{Parent: win, Title: "New File", DefaultPath: root, ButtonLabel: "Create"})
+		}
+		a.confirmDirty = dirtyDialog(win)
 		// A folder on the command line, else the welcome window, or the
 		// last folder when the user asked for it at launch.
 		a.showWelcome = true // until a folder opens
@@ -156,16 +334,18 @@ func main() {
 		}
 	})
 	mygo.App.OnWillQuit(func(*mygo.QuitEvent) {
-		a.saveConfig()
-		if a.wsCancel != nil {
-			a.wsCancel()
-		}
-		a.closeTerminals() // the shells get SIGHUP, as when a terminal app quits
-		if a.lsp != nil {
-			a.lsp.stopWait(2 * time.Second)
-		}
-		if a.tsLSP != nil {
-			a.tsLSP.stopWait(2 * time.Second)
+		for _, p := range projects {
+			p.app.saveConfig()
+			if p.app.wsCancel != nil {
+				p.app.wsCancel()
+			}
+			p.app.closeTerminals()
+			if p.app.lsp != nil {
+				p.app.lsp.stopWait(2 * time.Second)
+			}
+			if p.app.tsLSP != nil {
+				p.app.tsLSP.stopWait(2 * time.Second)
+			}
 		}
 	})
 	if err := mygo.App.Run(); err != nil {

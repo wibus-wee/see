@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/egoist/mygo"
@@ -28,13 +29,20 @@ import (
 // app is the reader's state. It lives on the UI thread: background work
 // hands its results back through post, which runs them there.
 type app struct {
-	post       func(func())           // runs fn on the UI thread, then redraws
-	pickFolder func() (string, error) // a blocking folder dialog
-	trashItem  func(string) error
-	setTitle   func(string) // the window's title
-	startLSP   func(logf func(string, ...any)) starter
-	cfg        *config
-	logf       func(string, ...any)
+	post              func(func())                 // runs fn on the UI thread, then redraws
+	pickFolder        func() (string, error)       // a blocking folder dialog
+	pickNewFile       func(string) (string, error) // a blocking save dialog
+	trashItem         func(string) error
+	confirmDirty      func(string) (int, error) // a blocking native confirmation
+	openProjectWindow func(string)
+	newProjectWindow  func()
+	setTitle          func(string) // the window's title
+	setWorkspaceSize  func(int, int)
+	windowWidth       int
+	windowHeight      int
+	startLSP          func(logf func(string, ...any)) starter
+	cfg               *config
+	logf              func(string, ...any)
 
 	// The workspace.
 	root     string // as the user opened it
@@ -137,6 +145,9 @@ type dirState struct {
 // it: its buffer and how loading it went.
 type doc struct {
 	path, uri, name string
+	untitled        bool
+	cache           *draftCache
+	saving          bool
 	buf             *editor.Buffer
 	image           *ui.Bitmap
 	markdownOptions *markdown.Options
@@ -159,6 +170,12 @@ type doc struct {
 	lspVersion        uint64
 	diagnostics       []editor.Diagnostic
 	diagnosticVersion uint64
+}
+
+type draftCache struct {
+	mu      sync.Mutex
+	version uint64
+	removed bool
 }
 
 // fileStamp tells whether a file changed since it was read.
@@ -234,7 +251,7 @@ func (a *app) openFolderDialog() {
 			case err != nil:
 				a.note("Could not show the folder dialog: "+err.Error(), true)
 			case p != "":
-				a.openWorkspace(p)
+				a.openProject(p)
 			}
 		})
 	}()
@@ -281,6 +298,10 @@ func (a *app) openWorkspace(dir string) {
 	a.startWatch()
 	a.startGit()
 	a.restoreSession()
+	a.windowWidth, a.windowHeight = workspaceSize(a.cfg.Workspaces[root])
+	if a.setWorkspaceSize != nil {
+		a.setWorkspaceSize(a.windowWidth, a.windowHeight)
+	}
 	a.cfg.LastWorkspace = root
 	a.cfg.addRecent(root)
 	a.saveConfig()
@@ -483,7 +504,9 @@ func (a *app) refreshAll() {
 		a.refreshDir(dir)
 	}
 	for _, d := range a.docs {
-		a.reloadDoc(d)
+		if !d.untitled {
+			a.reloadDoc(d)
+		}
 	}
 	a.quick.files = nil // listed again when next opened
 	a.filter.forQuery, a.filter.tree, a.filter.roots = "", nil, nil
@@ -589,7 +612,7 @@ func (a *app) loadDoc(d *doc) {
 	d.loading, d.err = true, nil
 	d.seq++
 	seq, gen := d.seq, a.gen
-	lossy, needBuf, stamp := d.lossy, d.buf == nil, d.stamp
+	lossy, needBuf, stamp, untitled := d.lossy, d.buf == nil, d.stamp, d.untitled
 	var snap editor.Snapshot
 	if !needBuf {
 		snap = d.buf.Snapshot() // cheap: a version of the rope
@@ -620,6 +643,10 @@ func (a *app) loadDoc(d *doc) {
 			// Build the buffer here, off the UI thread: it is safe from
 			// any goroutine, and a big file takes a while.
 			buf = editor.NewBuffer(f.Text)
+			if untitled && f.Text != "" {
+				buf = editor.NewBuffer("")
+				buf.Set(f.Text)
+			}
 			if !f.Plain {
 				buf.SetLanguage(editor.LanguageFor(d.name))
 			}
@@ -1244,4 +1271,12 @@ func (a *app) showRelatedResults(ch *defChoices, anchor ui.Point, validAnchor bo
 		anchor = ui.Point{X: r.X, Y: r.Y + r.H}
 	}
 	a.popupMenu(int(anchor.X), int(anchor.Y), items)
+}
+
+func (a *app) openProject(path string) {
+	if a.root != "" && a.openProjectWindow != nil {
+		a.openProjectWindow(path)
+		return
+	}
+	a.openWorkspace(path)
 }
