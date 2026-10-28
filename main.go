@@ -29,6 +29,7 @@ func dirtyDialog(parent *mygo.Window) func(string) (int, error) {
 }
 
 func main() {
+	startShellPath()
 	mygo.Use(native.Plugin)
 	cfg := loadAppConfig(configPath())
 	a := newApp(cfg)
@@ -226,6 +227,18 @@ func main() {
 		a.newProjectWindow = func() { createProject("") }
 
 		a.post = func(fn func()) { win.Update(func() { fn(); wins.sync(nil) }) }
+		if shellPathReady != nil {
+			go func() {
+				<-shellPathReady
+				win.Update(func() {
+					for _, project := range projects {
+						if project.app.refreshSettings != nil {
+							project.app.refreshSettings()
+						}
+					}
+				})
+			}()
+		}
 		a.setTitle = win.SetTitle
 		a.setWorkspaceSize = func(width, height int) { win.SetSize(width, height); win.Center() }
 		win.OnResize(func() {
@@ -404,6 +417,11 @@ func appMenu(a *app) *mygo.MenuItem {
 // desktop's material, as macOS's System Settings.
 func settingsWindow(a *app) (open, close func()) {
 	var w, fontPopover *mygo.Window
+	a.refreshSettings = func() {
+		if w != nil && !w.IsDestroyed() {
+			w.Update(func() {})
+		}
+	}
 	open = func() {
 		if w != nil && !w.IsDestroyed() {
 			w.Focus()

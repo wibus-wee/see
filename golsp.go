@@ -430,6 +430,9 @@ func findGopls(root string) (string, error) {
 // startGopls is the starter of the real gopls.
 func startGopls(logf func(string, ...any)) starter {
 	return func(ctx context.Context, root string, onExit func(error)) (langClient, error) {
+		if err := waitShellPath(ctx); err != nil {
+			return nil, err
+		}
 		path, err := findGopls(root)
 		if err != nil {
 			return nil, err
@@ -494,6 +497,9 @@ func findTypeScriptServer(root string) (string, error) {
 
 func startTypeScriptServer(logf func(string, ...any)) starter {
 	return func(ctx context.Context, root string, onExit func(error)) (langClient, error) {
+		if err := waitShellPath(ctx); err != nil {
+			return nil, err
+		}
 		path, err := findTypeScriptServer(root)
 		if err != nil {
 			return nil, err

@@ -49,6 +49,9 @@ func managedTypeScriptInstalled() bool {
 
 // installTypeScriptServer stages the packages before exposing an installation.
 func installTypeScriptServer(ctx context.Context, dest string) error {
+	if err := waitShellPath(ctx); err != nil {
+		return err
+	}
 	if dest == "" {
 		return errors.New("cannot locate the application data folder")
 	}

@@ -34,6 +34,7 @@ type app struct {
 	pickNewFile       func(string) (string, error) // a blocking save dialog
 	pickTerminalApp   func()
 	loadTerminalIcon  func(string)
+	refreshSettings   func()
 	trashItem         func(string) error
 	confirmDirty      func(string) (int, error) // a blocking native confirmation
 	openProjectWindow func(string)
