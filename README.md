@@ -2,7 +2,7 @@
 
 **See the code. Follow the idea.**
 
-See is a desktop app for exploring source code in a focused native interface. Open a folder, navigate its files, search across the workspace, and follow Go symbols to their definitions—all in a native interface built with [MyGo](https://github.com/egoist/mygo), without a web view.
+See is a desktop app for exploring source code in a focused native interface. Open a folder, navigate its files, search across the workspace, and follow symbols to their definitions—all in a native interface built with [MyGo](https://github.com/egoist/mygo), without a web view.
 
 ## Features
 
@@ -10,7 +10,7 @@ See is a desktop app for exploring source code in a focused native interface. Op
 - Find text in a file or across a workspace, with case, whole-word, regular expression, and path filters.
 - Open files quickly by fuzzy name search and navigate backward and forward through your reading history.
 - Preview Markdown with native formatting, code blocks, tables, and local images, or switch back to its source.
-- Explore Go code with definition lookup and symbol hover information via `gopls`.
+- Explore Go, TypeScript, and JavaScript code with definition lookup and symbol hover information via language servers.
 - Use a built-in terminal with tabs and split panes, rooted in the open workspace.
 - Choose system, light, or dark appearance and adjust editor and terminal preferences.
 - Reopen recent folders and see changes made to files on disk.
@@ -42,7 +42,7 @@ Open the command palette with **Cmd+Shift+P** and choose **Shell Command: Instal
 
 To remove the link, choose **Shell Command: Uninstall 'see' Command from PATH** in the command palette. It removes only a link pointing to the running executable.
 
-Click a file to open it in a preview tab; opening another file replaces that preview. Double-click the file or its tab, or use **Keep Preview Tab** in the command palette, to keep it.
+Click a file to open it as a preview; opening another file replaces that preview. Double-click the file, its tab, or its name in the path bar, or use **Keep Preview Tab** in the command palette, to keep it. Tabs appear when more than one file is open.
 
 For a Markdown file, use the preview button in the editor bar or **Cmd+Shift+V** to switch between rendered Markdown and source. The preview uses the current buffer, including unsaved edits.
 
@@ -53,7 +53,9 @@ The terminal's emulator library may be downloaded on first use when running from
 - **[ripgrep](https://github.com/BurntSushi/ripgrep)** (`rg`) enables workspace text search. Set `SEE_RG` to an absolute path or make `rg` available on `PATH`. Quick Open can list files without it.
 - **[gopls](https://go.dev/gopls/)** enables Go definition lookup and symbol help. Install it with `go install golang.org/x/tools/gopls@latest`, or set `SEE_GOPLS` to its absolute path. The app also looks on `PATH` and in Go's bin directories.
 
-The app asks you to trust a folder before running `gopls` there: loading a Go project can invoke the Go command and download modules or toolchains. Reading files does not require trust. For both tools, an executable inside the open workspace is not used.
+- **TypeScript / JavaScript:** Install `typescript-language-server` and `typescript` (for example, `npm install -g typescript typescript-language-server`), or set `SEE_TYPESCRIPT_LANGUAGE_SERVER` to the absolute path of the server executable. The app also looks on `PATH`.
+
+The app asks you to trust a folder before running a language server there: servers can invoke project tools and download dependencies or toolchains. Reading files does not require trust. Server executables inside the open workspace are not used.
 
 ## Keyboard shortcuts
 
@@ -67,6 +69,7 @@ These are the macOS shortcuts; on other platforms, use Ctrl in place of Cmd. The
 | Open Quickly | Cmd+Shift+O or Cmd+P |
 | Find in workspace | Cmd+Shift+F |
 | Find in file | Cmd+F |
+| Toggle navigator | Cmd+B or Cmd+0 |
 | Toggle Markdown preview | Cmd+Shift+V |
 | Go to definition | F12 |
 | Navigate back / forward | Ctrl+- / Ctrl+Shift+- |
