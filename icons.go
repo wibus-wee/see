@@ -146,9 +146,9 @@ func fileIcon(c *ui.Context, name string, size float32) {
 
 // folderGlyph draws a folder, open or closed, in Xcode's blue.
 func folderGlyph(c *ui.Context, open bool, size float32) {
-	ic := icFolder
+	ic := icFolderClosed
 	if open {
 		ic = icFolderOpen
 	}
-	ui.Icon(c, ic).Size(size, size).TextColor(colFolder).Shrink(0)
+	symbolIcon(c, ic, size, colFolder).Shrink(0)
 }

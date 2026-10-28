@@ -395,7 +395,7 @@ func (a *app) termTabList(c *ui.Context) {
 					row.Background(colSelectedRow)
 				}
 				row.OnClick(func() { tp.output = true; tp.focus = nil })
-				row.Children(func() { ui.Icon(c, icLines).Size(12, 12).TextColor(colMuted); ui.Text(c, "Output").FontSize(12) })
+				row.Children(func() { symbolIcon(c, icLines, 12, colMuted); ui.Text(c, "Output").FontSize(12) })
 				for i, tab := range tp.tabs {
 					a.termTabRow(c, i, tab)
 				}
@@ -423,7 +423,7 @@ func (a *app) termTabRow(c *ui.Context, i int, tab *termTab) {
 		tp.focus = tab.active
 	})
 	row.Children(func() {
-		ui.Icon(c, icPrompt).Size(12, 12).TextColor(colMuted)
+		symbolIcon(c, icPrompt, 12, colMuted)
 		title := tab.active.title
 		if title == "" {
 			title = shellName()
@@ -437,7 +437,7 @@ func (a *app) termTabRow(c *ui.Context, i int, tab *termTab) {
 		}
 		cl := ui.ButtonBase(c).Label(fmt.Sprintf("Close Terminal %d", i+1)).Size(14, 14).Radius(3).Center().KeepFocus()
 		if hovered {
-			cl.Children(func() { ui.Icon(c, icClose).Size(9, 9).TextColor(colMuted) })
+			cl.Children(func() { symbolIcon(c, icClose, 9, colMuted) })
 		}
 		cl.OnClick(func() {
 			for len(tab.panes) > 0 {

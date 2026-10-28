@@ -114,7 +114,7 @@ func (a *app) fontOption(c *ui.Context, family, label string, selected, terminal
 		ui.Row(c).FillWidth().AlignItems(ui.Center).Children(func() {
 			ui.Text(c, label).Grow(1).SingleLine().TextColor(rowText(selected, colText))
 			if selected {
-				ui.Text(c, "✓").TextColor(rowText(true, colText))
+				symbolIcon(c, icCheck, 12, rowText(true, colText))
 			}
 		})
 	})

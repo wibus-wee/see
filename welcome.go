@@ -85,7 +85,7 @@ func (a *app) welcomeAction(c *ui.Context, icon *ui.SVG, title, detail, shortcut
 	}
 	row.OnClick(fn).Children(func() {
 		ui.Box(c).Size(30, 30).Shrink(0).Radius(7).Background(colWelcomeTile).Center().Children(func() {
-			ui.Icon(c, icon).FontSize(16).TextColor(colText)
+			symbolIcon(c, icon, 16, colText)
 		})
 		ui.Column(c).Grow(1).Shrink(1).Gap(1).Children(func() {
 			ui.Text(c, title).FontSize(13).Bold().TextColor(colText).SingleLine()
@@ -144,7 +144,7 @@ func (a *app) recentRow(c *ui.Context, p string, forget *string) {
 		}
 	})
 	row.Children(func() {
-		ui.Icon(c, folderIcon).FontSize(22).TextColor(colFolder)
+		symbolIcon(c, folderIcon, 22, colFolder)
 		ui.Column(c).Grow(1).Shrink(1).Gap(1).Children(func() {
 			ui.Text(c, filepath.Base(p)).FontSize(13).Bold().TextColor(colText).SingleLine()
 			ui.Text(c, tildePath(filepath.Dir(p))).FontSize(11).TextColor(colMuted).SingleLine()

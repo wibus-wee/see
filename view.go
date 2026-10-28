@@ -222,7 +222,7 @@ func glassToolbarButton(c *ui.Context, icon *ui.SVG, label, tip string, on bool)
 		if on {
 			face.Background(colSelectedRow)
 		}
-		face.Children(func() { ui.Icon(c, icon).Size(16, 16).TextColor(colText) })
+		face.Children(func() { symbolIcon(c, icon, 16, colText) })
 	})
 	return b
 }
@@ -236,7 +236,7 @@ func iconButtonWithState(c *ui.Context, icon *ui.SVG, label, tip string, on, dis
 	if !disabled && (b.Hovered() || b.Pressed()) {
 		b.Background(colPill)
 	}
-	b.Children(func() { ui.Icon(c, icon).Size(16, 16).TextColor(color) })
+	b.Children(func() { symbolIcon(c, icon, 16, color) })
 	return b
 }
 
@@ -324,7 +324,7 @@ func (a *app) quickButton(c *ui.Context, centered bool, x, y float32) {
 	}
 	quick.Children(func() {
 		ui.Row(c).Gap(7).AlignItems(ui.Center).Children(func() {
-			ui.Icon(c, icSearch).Size(15, 15).TextColor(colText)
+			symbolIcon(c, icSearch, 15, colText)
 			ui.Text(c, "Open Quickly").FontSize(12).SingleLine().Shrink(1)
 		})
 	})
@@ -352,7 +352,7 @@ func (a *app) projectTitle(c *ui.Context) {
 	b.Children(func() {
 		ui.Row(c).Gap(4).AlignItems(ui.Center).Children(func() {
 			ui.Text(c, filepath.Base(a.root)).Bold().SingleLine().Shrink(1)
-			ui.Icon(c, icChevron).Size(9, 9).TextColor(colDim).Shrink(0)
+			symbolIcon(c, icChevron, 9, colDim).Shrink(0)
 		})
 	})
 }
@@ -489,7 +489,7 @@ func (a *app) activityView(c *ui.Context) {
 			ui.Text(c, "Ready · "+name).FontSize(12).TextColor(colMuted)
 		default:
 			if a.git.branch != "" {
-				ui.Icon(c, icGit).Size(12, 12).TextColor(colMuted)
+				symbolIcon(c, icGit, 12, colMuted)
 				ui.Text(c, a.git.branch).FontSize(12).TextColor(colMuted).SingleLine().Shrink(1).Tooltip("Git branch: " + a.git.branch)
 			} else {
 				ui.Text(c, "Ready").FontSize(12).TextColor(colMuted)
@@ -553,7 +553,7 @@ func (a *app) navigatorBar(c *ui.Context) {
 					if i == a.navigator {
 						color = colText
 					}
-					ui.Icon(c, s.icon).Size(14, 14).TextColor(color)
+					symbolIcon(c, s.icon, 14, color)
 				})
 			}
 		})
@@ -640,7 +640,7 @@ func (a *app) treeHeading(c *ui.Context) {
 		if glyphButton(c, icAdd, "New File", "New File in Project", false, false).Clicked() {
 			a.beginEntry(a.entryTarget(), false)
 		}
-		if glyphButton(c, icFolder, "New Folder", "New Folder in Project", false, false).Clicked() {
+		if glyphButton(c, icNewFolder, "New Folder", "New Folder in Project", false, false).Clicked() {
 			a.beginEntry(a.entryTarget(), true)
 		}
 		if glyphButton(c, icCollapse, "Collapse All Folders", "Collapse All Folders", false, a.filtering()).Clicked() {
@@ -665,7 +665,7 @@ func glyphButton(c *ui.Context, icon *ui.SVG, label, tip string, on, disabled bo
 	if !disabled && (b.Hovered() || b.Pressed()) {
 		b.Background(colPill)
 	}
-	b.Children(func() { ui.Icon(c, icon).Size(13, 13).TextColor(color) })
+	b.Children(func() { symbolIcon(c, icon, 13, color) })
 	return b
 }
 
@@ -804,7 +804,7 @@ func (a *app) treeItem(c *ui.Context, p string) {
 		}
 		if e.Link {
 			t.Italic()
-			ui.Text(c, "↗").TextColor(colDim).FontSize(11)
+			symbolIcon(c, icLink, 11, colDim)
 		}
 		if d := a.docs[p]; d != nil && d.gone {
 			t.Strikethrough()
@@ -1211,7 +1211,7 @@ func (a *app) tabBar(c *ui.Context, g *group) {
 				// tab is hovered.
 				cl := ui.ButtonBase(c).Label("Close "+d.name).Size(16, 16).Radius(4).Center().KeepFocus()
 				if hovered || active {
-					cl.Children(func() { ui.Icon(c, icClose).Size(10, 10).TextColor(colMuted) })
+					cl.Children(func() { symbolIcon(c, icClose, 10, colMuted) })
 					if cl.Hovered() {
 						cl.Background(colPill)
 					}
@@ -1260,7 +1260,7 @@ func (a *app) jumpBar(c *ui.Context, g *group) {
 		if related.Hovered() || related.Pressed() {
 			related.Background(colPill)
 		}
-		related.Children(func() { ui.Icon(c, icRelated).Size(14, 14).TextColor(colMuted) })
+		related.Children(func() { symbolIcon(c, icRelated, 14, colMuted) })
 		related.Menu(func(menu *ui.Menu) {
 			if menu.Item("Callers").Chosen() {
 				a.focus = g
@@ -1281,7 +1281,7 @@ func (a *app) jumpBar(c *ui.Context, g *group) {
 		} else {
 			ui.Text(c, filepath.Base(a.root)).FontSize(12).TextColor(colMuted).SingleLine()
 		}
-		ui.Icon(c, icChevron).Size(9, 9).TextColor(colDim)
+		symbolIcon(c, icChevron, 9, colDim)
 		parts := strings.Split(relPath(a.root, p), "/")
 		if d := a.docs[p]; d != nil && d.untitled {
 			parts = []string{d.name}
@@ -1290,7 +1290,7 @@ func (a *app) jumpBar(c *ui.Context, g *group) {
 		}
 		for i, part := range parts {
 			if i > 0 {
-				ui.Icon(c, icChevron).Size(9, 9).TextColor(colDim)
+				symbolIcon(c, icChevron, 9, colDim)
 			}
 			last := i == len(parts)-1
 			crumb := ui.Row(c.Key(i)).Gap(4).AlignItems(ui.Center).Padding(1, 3).Radius(4)
@@ -1545,7 +1545,7 @@ func (a *app) quickOpenPanel(c *ui.Context) {
 			panel.OnClick(func() {}) // clicks on the panel stay on it
 			panel.Children(func() {
 				ui.Row(c).Padding(4, 8).Gap(8).AlignItems(ui.Center).Children(func() {
-					ui.Icon(c, icSearch).Size(20, 20).TextColor(colMuted)
+					symbolIcon(c, icSearch, 20, colMuted)
 					in := ui.TextInput(c, &q.query).Placeholder("Open Quickly").FontSize(20).Grow(1).AutoFocus().Background(ui.Transparent).BorderWidth(0)
 					// The field has the keyboard: it takes the list's keys.
 					switch {

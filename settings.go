@@ -244,7 +244,7 @@ func iconTile(c *ui.Context, icon *ui.SVG, color ui.Color, size float32) {
 		LinearGradient(ui.LinearGradient{From: color.Mix(ui.RGB(0xff, 0xff, 0xff), 0.22), To: color.Mix(ui.RGB(0, 0, 0), 0.06), Angle: 180}).
 		InsetShadow(0, 0.5, 0, 0, ui.RGBA(0xff, 0xff, 0xff, 0.28)).
 		Shadow(0, 0.5, 1.5, 0, ui.RGBA(0, 0, 0, 0.22)).
-		Children(func() { ui.Icon(c, icon).Size(size*0.62, size*0.62).TextColor(ui.RGB(0xff, 0xff, 0xff)) })
+		Children(func() { symbolIcon(c, icon, size*0.62, ui.RGB(0xff, 0xff, 0xff)) })
 }
 
 func (a *app) versionLabel() string {
@@ -709,7 +709,7 @@ func (a *app) externalTerminalPicker(c *ui.Context) {
 		if icon := a.settings.terminalIcons[name]; icon != nil {
 			ui.Image(c, icon).Size(18, 18).Shrink(0)
 		} else {
-			ui.Icon(c, icPrompt).Size(18, 18).TextColor(colMuted).Shrink(0)
+			symbolIcon(c, icPrompt, 18, colMuted).Shrink(0)
 		}
 		display := name
 		if name == "Custom App" && a.cfg.ExternalTerminalPath != "" {
@@ -719,7 +719,7 @@ func (a *app) externalTerminalPicker(c *ui.Context) {
 	}
 	sel.Trigger.Label("External Terminal App").Gap(8).Padding(6, 10).Radius(8).Background(t.Surface).Border(1, t.Border).AlignItems(ui.Center).Children(func() {
 		label(a.cfg.ExternalTerminal)
-		ui.Icon(c, icChevron).Size(10, 10).TextColor(colMuted)
+		symbolIcon(c, icChevron, 10, colMuted)
 	})
 	sel.Trigger.OnChange(a.settingsChanged)
 	sel.Popup(func(panel ui.Element) {
