@@ -12,3 +12,5 @@ require (
 	golang.org/x/net v0.59.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
 )
+
+tool github.com/egoist/mygo/cmd/mygo
