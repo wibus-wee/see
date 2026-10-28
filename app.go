@@ -127,6 +127,7 @@ type dirState struct {
 type doc struct {
 	path, uri, name string
 	buf             *editor.Buffer
+	image           *ui.Bitmap
 	markdownOptions *markdown.Options
 	markdownText    string
 	markdownVersion uint64
@@ -573,11 +574,15 @@ func (a *app) loadDoc(d *doc) {
 			}
 		}
 		f, err := workspace.ReadFile(d.path)
+		var picture *ui.Bitmap
+		if err == nil && f.Kind != workspace.TooLarge && isImagePath(d.path) {
+			picture, err = readImage(d.path)
+		}
 		var buf *editor.Buffer
 		if err == nil && f.Kind == workspace.BadEncoding && lossy {
 			f = readLossy(d.path, f)
 		}
-		if err == nil && f.Kind == workspace.Text && needBuf {
+		if err == nil && picture == nil && f.Kind == workspace.Text && needBuf {
 			// Build the buffer here, off the UI thread: it is safe from
 			// any goroutine, and a big file takes a while.
 			buf = editor.NewBuffer(f.Text)
@@ -597,7 +602,13 @@ func (a *app) loadDoc(d *doc) {
 				a.reloadDoc(d)
 				return
 			}
+			if picture != nil {
+				f.Kind = workspace.Binary
+			}
 			a.loaded(d, f, buf, same, err)
+			if err == nil && (d.buf == nil || !d.buf.Modified()) {
+				d.image = picture
+			}
 		})
 	}()
 }

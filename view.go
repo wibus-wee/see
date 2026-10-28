@@ -1265,6 +1265,8 @@ func (a *app) document(c *ui.Context, g *group, d *doc) {
 			ui.Spinner(c)
 			ui.Text(c, "Loading "+d.name+"…").TextColor(colMuted)
 		})
+	case d.image != nil:
+		a.imagePreview(c, d)
 	case d.kind == workspace.Binary:
 		a.message(c, d.name+" is a binary file", fmt.Sprintf("It is not shown as source (%s).", size(d.size)), "", nil)
 	case d.kind == workspace.TooLarge:
