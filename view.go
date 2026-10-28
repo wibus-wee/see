@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/plugins/glass"
@@ -29,6 +30,7 @@ func editorBindings() []editor.Binding {
 		none(ui.Cmd|ui.Shift, ui.KeyS),
 		none(ui.Cmd, ui.KeyO),
 		none(ui.Cmd, ui.KeyP),
+		none(ui.Cmd, ui.KeyB),
 		none(ui.Cmd|ui.Shift, ui.KeyP),
 		none(ui.Cmd|ui.Shift, ui.KeyO),
 		none(ui.Cmd|ui.Shift, ui.KeyF),
@@ -84,19 +86,27 @@ func (a *app) view(c *ui.Context) {
 		return
 	}
 	a.shortcuts(c)
-	ui.Column(c).Fill().Children(func() {
-		a.toolbar(c, vibrant)
+	root := ui.Column(c).Fill()
+	target := float32(1)
+	if a.sidebarOff {
+		target = 0
+	}
+	progress := min(max(root.AnimateTo("sidebar", target, ui.Animation{Spring: ui.SpringOptions{Duration: 250 * time.Millisecond}}), 0), 1)
+	root.Children(func() {
+		a.toolbar(c, progress, vibrant)
 		if a.confirm != nil {
 			q := a.confirm
 			a.banner(c, colWarnBg, q.message, q.actions)
 		}
 		ui.Row(c).Grow(1).FillWidth().AlignItems(ui.Stretch).Children(func() {
-			if a.sidebarOff {
+			if progress == 0 {
 				a.editorArea(c)
 				return
 			}
-			if ui.Split(c, &a.sidebarW, func() { a.navigatorPane(c, vibrant) }, func() { a.editorArea(c) }).Grow(1).FillHeight().Changed() {
+			shownWidth := a.sidebarW * progress
+			if ui.Split(c, &shownWidth, func() { a.navigatorPane(c, vibrant) }, func() { a.editorArea(c) }).Grow(1).FillHeight().Changed() && !a.sidebarOff && progress == 1 {
 				// Changed holds for every frame of a drag: save once it stops.
+				a.sidebarW = shownWidth
 				a.cfg.SidebarWidth = a.sidebarW
 				a.saveConfigSoon()
 			}
@@ -118,6 +128,8 @@ func (a *app) shortcuts(c *ui.Context) {
 		a.showWelcome = true
 	case c.Shortcut(ui.Cmd, ui.KeyP):
 		a.openQuickly()
+	case c.Shortcut(ui.Cmd, ui.Key0):
+		a.sidebarOff = !a.sidebarOff
 	case c.Shortcut(ui.Ctrl, ui.KeyBackquote):
 		a.toggleTerminal()
 	case c.Shortcut(ui.Cmd, ui.KeyBackslash):
@@ -197,11 +209,13 @@ func iconButton(c *ui.Context, icon *ui.SVG, label, tip string, on bool) ui.Elem
 func glassToolbarButton(c *ui.Context, icon *ui.SVG, label, tip string, on bool) ui.Element {
 	b := ui.ButtonBase(c).Label(label).Tooltip(tip).Size(32, 32).Radius(16).Shrink(0).KeepFocus().
 		Center().Material(glass.Glass{Interactive: true})
-	color := colText
-	if on {
-		color = colAccent
-	}
-	b.Children(func() { ui.Icon(c, icon).Size(16, 16).TextColor(color) })
+	b.Children(func() {
+		face := ui.Box(c).Size(24, 24).Radius(12).Center()
+		if on {
+			face.Background(colSelectedRow)
+		}
+		face.Children(func() { ui.Icon(c, icon).Size(16, 16).TextColor(colText) })
+	})
 	return b
 }
 
@@ -223,37 +237,92 @@ func iconButtonWithState(c *ui.Context, icon *ui.SVG, label, tip string, on, dis
 // toolbarHeight leaves room for the glass controls and window buttons.
 const toolbarHeight = 48
 
-// toolbar is the window's unified title bar and toolbar, as Xcode's: the
-// navigator's button, the folder's name, the activity view in the middle
-// and the editor's buttons.
-func (a *app) toolbar(c *ui.Context, vibrant bool) {
+// toolbar aligns the navigator controls with the sidebar and groups the
+// document navigation and editor actions over the workspace.
+func (a *app) toolbar(c *ui.Context, sidebarProgress float32, vibrant bool) {
 	bar := c.TitleBar()
-	row := ui.Row(c).FillWidth().Height(max(bar.Height, toolbarHeight)).Padding(0, bar.Right+8, 0, max(bar.Left, 8)+4).Gap(4).
-		AlignItems(ui.Center).BorderWidth(0, 0, 1, 0).BorderColor(colHairline).Background(colToolbar).DragWindow()
+	closedWidth := max(bar.Left, 8) + 44
+	// Split places its one-point divider after the sidebar; include it in
+	// the header so both divider lines share the same x position.
+	width := closedWidth + (max(closedWidth, a.sidebarW+1)-closedWidth)*sidebarProgress
+	windowWidth, _ := c.Size()
+	const quickWidth = 132
+	center := (width + windowWidth - bar.Right) / 2
+	projectWidth := center - quickWidth/2 - width - 82
+	centerQuick := projectWidth >= 60 && center+quickWidth/2+120+bar.Right <= windowWidth
+	row := ui.Row(c).FillWidth().Height(max(bar.Height, toolbarHeight)).
+		AlignItems(ui.Center).BorderWidth(0, 0, 1, 0).BorderColor(colHairline).DragWindow()
 	row.Children(func() {
-		if glassToolbarButton(c, icSidebar, "Show Navigator", "Hide or Show the Navigator", !a.sidebarOff).Clicked() {
-			a.sidebarOff = !a.sidebarOff
+		sidebarHeader := ui.Row(c).Width(width).MinWidth(bar.Left+44).Shrink(1).Height(toolbarHeight).Padding(0, 0, 0, max(bar.Left, 8)+12).
+			AlignItems(ui.Center)
+		if !a.sidebarOff {
+			sidebarHeader.Background(sidebarColor(vibrant)).BorderWidth(0, 1, 0, 0).BorderColor(colSeparator)
+		} else {
+			sidebarHeader.Background(colToolbar)
 		}
-		ui.Column(c).Shrink(1).Gap(0).Justify(ui.Center).Children(func() {
-			a.projectTitle(c)
-			a.activityView(c)
-		})
-		ui.Box(c).Grow(1)
-		if glassToolbarButton(c, icSearch, "Open Quickly", "Open Quickly ("+keyLabel("Cmd+Shift+", "O")+")", false).Clicked() {
-			a.openQuickly()
-		}
-		ui.Row(c).Height(32).Radius(16).Padding(0, 3).AlignItems(ui.Center).Material(glass.Glass{}).Children(func() {
-			if iconButton(c, icSplitH, "Split Right", "Add Editor on Right ("+keyLabel("Cmd+", "D")+")", false).Clicked() {
-				a.splitActive(sideRight)
-			}
-			if iconButton(c, icSplitV, "Split Down", "Add Editor Below ("+keyLabel("Cmd+Shift+", "D")+")", false).Clicked() {
-				a.splitActive(sideBottom)
+		sidebarHeader.Children(func() {
+			if glassToolbarButton(c, icSidebar, "Show Navigator", "Hide or Show the Navigator", !a.sidebarOff).Clicked() {
+				a.sidebarOff = !a.sidebarOff
 			}
 		})
-		if glassToolbarButton(c, icPanel, "Show Terminal", "Hide or Show the Terminal ("+keyLabel("Cmd+Shift+", "Y")+")", a.term.open).Clicked() {
-			a.toggleTerminal()
+		ui.Row(c).Grow(1).Shrink(1).FillHeight().Padding(0, bar.Right+8, 0, 6).Gap(6).AlignItems(ui.Center).Background(colToolbar).Children(func() {
+			ui.Row(c).Height(32).Radius(16).Padding(0, 3).AlignItems(ui.Center).Material(glass.Glass{}).Children(func() {
+				back := iconButtonWithState(c, icBack, "Go Back", "Go Back", false, len(a.hist.Back) == 0, 13)
+				if back.Clicked() {
+					a.goBack()
+				}
+				ui.Box(c).Size(1, 16).Background(colSeparator)
+				fwd := iconButtonWithState(c, icForward, "Go Forward", "Go Forward", false, len(a.hist.Forward) == 0, 13)
+				if fwd.Clicked() {
+					a.goForward()
+				}
+			})
+			project := ui.Column(c).Shrink(1).Gap(0).AlignItems(ui.Start).Justify(ui.Center)
+			if centerQuick {
+				project.MaxWidth(projectWidth)
+			}
+			project.Children(func() {
+				a.projectTitle(c)
+				a.activityView(c)
+			})
+			ui.Box(c).Grow(1)
+			if !centerQuick {
+				a.quickButton(c, false, 0, 0)
+			}
+			ui.Box(c).Grow(1)
+			ui.Row(c).Height(32).Radius(16).Padding(0, 3).AlignItems(ui.Center).Material(glass.Glass{}).Children(func() {
+				if iconButton(c, icSplitH, "Split Right", "Add Editor on Right ("+keyLabel("Cmd+", "D")+")", false).Clicked() {
+					a.splitActive(sideRight)
+				}
+				if iconButton(c, icSplitV, "Split Down", "Add Editor Below ("+keyLabel("Cmd+Shift+", "D")+")", false).Clicked() {
+					a.splitActive(sideBottom)
+				}
+			})
+			if glassToolbarButton(c, icPanel, "Show Terminal", "Hide or Show the Terminal ("+keyLabel("Cmd+Shift+", "Y")+")", a.term.open).Clicked() {
+				a.toggleTerminal()
+			}
+		})
+		if centerQuick {
+			a.quickButton(c, true, center-quickWidth/2, (max(bar.Height, toolbarHeight)-32)/2)
 		}
 	})
+}
+
+func (a *app) quickButton(c *ui.Context, centered bool, x, y float32) {
+	quick := ui.ButtonBase(c).Height(32).Padding(0, 12).Radius(16).Shrink(1).KeepFocus().
+		Label("Open Quickly").Tooltip("Open Quickly (" + keyLabel("Cmd+Shift+", "O") + ")").Material(glass.Glass{Interactive: true})
+	if centered {
+		quick.Absolute().Left(x).Top(y).Width(132).Center()
+	}
+	quick.Children(func() {
+		ui.Row(c).Gap(7).AlignItems(ui.Center).Children(func() {
+			ui.Icon(c, icSearch).Size(15, 15).TextColor(colText)
+			ui.Text(c, "Open Quickly").FontSize(12).SingleLine().Shrink(1)
+		})
+	})
+	if quick.Clicked() {
+		a.openQuickly()
+	}
 }
 
 // projectTitle is the toolbar's project name, as Peek's: a click opens a
@@ -261,7 +330,7 @@ func (a *app) toolbar(c *ui.Context, vibrant bool) {
 // window's title is also the way between projects.
 func (a *app) projectTitle(c *ui.Context) {
 	b := ui.ButtonBase(c).Label("Switch Project").Tooltip(tildePath(a.root)).
-		Padding(0, 7, 0, 5).Radius(6).Shrink(1).Bind(&a.titleButton)
+		Padding(0, 5, 0, 0).Radius(6).Shrink(1).Bind(&a.titleButton)
 	if b.Hovered() || b.Pressed() {
 		b.Background(colPill)
 	}
@@ -359,18 +428,26 @@ func (a *app) modeSwitch(c *ui.Context) {
 // activityView is the pill in the middle of the toolbar, as Xcode's: what
 // the app is doing, and what went wrong.
 func (a *app) activityView(c *ui.Context) {
-	pill := ui.Row(c).Height(16).MaxWidth(260).Shrink(1).Padding(0, 5).Gap(5).AlignItems(ui.Center)
+	state, serverErr, name := a.lspState, a.lspErr, "gopls"
+	retry := a.retryLSP
+	if a.focus != nil && typeScriptLanguage(a.activePath()) != "" {
+		state, serverErr, name = a.tsState, a.tsErr, "typescript-language-server"
+		retry = a.retryTypeScriptLSP
+	}
+	pill := ui.Row(c).Height(16).MaxWidth(260).Shrink(1).Gap(5).AlignItems(ui.Center)
 	pill.Children(func() {
 		// The dot tells the state at a glance, as Peek's toolbar does: the
 		// accent while work goes on, red when it went wrong.
 		dot := colMuted
 		switch {
-		case a.finding, a.find.running, a.lspState == lspStarting:
+		case a.finding, a.find.running, state == lspStarting:
 			dot = colAccent
-		case a.noticeError, a.lspState == lspFailed, a.watchErr != nil:
+		case a.noticeError, state == lspFailed, a.watchErr != nil:
 			dot = colError
 		}
-		ui.Box(c).Size(6, 6).Radius(3).Background(dot).Shrink(0)
+		if dot != colMuted {
+			ui.Box(c).Size(6, 6).Radius(3).Background(dot).Shrink(0)
+		}
 		switch {
 		case a.finding:
 			ui.Spinner(c).FontSize(11)
@@ -380,28 +457,28 @@ func (a *app) activityView(c *ui.Context) {
 			if a.noticeError {
 				t.TextColor(colError)
 			}
-			if a.lspState == lspFailed && ui.Button(c, "Retry").Label("Retry gopls").Padding(0, 6).FontSize(11).Clicked() {
-				a.retryLSP()
+			if state == lspFailed && ui.Button(c, "Retry").Label("Retry "+name).Padding(0, 6).FontSize(11).Clicked() {
+				retry()
 			}
 		case a.find.running:
 			ui.Spinner(c).FontSize(11)
 			ui.Text(c, "Searching…").FontSize(12).TextColor(colMuted)
-		case a.lspState == lspStarting:
+		case state == lspStarting:
 			ui.Spinner(c).FontSize(11)
-			ui.Text(c, "Starting gopls…").FontSize(12).TextColor(colMuted)
-		case a.lspState == lspFailed:
-			msg := "gopls unavailable"
-			if a.lspErr != nil {
-				msg = "gopls: " + shortErr(a.lspErr)
+			ui.Text(c, "Starting "+name+"…").FontSize(12).TextColor(colMuted)
+		case state == lspFailed:
+			msg := name + " unavailable"
+			if serverErr != nil {
+				msg = name + ": " + shortErr(serverErr)
 			}
 			ui.Text(c, msg).FontSize(12).TextColor(colError).SingleLine().Shrink(1)
-			if ui.Button(c, "Retry").Label("Retry gopls").Padding(0, 6).FontSize(11).Clicked() {
-				a.retryLSP()
+			if ui.Button(c, "Retry").Label("Retry "+name).Padding(0, 6).FontSize(11).Clicked() {
+				retry()
 			}
 		case a.watchErr != nil:
 			ui.Text(c, "Not watching for changes").FontSize(12).TextColor(colMuted).Tooltip(a.watchErr.Error())
-		case a.lspState == lspReady:
-			ui.Text(c, "Ready · gopls").FontSize(12).TextColor(colMuted)
+		case state == lspReady:
+			ui.Text(c, "Ready · "+name).FontSize(12).TextColor(colMuted)
 		default:
 			ui.Text(c, "Ready").FontSize(12).TextColor(colMuted)
 		}
@@ -413,10 +490,7 @@ func (a *app) activityView(c *ui.Context) {
 // navigatorPane is the sidebar, over the window's material where there
 // is one: the navigator selector bar, then the navigator chosen.
 func (a *app) navigatorPane(c *ui.Context, vibrant bool) {
-	pane := ui.Column(c).Fill()
-	if !vibrant {
-		pane.Background(colSidebar)
-	}
+	pane := ui.Column(c).Fill().Background(sidebarColor(vibrant))
 	pane.Children(func() {
 		a.navigatorBar(c)
 		if a.navigator == navFind {
@@ -427,11 +501,18 @@ func (a *app) navigatorPane(c *ui.Context, vibrant bool) {
 	})
 }
 
+func sidebarColor(vibrant bool) ui.Color {
+	if vibrant {
+		return colSidebar.Alpha(0.78)
+	}
+	return colSidebar
+}
+
 // navigatorBar switches between the file and find navigators.
 func (a *app) navigatorBar(c *ui.Context) {
 	t := c.Theme()
 	ui.Row(c).FillWidth().Padding(4, 8).BorderWidth(0, 0, 1, 0).
-		BorderColor(colHairline).Background(colSidebar).Children(func() {
+		BorderColor(colHairline).Children(func() {
 		parts := ui.SegmentedBase(c, &a.navigator, 2)
 		parts.Track.FillWidth().Height(30).Padding(3).Gap(2).Radius(15).Background(t.Text.Alpha(0.06)).Label("Navigator")
 		if c.Preferences().HighContrast {
@@ -518,7 +599,8 @@ func (a *app) projectNavigator(c *ui.Context) {
 // the tree at its end.
 func (a *app) treeHeading(c *ui.Context) {
 	ui.Row(c).FillWidth().Padding(4, 10, 3, 10).Gap(6).AlignItems(ui.Center).Children(func() {
-		ui.Text(c, "Files").FontSize(11).Bold().TextColor(colMuted).Shrink(0)
+		folderGlyph(c, true, 15)
+		ui.Text(c, filepath.Base(a.root)).FontSize(12).Bold().SingleLine().Shrink(1)
 		if a.filtering() {
 			detail := fmt.Sprintf("%d of %d", a.filter.matches, len(a.quick.files))
 			if a.quick.files == nil {
@@ -556,8 +638,8 @@ func glyphButton(c *ui.Context, icon *ui.SVG, label, tip string, on, disabled bo
 // filterBar is the field at the bottom of the navigator, as Xcode's and
 // Peek's: it filters the tree, Down moves into it, and Escape clears it.
 func (a *app) filterBar(c *ui.Context) {
-	ui.Row(c).Shrink(0).FillWidth().Padding(6, 10, 8, 10).Children(func() {
-		field := ui.SearchField(c, &a.filter.query).FillWidth().Label("Filter Files").Bind(&a.filter.field)
+	ui.Row(c).Shrink(0).FillWidth().Padding(6, 10, 8, 10).BorderWidth(1, 0, 0, 0).BorderColor(colHairline).Children(func() {
+		field := ui.SearchField(c, &a.filter.query).FillWidth().Radius(14).Label("Filter Files").Bind(&a.filter.field)
 		if a.filter.focus {
 			a.filter.focus = false
 			a.filter.field.Focus(c)
@@ -880,7 +962,9 @@ func (a *app) groupView(c *ui.Context, g *group) {
 	}
 	col.Children(func() {
 		if len(g.order) > 0 {
-			a.tabBar(c, g)
+			if len(g.order) > 1 {
+				a.tabBar(c, g)
+			}
 			a.jumpBar(c, g)
 		}
 		if g == a.focus {
@@ -892,6 +976,16 @@ func (a *app) groupView(c *ui.Context, g *group) {
 			}
 		}
 		a.dropArea(c, g, func() { a.groupContent(c, g) })
+		if st := g.eds[g.active]; st != nil {
+			pos := st.CursorPos()
+			line := st.Buffer.Line(pos.Line)
+			column := utf8.RuneCountInString(line[:min(pos.Col, len(line))]) + 1
+			ui.Row(c).FillWidth().Height(24).Padding(0, 10).AlignItems(ui.Center).
+				BorderWidth(1, 0, 0, 0).BorderColor(colSeparator).Background(colEditor).Children(func() {
+				ui.Box(c).Grow(1)
+				ui.Text(c, fmt.Sprintf("Line %d  ·  Column %d", pos.Line+1, column)).FontSize(11).TextColor(colMuted).SingleLine()
+			})
+		}
 	})
 }
 
@@ -1055,17 +1149,9 @@ func (a *app) jumpBar(c *ui.Context, g *group) {
 	}
 	ui.Row(c).FillWidth().Height(26).Padding(0, 6).Gap(2).AlignItems(ui.Center).Background(colEditor).
 		BorderWidth(0, 0, 1, 0).BorderColor(colSeparator).Children(func() {
-		back := iconButton(c, icBack, "Go Back", "Go Back", false).Padding(3).Disabled(len(a.hist.Back) == 0)
-		if back.Clicked() {
-			a.focus = g
-			a.goBack()
-		}
-		fwd := iconButton(c, icForward, "Go Forward", "Go Forward", false).Padding(3).Disabled(len(a.hist.Forward) == 0)
-		if fwd.Clicked() {
-			a.focus = g
-			a.goForward()
-		}
-		ui.Box(c).Width(6)
+		folderGlyph(c, false, 13)
+		ui.Text(c, filepath.Base(a.root)).FontSize(12).TextColor(colMuted).SingleLine()
+		ui.Icon(c, icChevron).Size(9, 9).TextColor(colDim)
 		parts := strings.Split(relPath(a.root, p), "/")
 		if !within(a.root, p) {
 			parts = []string{p}
@@ -1085,8 +1171,18 @@ func (a *app) jumpBar(c *ui.Context, g *group) {
 				t := ui.Text(c, part).FontSize(12).SingleLine()
 				if !last {
 					t.TextColor(colMuted)
+				} else {
+					if g.preview == p {
+						t.Italic()
+					}
+					if d := a.docs[p]; d != nil && d.buf != nil && d.buf.Modified() {
+						ui.Text(c, "●").FontSize(9).TextColor(colAccent)
+					}
 				}
 			})
+			if last && crumb.DoubleClicked() && g.preview == p {
+				g.preview = ""
+			}
 			if !last {
 				dir := filepath.Join(append([]string{a.root}, parts[:i+1]...)...)
 				if crumb.Hovered() {
@@ -1099,8 +1195,15 @@ func (a *app) jumpBar(c *ui.Context, g *group) {
 				})
 			}
 		}
-		if isMarkdown(p) {
+		if len(g.order) == 1 || isMarkdown(p) {
 			ui.Box(c).Grow(1)
+		}
+		if len(g.order) == 1 {
+			if glyphButton(c, icClose, "Close "+filepath.Base(p), "Close File", false, false).Clicked() {
+				a.closeTab(g, p)
+			}
+		}
+		if isMarkdown(p) {
 			label := "Show Markdown Preview"
 			if g.markdownPreview[p] {
 				label = "Show Markdown Source"
@@ -1150,8 +1253,8 @@ func (a *app) document(c *ui.Context, g *group, d *doc) {
 		if v := d.buf.Version(); v != d.lspVersion {
 			a.invalidateHover()
 			d.lspVersion = v
-			if a.lsp != nil {
-				a.lsp.changed(d.uri, d.buf.Snapshot())
+			if m := a.serverFor(d.path); m != nil {
+				m.changed(d.uri, d.buf.Snapshot())
 			}
 			if d.buf.Modified() && g.preview == d.path {
 				g.preview = ""
@@ -1183,7 +1286,7 @@ func (a *app) document(c *ui.Context, g *group, d *doc) {
 			// A navigation went here: the keys read on from it.
 			ed.Focus()
 			a.focusEditor = nil
-		case g == a.focus:
+		case g == a.focus && !a.term.open:
 			ed.AutoFocus()
 		}
 		if ed.FocusWithin() && a.focus != g {
@@ -1218,7 +1321,7 @@ func (a *app) message(c *ui.Context, title, detail, button string, fn func()) {
 
 func (a *app) trustBanner(c *ui.Context) {
 	a.banner(c, colInfoBg,
-		"Go to Definition and symbol help run gopls in “"+filepath.Base(a.root)+"”. gopls loads the code with the go command, which can download modules and toolchains. Reading works without it.",
+		"Go to Definition and symbol help run language servers in “"+filepath.Base(a.root)+"”. Servers may run project tools and download dependencies or toolchains. Reading works without them.",
 		[]action{{"Trust Folder", a.trust}, {"Not Now", func() { a.trustAsk, a.afterTrust = false, nil }}})
 }
 

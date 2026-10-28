@@ -41,6 +41,39 @@ func TestOpeningTreeFileKeepsScrollPosition(t *testing.T) {
 	}
 }
 
+func TestNavigatorShortcutPreservesWidth(t *testing.T) {
+	h := newHarness(t, writeTree(t, map[string]string{"a.go": "package a\n"}))
+	h.tt.SetPreferences(ui.Preferences{ReduceMotion: true, TextScale: 1})
+	h.open("a.go")
+	h.a.sidebarW = 310
+	h.tt.Frame()
+	h.tt.Key(ui.Cmd, ui.KeyB)
+	h.tt.Frame()
+	if !h.a.sidebarOff || h.tt.HasText("Filter Files") {
+		t.Fatal("Cmd+B did not hide the navigator")
+	}
+	h.tt.Key(ui.Cmd, ui.KeyB)
+	h.tt.Frame()
+	if h.a.sidebarOff || h.a.sidebarW != 310 || !h.tt.HasText("a.go") {
+		t.Fatalf("navigator did not return at its saved width: hidden %v, width %v", h.a.sidebarOff, h.a.sidebarW)
+	}
+}
+
+func TestQuickButtonCenteredInEditorHeader(t *testing.T) {
+	h := newHarness(t, writeTree(t, map[string]string{"a.go": "package a\n"}))
+	h.a.sidebarW = 260
+	h.a.notice = "Go to Definition works in Go files, with gopls."
+	h.tt.Frame()
+	r, ok := h.tt.Find("Open Quickly")
+	if !ok || r.X+r.W/2 < 679 || r.X+r.W/2 > 681 {
+		t.Fatalf("quick button is not centered in the editor header: %+v, found %v", r, ok)
+	}
+	h.click("Open Quickly")
+	if !h.a.quick.open {
+		t.Fatal("centered quick button did not open search")
+	}
+}
+
 func TestSplitAndMoveTabs(t *testing.T) {
 	root := writeTree(t, map[string]string{"a.go": strings.Repeat("// a\n", 200), "b.go": "package b\n", "c.go": "package c\n"})
 	h := newHarness(t, root)

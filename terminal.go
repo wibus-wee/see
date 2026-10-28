@@ -41,10 +41,11 @@ type termTab struct {
 
 // termPane is one terminal.
 type termPane struct {
-	id    int
-	term  *terminal.Terminal
-	title string
-	pct   float32 // its share of the room it splits with those after it
+	id     int
+	term   *terminal.Terminal
+	title  string
+	handle ui.Handle
+	pct    float32 // its share of the room it splits with those after it
 }
 
 // newTerm makes a terminal running the user's shell in the workspace.
@@ -55,7 +56,7 @@ func (a *app) newTerm(p *termPane) error {
 	var t *terminal.Terminal
 	t, err := terminal.New(terminal.Options{
 		Dir:  a.root,
-		Font: terminal.Font{Size: float32(a.cfg.termFontSize())},
+		Font: a.terminalFont(),
 		CopyOnSelect: map[bool]terminal.CopyOnSelect{
 			true: terminal.CopyOnSelectClipboard,
 		}[a.cfg.TermCopyOnSelect],
@@ -119,9 +120,15 @@ func (a *app) toggleTerminal() {
 	tp := &a.term
 	if tp.open {
 		tp.open, tp.maximized = false, false
+		tp.focused = false
+		tp.focus = nil
+		if a.focus != nil {
+			a.focusEditor = a.focus.eds[a.focus.active]
+		}
 		return
 	}
 	tp.open = true
+	a.focusEditor = nil
 	if len(tp.tabs) == 0 {
 		a.newTerminalTab()
 	} else if tp.active != nil {
@@ -135,6 +142,7 @@ func (a *app) newTerminalTab() {
 		return
 	}
 	a.term.open = true
+	a.focusEditor = nil
 	a.withTerminal(func() {
 		tp := &a.term
 		tp.nextID++
@@ -338,11 +346,7 @@ func (a *app) termPaneView(c *ui.Context, tab *termTab, p *termPane) {
 		})
 	}
 	box.Children(func() {
-		v := terminal.View(c, p.term).Grow(1).Fill().Label("Terminal " + p.title)
-		if tp.focus == p {
-			v.Focus()
-			tp.focus = nil
-		}
+		v := terminal.View(c, p.term).Grow(1).Fill().Label("Terminal "+p.title).FocusBind(&tp.focus, p)
 		if v.FocusWithin() {
 			tab.active = p
 		}
@@ -439,6 +443,23 @@ var (
 	icPrompt   = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7l5 5-5 5M12 18h7"/></svg>`))
 )
 
+func (a *app) terminalFont() terminal.Font {
+	f := terminal.Font{Family: a.cfg.TermFontFamily, Size: float32(a.cfg.termFontSize()), Weight: a.cfg.TermFontWeight, Thicken: a.cfg.TermThicken}
+	if a.cfg.TermFontFallback != "" {
+		if f.Family == "" {
+			f.Family = "monospace"
+		}
+		f.Family += ", " + a.cfg.TermFontFallback
+	}
+	if a.cfg.TermLineHeight >= -20 && a.cfg.TermLineHeight <= 100 {
+		f.LineHeight = float32(1 + a.cfg.TermLineHeight/100)
+	}
+	if a.cfg.TermNoLigatures {
+		f.Features = []string{"-liga", "-calt"}
+	}
+	return f
+}
+
 // applyTerminalPrefs gives running terminals the Terminal pane's settings.
 func (a *app) applyTerminalPrefs() {
 	cos := terminal.CopyOnSelect(0)
@@ -448,7 +469,7 @@ func (a *app) applyTerminalPrefs() {
 	for _, tab := range a.term.tabs {
 		for _, p := range tab.panes {
 			if p.term != nil {
-				p.term.SetFont(terminal.Font{Size: float32(a.cfg.termFontSize())})
+				p.term.SetFont(a.terminalFont())
 				p.term.SetCopyOnSelect(cos)
 			}
 		}

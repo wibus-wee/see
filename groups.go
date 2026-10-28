@@ -219,8 +219,8 @@ func (a *app) releaseIfUnused(path string) {
 	}
 	delete(a.docs, path)
 	d.seq++ // drop a load on its way
-	if a.lsp != nil {
-		a.lsp.close(d.uri)
+	if m := a.serverFor(d.path); m != nil {
+		m.close(d.uri)
 	}
 }
 

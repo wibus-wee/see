@@ -17,7 +17,7 @@ import (
 	"see/internal/lsp"
 )
 
-// hoverState follows the hovers asked of gopls: only the latest one
+// hoverState follows language server hover requests: only the latest one
 // shows, and while Cmd is held a hover is a link to the definition,
 // underlaid in the text, with the definition's code in the card.
 type hoverState struct {
@@ -75,13 +75,14 @@ func (a *app) showHover(st *editor.State, cmd bool, r hoverResult) {
 }
 
 // hoverAt answers an editor's hover request: with the symbol's
-// documentation from gopls, or with Cmd held its definition. It asks
-// nothing of a workspace not yet trusted, nor of files but Go's.
+// documentation from a language server, or with Cmd held its definition.
+// It does not query servers in an untrusted workspace.
 func (a *app) hoverAt(d *doc, st *editor.State, r editor.HoverRequest) {
-	if a.lsp == nil || d.buf == nil || !strings.EqualFold(filepath.Ext(d.path), ".go") || !a.cfg.trusted(a.root) {
+	m := a.serverFor(d.path)
+	if m == nil || d.buf == nil || !a.cfg.trusted(a.root) {
 		return
 	}
-	if s, _ := a.lsp.status(); s == lspFailed {
+	if s, _ := m.status(); s == lspFailed {
 		return
 	}
 	if a.hover.cancel != nil {
@@ -104,7 +105,6 @@ func (a *app) hoverAt(d *doc, st *editor.State, r editor.HoverRequest) {
 	}
 	ctx, cancel := context.WithTimeout(a.wsCtx, 10*time.Second)
 	a.hover.cancel = cancel
-	m := a.lsp
 	go func() {
 		defer cancel()
 		c, err := m.get(ctx)

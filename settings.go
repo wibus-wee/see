@@ -40,7 +40,7 @@ var settingsPanes = []settingsPane{
 	{"general", "General", icGear, ui.RGB(0x8e, 0x8e, 0x93), 0, "appearance light dark system theme reopen launch recent folders"},
 	{"editor", "Editor", icLines, ui.RGB(0x0a, 0x84, 0xff), 0, "font size line numbers relative soft wrap"},
 	{"terminal", "Terminal", icPrompt, ui.RGB(0x2c, 0x2c, 0x2e), 0, "shell font size copy on select panel"},
-	{"intelligence", "Code Intelligence", icSparkle, ui.RGB(0xaf, 0x52, 0xde), 1, "gopls language server go to definition hover trusted folders trust"},
+	{"intelligence", "Code Intelligence", icSparkle, ui.RGB(0xaf, 0x52, 0xde), 1, "gopls typescript javascript language server go to definition hover trusted folders trust"},
 	{"search", "Search", icSearch, ui.RGB(0xff, 0x95, 0x00), 1, "ripgrep rg find open quickly files"},
 	{"shortcuts", "Shortcuts", icCommand, ui.RGB(0x63, 0x63, 0x66), 2, "keys keyboard"},
 }
@@ -50,9 +50,19 @@ type settingsState struct {
 	pane          string
 	query         string
 	back, forward []string
+	fontOpen      bool
+	fontButton    ui.Handle
+	fontQuery     string
+	fontFilter    int
+	fontFamilies  []ui.FontFamily
+	fontLoading   chan []ui.FontFamily
+	fontValuesSet bool
+	termWeight    float64
+	termHeight    float64
 	fontSize      float64
 	termFontSize  float64
 	lineNumbers   int
+	serverInstall string
 	appearance    int
 }
 
@@ -61,6 +71,7 @@ func (a *app) settingsGo(pane string) {
 	if pane == s.pane {
 		return
 	}
+	s.fontOpen = false
 	s.back = append(s.back, s.pane)
 	s.forward = nil
 	s.pane = pane
@@ -74,7 +85,7 @@ func (a *app) settingsChanged() {
 
 // applyEditorPrefs gives an editor the settings of the Editor pane.
 func (a *app) applyEditorPrefs(st *editor.State) {
-	st.Font = ui.Font{Size: float32(a.cfg.fontSize())}
+	st.Font = ui.Font{Family: a.cfg.FontFamily, Size: float32(a.cfg.fontSize())}
 	st.SoftWrap = a.cfg.SoftWrap
 	st.LineNumbers = editor.LineNumbers(min(max(a.cfg.LineNumbers, 0), 2))
 }
@@ -363,13 +374,31 @@ func (a *app) generalPane(c *ui.Context) {
 	})
 }
 
+func (a *app) initFontValues() {
+	s := &a.settings
+	if s.fontValuesSet {
+		return
+	}
+	s.fontValuesSet = true
+	s.fontSize = a.cfg.fontSize()
+	s.termFontSize = a.cfg.termFontSize()
+	s.termWeight = float64(a.cfg.TermFontWeight)
+	if s.termWeight < 100 || s.termWeight > 900 {
+		s.termWeight = 400
+	}
+	s.termHeight = a.cfg.TermLineHeight
+}
+
 func (a *app) editorPane(c *ui.Context) {
 	s := &a.settings
-	s.fontSize = a.cfg.fontSize()
+	a.initFontValues()
 	s.lineNumbers = a.cfg.LineNumbers
+	heading(c, "Typography")
+	a.fontPreview(c, false)
 	card(c,
+		func() { a.fontPicker(c, false) },
 		func() {
-			labeled(c, "Font Size", "The editor's monospaced font.")
+			labeled(c, "Font Size", "The editor's font size.")
 			ui.Text(c, fmt.Sprintf("%g pt", s.fontSize)).TextColor(colMuted)
 			if ui.Stepper(c, &s.fontSize, 9, 28, 1).Label("Font Size").Changed() {
 				a.cfg.FontSize = s.fontSize
@@ -396,30 +425,21 @@ func (a *app) editorPane(c *ui.Context) {
 }
 
 func (a *app) intelligencePane(c *ui.Context) {
-	status := "Starts when a Go file opens in a trusted folder."
-	path, err := findGopls(a.root)
-	switch {
-	case err != nil:
-		status = "Not installed: go install golang.org/x/tools/gopls@latest"
-	case a.lspState == lspReady:
-		status = "Running · " + tildePath(path)
-	case a.lspState == lspStarting:
-		status = "Starting…"
-	case a.lspState == lspFailed && a.lspErr != nil:
-		status = shortErr(a.lspErr)
-	default:
-		status += " " + tildePath(path)
-	}
-	statusCard(c, icSparkle, ui.RGB(0xaf, 0x52, 0xde), "gopls", status, func() {
-		if a.lspState == lspFailed && ui.Button(c, "Retry").Clicked() {
-			a.retryLSP()
-			a.post(func() {})
-		}
+	heading(c, "Language Servers")
+	ui.Text(c, "Power definition lookup and symbol help in trusted folders.").FontSize(12).TextColor(colMuted).Padding(0, 4, 4, 4)
+	goPath, goErr := findGopls(a.root)
+	tsPath, tsErr := findTypeScriptServer(a.root)
+	ui.Column(c).FillWidth().Radius(12).Background(colCard).Padding(0, 14).Children(func() {
+		a.languageServerRow(c.Key("go"), "go", "Go", "gopls", goPath, goErr, a.lspState, a.lspErr, "go install golang.org/x/tools/gopls@latest", a.retryLSP)
+		ui.Box(c).Height(1).FillWidth().Background(colSeparator)
+		a.languageServerRow(c.Key("typescript"), "typescript", "TypeScript & JavaScript", "typescript-language-server", tsPath, tsErr, a.tsState, a.tsErr, "npm install -g typescript typescript-language-server", a.retryTypeScriptLSP)
 	})
 	heading(c, "Trusted Folders")
-	ui.Text(c, "gopls runs the go command in these folders, which can download modules and toolchains.").FontSize(12).TextColor(colMuted).Padding(0, 4, 4, 4)
+	ui.Text(c, "Language servers can run project tools and download dependencies or toolchains in these folders.").FontSize(12).TextColor(colMuted).Padding(0, 4, 4, 4)
 	if len(a.cfg.Trusted) == 0 {
-		card(c, func() { labeled(c, "No trusted folders", "A folder is trusted the first time you allow gopls in it.") })
+		card(c, func() {
+			labeled(c, "No trusted folders", "A folder is trusted the first time you allow a language server in it.")
+		})
 		return
 	}
 	var rows []func()
@@ -434,6 +454,72 @@ func (a *app) intelligencePane(c *ui.Context) {
 		})
 	}
 	card(c, rows...)
+}
+
+func (a *app) languageServerRow(c *ui.Context, id, language, server, path string, findErr error, state lspState, serverErr error, command string, retry func()) {
+	status, color := "Available", colMuted
+	switch {
+	case state == lspFailed:
+		status, color = "Unavailable", colError
+	case state == lspStarting:
+		status = "Starting…"
+	case state == lspReady:
+		status = "Running"
+	case findErr != nil:
+		status = "Not installed"
+	}
+	detail := server
+	if path != "" {
+		detail += " · " + tildePath(path)
+	}
+	if state == lspFailed && serverErr != nil {
+		detail = server + " · " + shortErr(serverErr)
+	}
+	ui.Column(c).FillWidth().Padding(12, 0).Gap(10).Children(func() {
+		ui.Row(c).FillWidth().Gap(12).AlignItems(ui.Center).Children(func() {
+			ui.Column(c).Grow(1).Shrink(1).Gap(3).Children(func() {
+				ui.Text(c, language).Bold().SingleLine().Shrink(1)
+				ui.Row(c).FillWidth().Gap(6).AlignItems(ui.Center).Children(func() {
+					dot := colMuted
+					if state == lspReady {
+						dot = colAccent
+					} else if state == lspFailed {
+						dot = colError
+					}
+					ui.Box(c).Size(6, 6).Radius(3).Background(dot).Shrink(0)
+					ui.Text(c, status).FontSize(12).TextColor(color).SingleLine().Shrink(0)
+					ui.Text(c, "· "+detail).FontSize(12).TextColor(colMuted).SingleLine().Shrink(1).Tooltip(detail)
+				})
+			})
+			if findErr != nil {
+				label := "Install…"
+				if a.settings.serverInstall == id {
+					label = "Done"
+				}
+				if ui.Button(c.Key("install"), label).Label("Install " + language).Clicked() {
+					if a.settings.serverInstall == id {
+						a.settings.serverInstall = ""
+					} else {
+						a.settings.serverInstall = id
+					}
+				}
+			} else if state == lspFailed {
+				if ui.Button(c.Key("retry"), "Retry").Label("Retry " + server).Clicked() {
+					retry()
+				}
+			}
+		})
+		if a.settings.serverInstall == id && findErr != nil {
+			ui.Column(c).FillWidth().Gap(6).Padding(2, 0, 2, 0).Children(func() {
+				ui.Text(c, "Run in Terminal, then reopen this folder or retry.").FontSize(12).TextColor(colMuted)
+				ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Center).Children(func() {
+					ui.Text(c, command).FontSize(12).TextColor(colText).Grow(1).Shrink(1)
+					services := c.Services()
+					ui.Button(c.Key("copy"), "Copy").Label("Copy " + language + " install command").OnClick(func() { services.WriteClipboard(command) })
+				})
+			})
+		}
+	})
 }
 
 func (a *app) searchPane(c *ui.Context) {
@@ -494,13 +580,15 @@ func plural(n int) string {
 
 func (a *app) terminalPane(c *ui.Context) {
 	s := &a.settings
-	s.termFontSize = a.cfg.termFontSize()
+	a.initFontValues()
 	statusCard(c, icPrompt, ui.RGB(0x2c, 0x2c, 0x2e), shellName(),
 		"Terminals run your login shell in the open folder, with Ghostty's emulator.", nil)
-	heading(c, "Appearance")
+	heading(c, "Typography")
+	a.fontPreview(c, true)
 	card(c,
+		func() { a.fontPicker(c, true) },
 		func() {
-			labeled(c, "Font Size", "The terminals' monospaced font.")
+			labeled(c, "Font Size", "The terminal font size.")
 			ui.Text(c, fmt.Sprintf("%g pt", s.termFontSize)).TextColor(colMuted)
 			if ui.Stepper(c, &s.termFontSize, 9, 28, 1).Label("Terminal Font Size").Changed() {
 				a.cfg.TermFontSize = s.termFontSize
@@ -508,6 +596,48 @@ func (a *app) terminalPane(c *ui.Context) {
 				a.settingsChanged()
 			}
 		},
+		func() {
+			labeled(c, "Fallback Fonts", "Comma-separated families used for missing characters.")
+			if ui.TextInput(c, &a.cfg.TermFontFallback).Label("Fallback Fonts").Placeholder("System fallback").Width(170).Changed() {
+				a.applyTerminalPrefs()
+				a.settingsChanged()
+			}
+		},
+		func() {
+			labeled(c, "Font Weight", "The weight of regular terminal text.")
+			weight := &s.termWeight
+			ui.Text(c, fmt.Sprintf("%g", *weight)).TextColor(colMuted)
+			if ui.Stepper(c, weight, 100, 900, 100).Label("Terminal Font Weight").Changed() {
+				a.cfg.TermFontWeight = int(*weight)
+				a.applyTerminalPrefs()
+				a.settingsChanged()
+			}
+		},
+		func() {
+			labeled(c, "Font Smoothing", "Draw terminal text with a thicker stroke on macOS.")
+			if ui.Switch(c, &a.cfg.TermThicken).Label("Font Smoothing").Changed() {
+				a.applyTerminalPrefs()
+				a.settingsChanged()
+			}
+		},
+		func() {
+			labeled(c, "Ligatures", "Combine supported character sequences.")
+			enabled := !a.cfg.TermNoLigatures
+			ui.Switch(c, &enabled).Label("Ligatures").OnClick(func() { a.cfg.TermNoLigatures = !enabled; a.applyTerminalPrefs(); a.settingsChanged() })
+		},
+		func() {
+			labeled(c, "Line Height", "Extra space between terminal rows.")
+			height := &s.termHeight
+			ui.Text(c, fmt.Sprintf("%g %%", *height)).TextColor(colMuted)
+			if ui.Stepper(c, height, -20, 100, 5).Label("Terminal Line Height").Changed() {
+				a.cfg.TermLineHeight = *height
+				a.applyTerminalPrefs()
+				a.settingsChanged()
+			}
+		},
+	)
+	heading(c, "Behavior")
+	card(c,
 		func() {
 			labeled(c, "Copy on Select", "Selecting text copies it to the clipboard, as in Ghostty.")
 			if ui.Switch(c, &a.cfg.TermCopyOnSelect).Label("Copy on Select").Changed() {

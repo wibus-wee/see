@@ -29,7 +29,7 @@ func commands() []command {
 		{"Filter Files", "Alt+Cmd+", "J", ui.Alt | ui.Cmd, ui.KeyJ, func(a *app) {
 			a.sidebarOff, a.navigator, a.filter.focus = false, navFiles, true
 		}},
-		{"Show or Hide the Navigator", "Cmd+", "0", ui.Cmd, ui.Key0, func(a *app) { a.sidebarOff = !a.sidebarOff }},
+		{"Show or Hide the Navigator", "Cmd+", "B", ui.Cmd, ui.KeyB, func(a *app) { a.sidebarOff = !a.sidebarOff }},
 		{"Go Back", "Ctrl+", "-", ui.Ctrl, ui.KeyMinus, func(a *app) { a.goBack() }},
 		{"Go Forward", "Ctrl+Shift+", "-", ui.Ctrl | ui.Shift, ui.KeyMinus, func(a *app) { a.goForward() }},
 		{"Next Tab", "Ctrl+", "Tab", ui.Ctrl, ui.KeyTab, func(a *app) { a.cycleTab(1) }},

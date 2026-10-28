@@ -111,3 +111,68 @@ func TestSettingsSidebarKeys(t *testing.T) {
 		t.Errorf("Down while searching: pane %q, want intelligence", h.a.settings.pane)
 	}
 }
+
+func TestFontPickerUpdatesEditor(t *testing.T) {
+	h := newHarness(t, writeTree(t, map[string]string{"a.go": "package a\n"}))
+	d := h.open("a.go")
+	h.a.settings.pane = "editor"
+	h.a.settings.fontFamilies = []ui.FontFamily{{Name: "Test Mono", Monospaced: true}, {Name: "Test Sans"}}
+	var anchor ui.Rect
+	h.a.openFontPopover = func(r ui.Rect, terminal bool) { anchor = r; h.a.settings.fontOpen = true }
+	st := ui.NewTester(h.a.settingsView, 760, 560)
+	if err := st.Click("Choose Font"); err != nil {
+		t.Fatal(err)
+	}
+	if anchor.W <= 0 || anchor.H <= 0 {
+		t.Fatalf("invalid anchor: %+v", anchor)
+	}
+	st = ui.NewTester(func(c *ui.Context) { h.a.fontPopover(c, false) }, 300, 390)
+	if !st.HasText("Test Mono") || st.HasText("Test Sans") {
+		t.Fatalf("font filter: %v", st.Texts())
+	}
+	if err := st.Click("Test Mono"); err != nil {
+		t.Fatal(err)
+	}
+	st.Frame()
+	if h.a.cfg.FontFamily != "Test Mono" || h.ed(d).Font.Family != "Test Mono" || h.a.settings.fontOpen {
+		t.Fatalf("font selection was not applied: %+v", h.a.cfg)
+	}
+}
+
+func TestTerminalFontPreferences(t *testing.T) {
+	a := &app{cfg: &config{TermFontFamily: "Example", TermFontWeight: 500, TermLineHeight: 20, TermThicken: true, TermNoLigatures: true}}
+	f := a.terminalFont()
+	if f.Family != "Example" || f.Weight != 500 || f.LineHeight != 1.2 || !f.Thicken || len(f.Features) != 2 {
+		t.Fatalf("terminal font: %+v", f)
+	}
+}
+
+func TestLanguageServerInstallHelp(t *testing.T) {
+	t.Setenv("SEE_TYPESCRIPT_LANGUAGE_SERVER", filepath.Join(t.TempDir(), "missing"))
+	h := newHarness(t, "")
+	h.a.settings.pane = "intelligence"
+	st := ui.NewTester(h.a.settingsView, 760, 560)
+	if st.HasText("npm install -g typescript typescript-language-server") {
+		t.Fatal("install command should start collapsed")
+	}
+	if err := st.Click("Install TypeScript & JavaScript"); err != nil {
+		t.Fatal(err)
+	}
+	st.Frame()
+	if !st.HasText("npm install -g typescript typescript-language-server") {
+		t.Fatalf("install command missing: %v", st.Texts())
+	}
+	if err := st.Click("Copy TypeScript & JavaScript install command"); err != nil {
+		t.Fatal(err)
+	}
+	if got := st.Clipboard(); got != "npm install -g typescript typescript-language-server" {
+		t.Fatalf("clipboard = %q", got)
+	}
+	if err := st.Click("Install TypeScript & JavaScript"); err != nil {
+		t.Fatal(err)
+	}
+	st.Frame()
+	if st.HasText("npm install -g typescript typescript-language-server") {
+		t.Fatal("install command did not collapse")
+	}
+}

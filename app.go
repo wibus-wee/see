@@ -62,7 +62,10 @@ type app struct {
 	finding   bool        // a definition request is on its way
 	choices   *defChoices // several definitions to choose from
 
-	lsp         *goLSP
+	lsp         *languageServer
+	tsLSP       *languageServer
+	tsState     lspState
+	tsErr       error
 	lspState    lspState
 	lspErr      error
 	trustAsk    bool   // asking whether to trust the workspace
@@ -75,6 +78,8 @@ type app struct {
 	settings settingsState
 	// openSettings shows the settings window, closeSettings closes it.
 	openSettings, closeSettings func()
+	openFontPopover             func(ui.Rect, bool)
+	closeFontPopover            func()
 	refreshMenu                 func() // builds the menu bar again
 	find                        findState
 	quick                       quickOpen
@@ -244,6 +249,15 @@ func (a *app) openWorkspace(dir string) {
 			}
 		})
 	})
+	a.tsLSP = newGoLSP(root, startTypeScriptServer(a.logf), func(s lspState, err error) {
+		a.post(func() {
+			if a.gen == gen {
+				a.tsState, a.tsErr = s, err
+			}
+		})
+	})
+	a.tsLSP.name = "typescript-language-server"
+	a.tsLSP.language = typeScriptLanguage
 	a.loadDir(root)
 	a.startWatch()
 	a.cfg.LastWorkspace = root
@@ -265,6 +279,11 @@ func (a *app) closeWorkspace() {
 		a.lsp.stop()
 		a.lsp = nil
 	}
+	if a.tsLSP != nil {
+		a.tsLSP.stop()
+		a.tsLSP = nil
+	}
+	a.tsState, a.tsErr = lspOff, nil
 	a.root, a.realRoot = "", ""
 	a.dirs = map[string]*dirState{}
 	a.tree = ui.OutlineState[string]{}
@@ -495,8 +514,8 @@ func (a *app) showLoaded(g *group, d *doc) {
 	if st == nil {
 		st = a.newEditor(g, d)
 		g.eds[d.path] = st
-		if a.lsp != nil && a.cfg.trusted(a.root) && strings.EqualFold(filepath.Ext(d.path), ".go") {
-			m, ctx := a.lsp, a.wsCtx
+		if m := a.serverFor(d.path); m != nil && a.cfg.trusted(a.root) {
+			ctx := a.wsCtx
 			go func() { _, _ = m.get(ctx) }()
 		}
 	}
@@ -625,8 +644,8 @@ func (a *app) loaded(d *doc, f workspace.File, buf *editor.Buffer, same bool, er
 			st.GoTo(clampPos(d.buf, p.pos))
 			st.SetScrollY(p.y)
 		}
-		if a.lsp != nil {
-			a.lsp.changed(d.uri, d.buf.Snapshot())
+		if m := a.serverFor(d.path); m != nil {
+			m.changed(d.uri, d.buf.Snapshot())
 		}
 	}
 	for _, g := range a.groups() {
@@ -815,16 +834,17 @@ func (a *app) cycleTab(dir int) {
 	a.userActivate(g.order[(i+dir+len(g.order))%len(g.order)])
 }
 
-// goToDefinition asks gopls where the symbol at offset of d is defined
+// goToDefinition asks the language server where the symbol at offset of d is defined
 // and goes there, in g. Only the latest navigation the user asked for
 // wins: a response to an older one is dropped.
 func (a *app) goToDefinition(g *group, d *doc, offset int) {
-	if d.buf == nil || a.lsp == nil {
+	if d.buf == nil {
 		return
 	}
 	a.focus = g
-	if !strings.EqualFold(filepath.Ext(d.path), ".go") {
-		a.note("Go to Definition works in Go files, with gopls.", false)
+	m := a.serverFor(d.path)
+	if m == nil {
+		a.note("No language server is configured for this file.", false)
 		return
 	}
 	if !a.cfg.trusted(a.root) {
@@ -843,7 +863,6 @@ func (a *app) goToDefinition(g *group, d *doc, offset int) {
 	a.navCancel = cancel
 	a.finding = true
 	a.notice = ""
-	m := a.lsp
 	go func() {
 		defer cancel()
 		locs, enc, err := definition(ctx, m, d.uri, snap, pos, line)
@@ -871,7 +890,7 @@ func targetsOf(locs []lsp.Location) (targets []target, skipped int) {
 	return targets, skipped
 }
 
-func definition(ctx context.Context, m *goLSP, docURI string, snap editor.Snapshot, pos editor.Pos, line string) ([]lsp.Location, string, error) {
+func definition(ctx context.Context, m *languageServer, docURI string, snap editor.Snapshot, pos editor.Pos, line string) ([]lsp.Location, string, error) {
 	c, err := m.get(ctx)
 	if err != nil {
 		return nil, "", err
@@ -899,16 +918,18 @@ func (a *app) definitionFound(g *group, from nav.Entry, targets []target, enc st
 	}
 }
 
-// lspFailure tells why a request of gopls failed.
+// lspFailure reports why a language server request failed.
 func (a *app) lspFailure(err error) {
 	switch {
 	case errors.Is(err, errNoGopls):
 		a.note("Go to Definition needs gopls: install it with “go install golang.org/x/tools/gopls@latest”, then Retry.", true)
+	case errors.Is(err, errNoTypeScriptServer):
+		a.note("Install typescript-language-server and typescript, then retry.", true)
 	case errors.Is(err, context.DeadlineExceeded):
-		a.note("gopls took too long to answer. It may still be loading the workspace; try again.", true)
+		a.note("The language server took too long to answer. It may still be loading the workspace; try again.", true)
 	case errors.Is(err, context.Canceled):
 	default:
-		a.note("gopls failed: "+err.Error(), true)
+		a.note("Language server failed: "+err.Error(), true)
 	}
 }
 
@@ -920,7 +941,7 @@ func (a *app) jump(g *group, from nav.Entry, t target, enc string) {
 	a.openIn(g, t.path, goTo{lsp: &pos, enc: enc})
 }
 
-// trust records that the user trusts the workspace to run gopls in.
+// trust records that the user trusts the workspace to run language servers in.
 func (a *app) trust() {
 	a.cfg.trust(a.root)
 	a.saveConfig()
@@ -957,4 +978,23 @@ func describeErr(err error) string {
 		return pe.Err.Error()
 	}
 	return err.Error()
+}
+
+func (a *app) serverFor(path string) *languageServer {
+	if strings.EqualFold(filepath.Ext(path), ".go") {
+		return a.lsp
+	}
+	if typeScriptLanguage(path) != "" {
+		return a.tsLSP
+	}
+	return nil
+}
+
+func (a *app) retryTypeScriptLSP() {
+	if a.tsLSP != nil {
+		a.invalidateHover()
+		a.tsLSP.retry()
+		a.tsState, a.tsErr = a.tsLSP.status()
+		a.notice = ""
+	}
 }

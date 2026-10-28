@@ -8,12 +8,14 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/egoist/mygo/ui/editor"
 
 	"see/internal/lsp"
+	uriutil "see/internal/uri"
 )
 
 // langClient is what the app needs of a language client; *lsp.Client is
@@ -45,13 +47,14 @@ var errNoGopls = errors.New("gopls is not installed")
 // server goes away by itself.
 type starter func(ctx context.Context, root string, onExit func(error)) (langClient, error)
 
-// goLSP runs at most one gopls for a workspace, started when a Go
-// definition is first asked for, and keeps the documents it was given
-// in step with their buffers. Its methods are safe from any goroutine.
-type goLSP struct {
-	root    string
-	start   starter
-	onState func(lspState, error) // called from any goroutine
+// languageServer manages one server for a workspace and keeps its documents
+// synchronized with editor buffers. Its methods are safe from any goroutine.
+type languageServer struct {
+	root     string
+	name     string
+	language func(string) string
+	start    starter
+	onState  func(lspState, error) // called from any goroutine
 
 	mu       sync.Mutex
 	state    lspState
@@ -72,8 +75,8 @@ type lspDoc struct {
 	bufVersion uint64 // of the buffer last sent
 }
 
-func newGoLSP(root string, start starter, onState func(lspState, error)) *goLSP {
-	m := &goLSP{root: root, start: start, onState: onState, docs: map[string]*lspDoc{}, out: newOutbox()}
+func newGoLSP(root string, start starter, onState func(lspState, error)) *languageServer {
+	m := &languageServer{root: root, name: "gopls", language: func(string) string { return "go" }, start: start, onState: onState, docs: map[string]*lspDoc{}, out: newOutbox()}
 	go m.out.loop()
 	return m
 }
@@ -127,13 +130,13 @@ func (o *outbox) loop() {
 // stop ends the loop; what is still queued is dropped.
 func (o *outbox) stop() { o.once.Do(func() { close(o.quit) }) }
 
-func (m *goLSP) status() (lspState, error) {
+func (m *languageServer) status() (lspState, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.state, m.err
 }
 
-func (m *goLSP) setState(s lspState, err error) {
+func (m *languageServer) setState(s lspState, err error) {
 	m.state, m.err = s, err
 	if m.onState != nil {
 		m.onState(s, err)
@@ -142,7 +145,7 @@ func (m *goLSP) setState(s lspState, err error) {
 
 // get returns the running client, starting the server the first time.
 // After a failure it fails until retry.
-func (m *goLSP) get(ctx context.Context) (langClient, error) {
+func (m *languageServer) get(ctx context.Context) (langClient, error) {
 	m.mu.Lock()
 	if m.closed {
 		m.mu.Unlock()
@@ -173,7 +176,7 @@ func (m *goLSP) get(ctx context.Context) (langClient, error) {
 	}
 }
 
-func (m *goLSP) run(done chan struct{}, attempt int) {
+func (m *languageServer) run(done chan struct{}, attempt int) {
 	defer close(done)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
@@ -203,7 +206,7 @@ func (m *goLSP) run(done chan struct{}, attempt int) {
 	m.setState(lspReady, nil)
 }
 
-func (m *goLSP) exited(attempt int, err error) {
+func (m *languageServer) exited(attempt int, err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.closed || attempt != m.attempt {
@@ -211,11 +214,11 @@ func (m *goLSP) exited(attempt int, err error) {
 	}
 	m.client = nil
 	m.docs = map[string]*lspDoc{}
-	m.setState(lspFailed, fmt.Errorf("gopls stopped: %w", err))
+	m.setState(lspFailed, fmt.Errorf("%s stopped: %w", m.name, err))
 }
 
 // retry forgets a failure, so the next request starts the server again.
-func (m *goLSP) retry() {
+func (m *languageServer) retry() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.state == lspFailed {
@@ -226,11 +229,11 @@ func (m *goLSP) retry() {
 // sync opens a document in the server, or sends its new text if the
 // buffer changed since it was last sent, and waits until it is sent.
 // The bookkeeping is under mu; the text goes out on the outbox.
-func (m *goLSP) sync(ctx context.Context, c langClient, uri string, snap editor.Snapshot) error {
+func (m *languageServer) sync(ctx context.Context, c langClient, uri string, snap editor.Snapshot) error {
 	m.mu.Lock()
 	if c != m.client {
 		m.mu.Unlock()
-		return errors.New("gopls restarted")
+		return fmt.Errorf("%s restarted", m.name)
 	}
 	send := m.queueSync(c, uri, snap)
 	m.mu.Unlock()
@@ -245,14 +248,16 @@ func (m *goLSP) sync(ctx context.Context, c langClient, uri string, snap editor.
 // queueSync queues what brings the server's copy of a document up to
 // snap, with mu held so that versions go out in the order they are
 // numbered. The channel gets the result of sending it.
-func (m *goLSP) queueSync(c langClient, uri string, snap editor.Snapshot) <-chan error {
+func (m *languageServer) queueSync(c langClient, uri string, snap editor.Snapshot) <-chan error {
 	done := make(chan error, 1)
 	d := m.docs[uri]
 	switch {
 	case d == nil:
 		d = &lspDoc{version: 1, bufVersion: snap.Version()}
 		m.docs[uri] = d
-		m.out.push(func() { done <- c.DidOpen(uri, "go", 1, snap.String()) })
+		path, _ := uriutil.ToPath(uri)
+		language := m.language(path)
+		m.out.push(func() { done <- c.DidOpen(uri, language, 1, snap.String()) })
 	case d.bufVersion == snap.Version():
 		done <- nil
 	default:
@@ -265,7 +270,7 @@ func (m *goLSP) queueSync(c langClient, uri string, snap editor.Snapshot) <-chan
 }
 
 // changed sends a document's new text if the server has it open.
-func (m *goLSP) changed(uri string, snap editor.Snapshot) {
+func (m *languageServer) changed(uri string, snap editor.Snapshot) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if _, open := m.docs[uri]; open && m.client != nil {
@@ -274,7 +279,7 @@ func (m *goLSP) changed(uri string, snap editor.Snapshot) {
 }
 
 // close tells the server a document is closed.
-func (m *goLSP) close(uri string) {
+func (m *languageServer) close(uri string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if _, ok := m.docs[uri]; ok && m.client != nil {
@@ -285,7 +290,7 @@ func (m *goLSP) close(uri string) {
 }
 
 // stop shuts the server down, in the background; the manager is done.
-func (m *goLSP) stop() {
+func (m *languageServer) stop() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.closed = true
@@ -297,7 +302,7 @@ func (m *goLSP) stop() {
 }
 
 // stopWait shuts the server down and waits, as the app quits.
-func (m *goLSP) stopWait(timeout time.Duration) {
+func (m *languageServer) stopWait(timeout time.Duration) {
 	m.mu.Lock()
 	m.closed = true
 	m.out.stop()
@@ -370,5 +375,56 @@ func startGopls(logf func(string, ...any)) starter {
 			return nil, err
 		}
 		return c, nil
+	}
+}
+
+var errNoTypeScriptServer = errors.New("typescript-language-server is not installed")
+
+func typeScriptLanguage(path string) string {
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".ts":
+		return "typescript"
+	case ".tsx":
+		return "typescriptreact"
+	case ".js", ".mjs", ".cjs":
+		return "javascript"
+	case ".jsx":
+		return "javascriptreact"
+	}
+	return ""
+}
+
+func findTypeScriptServer(root string) (string, error) {
+	p := os.Getenv("SEE_TYPESCRIPT_LANGUAGE_SERVER")
+	if p == "" {
+		p, _ = exec.LookPath("typescript-language-server")
+	}
+	if !filepath.IsAbs(p) {
+		return "", errNoTypeScriptServer
+	}
+	resolved, err := filepath.EvalSymlinks(p)
+	if err != nil {
+		return "", errNoTypeScriptServer
+	}
+	realRoot := root
+	if r, err := filepath.EvalSymlinks(root); err == nil {
+		realRoot = r
+	}
+	if root != "" && (within(root, p) || within(realRoot, resolved)) {
+		return "", errNoTypeScriptServer
+	}
+	if fi, err := os.Stat(resolved); err != nil || !fi.Mode().IsRegular() {
+		return "", errNoTypeScriptServer
+	}
+	return p, nil
+}
+
+func startTypeScriptServer(logf func(string, ...any)) starter {
+	return func(ctx context.Context, root string, onExit func(error)) (langClient, error) {
+		path, err := findTypeScriptServer(root)
+		if err != nil {
+			return nil, err
+		}
+		return lsp.Start(ctx, path, []string{"--stdio"}, lsp.Options{RootPath: root, RootURI: uriOf(root), Name: filepath.Base(root), Logf: logf, OnExit: onExit})
 	}
 }

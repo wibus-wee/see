@@ -1,5 +1,5 @@
 // See is a desktop source code reader: a file tree,
-// tabs, a code editor and Go to Definition through gopls, drawn
+// tabs, a code editor and Go to Definition through language servers, drawn
 // natively by MyGo's ui, with no web view.
 package main
 
@@ -166,6 +166,9 @@ func main() {
 		if a.lsp != nil {
 			a.lsp.stopWait(2 * time.Second)
 		}
+		if a.tsLSP != nil {
+			a.tsLSP.stopWait(2 * time.Second)
+		}
 	})
 	if err := mygo.App.Run(); err != nil {
 		log.Fatal(err)
@@ -218,7 +221,7 @@ func appMenu(a *app) *mygo.MenuItem {
 // and what closes it: a window of its own, its sidebar over the
 // desktop's material, as macOS's System Settings.
 func settingsWindow(a *app) (open, close func()) {
-	var w *mygo.Window
+	var w, fontPopover *mygo.Window
 	open = func() {
 		if w != nil && !w.IsDestroyed() {
 			w.Focus()
@@ -237,6 +240,38 @@ func settingsWindow(a *app) (open, close func()) {
 			Vibrancy:             mygo.VibrancySidebar,
 			Content:              ui.View(a.settingsView),
 		})
+	}
+	a.openFontPopover = func(anchor ui.Rect, terminal bool) {
+		if w == nil || w.IsDestroyed() {
+			return
+		}
+		if fontPopover != nil && !fontPopover.IsDestroyed() {
+			fontPopover.Close()
+			return
+		}
+		a.settings.fontQuery = ""
+		a.settings.fontOpen = true
+		fontPopover = mygo.NewFlyout(mygo.FlyoutOptions{
+			Parent: w, Anchor: mygo.Rectangle{X: int(anchor.X), Y: int(anchor.Y), Width: int(anchor.W), Height: int(anchor.H)},
+			Placement: mygo.PlacementRightStart, Gap: 6, Width: 300, Height: 390,
+			Focusable: true, Popover: true, Shadow: true, CornerRadius: 14,
+			Content: ui.View(func(c *ui.Context) { a.fontPopover(c, terminal) }),
+		})
+		current := fontPopover
+		current.OnClosed(func() {
+			if fontPopover == current {
+				fontPopover = nil
+				a.settings.fontOpen = false
+			}
+			if w != nil && !w.IsDestroyed() {
+				w.Update(func() {})
+			}
+		})
+	}
+	a.closeFontPopover = func() {
+		if fontPopover != nil && !fontPopover.IsDestroyed() {
+			fontPopover.Close()
+		}
 	}
 	close = func() {
 		if w != nil && !w.IsDestroyed() {

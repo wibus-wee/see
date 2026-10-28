@@ -160,3 +160,42 @@ func TestTerminalScreenshot(t *testing.T) {
 }
 
 func editorEntry(d *doc, line int) nav.Entry { return nav.Entry{Path: d.path, Line: line} }
+
+func TestTerminalShortcutMovesFocus(t *testing.T) {
+	t.Setenv("SHELL", "/bin/sh")
+	root := writeTree(t, map[string]string{"a.go": "package a\n"})
+	h := newHarness(t, root)
+	h.open("a.go")
+	h.tt.Frame()
+	h.tt.Key(ui.Ctrl, ui.KeyBackquote)
+	h.settle(func() bool { return h.a.term.active != nil || h.a.term.loadErr != nil })
+	if h.a.term.loadErr != nil {
+		t.Skip("no terminal library here:", h.a.term.loadErr)
+	}
+	t.Cleanup(h.a.closeTerminals)
+	h.tt.Frame()
+	h.tt.Frame()
+	if !h.a.term.focused {
+		t.Fatal("new terminal did not take focus")
+	}
+	h.tt.Key(ui.Ctrl, ui.KeyBackquote)
+	h.tt.Frame()
+	if h.a.term.open {
+		t.Fatal("terminal did not hide")
+	}
+	h.tt.Key(ui.Ctrl, ui.KeyBackquote)
+	h.tt.Frame()
+	h.tt.Frame()
+	if !h.a.term.open || !h.a.term.focused {
+		t.Fatalf("reopened terminal did not take focus: open=%v focused=%v target=%p active=%p texts=%v", h.a.term.open, h.a.term.focused, h.a.term.focus, h.a.term.active.active, h.tt.Texts())
+	}
+	p := h.a.term.active.active
+	h.tt.Type("echo focus-check")
+	h.tt.Key(0, ui.KeyEnter)
+	h.waitTerm(p, "focus-check")
+	h.tt.Key(ui.Ctrl, ui.KeyBackquote)
+	h.tt.Frame()
+	if h.a.term.open || h.a.term.focused {
+		t.Fatal("terminal remained focused after hiding")
+	}
+}
