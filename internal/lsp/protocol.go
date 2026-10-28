@@ -29,6 +29,7 @@ type Diagnostic struct {
 }
 
 type Location struct {
+	Name  string `json:"-"`
 	URI   string `json:"uri"`
 	Range Range  `json:"range"`
 }

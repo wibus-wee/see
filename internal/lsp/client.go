@@ -184,6 +184,8 @@ func (c *Client) initialize(ctx context.Context) error {
 			},
 			"textDocument": map[string]any{
 				"synchronization": map[string]any{"didSave": false, "dynamicRegistration": false},
+				"references":      map[string]any{"dynamicRegistration": false},
+				"callHierarchy":   map[string]any{"dynamicRegistration": false},
 				"definition":      map[string]any{"linkSupport": true, "dynamicRegistration": false},
 				"hover":           map[string]any{"contentFormat": []string{"markdown", "plaintext"}, "dynamicRegistration": false},
 			},
@@ -287,6 +289,44 @@ func (c *Client) Diagnostics(ctx context.Context, uri string) ([]Diagnostic, boo
 	}
 	err := c.conn.Call(ctx, "textDocument/diagnostic", map[string]any{"textDocument": map[string]any{"uri": uri}}, &result)
 	return result.Items, result.Kind == "full", err
+}
+
+// References returns locations that refer to a symbol.
+func (c *Client) References(ctx context.Context, uri string, pos Position) ([]Location, error) {
+	var result []Location
+	err := c.conn.Call(ctx, "textDocument/references", map[string]any{"textDocument": map[string]any{"uri": uri}, "position": pos, "context": map[string]any{"includeDeclaration": false}}, &result)
+	return result, err
+}
+
+// Callers returns call sites from incoming call hierarchy items.
+func (c *Client) Callers(ctx context.Context, uri string, pos Position) ([]Location, error) {
+	var items []json.RawMessage
+	if err := c.conn.Call(ctx, "textDocument/prepareCallHierarchy", map[string]any{"textDocument": map[string]any{"uri": uri}, "position": pos}, &items); err != nil {
+		return nil, err
+	}
+	var locations []Location
+	for _, item := range items {
+		var calls []struct {
+			From struct {
+				URI            string `json:"uri"`
+				Name           string `json:"name"`
+				SelectionRange Range  `json:"selectionRange"`
+			} `json:"from"`
+			Ranges []Range `json:"fromRanges"`
+		}
+		if err := c.conn.Call(ctx, "callHierarchy/incomingCalls", map[string]any{"item": item}, &calls); err != nil {
+			return nil, err
+		}
+		for _, call := range calls {
+			if len(call.Ranges) == 0 {
+				locations = append(locations, Location{URI: call.From.URI, Range: call.From.SelectionRange, Name: call.From.Name})
+			}
+			for _, r := range call.Ranges {
+				locations = append(locations, Location{URI: call.From.URI, Range: r, Name: call.From.Name})
+			}
+		}
+	}
+	return locations, nil
 }
 
 // Shutdown asks the server to shut down and exit, and kills it when it
