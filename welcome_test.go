@@ -146,13 +146,13 @@ func TestWelcomeDropsMissingRecent(t *testing.T) {
 func TestWelcomeReopenSetting(t *testing.T) {
 	h := newHarness(t, "")
 	h.tt.Frame()
-	h.click("Reopen the last folder at launch")
+	h.click("Show this window when See launches")
 	if !h.a.cfg.ReopenLast {
-		t.Error("checking did not turn reopening on")
+		t.Error("unchecking did not turn reopening on")
 	}
-	h.click("Reopen the last folder at launch")
+	h.click("Show this window when See launches")
 	if h.a.cfg.ReopenLast {
-		t.Error("unchecking did not turn reopening off")
+		t.Error("checking did not turn reopening off")
 	}
 }
 

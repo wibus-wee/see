@@ -28,7 +28,7 @@ var colWelcomeLeft, colWelcomeRight, colWelcomeTile, colWelcomeHover ui.Color
 // welcomeWindow fills the welcome window (welcomeWindowSize), its title
 // bar hidden behind the left side, as Xcode's.
 func (a *app) welcomeWindow(c *ui.Context) {
-	ui.Row(c).Fill().Children(func() {
+	ui.Row(c).Fill().DragWindow().Children(func() {
 		a.welcomeIntro(c)
 		a.welcomeRecent(c)
 	})
@@ -49,7 +49,7 @@ func (a *app) welcomeIntro(c *ui.Context) {
 				ui.Text(c, "Version "+a.version).FontSize(13).TextColor(colMuted)
 			}
 			ui.Box(c).Height(18)
-			ui.Column(c).Gap(4).Width(300).Children(func() {
+			ui.Column(c).Gap(2).Width(300).Children(func() {
 				a.welcomeAction(c, openIcon, "Open Folder…", "Read the source of a folder", shortcutLabel("O"), a.openFolderDialog)
 				if last := a.lastFolder(); last != "" {
 					a.welcomeAction(c, reopenIcon, "Reopen "+filepath.Base(last), tildePath(last), "", func() { a.openRecent(last) })
@@ -59,9 +59,11 @@ func (a *app) welcomeIntro(c *ui.Context) {
 				ui.Text(c, a.welcomeNote).FontSize(12).TextColor(colError).MaxWidth(380).TextAlign(ui.Center).Padding(8, 0, 0, 0)
 			}
 		})
-		if ui.Checkbox(c, &a.cfg.ReopenLast, "Reopen the last folder at launch").FontSize(12).TextColor(colMuted).Changed() {
+		showWelcome := !a.cfg.ReopenLast
+		ui.Checkbox(c, &showWelcome, "Show this window when See launches").FontSize(12).TextColor(colMuted).OnClick(func() {
+			a.cfg.ReopenLast = !showWelcome
 			a.saveConfig()
-		}
+		})
 	})
 }
 
@@ -74,7 +76,7 @@ func (a *app) lastFolder() string {
 }
 
 func (a *app) welcomeAction(c *ui.Context, icon *ui.SVG, title, detail, shortcut string, fn func()) {
-	row := ui.Row(c).FillWidth().Padding(8, 10).Gap(12).AlignItems(ui.Center).Radius(8).Cursor(ui.CursorPointer).Label(title)
+	row := ui.Row(c).FillWidth().Padding(6, 8).Gap(10).AlignItems(ui.Center).Radius(8).Cursor(ui.CursorPointer).Label(title)
 	if row.Hovered() {
 		row.Background(colWelcomeHover)
 	}
@@ -82,8 +84,8 @@ func (a *app) welcomeAction(c *ui.Context, icon *ui.SVG, title, detail, shortcut
 		row.Tooltip(shortcut)
 	}
 	row.OnClick(fn).Children(func() {
-		ui.Box(c).Size(34, 34).Radius(8).Background(colWelcomeTile).Center().Children(func() {
-			ui.Icon(c, icon).FontSize(18).TextColor(colText)
+		ui.Box(c).Size(30, 30).Shrink(0).Radius(7).Background(colWelcomeTile).Center().Children(func() {
+			ui.Icon(c, icon).FontSize(16).TextColor(colText)
 		})
 		ui.Column(c).Grow(1).Shrink(1).Gap(1).Children(func() {
 			ui.Text(c, title).FontSize(13).Bold().TextColor(colText).SingleLine()
