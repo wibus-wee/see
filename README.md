@@ -19,26 +19,27 @@ Edit and save UTF-8 text in the source view. Unsaved changes are marked on tabs,
 
 ## Getting started
 
-You'll need Go 1.27.3 or later and a graphical desktop environment. From the project directory:
+You'll need Go 1.27.3 or later and a graphical desktop environment. From the project directory, start the development app with live reload:
 
 ```sh
-go run .
+go tool mygo dev
 ```
 
-Choose **Open Folder** in the welcome window, or pass a folder on the command line:
+Choose **Open Folder** in the welcome window. For a quick run without live reload, use `go run .` or `go run . /path/to/project`.
+
+### Build
+
+Build a production app for the current platform:
 
 ```sh
-go run . /path/to/project
+go tool mygo build
 ```
 
-To build an executable:
+Output goes to `build/`, as configured in [`mygo.json`](./mygo.json). On macOS, `build/darwin-<arch>/` contains `See.app` and a DMG; the default signature is ad hoc. Open the app or install it from the DMG. MyGo also packages the terminal's native library and application resources. The first build may download the terminal library.
 
-```sh
-go build -o see .
-./see /path/to/project
-```
+Use `go tool mygo build -platform darwin/universal` for a universal macOS build, or `go tool mygo build -h` for other targets and signing options. Creating a DMG and signing a macOS app require macOS. To compile a standalone executable for local use instead, run `go build -o see .` and start it with `./see /path/to/project`.
 
-Open the command palette with **Cmd+Shift+P** and choose **Shell Command: Install 'see' Command in PATH** to link the running executable at `~/.local/bin/see`. Add `~/.local/bin` to your `PATH` if needed. Then use `see` or `see .` to open the current folder, or `see /path/to/project` to open another folder. Keep the executable at its installed location; the link points to it. Build a persistent executable before installing, rather than running the app with `go run`.
+Open the command palette with **Cmd+Shift+P** and choose **Shell Command: Install 'see' Command in PATH** to link the running executable at `~/.local/bin/see`. Add `~/.local/bin` to your `PATH` if needed. Then use `see` or `see .` to open the current folder, or `see /path/to/project` to open another folder. Keep the app or executable at its installed location; the link points to it. Use a persistent build rather than `go run` before installing the command.
 
 To remove the link, choose **Shell Command: Uninstall 'see' Command from PATH** in the command palette. It removes only a link pointing to the running executable.
 
@@ -46,14 +47,14 @@ Click a file to open it as a preview; opening another file replaces that preview
 
 For a Markdown file, use the preview button in the editor bar or **Cmd+Shift+V** to switch between rendered Markdown and source. The preview uses the current buffer, including unsaved edits.
 
-The terminal's emulator library may be downloaded on first use when running from source.
+When running from source, the terminal's emulator library may be downloaded on first use.
 
 ### Optional tools
 
 - **[ripgrep](https://github.com/BurntSushi/ripgrep)** (`rg`) enables workspace text search. Set `SEE_RG` to an absolute path or make `rg` available on `PATH`. Quick Open can list files without it.
 - **[gopls](https://go.dev/gopls/)** enables Go definition lookup and symbol help. Install it with `go install golang.org/x/tools/gopls@latest`, or set `SEE_GOPLS` to its absolute path. The app also looks on `PATH` and in Go's bin directories.
 
-- **TypeScript / JavaScript:** Install `typescript-language-server` and `typescript` (for example, `npm install -g typescript typescript-language-server`), or set `SEE_TYPESCRIPT_LANGUAGE_SERVER` to the absolute path of the server executable. The app also looks on `PATH`.
+- **TypeScript / JavaScript:** Install the server in **Settings → Code Intelligence**. See installs it in its own data folder using Bun, or npm if Bun is unavailable; remove it from the same page. You can instead set `SEE_TYPESCRIPT_LANGUAGE_SERVER` to an absolute executable path. See also looks on `PATH`. Running See’s installation requires Node.js or Bun.
 
 The app asks you to trust a folder before running a language server there: servers can invoke project tools and download dependencies or toolchains. Reading files does not require trust. Server executables inside the open workspace are not used.
 
