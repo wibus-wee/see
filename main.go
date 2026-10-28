@@ -156,9 +156,7 @@ func main() {
 		}
 	})
 	mygo.App.OnWillQuit(func(*mygo.QuitEvent) {
-		if a.saveTimer != nil {
-			a.saveConfig() // a save still waiting
-		}
+		a.saveConfig()
 		if a.wsCancel != nil {
 			a.wsCancel()
 		}

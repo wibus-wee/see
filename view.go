@@ -973,9 +973,13 @@ func (a *app) layoutView(c *ui.Context, n *layout) {
 	}
 	first, second := func() { a.layoutView(c, n.a) }, func() { a.layoutView(c, n.b) }
 	if n.vertical {
-		ui.SplitVerticalPercent(c.Key(n), &n.pct, first, second).Grow(1).FillWidth()
+		if ui.SplitVerticalPercent(c.Key(n), &n.pct, first, second).Grow(1).FillWidth().Changed() {
+			a.saveConfigSoon()
+		}
 	} else {
-		ui.SplitPercent(c.Key(n), &n.pct, first, second).Grow(1).FillHeight()
+		if ui.SplitPercent(c.Key(n), &n.pct, first, second).Grow(1).FillHeight().Changed() {
+			a.saveConfigSoon()
+		}
 	}
 }
 

@@ -93,20 +93,21 @@ type app struct {
 	allowDirty                  bool
 	quitApproved                bool
 
-	navigator   int // the sidebar's navigator: navFiles or navFind
-	sidebarOff  bool
-	titleButton ui.Handle // the toolbar's project name, over which its menu shows
-	titleOpen   bool
-	popupMenu   func(x, y int, items []*mygo.MenuItem)
-	welcomeNote string
-	showWelcome bool   // the welcome window over an open workspace
-	version     string // the app's, shown on the welcome window
-	sidebarW    float32
-	saveTimer   *time.Timer // a settings save waiting for changes to stop
-	theme       *ui.Theme
-	edTheme     *editor.Theme
-	themeDark   bool
-	themeAccent ui.Color
+	navigator        int // the sidebar's navigator: navFiles or navFind
+	sidebarOff       bool
+	titleButton      ui.Handle // the toolbar's project name, over which its menu shows
+	titleOpen        bool
+	popupMenu        func(x, y int, items []*mygo.MenuItem)
+	welcomeNote      string
+	showWelcome      bool   // the welcome window over an open workspace
+	version          string // the app's, shown on the welcome window
+	sidebarW         float32
+	saveTimer        *time.Timer // a settings save waiting for changes to stop
+	restoringSession bool
+	theme            *ui.Theme
+	edTheme          *editor.Theme
+	themeDark        bool
+	themeAccent      ui.Color
 	// setAppearance forces light or dark, or "" the system's; the app's
 	// windows follow it.
 	setAppearance func(string)
@@ -266,6 +267,7 @@ func (a *app) openWorkspace(dir string) {
 	a.loadDir(root)
 	a.startWatch()
 	a.startGit()
+	a.restoreSession()
 	a.cfg.LastWorkspace = root
 	a.cfg.addRecent(root)
 	a.saveConfig()
@@ -275,6 +277,9 @@ func (a *app) openWorkspace(dir string) {
 // closeWorkspace forgets the workspace: its tabs, caches, searches, watch
 // and language server.
 func (a *app) closeWorkspace() {
+	if a.root != "" {
+		a.saveConfig()
+	}
 	a.gen++
 	if a.wsCancel != nil {
 		a.wsCancel()
@@ -316,6 +321,9 @@ func (a *app) closeWorkspace() {
 // saveConfigSoon saves the settings once they stop changing for a
 // moment, as while the sidebar's divider is dragged.
 func (a *app) saveConfigSoon() {
+	if a.restoringSession {
+		return
+	}
 	if a.saveTimer != nil {
 		a.saveTimer.Stop()
 	}
@@ -326,6 +334,9 @@ func (a *app) saveConfig() {
 	if a.saveTimer != nil {
 		a.saveTimer.Stop()
 		a.saveTimer = nil
+	}
+	if a.root != "" && !a.restoringSession {
+		a.captureSession()
 	}
 	if err := a.cfg.save(); err != nil {
 		a.logf("saving settings: %v", err)

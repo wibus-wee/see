@@ -163,6 +163,7 @@ func (a *app) activateIn(g *group, path string) {
 	g.mru = slices.DeleteFunc(g.mru, func(p string) bool { return p == path })
 	g.mru = append(g.mru, path)
 	a.revealInTree(path)
+	a.saveConfigSoon()
 }
 
 // closeTab closes a tab of g. A document no group shows any more is let
@@ -204,6 +205,7 @@ func (a *app) closeTab(g *group, path string) {
 	if a.focus == g && g.active != "" {
 		a.revealInTree(g.active)
 	}
+	a.saveConfigSoon()
 }
 
 // releaseIfUnused lets a document go once no group shows it.
@@ -291,6 +293,7 @@ func (a *app) splitActive(s side) {
 	ng := a.splitBeside(g, s)
 	if path == "" {
 		a.focus = ng
+		a.saveConfigSoon()
 		return
 	}
 	ng.addTab(path, 0)
@@ -312,5 +315,6 @@ func (a *app) focusGroup(n int) {
 		if ed := gs[n].eds[gs[n].active]; ed != nil {
 			a.focusEditor = ed
 		}
+		a.saveConfigSoon()
 	}
 }

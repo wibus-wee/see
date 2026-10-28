@@ -10,25 +10,26 @@ import (
 
 // config is what the app remembers between runs.
 type config struct {
-	LastWorkspace    string   `json:"lastWorkspace,omitempty"`
-	Recent           []string `json:"recentWorkspaces,omitempty"`    // newest first
-	ReopenLast       bool     `json:"reopenLastWorkspace,omitempty"` // else the welcome window shows at launch
-	SidebarWidth     float32  `json:"sidebarWidth,omitempty"`
-	Appearance       string   `json:"appearance,omitempty"` // "light", "dark", or "" for the system's
-	Trusted          []string `json:"trustedWorkspaces,omitempty"`
-	FontFamily       string   `json:"editorFontFamily,omitempty"`
-	TermFontFallback string   `json:"terminalFontFallback,omitempty"`
-	TermFontFamily   string   `json:"terminalFontFamily,omitempty"`
-	TermFontWeight   int      `json:"terminalFontWeight,omitempty"`
-	TermLineHeight   float64  `json:"terminalLineHeight,omitempty"`
-	TermThicken      bool     `json:"terminalFontSmoothing,omitempty"`
-	TermNoLigatures  bool     `json:"terminalNoLigatures,omitempty"`
-	FontSize         float64  `json:"editorFontSize,omitempty"`    // 13 when 0
-	LineNumbers      int      `json:"editorLineNumbers,omitempty"` // 0 on, 1 relative, 2 off
-	SoftWrap         bool     `json:"editorSoftWrap,omitempty"`
-	PanelPct         float64  `json:"panelPercent,omitempty"`     // the editors' share over the bottom panel
-	TermFontSize     float64  `json:"terminalFontSize,omitempty"` // 12 when 0
-	TermCopyOnSelect bool     `json:"terminalCopyOnSelect,omitempty"`
+	LastWorkspace    string                      `json:"lastWorkspace,omitempty"`
+	Recent           []string                    `json:"recentWorkspaces,omitempty"`    // newest first
+	ReopenLast       bool                        `json:"reopenLastWorkspace,omitempty"` // else the welcome window shows at launch
+	SidebarWidth     float32                     `json:"sidebarWidth,omitempty"`
+	Appearance       string                      `json:"appearance,omitempty"` // "light", "dark", or "" for the system's
+	Trusted          []string                    `json:"trustedWorkspaces,omitempty"`
+	FontFamily       string                      `json:"editorFontFamily,omitempty"`
+	TermFontFallback string                      `json:"terminalFontFallback,omitempty"`
+	TermFontFamily   string                      `json:"terminalFontFamily,omitempty"`
+	TermFontWeight   int                         `json:"terminalFontWeight,omitempty"`
+	TermLineHeight   float64                     `json:"terminalLineHeight,omitempty"`
+	TermThicken      bool                        `json:"terminalFontSmoothing,omitempty"`
+	TermNoLigatures  bool                        `json:"terminalNoLigatures,omitempty"`
+	FontSize         float64                     `json:"editorFontSize,omitempty"`    // 13 when 0
+	LineNumbers      int                         `json:"editorLineNumbers,omitempty"` // 0 on, 1 relative, 2 off
+	SoftWrap         bool                        `json:"editorSoftWrap,omitempty"`
+	PanelPct         float64                     `json:"panelPercent,omitempty"`     // the editors' share over the bottom panel
+	TermFontSize     float64                     `json:"terminalFontSize,omitempty"` // 12 when 0
+	TermCopyOnSelect bool                        `json:"terminalCopyOnSelect,omitempty"`
+	Workspaces       map[string]workspaceSession `json:"workspaceSessions,omitempty"`
 
 	path     string // where it is saved; "" saves nowhere, as in tests
 	onRecent func() // called when the recent folders change
