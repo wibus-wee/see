@@ -45,7 +45,7 @@ Use `go tool mygo build -platform darwin/universal` for a universal macOS build,
 
 Release builds check for updates in the background and offer to install them. Use **See → Check for Updates…** to check manually. Development builds and installations that the current user cannot write, including Debian package installations, cannot update themselves.
 
-Open the command palette with **Cmd+Shift+P** and choose **Shell Command: Install 'see' Command in PATH** to link the running executable at `~/.local/bin/see`. Add `~/.local/bin` to your `PATH` if needed. Then use `see` or `see .` to open the current folder, or `see /path/to/project` to open another folder. Keep the app or executable at its installed location; the link points to it. Use a persistent build rather than `go run` before installing the command.
+Open the command palette with **Cmd+Shift+P** and choose **Shell Command: Install 'see' Command in PATH** to link the running executable at `~/.local/bin/see`. Add `~/.local/bin` to your `PATH` if needed. Use `see` or `see .` to open the current folder, `see /path/to/project` to open a folder, or `see /path/to/file` to open a file in its parent folder. The command returns immediately. Keep the app or executable at its installed location; the link points to it. Use a persistent build rather than `go run` before installing the command.
 
 To remove the link, choose **Shell Command: Uninstall 'see' Command from PATH** in the command palette. It removes only a link pointing to the running executable.
 

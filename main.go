@@ -4,9 +4,9 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 	"runtime"
 	"slices"
 	"time"
@@ -29,6 +29,13 @@ func dirtyDialog(parent *mygo.Window) func(string) (int, error) {
 }
 
 func main() {
+	if isCLIInvocation(os.Args[0]) && (len(os.Args) < 2 || os.Args[1] != cliOpenArg) {
+		if err := runCLI(os.Args[1:], os.Stderr); err != nil {
+			fmt.Fprintln(os.Stderr, "see:", err)
+			os.Exit(1)
+		}
+		return
+	}
 	startShellPath()
 	mygo.Use(native.Plugin)
 	cfg := loadAppConfig(configPath())
@@ -337,10 +344,10 @@ func main() {
 		a.showWelcome = true // until a folder opens
 		defer wins.sync(nil)
 		switch {
+		case len(os.Args) > 2 && os.Args[1] == cliOpenArg:
+			a.openCLIPath(os.Args[2])
 		case len(os.Args) > 1:
-			a.openWorkspace(os.Args[1])
-		case filepath.Base(os.Args[0]) == "see":
-			a.openWorkspace(".")
+			a.openCLIPath(os.Args[1])
 		case cfg.LastWorkspace != "" && cfg.ReopenLast:
 			if _, err := os.Stat(cfg.LastWorkspace); err != nil {
 				a.welcomeNote = "The last folder, " + cfg.LastWorkspace + ", is no longer there."
