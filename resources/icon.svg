@@ -1,0 +1,121 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <path id="sq" d="M924.0 512.0 L923.9 619.7 L923.6 654.0 L923.1 679.0 L922.4 699.2 L921.5 716.5 L920.4 731.8 L919.1 745.5 L917.5 758.1 L915.8 769.6 L913.9 780.2 L911.7 790.2 L909.4 799.5 L906.8 808.2 L904.0 816.5 L901.0 824.2 L897.7 831.6 L894.2 838.5 L890.5 845.1 L886.6 851.3 L882.3 857.2 L877.9 862.8 L873.1 868.1 L868.1 873.1 L862.8 877.9 L857.2 882.3 L851.3 886.6 L845.1 890.5 L838.5 894.2 L831.6 897.7 L824.2 901.0 L816.5 904.0 L808.2 906.8 L799.5 909.4 L790.2 911.7 L780.2 913.9 L769.6 915.8 L758.1 917.5 L745.5 919.1 L731.8 920.4 L716.5 921.5 L699.2 922.4 L679.0 923.1 L654.0 923.6 L619.7 923.9 L512.0 924.0 L404.3 923.9 L370.0 923.6 L345.0 923.1 L324.8 922.4 L307.5 921.5 L292.2 920.4 L278.5 919.1 L265.9 917.5 L254.4 915.8 L243.8 913.9 L233.8 911.7 L224.5 909.4 L215.8 906.8 L207.5 904.0 L199.8 901.0 L192.4 897.7 L185.5 894.2 L178.9 890.5 L172.7 886.6 L166.8 882.3 L161.2 877.9 L155.9 873.1 L150.9 868.1 L146.1 862.8 L141.7 857.2 L137.4 851.3 L133.5 845.1 L129.8 838.5 L126.3 831.6 L123.0 824.2 L120.0 816.5 L117.2 808.2 L114.6 799.5 L112.3 790.2 L110.1 780.2 L108.2 769.6 L106.5 758.1 L104.9 745.5 L103.6 731.8 L102.5 716.5 L101.6 699.2 L100.9 679.0 L100.4 654.0 L100.1 619.7 L100.0 512.0 L100.1 404.3 L100.4 370.0 L100.9 345.0 L101.6 324.8 L102.5 307.5 L103.6 292.2 L104.9 278.5 L106.5 265.9 L108.2 254.4 L110.1 243.8 L112.3 233.8 L114.6 224.5 L117.2 215.8 L120.0 207.5 L123.0 199.8 L126.3 192.4 L129.8 185.5 L133.5 178.9 L137.4 172.7 L141.7 166.8 L146.1 161.2 L150.9 155.9 L155.9 150.9 L161.2 146.1 L166.8 141.7 L172.7 137.4 L178.9 133.5 L185.5 129.8 L192.4 126.3 L199.8 123.0 L207.5 120.0 L215.8 117.2 L224.5 114.6 L233.8 112.3 L243.8 110.1 L254.4 108.2 L265.9 106.5 L278.5 104.9 L292.2 103.6 L307.5 102.5 L324.8 101.6 L345.0 100.9 L370.0 100.4 L404.3 100.1 L512.0 100.0 L619.7 100.1 L654.0 100.4 L679.0 100.9 L699.2 101.6 L716.5 102.5 L731.8 103.6 L745.5 104.9 L758.1 106.5 L769.6 108.2 L780.2 110.1 L790.2 112.3 L799.5 114.6 L808.2 117.2 L816.5 120.0 L824.2 123.0 L831.6 126.3 L838.5 129.8 L845.1 133.5 L851.3 137.4 L857.2 141.7 L862.8 146.1 L868.1 150.9 L873.1 155.9 L877.9 161.2 L882.3 166.8 L886.6 172.7 L890.5 178.9 L894.2 185.5 L897.7 192.4 L901.0 199.8 L904.0 207.5 L906.8 215.8 L909.4 224.5 L911.7 233.8 L913.9 243.8 L915.8 254.4 L917.5 265.9 L919.1 278.5 L920.4 292.2 L921.5 307.5 L922.4 324.8 L923.1 345.0 L923.6 370.0 L923.9 404.3 Z"/>
+    <clipPath id="clipSq"><use xlink:href="#sq"/></clipPath>
+    <linearGradient id="bg" x1="0" y1="100" x2="0" y2="924" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5B8CFF"/>
+      <stop offset="0.55" stop-color="#3355E8"/>
+      <stop offset="1" stop-color="#1E2A9E"/>
+    </linearGradient>
+    <radialGradient id="bgGlow" cx="300" cy="180" r="620" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#B9D4FF" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#B9D4FF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="bgDeep" cx="820" cy="900" r="520" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7A3CFF" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#7A3CFF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="rim" x1="0" y1="100" x2="0" y2="924" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.75"/>
+      <stop offset="0.18" stop-color="#FFFFFF" stop-opacity="0.12"/>
+      <stop offset="0.8" stop-color="#FFFFFF" stop-opacity="0.04"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.35"/>
+    </linearGradient>
+    <linearGradient id="page" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#E6ECFF"/>
+    </linearGradient>
+    <radialGradient id="lens" cx="0.38" cy="0.32" r="0.75">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.42"/>
+      <stop offset="0.6" stop-color="#DCE6FF" stop-opacity="0.14"/>
+      <stop offset="1" stop-color="#9DB4FF" stop-opacity="0.30"/>
+    </radialGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="0.45" stop-color="#E3E9FF"/>
+      <stop offset="1" stop-color="#8E9FE0"/>
+    </linearGradient>
+    <linearGradient id="handle" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#3A4377"/>
+      <stop offset="0.35" stop-color="#5E69A8"/>
+      <stop offset="1" stop-color="#1A1F45"/>
+    </linearGradient>
+    <radialGradient id="soft" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#0A1260" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#0A1260" stop-opacity="0"/>
+    </radialGradient>
+    <circle id="lensShape" cx="566" cy="580" r="178"/>
+    <clipPath id="clipLens"><use xlink:href="#lensShape"/></clipPath>
+    <g id="code">
+      <rect x="0" y="0" width="420" height="540" rx="44" fill="url(#page)"/>
+      <rect x="54" y="70"  width="70"  height="26" rx="13" fill="#AF52DE"/>
+      <rect x="136" y="70" width="150" height="26" rx="13" fill="#0A84FF"/>
+      <rect x="298" y="70" width="40" height="26" rx="13" fill="#B8C2DA"/>
+      <rect x="94" y="128" width="96" height="26" rx="13" fill="#FF9F0A"/>
+      <rect x="202" y="128" width="130" height="26" rx="13" fill="#B8C2DA"/>
+      <rect x="94" y="186" width="60" height="26" rx="13" fill="#AF52DE"/>
+      <rect x="166" y="186" width="196" height="26" rx="13" fill="#30C759"/>
+      <rect x="134" y="244" width="120" height="26" rx="13" fill="#0A84FF"/>
+      <rect x="266" y="244" width="96" height="26" rx="13" fill="#FF375F"/>
+      <rect x="134" y="302" width="86" height="26" rx="13" fill="#5AC8FA"/>
+      <rect x="232" y="302" width="130" height="26" rx="13" fill="#B8C2DA"/>
+      <rect x="94" y="360" width="40" height="26" rx="13" fill="#B8C2DA"/>
+      <rect x="146" y="360" width="104" height="26" rx="13" fill="#FF375F"/>
+      <rect x="262" y="360" width="100" height="26" rx="13" fill="#B8C2DA"/>
+      <rect x="94" y="418" width="80" height="26" rx="13" fill="#AF52DE"/>
+      <rect x="186" y="418" width="150" height="26" rx="13" fill="#FF9F0A"/>
+      <rect x="54" y="476" width="40" height="26" rx="13" fill="#B8C2DA"/>
+    </g>
+  </defs>
+
+  <!-- Soft shadow under the tile, stacked since SVG filters are not drawn -->
+  <g fill="#000000">
+    <use xlink:href="#sq" transform="translate(512 530) scale(1.012) translate(-512 -512)" fill-opacity="0.06"/>
+    <use xlink:href="#sq" transform="translate(512 524) scale(1.004) translate(-512 -512)" fill-opacity="0.08"/>
+    <use xlink:href="#sq" transform="translate(0 6)" fill-opacity="0.12"/>
+  </g>
+
+  <g clip-path="url(#clipSq)">
+    <rect x="0" y="0" width="1024" height="1024" fill="url(#bg)"/>
+    <rect x="0" y="0" width="1024" height="1024" fill="url(#bgDeep)"/>
+    <rect x="0" y="0" width="1024" height="1024" fill="url(#bgGlow)"/>
+
+    <!-- The page of source, tilted -->
+    <g transform="translate(196 196) rotate(-7 210 270)">
+      <rect x="18" y="34" width="420" height="540" rx="44" fill="#0A1260" fill-opacity="0.22"/>
+      <rect x="10" y="20" width="420" height="540" rx="44" fill="#0A1260" fill-opacity="0.18"/>
+      <use xlink:href="#code"/>
+    </g>
+
+    <!-- Lens shadow on the page -->
+    <ellipse cx="602" cy="626" rx="232" ry="222" fill="url(#soft)"/>
+
+    <!-- Handle -->
+    <g transform="rotate(-45 566 580)">
+      <rect x="578" y="770" width="80" height="196" rx="40" fill="#0A1260" fill-opacity="0.28" transform="translate(10 6)"/>
+      <rect x="578" y="760" width="80" height="196" rx="40" fill="url(#handle)"/>
+      <rect x="596" y="782" width="16" height="150" rx="8" fill="#FFFFFF" fill-opacity="0.28"/>
+      <rect x="586" y="732" width="64" height="44" rx="10" fill="#C9D3F5"/>
+    </g>
+
+    <!-- Magnified source seen through the lens -->
+    <g clip-path="url(#clipLens)">
+      <g transform="translate(566 580) scale(1.3) translate(-566 -580)">
+        <g transform="translate(196 196) rotate(-7 210 270)">
+          <use xlink:href="#code"/>
+        </g>
+      </g>
+      <use xlink:href="#lensShape" fill="url(#lens)"/>
+      <!-- specular highlight -->
+      <path d="M427.4 599.5 A140 140 0 0 1 536.9 443.1" fill="none" stroke="#FFFFFF" stroke-opacity="0.9" stroke-width="16" stroke-linecap="round"/>
+      <ellipse cx="648" cy="670" rx="56" ry="18" transform="rotate(-45 648 670)" fill="#FFFFFF" fill-opacity="0.22"/>
+    </g>
+    <!-- Lens ring -->
+    <use xlink:href="#lensShape" fill="none" stroke="url(#ring)" stroke-width="34"/>
+    <circle cx="566" cy="580" r="195" fill="none" stroke="#1A2370" stroke-opacity="0.25" stroke-width="2"/>
+    <circle cx="566" cy="580" r="161" fill="none" stroke="#FFFFFF" stroke-opacity="0.55" stroke-width="2"/>
+
+    <!-- Liquid glass rim of the tile -->
+    <use xlink:href="#sq" fill="none" stroke="url(#rim)" stroke-width="10"/>
+  </g>
+</svg>
