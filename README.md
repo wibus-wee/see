@@ -39,6 +39,8 @@ Output goes to `build/`, as configured in [`mygo.json`](./mygo.json). On macOS, 
 
 Use `go tool mygo build -platform darwin/universal` for a universal macOS build, or `go tool mygo build -h` for other targets and signing options. Creating a DMG and signing a macOS app require macOS. To compile a standalone executable for local use instead, run `go build -o see .` and start it with `./see /path/to/project`.
 
+Release builds check for updates in the background and offer to install them. Use **See → Check for Updates…** to check manually. Development builds and installations that the current user cannot write, including Debian package installations, cannot update themselves.
+
 Open the command palette with **Cmd+Shift+P** and choose **Shell Command: Install 'see' Command in PATH** to link the running executable at `~/.local/bin/see`. Add `~/.local/bin` to your `PATH` if needed. Then use `see` or `see .` to open the current folder, or `see /path/to/project` to open another folder. Keep the app or executable at its installed location; the link points to it. Use a persistent build rather than `go run` before installing the command.
 
 To remove the link, choose **Shell Command: Uninstall 'see' Command from PATH** in the command palette. It removes only a link pointing to the running executable.
@@ -111,6 +113,8 @@ git tag v0.1.0
 git push origin v0.1.0
 ```
 
-The [release workflow](./.github/workflows/release.yml) checks the tag, builds macOS, Windows, and Linux packages for amd64 and arm64, and publishes a GitHub Release with generated notes after all builds succeed. Versions containing a hyphen are marked as prereleases. Failed jobs can be rerun from Actions; a published release is never overwritten by a rerun. The workflow uses the repository's `GITHUB_TOKEN` and requires Actions to have permission to write repository contents.
+The [release workflow](./.github/workflows/release.yml) checks the tag, builds macOS, Windows, and Linux packages and signed updates for amd64 and arm64, and publishes a GitHub Release with generated notes after all builds succeed. Versions containing a hyphen are marked as prereleases and are not offered by the default update checks. Failed jobs can be rerun from Actions; a published release is never overwritten by a rerun. The workflow uses the repository's `GITHUB_TOKEN` and requires Actions to have permission to write repository contents.
+
+The `MYGO_UPDATER_PRIVATE_KEY` Actions secret signs updates against the public key in `mygo.json`. Keep a secure backup of the private key: existing installations cannot accept updates signed by a different key. If `CHANGELOG.md` exists, MyGo uses its section for the release version as the update window's notes and requires that section for every release. GitHub's generated release notes are separate.
 
 The macOS packages use ad hoc signing and are not notarized, so Gatekeeper may block them on other Macs. Windows installers are unsigned and may trigger SmartScreen. Distribution without these warnings requires configuring platform signing certificates and, for macOS, Apple notarization; see [MyGo's signing instructions](https://mygo.egoist.dev/docs/github-actions).
