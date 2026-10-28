@@ -35,7 +35,7 @@ func (a *app) welcomeWindow(c *ui.Context) {
 }
 
 // The welcome window's size, which does not change, as Xcode's.
-const welcomeWidth, welcomeHeight = 820, 480
+const welcomeWidth, welcomeHeight = 740, 440
 
 // welcomeIntro is the left side: the icon, the name, the version and what
 // to do.
@@ -43,12 +43,12 @@ func (a *app) welcomeIntro(c *ui.Context) {
 	ui.Column(c).Grow(1).Shrink(1).FillHeight().Background(colWelcomeLeft).Padding(16, 28, 18, 28).Children(func() {
 		ui.Box(c).Height(26) // under the window's buttons
 		ui.Column(c).Grow(1).FillWidth().AlignItems(ui.Center).Gap(6).Children(func() {
-			ui.Image(c, appIcon).Size(136, 136)
+			ui.Image(c, appIcon).Size(120, 120)
 			ui.Text(c, "See").FontSize(28).Bold().TextColor(colText).TextAlign(ui.Center)
 			if a.version != "" {
 				ui.Text(c, "Version "+a.version).FontSize(13).TextColor(colMuted)
 			}
-			ui.Box(c).Height(18)
+			ui.Box(c).Height(12)
 			ui.Column(c).Gap(2).Width(300).Children(func() {
 				a.welcomeAction(c, openIcon, "Open Folder…", "Read the source of a folder", shortcutLabel("O"), a.openFolderDialog)
 				if last := a.lastFolder(); last != "" {
@@ -97,7 +97,7 @@ func (a *app) welcomeAction(c *ui.Context, icon *ui.SVG, title, detail, shortcut
 // welcomeRecent is the right side: the folders opened lately, newest
 // first.
 func (a *app) welcomeRecent(c *ui.Context) {
-	ui.Column(c).Width(300).Shrink(0).FillHeight().Background(colWelcomeRight).
+	ui.Column(c).Width(280).Shrink(0).FillHeight().Background(colWelcomeRight).
 		BorderWidth(0, 0, 0, 1).BorderColor(colSeparator).Padding(10, 8).Children(func() {
 		recent := a.cfg.Recent
 		if len(recent) == 0 {
