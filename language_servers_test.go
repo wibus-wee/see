@@ -31,7 +31,7 @@ func TestTypeScriptDefinitionRoutesToOwnServer(t *testing.T) {
 	}
 	h.a.tsLSP.stop()
 	h.a.tsLSP = newGoLSP(root, func(context.Context, string, func(error)) (langClient, error) { return fc, nil }, nil)
-	h.a.tsLSP.name = "typescript-language-server"
+	h.a.tsLSP.name = "tsrs"
 	h.a.tsLSP.language = typeScriptLanguage
 	defer h.a.tsLSP.stopWait(time.Second)
 	d := h.open("a.tsx")

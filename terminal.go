@@ -21,6 +21,7 @@ import (
 // termPanel is the bottom panel's state.
 type termPanel struct {
 	open      bool
+	output    bool
 	maximized bool
 	tabs      []*termTab
 	active    *termTab
@@ -128,6 +129,7 @@ func (a *app) toggleTerminal() {
 		return
 	}
 	tp.open = true
+	tp.output = false
 	a.focusEditor = nil
 	if len(tp.tabs) == 0 {
 		a.newTerminalTab()
@@ -142,6 +144,7 @@ func (a *app) newTerminalTab() {
 		return
 	}
 	a.term.open = true
+	a.term.output = false
 	a.focusEditor = nil
 	a.withTerminal(func() {
 		tp := &a.term
@@ -310,6 +313,8 @@ func (a *app) terminalPanel(c *ui.Context) {
 	panel.Children(func() {
 		ui.Column(c).Grow(1).FillHeight().Children(func() {
 			switch {
+			case tp.output:
+				a.logView(c)
 			case tp.loadErr != nil:
 				a.message(c, "The terminal is not available", tp.loadErr.Error(), "", nil)
 			case tp.loading:
@@ -385,6 +390,12 @@ func (a *app) termTabList(c *ui.Context) {
 		})
 		ui.Scroll(c).Grow(1).FillWidth().Children(func() {
 			ui.Column(c).FillWidth().Padding(0, 4, 4, 4).Gap(1).Children(func() {
+				row := ui.Row(c.Key("output")).FillWidth().Height(24).Padding(0, 6).Gap(6).Radius(5).AlignItems(ui.Center)
+				if tp.output {
+					row.Background(colSelectedRow)
+				}
+				row.OnClick(func() { tp.output = true; tp.focus = nil })
+				row.Children(func() { ui.Icon(c, icLines).Size(12, 12).TextColor(colMuted); ui.Text(c, "Output").FontSize(12) })
 				for i, tab := range tp.tabs {
 					a.termTabRow(c, i, tab)
 				}
@@ -397,7 +408,7 @@ func (a *app) termTabList(c *ui.Context) {
 // terminals it splits into, and a close button while hovered.
 func (a *app) termTabRow(c *ui.Context, i int, tab *termTab) {
 	tp := &a.term
-	active := tp.active == tab
+	active := tp.active == tab && !tp.output
 	row := ui.Row(c.Key(tab)).FillWidth().Height(22).Padding(0, 4, 0, 6).Gap(6).Radius(5).AlignItems(ui.Center)
 	hovered := row.Hovered()
 	switch {
@@ -408,6 +419,7 @@ func (a *app) termTabRow(c *ui.Context, i int, tab *termTab) {
 	}
 	row.OnClick(func() {
 		tp.active = tab
+		tp.output = false
 		tp.focus = tab.active
 	})
 	row.Children(func() {

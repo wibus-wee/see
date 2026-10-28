@@ -40,7 +40,7 @@ var settingsPanes = []settingsPane{
 	{"general", "General", icGear, ui.RGB(0x8e, 0x8e, 0x93), 0, "appearance light dark system theme reopen launch recent folders"},
 	{"editor", "Editor", icLines, ui.RGB(0x0a, 0x84, 0xff), 0, "font size line numbers relative soft wrap"},
 	{"terminal", "Terminal", icPrompt, ui.RGB(0x2c, 0x2c, 0x2e), 0, "shell font size copy on select panel"},
-	{"intelligence", "Code Intelligence", icSparkle, ui.RGB(0xaf, 0x52, 0xde), 1, "gopls typescript javascript language server go to definition hover trusted folders trust"},
+	{"intelligence", "Code Intelligence", icSparkle, ui.RGB(0xaf, 0x52, 0xde), 1, "gopls tsrs typescript javascript language server go to definition hover trusted folders trust"},
 	{"search", "Search", icSearch, ui.RGB(0xff, 0x95, 0x00), 1, "ripgrep rg find open quickly files"},
 	{"shortcuts", "Shortcuts", icCommand, ui.RGB(0x63, 0x63, 0x66), 2, "keys keyboard"},
 }
@@ -124,7 +124,7 @@ func (a *app) settingsView(c *ui.Context) {
 	}
 	bar := c.TitleBar()
 	ui.Row(c).Fill().AlignItems(ui.Stretch).Children(func() {
-		side := ui.Column(c).Width(244).Shrink(0).Padding(max(bar.Height, 40)+4, 10, 12, 10).Gap(1).DragWindow()
+		side := ui.Column(c).Width(240).Shrink(0).Padding(max(bar.Height, 40)+4, 10, 12, 10).Gap(1).DragWindow()
 		if !vibrant {
 			side.Background(colSidebar)
 		}
@@ -441,7 +441,7 @@ func (a *app) intelligencePane(c *ui.Context) {
 	ui.Column(c).FillWidth().Radius(12).Background(colCard).Padding(0, 14).Children(func() {
 		a.languageServerRow(c.Key("go"), "go", "Go", "gopls", goPath, goErr, a.lspState, a.lspErr, "go install golang.org/x/tools/gopls@latest", a.retryLSP)
 		ui.Box(c).Height(1).FillWidth().Background(colSeparator)
-		a.languageServerRow(c.Key("typescript"), "typescript", "TypeScript & JavaScript", "typescript-language-server", tsPath, tsErr, a.tsState, a.tsErr, "npm install -g typescript typescript-language-server", a.retryTypeScriptLSP)
+		a.languageServerRow(c.Key("typescript"), "typescript", "TypeScript & JavaScript", "tsrs", tsPath, tsErr, a.tsState, a.tsErr, "", a.retryTypeScriptLSP)
 	})
 	heading(c, "Trusted Folders")
 	ui.Text(c, "Language servers can run project tools and download dependencies or toolchains in these folders.").FontSize(12).TextColor(colMuted).Padding(0, 4, 4, 4)
@@ -500,7 +500,22 @@ func (a *app) languageServerRow(c *ui.Context, id, language, server, path string
 					ui.Text(c, "· "+detail).FontSize(12).TextColor(colMuted).SingleLine().Shrink(1).Tooltip(detail)
 				})
 			})
-			if findErr != nil {
+			if id == "typescript" {
+				if a.serverJob {
+					ui.Text(c, "Working…").FontSize(12).TextColor(colMuted)
+				} else if managedTypeScriptExists() {
+					if state == lspFailed && ui.Button(c.Key("retry"), "Retry").Label("Retry "+server).Clicked() {
+						retry()
+					}
+					services := c.Services()
+					ui.Button(c.Key("remove"), "Remove").Label("Remove managed TypeScript server").OnClick(func() { a.removeManagedTypeScript(services) })
+				} else if findErr != nil {
+					services := c.Services()
+					ui.Button(c.Key("install"), "Install").Label("Install " + language).OnClick(func() { a.installManagedTypeScript(services) })
+				} else if state == lspFailed && ui.Button(c.Key("retry"), "Retry").Label("Retry "+server).Clicked() {
+					retry()
+				}
+			} else if findErr != nil {
 				label := "Install…"
 				if a.settings.serverInstall == id {
 					label = "Done"
@@ -518,7 +533,10 @@ func (a *app) languageServerRow(c *ui.Context, id, language, server, path string
 				}
 			}
 		})
-		if a.settings.serverInstall == id && findErr != nil {
+		if id == "typescript" && a.serverJobErr != "" {
+			ui.Text(c, a.serverJobErr).FontSize(12).TextColor(colError)
+		}
+		if a.settings.serverInstall == id && findErr != nil && id != "typescript" {
 			ui.Column(c).FillWidth().Gap(6).Padding(2, 0, 2, 0).Children(func() {
 				ui.Text(c, "Run in Terminal, then reopen this folder or retry.").FontSize(12).TextColor(colMuted)
 				ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Center).Children(func() {

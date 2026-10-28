@@ -63,19 +63,24 @@ type app struct {
 	finding   bool        // a definition request is on its way
 	choices   *defChoices // several definitions to choose from
 
-	lsp         *languageServer
-	tsLSP       *languageServer
-	tsState     lspState
-	tsErr       error
-	lspState    lspState
-	lspErr      error
-	trustAsk    bool   // asking whether to trust the workspace
-	afterTrust  func() // what to do once trusted
-	notice      string // the last message for the user
-	noticeError bool
+	lsp            *languageServer
+	tsLSP          *languageServer
+	tsState        lspState
+	tsErr          error
+	tsEpoch        uint64
+	serverJob      bool
+	serverJobErr   string
+	lspState       lspState
+	lspErr         error
+	trustDismissed bool
+	trustAsk       bool   // asking whether to trust the workspace
+	afterTrust     func() // what to do once trusted
+	notice         string // the last message for the user
+	noticeError    bool
 
 	hover    hoverState
 	term     termPanel
+	logs     logStore
 	settings settingsState
 	// openSettings shows the settings window, closeSettings closes it.
 	openSettings, closeSettings func()
@@ -133,19 +138,21 @@ type doc struct {
 	markdownVersion uint64
 	markdownCached  bool
 
-	loading    bool
-	err        error
-	kind       workspace.Kind
-	size       int64
-	plain      bool
-	gone       bool      // removed or moved away on disk
-	seq        int       // of the latest load, so a stale one is dropped
-	stamp      fileStamp // the file as last read, to skip reading it again
-	lossy      bool      // invalid UTF-8 shown with replacement characters
-	bom        bool
-	diskText   string
-	conflict   bool
-	lspVersion uint64
+	loading           bool
+	err               error
+	kind              workspace.Kind
+	size              int64
+	plain             bool
+	gone              bool      // removed or moved away on disk
+	seq               int       // of the latest load, so a stale one is dropped
+	stamp             fileStamp // the file as last read, to skip reading it again
+	lossy             bool      // invalid UTF-8 shown with replacement characters
+	bom               bool
+	diskText          string
+	conflict          bool
+	lspVersion        uint64
+	diagnostics       []editor.Diagnostic
+	diagnosticVersion uint64
 }
 
 // fileStamp tells whether a file changed since it was read.
@@ -245,22 +252,17 @@ func (a *app) openWorkspace(dir string) {
 	a.showWelcome = false
 	a.wsCtx, a.wsCancel = context.WithCancel(context.Background())
 	gen := a.gen
-	a.lsp = newGoLSP(root, a.startLSP(a.logf), func(s lspState, err error) {
+	a.lsp = newGoLSP(root, a.startLSP(a.serverLog("gopls")), func(s lspState, err error) {
 		a.post(func() {
 			if a.gen == gen {
 				a.lspState, a.lspErr = s, err
+				a.serverStateLog("gopls", s, err)
 			}
 		})
 	})
-	a.tsLSP = newGoLSP(root, startTypeScriptServer(a.logf), func(s lspState, err error) {
-		a.post(func() {
-			if a.gen == gen {
-				a.tsState, a.tsErr = s, err
-			}
-		})
-	})
-	a.tsLSP.name = "typescript-language-server"
-	a.tsLSP.language = typeScriptLanguage
+	a.lsp.onDiagnostics = a.diagnosticsHandler(gen, a.lsp)
+	a.lsp.logf = a.serverLog("gopls")
+	a.resetTypeScriptServer()
 	a.loadDir(root)
 	a.startWatch()
 	a.startGit()
@@ -300,6 +302,7 @@ func (a *app) closeWorkspace() {
 	a.hist.Clear()
 	a.choices = nil
 	a.trustAsk, a.afterTrust = false, nil
+	a.trustDismissed = false
 	a.lspState, a.lspErr = lspOff, nil
 	a.watchErr, a.watching = nil, false
 	a.git = gitState{}
@@ -520,9 +523,13 @@ func (a *app) showLoaded(g *group, d *doc) {
 	if st == nil {
 		st = a.newEditor(g, d)
 		g.eds[d.path] = st
+		if m := a.serverFor(d.path); m != nil && !a.cfg.trusted(a.root) && !a.trustDismissed {
+			a.trustAsk = true
+		}
 		if m := a.serverFor(d.path); m != nil && a.cfg.trusted(a.root) {
 			ctx := a.wsCtx
-			go func() { _, _ = m.get(ctx) }()
+			snap, docURI := d.buf.Snapshot(), d.uri
+			go a.openLanguageDocument(m, ctx, d, docURI, snap)
 		}
 	}
 	to, ok := g.pending[d.path]
@@ -727,6 +734,9 @@ func (a *app) newEditor(g *group, d *doc) *editor.State {
 		Theme:    a.edTheme,
 	}
 	a.applyEditorPrefs(st)
+	if d.buf.Version() == d.diagnosticVersion {
+		st.SetDiagnostics(d.diagnosticVersion, d.diagnostics)
+	}
 	st.OnDefinition = func(offset int) { a.goToDefinition(g, d, offset) }
 	st.OnHover = func(r editor.HoverRequest) { a.hoverAt(d, st, r) }
 	st.RenderHover = a.renderHover
@@ -940,7 +950,7 @@ func (a *app) lspFailure(err error) {
 	case errors.Is(err, errNoGopls):
 		a.note("Go to Definition needs gopls: install it with “go install golang.org/x/tools/gopls@latest”, then Retry.", true)
 	case errors.Is(err, errNoTypeScriptServer):
-		a.note("Install typescript-language-server and typescript, then retry.", true)
+		a.note("Install the TypeScript language server in Settings, then retry.", true)
 	case errors.Is(err, context.DeadlineExceeded):
 		a.note("The language server took too long to answer. It may still be loading the workspace; try again.", true)
 	case errors.Is(err, context.Canceled):
@@ -962,6 +972,7 @@ func (a *app) trust() {
 	a.cfg.trust(a.root)
 	a.saveConfig()
 	a.trustAsk = false
+	a.openServerDocuments(nil)
 	if fn := a.afterTrust; fn != nil {
 		a.afterTrust = nil
 		fn()
@@ -974,6 +985,7 @@ func (a *app) retryLSP() {
 		a.lsp.retry()
 		a.lspState, a.lspErr = a.lsp.status()
 		a.notice = ""
+		a.openServerDocuments(a.lsp)
 	}
 }
 
@@ -1012,5 +1024,59 @@ func (a *app) retryTypeScriptLSP() {
 		a.tsLSP.retry()
 		a.tsState, a.tsErr = a.tsLSP.status()
 		a.notice = ""
+		a.openServerDocuments(a.tsLSP)
+	}
+}
+
+func (a *app) resetTypeScriptServer() {
+	a.tsEpoch++
+	a.tsState, a.tsErr = lspOff, nil
+	a.tsLSP = nil
+	if a.root == "" {
+		return
+	}
+	gen, epoch := a.gen, a.tsEpoch
+	a.tsLSP = newGoLSP(a.root, startTypeScriptServer(a.serverLog("tsrs")), func(s lspState, err error) {
+		a.post(func() {
+			if a.gen == gen && a.tsEpoch == epoch {
+				a.tsState, a.tsErr = s, err
+				a.serverStateLog("tsrs", s, err)
+			}
+		})
+	})
+	a.tsLSP.name = "tsrs"
+	a.tsLSP.language = typeScriptLanguage
+	a.tsLSP.logf = a.serverLog("tsrs")
+	a.tsLSP.onDiagnostics = a.diagnosticsHandler(gen, a.tsLSP)
+}
+
+func (a *app) openLanguageDocument(m *languageServer, ctx context.Context, d *doc, docURI string, snap editor.Snapshot) {
+	client, err := m.get(ctx)
+	if err != nil {
+		return
+	}
+	if err = m.sync(ctx, client, docURI, snap); err != nil {
+		return
+	}
+	a.post(func() {
+		if a.docs[d.path] == d && a.serverFor(d.path) == m && d.buf != nil && d.buf.Version() != snap.Version() {
+			m.changed(docURI, d.buf.Snapshot())
+		}
+	})
+}
+
+func (a *app) openServerDocuments(only *languageServer) {
+	if a.wsCtx == nil || !a.cfg.trusted(a.root) {
+		return
+	}
+	for _, d := range a.docs {
+		if d.buf == nil {
+			continue
+		}
+		m := a.serverFor(d.path)
+		if m == nil || (only != nil && only != m) {
+			continue
+		}
+		go a.openLanguageDocument(m, a.wsCtx, d, d.uri, d.buf.Snapshot())
 	}
 }

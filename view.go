@@ -431,7 +431,7 @@ func (a *app) activityView(c *ui.Context) {
 	state, serverErr, name := a.lspState, a.lspErr, "gopls"
 	retry := a.retryLSP
 	if a.focus != nil && typeScriptLanguage(a.activePath()) != "" {
-		state, serverErr, name = a.tsState, a.tsErr, "typescript-language-server"
+		state, serverErr, name = a.tsState, a.tsErr, "tsrs"
 		retry = a.retryTypeScriptLSP
 	}
 	pill := ui.Row(c).Height(16).MaxWidth(260).Shrink(1).Gap(5).AlignItems(ui.Center)
@@ -1351,7 +1351,7 @@ func (a *app) message(c *ui.Context, title, detail, button string, fn func()) {
 func (a *app) trustBanner(c *ui.Context) {
 	a.banner(c, colInfoBg,
 		"Go to Definition and symbol help run language servers in “"+filepath.Base(a.root)+"”. Servers may run project tools and download dependencies or toolchains. Reading works without them.",
-		[]action{{"Trust Folder", a.trust}, {"Not Now", func() { a.trustAsk, a.afterTrust = false, nil }}})
+		[]action{{"Trust Folder", a.trust}, {"Not Now", func() { a.trustAsk, a.afterTrust = false, nil; a.trustDismissed = true }}})
 }
 
 func (a *app) choicesPanel(c *ui.Context) {

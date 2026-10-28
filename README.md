@@ -54,7 +54,7 @@ When running from source, the terminal's emulator library may be downloaded on f
 - **[ripgrep](https://github.com/BurntSushi/ripgrep)** (`rg`) enables workspace text search. Set `SEE_RG` to an absolute path or make `rg` available on `PATH`. Quick Open can list files without it.
 - **[gopls](https://go.dev/gopls/)** enables Go definition lookup and symbol help. Install it with `go install golang.org/x/tools/gopls@latest`, or set `SEE_GOPLS` to its absolute path. The app also looks on `PATH` and in Go's bin directories.
 
-- **TypeScript / JavaScript:** Install the server in **Settings → Code Intelligence**. See installs it in its own data folder using Bun, or npm if Bun is unavailable; remove it from the same page. You can instead set `SEE_TYPESCRIPT_LANGUAGE_SERVER` to an absolute executable path. See also looks on `PATH`. Running See’s installation requires Node.js or Bun.
+- **TypeScript / JavaScript:** Install **tsrs** in **Settings → Code Intelligence**. See installs it in its own data folder using Bun, or npm if Bun is unavailable; remove it from the same page. You can instead set `SEE_TYPESCRIPT_LANGUAGE_SERVER` to the absolute path of a tsrs executable. See also looks for `tsrs` on `PATH`. Running See’s installation requires Node.js or Bun. tsrs is a TypeScript 7 implementation under active development.
 
 The app asks you to trust a folder before running a language server there: servers can invoke project tools and download dependencies or toolchains. Reading files does not require trust. Server executables inside the open workspace are not used.
 

@@ -400,7 +400,7 @@ func TestDefinitionJumpBackForward(t *testing.T) {
 	if p := h.ed(b).CursorPos(); p != (editor.Pos{Line: 3, Col: 5}) {
 		t.Errorf("landed at %v", p)
 	}
-	if got := strings.Join(h.fc.calls(), ","); got != "open a.go,definition" {
+	if got := strings.Join(h.fc.calls(), ","); !strings.HasPrefix(got, "open a.go,definition") {
 		t.Errorf("calls %s", got)
 	}
 	if h.a.lspState != lspReady {

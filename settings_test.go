@@ -146,33 +146,3 @@ func TestTerminalFontPreferences(t *testing.T) {
 		t.Fatalf("terminal font: %+v", f)
 	}
 }
-
-func TestLanguageServerInstallHelp(t *testing.T) {
-	t.Setenv("SEE_TYPESCRIPT_LANGUAGE_SERVER", filepath.Join(t.TempDir(), "missing"))
-	h := newHarness(t, "")
-	h.a.settings.pane = "intelligence"
-	st := ui.NewTester(h.a.settingsView, 760, 560)
-	if st.HasText("npm install -g typescript typescript-language-server") {
-		t.Fatal("install command should start collapsed")
-	}
-	if err := st.Click("Install TypeScript & JavaScript"); err != nil {
-		t.Fatal(err)
-	}
-	st.Frame()
-	if !st.HasText("npm install -g typescript typescript-language-server") {
-		t.Fatalf("install command missing: %v", st.Texts())
-	}
-	if err := st.Click("Copy TypeScript & JavaScript install command"); err != nil {
-		t.Fatal(err)
-	}
-	if got := st.Clipboard(); got != "npm install -g typescript typescript-language-server" {
-		t.Fatalf("clipboard = %q", got)
-	}
-	if err := st.Click("Install TypeScript & JavaScript"); err != nil {
-		t.Fatal(err)
-	}
-	st.Frame()
-	if st.HasText("npm install -g typescript typescript-language-server") {
-		t.Fatal("install command did not collapse")
-	}
-}

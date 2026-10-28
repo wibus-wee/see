@@ -56,14 +56,16 @@ type languageServer struct {
 	start    starter
 	onState  func(lspState, error) // called from any goroutine
 
-	mu       sync.Mutex
-	state    lspState
-	err      error
-	client   langClient
-	starting chan struct{}
-	docs     map[string]*lspDoc // by URI
-	closed   bool
-	attempt  int // counts starts, so a late exit of an old server is ignored
+	mu            sync.Mutex
+	state         lspState
+	err           error
+	client        langClient
+	starting      chan struct{}
+	docs          map[string]*lspDoc // by URI
+	onDiagnostics func(string, editor.Snapshot, []lsp.Diagnostic, string)
+	logf          func(string, ...any)
+	closed        bool
+	attempt       int // counts starts, so a late exit of an old server is ignored
 
 	// out sends the documents' notifications, in order, on a goroutine
 	// of its own: a write that blocks on a busy server never holds mu.
@@ -73,6 +75,7 @@ type languageServer struct {
 type lspDoc struct {
 	version    int    // the protocol's
 	bufVersion uint64 // of the buffer last sent
+	snap       editor.Snapshot
 }
 
 func newGoLSP(root string, start starter, onState func(lspState, error)) *languageServer {
@@ -202,6 +205,11 @@ func (m *languageServer) run(done chan struct{}, attempt int) {
 		return
 	}
 	m.client = c
+	if dc, ok := c.(interface {
+		SetDiagnosticsHandler(func(string, *int, []lsp.Diagnostic))
+	}); ok {
+		dc.SetDiagnosticsHandler(func(uri string, version *int, ds []lsp.Diagnostic) { m.published(c, uri, version, ds) })
+	}
 	m.docs = map[string]*lspDoc{}
 	m.setState(lspReady, nil)
 }
@@ -253,20 +261,82 @@ func (m *languageServer) queueSync(c langClient, uri string, snap editor.Snapsho
 	d := m.docs[uri]
 	switch {
 	case d == nil:
-		d = &lspDoc{version: 1, bufVersion: snap.Version()}
+		d = &lspDoc{version: 1, bufVersion: snap.Version(), snap: snap}
 		m.docs[uri] = d
 		path, _ := uriutil.ToPath(uri)
 		language := m.language(path)
-		m.out.push(func() { done <- c.DidOpen(uri, language, 1, snap.String()) })
+		m.out.push(func() {
+			err := c.DidOpen(uri, language, 1, snap.String())
+			done <- err
+			if err == nil {
+				m.pull(c, uri, snap)
+			} else if m.logf != nil {
+				m.logf("document open failed: %v", err)
+			}
+		})
 	case d.bufVersion == snap.Version():
 		done <- nil
 	default:
 		d.version++
 		d.bufVersion = snap.Version()
+		d.snap = snap
 		v := d.version
-		m.out.push(func() { done <- c.DidChange(uri, v, snap.String()) })
+		m.out.push(func() {
+			err := c.DidChange(uri, v, snap.String())
+			done <- err
+			if err == nil {
+				m.pull(c, uri, snap)
+			} else if m.logf != nil {
+				m.logf("document change failed: %v", err)
+			}
+		})
 	}
 	return done
+}
+
+func (m *languageServer) published(c langClient, uri string, version *int, ds []lsp.Diagnostic) {
+	m.mu.Lock()
+	d := m.docs[uri]
+	if m.closed || c != m.client || d == nil || (version != nil && *version != d.version) {
+		m.mu.Unlock()
+		return
+	}
+	snap, cb := d.snap, m.onDiagnostics
+	m.mu.Unlock()
+	if cb != nil {
+		cb(uri, snap, ds, c.Encoding())
+	}
+}
+
+func (m *languageServer) pull(c langClient, uri string, snap editor.Snapshot) {
+	dc, ok := c.(interface {
+		Diagnostics(context.Context, string) ([]lsp.Diagnostic, bool, error)
+	})
+	if !ok {
+		return
+	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+		ds, full, err := dc.Diagnostics(ctx, uri)
+		if err != nil {
+			if m.logf != nil {
+				m.logf("diagnostics failed: %v", err)
+			}
+			return
+		}
+		if !full {
+			return
+		}
+		m.mu.Lock()
+		d := m.docs[uri]
+		valid := !m.closed && c == m.client && d != nil && d.bufVersion == snap.Version()
+		cb := m.onDiagnostics
+		m.mu.Unlock()
+		if valid && cb != nil {
+			cb(uri, snap, ds, c.Encoding())
+		}
+	}()
 }
 
 // changed sends a document's new text if the server has it open.
@@ -378,7 +448,7 @@ func startGopls(logf func(string, ...any)) starter {
 	}
 }
 
-var errNoTypeScriptServer = errors.New("typescript-language-server is not installed")
+var errNoTypeScriptServer = errors.New("tsrs is not installed")
 
 func typeScriptLanguage(path string) string {
 	switch strings.ToLower(filepath.Ext(path)) {
@@ -396,8 +466,11 @@ func typeScriptLanguage(path string) string {
 
 func findTypeScriptServer(root string) (string, error) {
 	p := os.Getenv("SEE_TYPESCRIPT_LANGUAGE_SERVER")
+	if p == "" && managedTypeScriptInstalled() {
+		p = managedTypeScriptEntry()
+	}
 	if p == "" {
-		p, _ = exec.LookPath("typescript-language-server")
+		p, _ = exec.LookPath("tsrs")
 	}
 	if !filepath.IsAbs(p) {
 		return "", errNoTypeScriptServer
@@ -425,6 +498,18 @@ func startTypeScriptServer(logf func(string, ...any)) starter {
 		if err != nil {
 			return nil, err
 		}
-		return lsp.Start(ctx, path, []string{"--stdio"}, lsp.Options{RootPath: root, RootURI: uriOf(root), Name: filepath.Base(root), Logf: logf, OnExit: onExit})
+		args := []string{"--lsp", "-stdio"}
+		if path == managedTypeScriptEntry() {
+			runtimePath, err := exec.LookPath("node")
+			if err != nil {
+				runtimePath, err = exec.LookPath("bun")
+			}
+			if err != nil {
+				return nil, errors.New("install Node.js or Bun to run tsrs")
+			}
+			args = append([]string{path}, args...)
+			path = runtimePath
+		}
+		return lsp.Start(ctx, path, args, lsp.Options{RootPath: root, RootURI: uriOf(root), Name: filepath.Base(root), Logf: logf, OnExit: onExit})
 	}
 }

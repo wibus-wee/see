@@ -21,6 +21,13 @@ type Range struct {
 }
 
 // Location is a range of a document named by its URI.
+type Diagnostic struct {
+	Range    Range  `json:"range"`
+	Severity int    `json:"severity"`
+	Message  string `json:"message"`
+	Source   string `json:"source"`
+}
+
 type Location struct {
 	URI   string `json:"uri"`
 	Range Range  `json:"range"`
@@ -105,6 +112,7 @@ type serverCapabilities struct {
 	PositionEncoding   string          `json:"positionEncoding"`
 	TextDocumentSync   json.RawMessage `json:"textDocumentSync"`
 	DefinitionProvider json.RawMessage `json:"definitionProvider"`
+	DiagnosticProvider json.RawMessage `json:"diagnosticProvider"`
 }
 
 // syncKind reads textDocumentSync, a number or TextDocumentSyncOptions,

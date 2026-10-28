@@ -45,6 +45,7 @@ func commands() []command {
 		{"Add Editor on Right", "Cmd+", "D", ui.Cmd, ui.KeyD, func(a *app) { a.splitActive(sideRight) }},
 		{"Add Editor Below", "Cmd+Shift+", "D", ui.Cmd | ui.Shift, ui.KeyD, func(a *app) { a.splitActive(sideBottom) }},
 		{"Show or Hide the Terminal", "Cmd+Shift+", "Y", ui.Cmd | ui.Shift, ui.KeyY, func(a *app) { a.toggleTerminal() }},
+		{"Show Output", "", "", 0, 0, func(a *app) { a.term.open = true; a.term.output = true; a.term.focus = nil }},
 		{"New Terminal", "Ctrl+Shift+", "`", ui.Ctrl | ui.Shift, ui.KeyBackquote, func(a *app) { a.newTerminalTab() }},
 		{"Settings", "Cmd+", ",", ui.Cmd, ui.KeyComma, func(a *app) {
 			if a.openSettings != nil {

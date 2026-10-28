@@ -16,6 +16,8 @@ import (
 type Options struct {
 	// RootPath is the workspace's directory, RootURI its URI.
 	RootPath, RootURI string
+	// InitializationOptions are passed to the server during initialization.
+	InitializationOptions any
 	// Name names the workspace folder.
 	Name string
 	// Logf receives the client's diagnostics; never the documents' text.
@@ -28,12 +30,15 @@ type Options struct {
 // Client is a language client of one server: it initializes it, keeps
 // its documents in sync, asks for definitions and shuts it down.
 type Client struct {
-	conn     *Conn
-	opts     Options
-	encoding string
-	sync     int
-	openNote bool
-	defs     bool
+	conn            *Conn
+	opts            Options
+	encoding        string
+	sync            int
+	openNote        bool
+	defs            bool
+	pullDiagnostics bool
+	diagMu          sync.Mutex
+	onDiagnostics   func(string, *int, []Diagnostic)
 
 	cmd    *exec.Cmd
 	stdin  io.Closer
@@ -58,7 +63,7 @@ func Start(ctx context.Context, command string, args []string, opts Options) (*C
 	if err != nil {
 		return nil, err
 	}
-	errTail := &tail{max: 16 << 10}
+	errTail := &tail{max: 16 << 10, logf: opts.Logf}
 	cmd.Stderr = errTail
 	// Wait gives up on the output pipes this long after the process ends,
 	// should a child of the server keep them open.
@@ -77,9 +82,7 @@ func Start(ctx context.Context, command string, args []string, opts Options) (*C
 		if err == nil {
 			err = c.conn.Err()
 		}
-		if s := errTail.String(); s != "" {
-			c.logf("lsp: server stderr (tail):\n%s", s)
-		}
+
 		c.finish(err)
 	}()
 	if err := c.initialize(ctx); err != nil {
@@ -171,6 +174,9 @@ func (c *Client) initialize(ctx context.Context) error {
 			"window": map[string]any{"workDoneProgress": false},
 		},
 	}
+	if c.opts.InitializationOptions != nil {
+		params["initializationOptions"] = c.opts.InitializationOptions
+	}
 	var res struct {
 		Capabilities serverCapabilities `json:"capabilities"`
 	}
@@ -180,6 +186,7 @@ func (c *Client) initialize(ctx context.Context) error {
 	c.encoding = NegotiatedEncoding(res.Capabilities.PositionEncoding)
 	c.sync, c.openNote = res.Capabilities.syncKind()
 	c.defs = res.Capabilities.hasDefinition()
+	c.pullDiagnostics = len(res.Capabilities.DiagnosticProvider) > 0 && string(res.Capabilities.DiagnosticProvider) != "null" && string(res.Capabilities.DiagnosticProvider) != "false"
 	return c.conn.Notify("initialized", map[string]any{})
 }
 
@@ -240,6 +247,26 @@ func (c *Client) Hover(ctx context.Context, uri string, pos Position) (string, *
 		return "", nil, err
 	}
 	return ParseHover(raw)
+}
+
+// SetDiagnosticsHandler receives published diagnostics from the server.
+func (c *Client) SetDiagnosticsHandler(fn func(string, *int, []Diagnostic)) {
+	c.diagMu.Lock()
+	defer c.diagMu.Unlock()
+	c.onDiagnostics = fn
+}
+
+// Diagnostics requests a full diagnostic report when the server supports it.
+func (c *Client) Diagnostics(ctx context.Context, uri string) ([]Diagnostic, bool, error) {
+	if !c.pullDiagnostics {
+		return nil, false, nil
+	}
+	var result struct {
+		Kind  string       `json:"kind"`
+		Items []Diagnostic `json:"items"`
+	}
+	err := c.conn.Call(ctx, "textDocument/diagnostic", map[string]any{"textDocument": map[string]any{"uri": uri}}, &result)
+	return result.Items, result.Kind == "full", err
 }
 
 // Shutdown asks the server to shut down and exit, and kills it when it
@@ -303,6 +330,20 @@ func (h *handler) Handle(ctx context.Context, method string, params json.RawMess
 
 func (h *handler) Notify(method string, params json.RawMessage) {
 	switch method {
+	case "textDocument/publishDiagnostics":
+		var p struct {
+			URI         string       `json:"uri"`
+			Version     *int         `json:"version"`
+			Diagnostics []Diagnostic `json:"diagnostics"`
+		}
+		if json.Unmarshal(params, &p) == nil {
+			h.diagMu.Lock()
+			fn := h.onDiagnostics
+			h.diagMu.Unlock()
+			if fn != nil {
+				fn(p.URI, p.Version, p.Diagnostics)
+			}
+		}
 	case "window/logMessage", "window/showMessage":
 		var p struct {
 			Type    int    `json:"type"`
@@ -316,12 +357,16 @@ func (h *handler) Notify(method string, params json.RawMessage) {
 
 // tail keeps the last max bytes written to it, as a server's stderr.
 type tail struct {
-	mu  sync.Mutex
-	max int
-	b   []byte
+	mu   sync.Mutex
+	max  int
+	b    []byte
+	logf func(string, ...any)
 }
 
 func (t *tail) Write(p []byte) (int, error) {
+	if t.logf != nil {
+		t.logf("server stderr: %s", string(p))
+	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.b = append(t.b, p...)
