@@ -28,17 +28,27 @@ jobs:
           - name: macOS
             os: macos-latest
             platform: darwin/arm64,darwin/amd64
-            files: build/*/*.dmg
+            files: |
+              build/*/*.dmg
+              build/*/*.tar.gz
+              build/*/*.delta
+              build/*/update-*.json
           - name: Windows
             os: ubuntu-latest
             platform: windows/amd64,windows/arm64
-            files: build/*/*-setup-*.exe
+            files: |
+              build/*/*-setup-*.exe
+              build/*/*.tar.gz
+              build/*/*.delta
+              build/*/update-*.json
           - name: Linux
             os: ubuntu-latest
             platform: linux/amd64,linux/arm64
             files: |
               build/*/*.deb
               build/*/*.tar.gz
+              build/*/*.delta
+              build/*/update-*.json
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
@@ -48,7 +58,12 @@ jobs:
         if: matrix.name == 'Windows'
         run: sudo apt-get update && sudo apt-get install -y nsis
       - name: Build packages
-        run: go tool mygo build -platform '${{ matrix.platform }}'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MYGO_UPDATER_PRIVATE_KEY: ${{ secrets.MYGO_UPDATER_PRIVATE_KEY }}
+        run: |
+          test -n "$MYGO_UPDATER_PRIVATE_KEY" || { echo 'Missing MYGO_UPDATER_PRIVATE_KEY secret' >&2; exit 1; }
+          go tool mygo build -platform '${{ matrix.platform }}'
       - name: Verify packages
         env:
           PLATFORM_NAME: ${{ matrix.name }}
@@ -62,6 +77,9 @@ jobs:
             for pattern in "${patterns[@]}"; do
               compgen -G "$pattern" > /dev/null || { echo "Missing package: $pattern" >&2; exit 1; }
             done
+            case "$PLATFORM_NAME" in macOS) os=darwin ;; Windows) os=windows ;; Linux) os=linux ;; esac
+            test -f "build/$os-$arch/update-$os-$arch.json" || { echo "Missing update manifest for $os/$arch" >&2; exit 1; }
+            compgen -G "build/$os-$arch/*-$os-$arch.tar.gz" > /dev/null || { echo "Missing update archive for $os/$arch" >&2; exit 1; }
           done
       - uses: actions/upload-artifact@v7
         with:
@@ -91,5 +109,7 @@ jobs:
             if [[ "$GITHUB_REF_NAME" == *-* ]]; then args+=(--prerelease); fi
             gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" "${args[@]}"
           fi
-          gh release upload "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" artifacts/* --clobber
+          mapfile -d '' files < <(find artifacts -type f -print0)
+          test "${#files[@]}" -gt 0
+          gh release upload "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" "${files[@]}" --clobber
           gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false

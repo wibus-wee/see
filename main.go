@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/egoist/mygo"
+	"github.com/egoist/mygo/plugins/updater"
+	"github.com/egoist/mygo/plugins/updater/native"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -27,6 +29,7 @@ func dirtyDialog(parent *mygo.Window) func(string) (int, error) {
 }
 
 func main() {
+	mygo.Use(native.Plugin)
 	cfg := loadAppConfig(configPath())
 	a := newApp(cfg)
 	var (
@@ -382,6 +385,7 @@ func appearanceMenu(a *app) []*mygo.MenuItem {
 func appMenu(a *app) *mygo.MenuItem {
 	return &mygo.MenuItem{Label: "See", Submenu: []*mygo.MenuItem{
 		{Role: mygo.RoleAbout},
+		updater.MenuItem(),
 		mygo.Separator(),
 		{Label: "Settings…", Accelerator: "CmdOrCtrl+,", Click: func(*mygo.MenuItem, *mygo.Window) { a.openSettings() }},
 		mygo.Separator(),
