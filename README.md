@@ -101,3 +101,16 @@ go test ./...
 The application UI and workspace orchestration live in the root package. `internal/workspace` handles file discovery and classification, `internal/search` implements search and quick open, and `internal/lsp`, `internal/uri`, and `internal/nav` support code navigation.
 
 Settings and recent folders are stored in `See/config.json` under the operating system's user configuration directory. On first launch after the rename, See reads the former `NativeSourceReader/config.json` if the new file does not exist; future saves use the new path. The former `NSR_RG` and `NSR_GOPLS` variables remain supported when their `SEE_` equivalents are unset.
+
+### Release
+
+Set `version` in [`mygo.json`](./mygo.json), commit the change, and push a matching tag, for example:
+
+```sh
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The [release workflow](./.github/workflows/release.yml) checks the tag, builds macOS, Windows, and Linux packages for amd64 and arm64, and publishes a GitHub Release with generated notes after all builds succeed. Versions containing a hyphen are marked as prereleases. Failed jobs can be rerun from Actions; a published release is never overwritten by a rerun. The workflow uses the repository's `GITHUB_TOKEN` and requires Actions to have permission to write repository contents.
+
+The macOS packages use ad hoc signing and are not notarized, so Gatekeeper may block them on other Macs. Windows installers are unsigned and may trigger SmartScreen. Distribution without these warnings requires configuring platform signing certificates and, for macOS, Apple notarization; see [MyGo's signing instructions](https://mygo.egoist.dev/docs/github-actions).
