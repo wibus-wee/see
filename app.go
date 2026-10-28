@@ -47,6 +47,7 @@ type app struct {
 	filter   treeFilter
 	watchErr error
 	watching bool
+	git      gitState
 
 	// Documents, by path, and the editor groups showing them.
 	docs        map[string]*doc
@@ -109,6 +110,7 @@ type app struct {
 const (
 	navFiles = iota
 	navFind
+	navGit
 )
 
 // dirState is a directory of the tree: unread until opened.
@@ -260,6 +262,7 @@ func (a *app) openWorkspace(dir string) {
 	a.tsLSP.language = typeScriptLanguage
 	a.loadDir(root)
 	a.startWatch()
+	a.startGit()
 	a.cfg.LastWorkspace = root
 	a.cfg.addRecent(root)
 	a.saveConfig()
@@ -298,6 +301,7 @@ func (a *app) closeWorkspace() {
 	a.trustAsk, a.afterTrust = false, nil
 	a.lspState, a.lspErr = lspOff, nil
 	a.watchErr, a.watching = nil, false
+	a.git = gitState{}
 	a.notice = ""
 	a.hover = hoverState{}
 	a.find.reset()
@@ -442,6 +446,7 @@ func (a *app) refreshDir(dir string) {
 // refreshAll reads every loaded directory and open document again, for
 // when watching is not possible.
 func (a *app) refreshAll() {
+	a.refreshGit()
 	a.invalidateHover()
 	for dir := range a.dirs {
 		a.refreshDir(dir)

@@ -480,7 +480,12 @@ func (a *app) activityView(c *ui.Context) {
 		case state == lspReady:
 			ui.Text(c, "Ready · "+name).FontSize(12).TextColor(colMuted)
 		default:
-			ui.Text(c, "Ready").FontSize(12).TextColor(colMuted)
+			if a.git.branch != "" {
+				ui.Icon(c, icGit).Size(12, 12).TextColor(colMuted)
+				ui.Text(c, a.git.branch).FontSize(12).TextColor(colMuted).SingleLine().Shrink(1).Tooltip("Git branch: " + a.git.branch)
+			} else {
+				ui.Text(c, "Ready").FontSize(12).TextColor(colMuted)
+			}
 		}
 	})
 }
@@ -493,7 +498,9 @@ func (a *app) navigatorPane(c *ui.Context, vibrant bool) {
 	pane := ui.Column(c).Fill().Background(sidebarColor(vibrant))
 	pane.Children(func() {
 		a.navigatorBar(c)
-		if a.navigator == navFind {
+		if a.navigator == navGit {
+			a.gitNavigator(c)
+		} else if a.navigator == navFind {
 			a.findNavigator(c)
 		} else {
 			a.projectNavigator(c)
@@ -513,7 +520,7 @@ func (a *app) navigatorBar(c *ui.Context) {
 	t := c.Theme()
 	ui.Row(c).FillWidth().Padding(4, 8).BorderWidth(0, 0, 1, 0).
 		BorderColor(colHairline).Children(func() {
-		parts := ui.SegmentedBase(c, &a.navigator, 2)
+		parts := ui.SegmentedBase(c, &a.navigator, 3)
 		parts.Track.FillWidth().Height(30).Padding(3).Gap(2).Radius(15).Background(t.Text.Alpha(0.06)).Label("Navigator")
 		if c.Preferences().HighContrast {
 			parts.Track.Border(1, t.Border)
@@ -524,6 +531,7 @@ func (a *app) navigatorBar(c *ui.Context) {
 		}{
 			{icFolder, "Show the Project Navigator"},
 			{icSearch, "Show the Find Navigator"},
+			{icGit, "Show the Git Navigator"},
 		}
 		parts.Track.Children(func() {
 			for i, s := range segments {
@@ -688,6 +696,8 @@ func (a *app) fileTree(c *ui.Context, roots []string) {
 
 // The chosen row is already visible, so opening it need not reposition the tree.
 func (a *app) openFromTree(path string, preview bool) {
+	a.git.diff = nil
+	a.git.diffSeq++
 	if preview {
 		a.previewOpen(path)
 	} else {
@@ -767,6 +777,19 @@ func (a *app) treeItem(c *ui.Context, p string) {
 		}
 		if d := a.docs[p]; d != nil && d.gone {
 			t.Strikethrough()
+		}
+		if rel, err := filepath.Rel(a.root, p); err == nil {
+			status := a.git.decor[filepath.Join(a.realRoot, rel)]
+			if status != 0 {
+				ui.Box(c).Grow(1)
+				ui.Row(c).Padding(0, 20, 0, 0).Shrink(0).Children(func() {
+					if e.Dir {
+						ui.Box(c).Size(5, 5).Radius(3).Background(a.gitStatusColor(status))
+					} else {
+						ui.Text(c, string(status)).FontSize(11).TextColor(a.gitStatusColor(status))
+					}
+				})
+			}
 		}
 	})
 	services := c.Services()
@@ -934,7 +957,11 @@ type tabDrag struct {
 func (a *app) editorArea(c *ui.Context) {
 	ui.Column(c).Fill().Background(colEditor).Children(func() {
 		a.editorsAndPanel(c, func() {
-			ui.Column(c).Fill().Children(func() { a.layoutView(c, a.layout) })
+			if a.git.diff != nil {
+				a.gitDiffView(c)
+			} else {
+				ui.Column(c).Fill().Children(func() { a.layoutView(c, a.layout) })
+			}
 		})
 	})
 }

@@ -26,6 +26,7 @@ func commands() []command {
 		{"Find in Workspace", "Cmd+Shift+", "F", ui.Cmd | ui.Shift, ui.KeyF, func(a *app) {
 			a.sidebarOff, a.navigator, a.find.focus = false, navFind, true
 		}},
+		{"Show Git", "", "", 0, 0, func(a *app) { a.sidebarOff, a.navigator = false, navGit; a.refreshGit() }},
 		{"Filter Files", "Alt+Cmd+", "J", ui.Alt | ui.Cmd, ui.KeyJ, func(a *app) {
 			a.sidebarOff, a.navigator, a.filter.focus = false, navFiles, true
 		}},

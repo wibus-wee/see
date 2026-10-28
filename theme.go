@@ -145,6 +145,9 @@ func (a *app) applyAppearance(c *ui.Context) {
 	a.theme = &t
 	a.edTheme = editor.DefaultTheme(&t)
 	a.edTheme.Background = colEditor
+	if a.git.diff != nil {
+		a.git.diff.Theme = a.edTheme
+	}
 	for _, g := range a.groups() {
 		for _, st := range g.eds {
 			st.Theme = a.edTheme

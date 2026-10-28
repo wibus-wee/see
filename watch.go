@@ -74,6 +74,7 @@ func (a *app) startWatch() {
 // directories they are in, and the open documents they name.
 func (a *app) applyEvents(evs []mygo.FileEvent) {
 	if len(evs) > 0 {
+		a.refreshGit()
 		a.invalidateHover()
 	}
 	dirs := map[string]bool{}

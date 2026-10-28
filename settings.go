@@ -96,6 +96,15 @@ func (a *app) applyEditorPrefsAll() {
 			a.applyEditorPrefs(st)
 		}
 	}
+	if a.git.diff != nil {
+		a.applyDiffPrefs(a.git.diff)
+	}
+}
+
+func (a *app) applyDiffPrefs(diff *editor.DiffState) {
+	diff.Font = ui.Font{Family: a.cfg.FontFamily, Size: float32(a.cfg.fontSize())}
+	diff.Wrap = a.cfg.SoftWrap
+	diff.NoLineNumbers = a.cfg.LineNumbers == int(editor.LineNumbersOff)
 }
 
 // settingsView is the settings window's view.
