@@ -451,7 +451,7 @@ func (a *app) activityView(c *ui.Context) {
 		switch {
 		case a.finding:
 			ui.Spinner(c).FontSize(11)
-			ui.Text(c, "Finding definition…").FontSize(12).TextColor(colMuted).SingleLine()
+			ui.Text(c, a.findingLabel).FontSize(12).TextColor(colMuted).SingleLine()
 		case a.notice != "":
 			t := ui.Text(c, a.notice).FontSize(12).SingleLine().Shrink(1).Tooltip(a.notice)
 			if a.noticeError {
@@ -1002,7 +1002,7 @@ func (a *app) groupView(c *ui.Context, g *group) {
 			if a.trustAsk {
 				a.trustBanner(c)
 			}
-			if a.choices != nil && a.choices.g == g {
+			if a.choices != nil && a.choices.g == g && a.choices.title == "" {
 				a.choicesPanel(c)
 			}
 		}
@@ -1180,6 +1180,22 @@ func (a *app) jumpBar(c *ui.Context, g *group) {
 	}
 	ui.Row(c).FillWidth().Height(26).Padding(0, 6).Gap(2).AlignItems(ui.Center).Background(colEditor).
 		BorderWidth(0, 0, 1, 0).BorderColor(colSeparator).Children(func() {
+		g.relatedBounds = g.relatedHandle.Bounds(c)
+		related := ui.ButtonBase(c.Key("related-items")).Label("Related Items").Tooltip("Related Items").Size(22, 22).Radius(4).Center().Bind(&g.relatedHandle)
+		if related.Hovered() || related.Pressed() {
+			related.Background(colPill)
+		}
+		related.Children(func() { ui.Icon(c, icRelated).Size(14, 14).TextColor(colMuted) })
+		related.Menu(func(menu *ui.Menu) {
+			if menu.Item("Callers").Chosen() {
+				a.focus = g
+				a.findUsagesAt(true, ui.Point{X: g.relatedBounds.X, Y: g.relatedBounds.Y + g.relatedBounds.H}, true)
+			}
+			if menu.Item("References").Chosen() {
+				a.focus = g
+				a.findUsagesAt(false, ui.Point{X: g.relatedBounds.X, Y: g.relatedBounds.Y + g.relatedBounds.H}, true)
+			}
+		})
 		folderGlyph(c, false, 13)
 		ui.Text(c, filepath.Base(a.root)).FontSize(12).TextColor(colMuted).SingleLine()
 		ui.Icon(c, icChevron).Size(9, 9).TextColor(colDim)
@@ -1314,6 +1330,37 @@ func (a *app) document(c *ui.Context, g *group, d *doc) {
 			return
 		}
 		ed := editor.View(c.Key(d.path), st).Grow(1).FillWidth()
+		x, y, over := ed.PointerPosition()
+		if over {
+			wx, wy := ed.LocalToWindow(x, y)
+			g.pointerAnchor = ui.Point{X: wx, Y: wy}
+			g.pointerInEditor = true
+		}
+		bounds := ed.LayoutBounds()
+		pos := st.CursorPos()
+		fontSize := st.Font.Size
+		if fontSize <= 0 {
+			fontSize = 13
+		}
+		lineHeight := st.LineHeight
+		if lineHeight <= 0 {
+			lineHeight = 1.5
+		}
+		charWidth, _ := c.MeasureText(0, ui.Span{Text: "0", Font: st.Font.Family, Size: fontSize})
+		gutter := float32(8)
+		if st.LineNumbers != editor.LineNumbersOff {
+			gutter += float32(max(3, len(fmt.Sprint(d.buf.LineCount())))+2) * charWidth
+		}
+		if !st.NoFolding {
+			gutter += fontSize * lineHeight * 0.8
+		}
+		if st.DiffBase != nil {
+			gutter += 6
+		}
+		line := d.buf.Line(pos.Line)
+		prefix := strings.ReplaceAll(line[:min(pos.Col, len(line))], "\t", "    ")
+		width, _ := c.MeasureText(0, ui.Span{Text: prefix, Font: st.Font.Family, Size: fontSize})
+		g.caretAnchor = ui.Point{X: min(bounds.X+bounds.W-4, bounds.X+gutter+width), Y: min(bounds.Y+bounds.H-4, max(bounds.Y, bounds.Y+float32(st.LineTop(pos.Line)-st.ScrollY())+fontSize*lineHeight))}
 		switch {
 		case a.focusEditor == st:
 			// A navigation went here: the keys read on from it.
@@ -1362,17 +1409,28 @@ func (a *app) choicesPanel(c *ui.Context) {
 	ch := a.choices
 	ui.Column(c).FillWidth().Padding(6, 12).Gap(2).Background(colTabBar).BorderWidth(0, 0, 1, 0).BorderColor(colSeparator).Children(func() {
 		ui.Row(c).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, fmt.Sprintf("%d definitions", len(ch.locs))).Bold().Grow(1)
+			title := ch.title
+			if title == "" {
+				title = "definitions"
+			}
+			if len(ch.locs) == 1 {
+				title = strings.TrimSuffix(title, "s")
+			}
+			ui.Text(c, fmt.Sprintf("%d %s", len(ch.locs), title)).Bold().Grow(1)
 			ui.Button(c, "Cancel").OnClick(func() { a.choices = nil })
 		})
-		for i, t := range ch.locs {
-			label := fmt.Sprintf("%s:%d", relPath(a.root, t.path), t.pos.Line+1)
-			b := ui.Button(c.Key(i), label).FillWidth()
-			if i == 0 {
-				b.AutoFocus()
-			}
-			b.OnClick(func() { a.jump(ch.g, ch.from, t, ch.enc) })
-		}
+		ui.Scroll(c).MaxHeight(180).FillWidth().Children(func() {
+			ui.Column(c).FillWidth().Children(func() {
+				for i, t := range ch.locs {
+					label := fmt.Sprintf("%s:%d", relPath(a.root, t.path), t.pos.Line+1)
+					b := ui.Button(c.Key(i), label).FillWidth()
+					if i == 0 {
+						b.AutoFocus()
+					}
+					b.OnClick(func() { a.jump(ch.g, ch.from, t, ch.enc) })
+				}
+			})
+		})
 	})
 }
 

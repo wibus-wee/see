@@ -67,6 +67,8 @@ func commands() []command {
 				st.Run(editor.Find)
 			}
 		}},
+		command{"Find References", "Shift+", "F12", ui.Shift, ui.KeyF12, func(a *app) { a.findUsages(false) }},
+		command{"Find Callers", "", "", 0, 0, func(a *app) { a.findUsages(true) }},
 		command{"Go to Definition", "", "F12", 0, 0, func(a *app) {
 			if st := a.activeEditor(); st != nil && st.OnDefinition != nil {
 				st.OnDefinition(st.Buffer.Offset(st.CursorPos()))

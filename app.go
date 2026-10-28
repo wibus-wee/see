@@ -58,11 +58,12 @@ type app struct {
 	focusEditor *editor.State // an editor to give the keyboard to
 
 	// Navigation.
-	hist      nav.History
-	navSeq    uint64 // bumped by every navigation the user asks for
-	navCancel context.CancelFunc
-	finding   bool        // a definition request is on its way
-	choices   *defChoices // several definitions to choose from
+	hist         nav.History
+	navSeq       uint64 // bumped by every navigation the user asks for
+	navCancel    context.CancelFunc
+	finding      bool // a navigation request is on its way
+	findingLabel string
+	choices      *defChoices // several definitions to choose from
 
 	lsp            *languageServer
 	tsLSP          *languageServer
@@ -165,13 +166,15 @@ type fileStamp struct {
 
 // defChoices are the definitions a request found, to choose from.
 type defChoices struct {
-	g    *group
-	from nav.Entry
-	enc  string
-	locs []target
+	g     *group
+	from  nav.Entry
+	enc   string
+	locs  []target
+	title string
 }
 
 type target struct {
+	name string
 	path string
 	pos  lsp.Position
 }
@@ -755,6 +758,16 @@ func (a *app) newEditor(g *group, d *doc) *editor.State {
 		st.SetDiagnostics(d.diagnosticVersion, d.diagnostics)
 	}
 	st.OnDefinition = func(offset int) { a.goToDefinition(g, d, offset) }
+	st.ContextMenu = func(menu *ui.Menu) {
+		if menu.Item("Find References").Shortcut(ui.Shift, ui.KeyF12).Chosen() {
+			a.focus = g
+			a.findUsagesAt(false, g.pointerAnchor, g.pointerInEditor)
+		}
+		if menu.Item("Find Callers").Chosen() {
+			a.focus = g
+			a.findUsagesAt(true, g.pointerAnchor, g.pointerInEditor)
+		}
+	}
 	st.OnHover = func(r editor.HoverRequest) { a.hoverAt(d, st, r) }
 	st.RenderHover = a.renderHover
 	return st
@@ -905,6 +918,7 @@ func (a *app) goToDefinition(g *group, d *doc, offset int) {
 	ctx, cancel := context.WithTimeout(a.wsCtx, 20*time.Second)
 	a.navCancel = cancel
 	a.finding = true
+	a.findingLabel = "Finding definition…"
 	a.notice = ""
 	go func() {
 		defer cancel()
@@ -928,7 +942,7 @@ func targetsOf(locs []lsp.Location) (targets []target, skipped int) {
 			skipped++
 			continue
 		}
-		targets = append(targets, target{path: p, pos: l.Range.Start})
+		targets = append(targets, target{name: l.Name, path: p, pos: l.Range.Start})
 	}
 	return targets, skipped
 }
@@ -1096,4 +1110,131 @@ func (a *app) openServerDocuments(only *languageServer) {
 		}
 		go a.openLanguageDocument(m, a.wsCtx, d, d.uri, d.buf.Snapshot())
 	}
+}
+
+// findUsages requests references or incoming calls for the focused symbol.
+func (a *app) findUsages(callers bool) {
+	g := a.focus
+	if g == nil {
+		return
+	}
+	a.findUsagesAt(callers, g.caretAnchor, true)
+}
+
+func (a *app) findUsagesAt(callers bool, anchor ui.Point, validAnchor bool) {
+	g := a.focus
+	if g == nil {
+		return
+	}
+	d := a.docs[g.active]
+	st := g.eds[g.active]
+	if d == nil || d.buf == nil || st == nil {
+		return
+	}
+	m := a.serverFor(d.path)
+	if m == nil {
+		a.note("No language server is configured for this file.", false)
+		return
+	}
+	if !a.cfg.trusted(a.root) {
+		a.trustAsk = true
+		a.afterTrust = func() { a.findUsagesAt(callers, anchor, validAnchor) }
+		return
+	}
+	a.cancelNav()
+	a.hideLink()
+	snap := d.buf.Snapshot()
+	pos := st.CursorPos()
+	from := nav.Entry{Path: d.path, Line: pos.Line, ByteColumn: pos.Col}
+	ctx, cancel := context.WithTimeout(a.wsCtx, 20*time.Second)
+	a.navCancel = cancel
+	a.finding = true
+	a.findingLabel = "Finding references…"
+	if callers {
+		a.findingLabel = "Finding callers…"
+	}
+	a.notice = ""
+	seq, gen := a.navSeq, a.gen
+	go func() {
+		defer cancel()
+		c, err := m.get(ctx)
+		var locations []lsp.Location
+		enc := ""
+		if err == nil {
+			err = m.sync(ctx, c, d.uri, snap)
+		}
+		if err == nil {
+			enc = c.Encoding()
+			at := lsp.Position{Line: pos.Line, Character: lsp.ColumnToLSP(snap.Line(pos.Line), pos.Col, enc)}
+			if callers {
+				if client, ok := c.(interface {
+					Callers(context.Context, string, lsp.Position) ([]lsp.Location, error)
+				}); ok {
+					locations, err = client.Callers(ctx, d.uri, at)
+				} else {
+					err = errors.New("this language server does not support finding callers")
+				}
+			} else {
+				if client, ok := c.(interface {
+					References(context.Context, string, lsp.Position) ([]lsp.Location, error)
+				}); ok {
+					locations, err = client.References(ctx, d.uri, at)
+				} else {
+					err = errors.New("this language server does not support references")
+				}
+			}
+		}
+		targets, skipped := targetsOf(locations)
+		a.post(func() {
+			if a.gen != gen || a.navSeq != seq {
+				return
+			}
+			a.finding = false
+			a.navCancel = nil
+			if err != nil {
+				a.lspFailure(err)
+				return
+			}
+			name := "references"
+			if callers {
+				name = "callers"
+			}
+			if len(targets) == 0 {
+				if skipped > 0 {
+					a.note("Results are not in local files.", false)
+				} else {
+					a.note("No "+name+" found.", false)
+				}
+				return
+			}
+			a.choices = &defChoices{g: g, from: from, enc: enc, locs: targets, title: name}
+			a.showRelatedResults(a.choices, anchor, validAnchor)
+		})
+	}()
+}
+
+func (a *app) showRelatedResults(ch *defChoices, anchor ui.Point, validAnchor bool) {
+	if a.popupMenu == nil {
+		return
+	}
+	items := []*mygo.MenuItem{{Label: fmt.Sprintf("%d %s", len(ch.locs), ch.title), Disabled: true}, mygo.Separator()}
+	for _, loc := range ch.locs {
+		t := loc
+		label := fmt.Sprintf("%s:%d", relPath(a.root, t.path), t.pos.Line+1)
+		if t.name != "" {
+			label = t.name + " — " + label
+		}
+		items = append(items, &mygo.MenuItem{Label: label, ToolTip: t.path, Click: func(*mygo.MenuItem, *mygo.Window) {
+			a.post(func() {
+				if a.choices == ch {
+					a.jump(ch.g, ch.from, t, ch.enc)
+				}
+			})
+		}})
+	}
+	if !validAnchor {
+		r := ch.g.relatedBounds
+		anchor = ui.Point{X: r.X, Y: r.Y + r.H}
+	}
+	a.popupMenu(int(anchor.X), int(anchor.Y), items)
 }

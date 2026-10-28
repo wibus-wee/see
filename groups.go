@@ -3,6 +3,7 @@ package main
 import (
 	"slices"
 
+	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 
 	"see/internal/lsp"
@@ -21,6 +22,11 @@ type group struct {
 	pending         map[string]goTo // where to go once a document loads
 	markdownPreview map[string]bool
 	tabSel          int
+	relatedHandle   ui.Handle
+	relatedBounds   ui.Rect
+	pointerAnchor   ui.Point
+	pointerInEditor bool
+	caretAnchor     ui.Point
 }
 
 // goTo is a place to show in a document: a position of the buffer, or
