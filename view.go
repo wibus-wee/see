@@ -1408,15 +1408,29 @@ func (a *app) quickOpenPanel(c *ui.Context) {
 					}
 				})
 				commandMode := strings.HasPrefix(q.query, ">")
+				symbolMode := strings.HasPrefix(q.query, "#")
 				switch {
 				case !commandMode && a.root == "":
 					ui.Text(c, "Open a folder to search files, or type > to search commands.").TextColor(colMuted).Padding(8)
-				case !commandMode && q.listing:
+				case symbolMode && !a.cfg.trusted(a.root):
+					if ui.Button(c, "Trust folder to search symbols").Clicked() {
+						query := q.query
+						q.open = false
+						a.trustAsk = true
+						a.afterTrust = func() { a.openQuickPanel(query) }
+					}
+				case symbolMode && strings.TrimSpace(q.query[1:]) == "":
+					ui.Text(c, "Type a symbol name to search the workspace.").TextColor(colMuted).Padding(8)
+				case symbolMode && q.symbolLoading && len(q.results) == 0:
+					ui.Row(c).Padding(8).Gap(8).Children(func() { ui.Spinner(c); ui.Text(c, "Searching symbols…").TextColor(colMuted) })
+				case symbolMode && q.symbolErr != nil:
+					ui.Text(c, q.symbolErr.Error()).TextColor(colError).Padding(8)
+				case !commandMode && !symbolMode && q.listing:
 					ui.Row(c).Padding(8).Gap(8).Children(func() {
 						ui.Spinner(c)
 						ui.Text(c, "Listing files…").TextColor(colMuted)
 					})
-				case !commandMode && q.err != nil:
+				case !commandMode && !symbolMode && q.err != nil:
 					ui.Text(c, q.err.Error()).TextColor(colError).Padding(8)
 				case len(q.results) == 0:
 					ui.Text(c, "No Matches").TextColor(colMuted).Padding(8)
@@ -1425,6 +1439,8 @@ func (a *app) quickOpenPanel(c *ui.Context) {
 					label := "Files"
 					if commandMode {
 						label = "Commands"
+					} else if symbolMode {
+						label = "Symbols"
 					}
 					ui.List(c, &q.list, len(q.results), func(i int) { a.quickRow(c, i) }).Grow(1).FillWidth().MaxHeight(380).Label(label)
 				}
@@ -1436,6 +1452,19 @@ func (a *app) quickOpenPanel(c *ui.Context) {
 func (a *app) quickRow(c *ui.Context, i int) {
 	q := &a.quick
 	r := q.results[i]
+	if strings.HasPrefix(q.query, "#") {
+		s := q.symbols[i]
+		row := ui.Row(c.Key(i)).FillWidth().Padding(8).Gap(8).Radius(8).AlignItems(ui.Center)
+		if i == q.sel {
+			row.Background(colAccent)
+		}
+		row.OnClick(func() { a.chooseQuick(i) })
+		row.Children(func() {
+			ui.Text(c, s.name).Grow(1).SingleLine()
+			ui.Text(c, fmt.Sprintf("%s:%d", relPath(a.root, s.target.path), s.target.pos.Line+1)).TextColor(colMuted).SingleLine()
+		})
+		return
+	}
 	if strings.HasPrefix(q.query, ">") {
 		row := ui.Row(c.Key(r.Path)).FillWidth().Padding(8).Gap(8).Radius(8).AlignItems(ui.Center)
 		if i == q.sel {

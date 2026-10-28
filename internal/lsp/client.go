@@ -149,6 +149,26 @@ func (c *Client) Encoding() string { return c.encoding }
 // HasDefinition reports whether the server answers definition requests.
 func (c *Client) HasDefinition() bool { return c.defs }
 
+// WorkspaceSymbols searches declarations across the workspace.
+type WorkspaceSymbol struct {
+	Name     string   `json:"name"`
+	Location Location `json:"location"`
+}
+
+func (c *Client) WorkspaceSymbols(ctx context.Context, query string) ([]WorkspaceSymbol, error) {
+	var symbols []WorkspaceSymbol
+	if err := c.conn.Call(ctx, "workspace/symbol", map[string]any{"query": query}, &symbols); err != nil {
+		return nil, err
+	}
+	out := make([]WorkspaceSymbol, 0, len(symbols))
+	for _, s := range symbols {
+		if s.Location.URI != "" {
+			out = append(out, s)
+		}
+	}
+	return out, nil
+}
+
 func (c *Client) initialize(ctx context.Context) error {
 	params := map[string]any{
 		"processId":  os.Getpid(),

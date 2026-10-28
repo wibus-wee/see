@@ -12,7 +12,10 @@ import (
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 
+	"see/internal/lsp"
+	"see/internal/nav"
 	"see/internal/search"
+	uriutil "see/internal/uri"
 )
 
 // ----- The find navigator: text in the workspace, with ripgrep -----
@@ -195,17 +198,27 @@ func (a *app) openMatch(k findKey) {
 // ----- Open Quickly: files by name, ranked by sahilm/fuzzy -----
 
 type quickOpen struct {
-	open      bool
-	query     string
-	ranked    string // the query results are of
-	files     []string
-	listing   bool
-	truncated bool
-	err       error
-	results   []search.Scored
-	list      ui.ListState
-	sel       int
-	gen       int
+	open          bool
+	query         string
+	ranked        string // the query results are of
+	files         []string
+	listing       bool
+	truncated     bool
+	err           error
+	results       []search.Scored
+	list          ui.ListState
+	sel           int
+	gen           int
+	symbols       []quickSymbol
+	symbolCancel  context.CancelFunc
+	symbolLoading bool
+	symbolErr     error
+}
+
+type quickSymbol struct {
+	target target
+	enc    string
+	name   string
 }
 
 // maxQuickFiles bounds the files Open Quickly lists.
@@ -217,6 +230,11 @@ func (a *app) openQuickly() {
 
 func (a *app) openQuickPanel(query string) {
 	q := &a.quick
+	q.gen++
+	if q.symbolCancel != nil {
+		q.symbolCancel()
+		q.symbolCancel = nil
+	}
 	q.open, q.query, q.ranked, q.sel = true, query, "\x00", 0
 	q.list.Selected = &q.sel
 	a.ensureFiles()
@@ -244,7 +262,9 @@ func (a *app) ensureFiles() {
 			if q.files == nil {
 				q.files = []string{}
 			}
-			q.ranked = "\x00"      // rank again
+			if !strings.HasPrefix(q.query, ">") && !strings.HasPrefix(q.query, "#") {
+				q.ranked = "\x00" // rank files again
+			}
 			a.filter.forQuery = "" // filter again over the new list
 		})
 	}()
@@ -257,6 +277,13 @@ func (a *app) rankQuick() {
 		return
 	}
 	q.ranked = q.query
+	q.gen++
+	if q.symbolCancel != nil {
+		q.symbolCancel()
+		q.symbolCancel = nil
+	}
+	q.symbolLoading, q.symbolErr = false, nil
+	q.symbols = nil
 	if strings.HasPrefix(q.query, ">") {
 		all := commands()
 		names := make([]string, len(all))
@@ -264,10 +291,99 @@ func (a *app) rankQuick() {
 			names[i] = cmd.name
 		}
 		q.results = search.Fuzzy(names, strings.TrimSpace(q.query[1:]), len(names))
+	} else if strings.HasPrefix(q.query, "#") {
+		q.results = nil
+		if a.root != "" && a.cfg.trusted(a.root) && strings.TrimSpace(q.query[1:]) != "" {
+			a.searchSymbols(strings.TrimSpace(q.query[1:]))
+		}
 	} else {
 		q.results = search.Fuzzy(q.files, q.query, 60)
 	}
 	q.sel = 0
+}
+
+func (a *app) searchSymbols(query string) {
+	q := &a.quick
+	ctx, cancel := context.WithTimeout(a.wsCtx, 20*time.Second)
+	q.symbolCancel, q.symbolLoading = cancel, true
+	gen, ranked, request := a.gen, q.ranked, q.gen
+	servers := []*languageServer{a.lsp, a.tsLSP}
+	go func() {
+		defer cancel()
+		select {
+		case <-time.After(200 * time.Millisecond):
+		case <-ctx.Done():
+			return
+		}
+		type answer struct {
+			symbols []quickSymbol
+			err     error
+		}
+		answers := make(chan answer, len(servers))
+		count := 0
+		for _, m := range servers {
+			if m == nil {
+				continue
+			}
+			count++
+			go func(m *languageServer) {
+				c, err := m.get(ctx)
+				var out []quickSymbol
+				if err == nil {
+					if client, ok := c.(interface {
+						WorkspaceSymbols(context.Context, string) ([]lsp.WorkspaceSymbol, error)
+					}); ok {
+						var symbols []lsp.WorkspaceSymbol
+						symbols, err = client.WorkspaceSymbols(ctx, query)
+						for _, s := range symbols {
+							if path, e := uriutil.ToPath(s.Location.URI); e == nil {
+								out = append(out, quickSymbol{target: target{path: path, pos: s.Location.Range.Start}, enc: c.Encoding(), name: s.Name})
+							}
+						}
+					}
+				}
+				answers <- answer{out, err}
+			}(m)
+		}
+		var symbols []quickSymbol
+		var firstErr error
+		for i := 0; i < count; i++ {
+			var result answer
+			select {
+			case result = <-answers:
+			case <-ctx.Done():
+				firstErr = ctx.Err()
+				i = count
+				continue
+			}
+			symbols = append(symbols, result.symbols...)
+			if firstErr == nil {
+				firstErr = result.err
+			}
+			if len(result.symbols) > 0 {
+				partial := append([]quickSymbol(nil), symbols...)
+				a.post(func() {
+					if a.gen != gen || !q.open || q.query != ranked || q.ranked != ranked || q.gen != request {
+						return
+					}
+					q.symbols = partial
+					q.results = make([]search.Scored, len(partial))
+				})
+			}
+		}
+		a.post(func() {
+			if a.gen != gen || !q.open || q.query != ranked || q.ranked != ranked || q.gen != request {
+				return
+			}
+			q.symbolLoading, q.symbolCancel = false, nil
+			q.symbols = symbols
+			if len(symbols) == 0 {
+				q.symbolErr = firstErr
+			}
+			q.results = make([]search.Scored, len(symbols))
+			q.sel = 0
+		})
+	}()
 }
 
 func (a *app) chooseQuick(i int) {
@@ -277,6 +393,19 @@ func (a *app) chooseQuick(i int) {
 	}
 	p := q.results[i].Path
 	q.open = false
+	if strings.HasPrefix(q.query, "#") {
+		s := q.symbols[i]
+		if a.focus != nil {
+			if st := a.activeEditor(); st != nil {
+				pos := st.CursorPos()
+				a.hist.Push(nav.Entry{Path: a.activePath(), Line: pos.Line, ByteColumn: pos.Col})
+			}
+			a.cancelNav()
+			pos := s.target.pos
+			a.openIn(a.focus, s.target.path, goTo{lsp: &pos, enc: s.enc})
+		}
+		return
+	}
 	if strings.HasPrefix(q.query, ">") {
 		for _, cmd := range commands() {
 			if cmd.name == p {

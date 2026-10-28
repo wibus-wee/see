@@ -1,12 +1,57 @@
 package main
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/egoist/mygo/ui"
+	"see/internal/lsp"
 )
+
+type symbolClient struct {
+	*fakeClient
+	path string
+}
+
+func (c *symbolClient) WorkspaceSymbols(ctx context.Context, query string) ([]lsp.WorkspaceSymbol, error) {
+	if query != "Thing" {
+		return nil, nil
+	}
+	return []lsp.WorkspaceSymbol{{Name: "Thing", Location: lsp.Location{URI: uriOf(c.path), Range: lsp.Range{Start: lsp.Position{Line: 1, Character: 0}}}}}, nil
+}
+
+func TestWorkspaceSymbolShortcutAndNavigation(t *testing.T) {
+	root := writeTree(t, map[string]string{"a.go": "package a\nfunc Thing() {}\n"})
+	h := newHarness(t, root)
+	h.a.cfg.trust(root)
+	h.a.lsp.stop()
+	h.a.tsLSP.stop()
+	h.a.tsLSP = nil
+	c := &symbolClient{fakeClient: &fakeClient{enc: lsp.UTF16}, path: filepath.Join(root, "a.go")}
+	h.a.lsp = newGoLSP(root, func(context.Context, string, func(error)) (langClient, error) { return c, nil }, nil)
+	defer h.a.lsp.stopWait(time.Second)
+	h.tt.Key(ui.Cmd, ui.KeyT)
+	h.tt.Frame()
+	if !h.a.quick.open || h.a.quick.query != "#" {
+		t.Fatalf("shortcut opened query %q", h.a.quick.query)
+	}
+	h.tt.Type("Thing")
+	h.tt.Frame()
+	if h.a.quick.query != "#Thing" {
+		t.Fatalf("typed query %q", h.a.quick.query)
+	}
+	h.settle(func() bool { return len(h.a.quick.symbols) == 1 })
+	if !h.tt.HasText("Thing") {
+		t.Fatal("symbol is not shown")
+	}
+	h.tt.Key(0, ui.KeyEnter)
+	if h.a.quick.open || h.a.activePath() != c.path {
+		t.Fatalf("symbol navigation: open=%v path=%q", h.a.quick.open, h.a.activePath())
+	}
+}
 
 func TestQuickPanelSwitchesModes(t *testing.T) {
 	root := writeTree(t, map[string]string{"example.go": "package example\n"})

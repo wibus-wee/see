@@ -68,6 +68,7 @@ These are the macOS shortcuts; on other platforms, use Ctrl in place of Cmd. The
 | Open folder | Cmd+O |
 | Save / Save all | Cmd+S / Cmd+Shift+S |
 | Open Quickly | Cmd+Shift+O or Cmd+P |
+| Search workspace symbols | Cmd+T (or type `#` in Open Quickly) |
 | Find in workspace | Cmd+Shift+F |
 | Find in file | Cmd+F |
 | Toggle navigator | Cmd+B or Cmd+0 |
