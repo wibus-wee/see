@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"log/slog"
 	"strings"
 	"sync"
@@ -21,6 +22,9 @@ type logStore struct {
 }
 
 func (s *logStore) add(level slog.Level, source, message string) {
+	if len(message) > 8192 {
+		message = message[:8192] + "…"
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.entries = append(s.entries, logEntry{time.Now(), level, source, message})
@@ -39,7 +43,7 @@ func (a *app) serverLog(source string) func(string, ...any) {
 	return func(format string, args ...any) {
 		msg := fmt.Sprintf(format, args...)
 		a.logs.add(slog.LevelInfo, source, msg)
-		a.logf("%s: %s", source, msg)
+		log.Printf("%s: %s", source, msg)
 		a.post(func() {})
 	}
 }

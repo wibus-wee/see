@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"slices"
@@ -189,6 +190,11 @@ func newApp(cfg *config) *app {
 	}
 	if cfg.SidebarWidth >= 160 {
 		a.sidebarW = cfg.SidebarWidth
+	}
+	a.logf = func(format string, args ...any) {
+		message := fmt.Sprintf(format, args...)
+		a.logs.add(slog.LevelInfo, "app", message)
+		log.Print(message)
 	}
 	a.tree.List.Selected = &a.treeRow
 	a.resetLayout()
