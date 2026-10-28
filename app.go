@@ -32,6 +32,8 @@ type app struct {
 	post              func(func())                 // runs fn on the UI thread, then redraws
 	pickFolder        func() (string, error)       // a blocking folder dialog
 	pickNewFile       func(string) (string, error) // a blocking save dialog
+	pickTerminalApp   func()
+	loadTerminalIcon  func(string)
 	trashItem         func(string) error
 	confirmDirty      func(string) (int, error) // a blocking native confirmation
 	openProjectWindow func(string)

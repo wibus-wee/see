@@ -54,6 +54,7 @@ func commands() []command {
 		{"Show or Hide the Terminal", "Cmd+Shift+", "Y", ui.Cmd | ui.Shift, ui.KeyY, func(a *app) { a.toggleTerminal() }},
 		{"Show Output", "", "", 0, 0, func(a *app) { a.term.open = true; a.term.output = true; a.term.focus = nil }},
 		{"New Terminal", "Ctrl+Shift+", "`", ui.Ctrl | ui.Shift, ui.KeyBackquote, func(a *app) { a.newTerminalTab() }},
+		{"Open in External Terminal", "Cmd+Shift+", "C", ui.Cmd | ui.Shift, ui.KeyC, func(a *app) { a.openExternalTerminal() }},
 		{"Settings", "Cmd+", ",", ui.Cmd, ui.KeyComma, func(a *app) {
 			if a.openSettings != nil {
 				a.openSettings()

@@ -36,6 +36,7 @@ func editorBindings() []editor.Binding {
 		none(ui.Cmd|ui.Shift, ui.KeyO),
 		none(ui.Cmd|ui.Shift, ui.KeyF),
 		none(ui.Cmd|ui.Shift, ui.KeyV),
+		none(ui.Cmd|ui.Shift, ui.KeyC),
 		none(ui.Cmd, ui.KeyBackslash),
 		none(ui.Cmd, ui.KeyD), // split, as iTerm; the reader selects no next occurrence to edit
 		none(ui.Cmd|ui.Shift, ui.KeyD),

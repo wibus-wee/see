@@ -412,8 +412,8 @@ func settingsWindow(a *app) (open, close func()) {
 		a.settings = settingsState{}
 		w = mygo.NewWindow(mygo.WindowOptions{
 			Title:                "Settings",
-			Width:                760,
-			Height:               560,
+			Width:                900,
+			Height:               680,
 			MinWidth:             620,
 			MinHeight:            400,
 			TitleBarStyle:        mygo.TitleBarHidden,
@@ -422,6 +422,88 @@ func settingsWindow(a *app) (open, close func()) {
 			Vibrancy:             mygo.VibrancySidebar,
 			Content:              ui.View(a.settingsView),
 		})
+		current := w
+		customPath := a.cfg.ExternalTerminalPath
+		go func() {
+			apps, err := mygo.Shell.InstalledApps()
+			if err != nil {
+				return
+			}
+			for _, app := range apps {
+				for name, id := range externalTerminalIDs {
+					if app.ID != id {
+						continue
+					}
+					data, err := mygo.Shell.FileIcon(app.Path, 36)
+					if err != nil {
+						continue
+					}
+					current.Update(func() {
+						if w != current || current.IsDestroyed() {
+							return
+						}
+						icon, err := ui.DecodeBitmap(data)
+						if err == nil {
+							if a.settings.terminalIcons == nil {
+								a.settings.terminalIcons = make(map[string]*ui.Bitmap)
+							}
+							a.settings.terminalIcons[name] = icon
+						}
+					})
+				}
+			}
+		}()
+		if customPath != "" {
+			a.loadTerminalIcon(customPath)
+		}
+	}
+	a.loadTerminalIcon = func(path string) {
+		if w == nil || w.IsDestroyed() {
+			return
+		}
+		current := w
+		go func() {
+			data, err := mygo.Shell.FileIcon(path, 36)
+			current.Update(func() {
+				if w != current || current.IsDestroyed() || a.cfg.ExternalTerminalPath != path {
+					return
+				}
+				if a.settings.terminalIcons == nil {
+					a.settings.terminalIcons = make(map[string]*ui.Bitmap)
+				}
+				delete(a.settings.terminalIcons, "Custom App")
+				if err == nil {
+					if icon, err := ui.DecodeBitmap(data); err == nil {
+						a.settings.terminalIcons["Custom App"] = icon
+					}
+				}
+			})
+		}()
+	}
+	a.pickTerminalApp = func() {
+		if w == nil || w.IsDestroyed() {
+			return
+		}
+		current := w
+		go func() {
+			paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Parent: current, Title: "Choose Terminal App", DefaultPath: "/Applications", Filters: []mygo.FileFilter{{Name: "Applications", Extensions: []string{"app"}}}})
+			current.Update(func() {
+				if w != current || current.IsDestroyed() {
+					return
+				}
+				if err != nil {
+					a.note("Could not choose terminal app: "+err.Error(), true)
+					a.post(func() {})
+					return
+				}
+				if len(paths) == 0 {
+					return
+				}
+				a.cfg.ExternalTerminalPath = paths[0]
+				a.settingsChanged()
+				a.loadTerminalIcon(paths[0])
+			})
+		}()
 	}
 	a.openFontPopover = func(anchor ui.Rect, terminal bool) {
 		if w == nil || w.IsDestroyed() {

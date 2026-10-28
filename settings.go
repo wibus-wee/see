@@ -39,7 +39,7 @@ type settingsPane struct {
 var settingsPanes = []settingsPane{
 	{"general", "General", icGear, ui.RGB(0x8e, 0x8e, 0x93), 0, "appearance light dark system theme reopen launch recent folders"},
 	{"editor", "Editor", icLines, ui.RGB(0x0a, 0x84, 0xff), 0, "font size line numbers relative soft wrap"},
-	{"terminal", "Terminal", icPrompt, ui.RGB(0x2c, 0x2c, 0x2e), 0, "shell font size copy on select panel"},
+	{"terminal", "Terminal", icPrompt, ui.RGB(0x2c, 0x2c, 0x2e), 0, "shell font size copy on select panel external ghostty rex seedmux"},
 	{"intelligence", "Code Intelligence", icSparkle, ui.RGB(0xaf, 0x52, 0xde), 1, "gopls tsrs typescript javascript language server go to definition hover trusted folders trust"},
 	{"search", "Search", icSearch, ui.RGB(0xff, 0x95, 0x00), 1, "ripgrep rg find open quickly files"},
 	{"shortcuts", "Shortcuts", icCommand, ui.RGB(0x63, 0x63, 0x66), 2, "keys keyboard"},
@@ -64,6 +64,7 @@ type settingsState struct {
 	lineNumbers   int
 	serverInstall string
 	appearance    int
+	terminalIcons map[string]*ui.Bitmap
 }
 
 func (a *app) settingsGo(pane string) {
@@ -610,6 +611,32 @@ func (a *app) terminalPane(c *ui.Context) {
 	a.initFontValues()
 	statusCard(c, icPrompt, ui.RGB(0x2c, 0x2c, 0x2e), shellName(),
 		"Terminals run your login shell in the open folder, with Ghostty's emulator.", nil)
+	a.cfg.ExternalTerminal = externalTerminalName(a.cfg.ExternalTerminal)
+	heading(c, "External Terminal")
+	rows := []func(){func() {
+		labeled(c, "Terminal App", "Open the current folder with "+keyLabel("Cmd+Shift+", "C")+".")
+		a.externalTerminalPicker(c)
+	}}
+	if a.cfg.ExternalTerminal == "Custom App" {
+		rows = append(rows, func() {
+			labeled(c, "App Path", "Path to a terminal application that can open folders.")
+			ui.TextInput(c, &a.cfg.ExternalTerminalPath).Label("External Terminal App Path").Placeholder("/Applications/Terminal.app").Width(200).OnChange(func() {
+				delete(a.settings.terminalIcons, "Custom App")
+				a.settingsChanged()
+				if strings.HasSuffix(strings.ToLower(a.cfg.ExternalTerminalPath), ".app") && a.loadTerminalIcon != nil {
+					a.loadTerminalIcon(a.cfg.ExternalTerminalPath)
+				}
+			}).OnSubmit(func() {
+				if a.loadTerminalIcon != nil {
+					a.loadTerminalIcon(a.cfg.ExternalTerminalPath)
+				}
+			})
+			if ui.Button(c, "Choose…").Clicked() && a.pickTerminalApp != nil {
+				a.pickTerminalApp()
+			}
+		})
+	}
+	card(c, rows...)
 	heading(c, "Typography")
 	a.fontPreview(c, true)
 	card(c,
@@ -673,4 +700,36 @@ func (a *app) terminalPane(c *ui.Context) {
 			}
 		},
 	)
+}
+
+func (a *app) externalTerminalPicker(c *ui.Context) {
+	t := c.Theme()
+	sel := ui.SelectBase(c, &a.cfg.ExternalTerminal)
+	label := func(name string) {
+		if icon := a.settings.terminalIcons[name]; icon != nil {
+			ui.Image(c, icon).Size(18, 18).Shrink(0)
+		} else {
+			ui.Icon(c, icPrompt).Size(18, 18).TextColor(colMuted).Shrink(0)
+		}
+		display := name
+		if name == "Custom App" && a.cfg.ExternalTerminalPath != "" {
+			display = strings.TrimSuffix(filepath.Base(a.cfg.ExternalTerminalPath), ".app")
+		}
+		ui.Text(c, display).SingleLine()
+	}
+	sel.Trigger.Label("External Terminal App").Gap(8).Padding(6, 10).Radius(8).Background(t.Surface).Border(1, t.Border).AlignItems(ui.Center).Children(func() {
+		label(a.cfg.ExternalTerminal)
+		ui.Icon(c, icChevron).Size(10, 10).TextColor(colMuted)
+	})
+	sel.Trigger.OnChange(a.settingsChanged)
+	sel.Popup(func(panel ui.Element) {
+		panel.Padding(4).Radius(10).Background(t.Background).Border(1, t.Border).Shadow(0, 8, 24, 0, ui.RGBA(0, 0, 0, 0.15))
+		for _, name := range externalTerminalNames {
+			item := sel.Item(name).Gap(8).Padding(6, 10).Radius(6).AlignItems(ui.Center)
+			if item.Highlighted() {
+				item.Background(t.Accent).TextColor(t.AccentText)
+			}
+			item.Children(func() { label(name) })
+		}
+	})
 }
