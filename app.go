@@ -15,6 +15,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
+	"github.com/egoist/mygo/ui/markdown"
 
 	"see/internal/lsp"
 	"see/internal/nav"
@@ -75,6 +76,9 @@ type app struct {
 	refreshMenu                 func() // builds the menu bar again
 	find                        findState
 	quick                       quickOpen
+	palette                     commandPalette
+	confirm                     *confirmation
+	allowDirty                  bool
 
 	navigator   int // the sidebar's navigator: navFiles or navFind
 	sidebarOff  bool
@@ -111,16 +115,24 @@ type dirState struct {
 type doc struct {
 	path, uri, name string
 	buf             *editor.Buffer
+	markdownOptions *markdown.Options
+	markdownText    string
+	markdownVersion uint64
+	markdownCached  bool
 
-	loading bool
-	err     error
-	kind    workspace.Kind
-	size    int64
-	plain   bool
-	gone    bool      // removed or moved away on disk
-	seq     int       // of the latest load, so a stale one is dropped
-	stamp   fileStamp // the file as last read, to skip reading it again
-	lossy   bool      // invalid UTF-8 shown with replacement characters
+	loading    bool
+	err        error
+	kind       workspace.Kind
+	size       int64
+	plain      bool
+	gone       bool      // removed or moved away on disk
+	seq        int       // of the latest load, so a stale one is dropped
+	stamp      fileStamp // the file as last read, to skip reading it again
+	lossy      bool      // invalid UTF-8 shown with replacement characters
+	bom        bool
+	diskText   string
+	conflict   bool
+	lspVersion uint64
 }
 
 // fileStamp tells whether a file changed since it was read.
@@ -205,6 +217,9 @@ func (a *app) openWorkspace(dir string) {
 			a.cfg.removeRecent(dir)
 			a.saveConfig()
 		}
+		return
+	}
+	if a.guardDirty(a.dirtyDocs(), func() { a.openWorkspace(root) }) {
 		return
 	}
 	a.closeWorkspace()
@@ -445,6 +460,7 @@ func (a *app) openIn(g *group, path string, to goTo) *doc {
 		g.addTab(path, at)
 	}
 	if to.pos != nil || to.lsp != nil {
+		delete(g.markdownPreview, path)
 		g.pending[path] = to
 	}
 	a.activateIn(g, path)
@@ -537,6 +553,11 @@ func (a *app) loadDoc(d *doc) {
 			if a.gen != gen || a.docs[d.path] != d || d.seq != seq {
 				return
 			}
+			if d.buf != nil && d.buf.Version() != snap.Version() {
+				d.loading = false
+				a.reloadDoc(d)
+				return
+			}
 			a.loaded(d, f, buf, same, err)
 		})
 	}()
@@ -553,7 +574,14 @@ func (a *app) loaded(d *doc, f workspace.File, buf *editor.Buffer, same bool, er
 		d.err = err
 		return
 	}
-	d.err, d.gone = nil, false
+	if d.buf != nil && d.buf.Modified() {
+		if f.Kind != workspace.Text || f.Text != d.diskText || f.BOM != d.bom {
+			d.conflict = true
+		}
+		return
+	}
+	d.err, d.gone, d.conflict = nil, false, false
+	d.bom, d.diskText = f.BOM, f.Text
 	d.kind, d.size, d.plain = f.Kind, f.Size, f.Plain
 	d.stamp = fileStamp{f.Size, f.ModTime}
 	if f.Kind != workspace.Text {
@@ -639,11 +667,11 @@ func clampPos(b *editor.Buffer, p editor.Pos) editor.Pos {
 	return p
 }
 
-// newEditor makes the read-only editor of a document in a group.
+// newEditor makes an editor of a document in a group.
 func (a *app) newEditor(g *group, d *doc) *editor.State {
 	st := &editor.State{
 		Buffer:   d.buf,
-		ReadOnly: true,
+		ReadOnly: d.lossy,
 		Label:    d.name,
 		Bindings: editorBindings(),
 		Theme:    a.edTheme,
@@ -691,6 +719,26 @@ func (a *app) userOpen(path string) {
 	}
 }
 
+func (a *app) previewOpen(path string) {
+	g := a.focus
+	path = docPath(a.root, a.realRoot, path)
+	if g.has(path) {
+		a.userActivateIn(g, path)
+		return
+	}
+	old := g.preview
+	if d := a.docs[old]; d != nil && d.buf != nil && d.buf.Modified() {
+		g.preview, old = "", ""
+	}
+	at := slices.Index(g.order, old)
+	a.userOpen(path)
+	if old != "" {
+		a.closeTab(g, old)
+		g.addTab(path, at)
+	}
+	g.preview = path
+}
+
 // userActivate switches tabs of the focused group because the user asked.
 func (a *app) userActivate(path string) { a.userActivateIn(a.focus, path) }
 
@@ -729,6 +777,20 @@ func (a *app) goForward() {
 
 // cycleTab activates the tab dir places to the right (1) or left (-1)
 // in the focused group.
+func (a *app) activateTabNumber(n int) {
+	g := a.focus
+	if g == nil || n < 1 || len(g.order) == 0 {
+		return
+	}
+	i := n - 1
+	if n == 9 {
+		i = len(g.order) - 1
+	}
+	if i < len(g.order) {
+		a.userActivate(g.order[i])
+	}
+}
+
 func (a *app) cycleTab(dir int) {
 	g := a.focus
 	if len(g.order) < 2 {

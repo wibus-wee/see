@@ -12,13 +12,15 @@ import (
 // side by side: each shows its documents in editors of its own, which
 // keep their own place, over the buffers all groups share.
 type group struct {
-	id      int
-	order   []string // the tabs, left to right
-	mru     []string // most recently active last
-	active  string
-	eds     map[string]*editor.State
-	pending map[string]goTo // where to go once a document loads
-	tabSel  int
+	id              int
+	order           []string // the tabs, left to right
+	mru             []string // most recently active last
+	active          string
+	preview         string
+	eds             map[string]*editor.State
+	pending         map[string]goTo // where to go once a document loads
+	markdownPreview map[string]bool
+	tabSel          int
 }
 
 // goTo is a place to show in a document: a position of the buffer, or
@@ -169,10 +171,26 @@ func (a *app) closeTab(g *group, path string) {
 	if !g.has(path) {
 		return
 	}
+	if d := a.docs[path]; d != nil && d.buf != nil && d.buf.Modified() {
+		last := true
+		for _, other := range a.groups() {
+			if other != g && other.has(path) {
+				last = false
+				break
+			}
+		}
+		if last && a.guardDirty([]*doc{d}, func() { a.closeTab(g, path) }) {
+			return
+		}
+	}
+	if g.preview == path {
+		g.preview = ""
+	}
 	g.order = slices.DeleteFunc(g.order, func(p string) bool { return p == path })
 	g.mru = slices.DeleteFunc(g.mru, func(p string) bool { return p == path })
 	delete(g.eds, path)
 	delete(g.pending, path)
+	delete(g.markdownPreview, path)
 	if g.active == path {
 		g.active = ""
 		if n := len(g.mru); n > 0 {
@@ -209,6 +227,9 @@ func (a *app) releaseIfUnused(path string) {
 // moveTab moves a tab from one group to another, at index at, or into a
 // new group at s of to. Its editor goes with it, keeping its place.
 func (a *app) moveTab(from *group, path string, to *group, s side, at int) {
+	if from != nil && from.preview == path {
+		from.preview = ""
+	}
 	if !from.has(path) {
 		return
 	}
@@ -225,11 +246,19 @@ func (a *app) moveTab(from *group, path string, to *group, s side, at int) {
 		return
 	}
 	ed := from.eds[path]
+	previewMarkdown := from.markdownPreview[path]
+	alreadyOpen := to.has(path)
 	pend, hasPend := from.pending[path]
 	if to.has(path) {
 		ed = to.eds[path] // it shows there already: keep that one
 	}
 	to.addTab(path, at)
+	if !alreadyOpen && previewMarkdown {
+		if to.markdownPreview == nil {
+			to.markdownPreview = make(map[string]bool)
+		}
+		to.markdownPreview[path] = true
+	}
 	if ed != nil {
 		to.eds[path] = ed
 	}
@@ -241,6 +270,7 @@ func (a *app) moveTab(from *group, path string, to *group, s side, at int) {
 	from.mru = slices.DeleteFunc(from.mru, func(p string) bool { return p == path })
 	delete(from.eds, path)
 	delete(from.pending, path)
+	delete(from.markdownPreview, path)
 	if from.active == path {
 		from.active = ""
 		if n := len(from.mru); n > 0 {

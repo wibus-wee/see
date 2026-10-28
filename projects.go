@@ -34,6 +34,7 @@ func (a *app) fileMenu(run func(func())) *mygo.MenuItem {
 	return &mygo.MenuItem{Label: "File", Submenu: []*mygo.MenuItem{
 		{Label: "Open Folder…", Click: do(a.openFolderDialog)},
 		{Label: "Open Recent", Submenu: recent},
+		{Label: "Save", Click: do(a.saveActive)},
 		mygo.Separator(),
 		{Label: "Close Folder", Accelerator: closeKey, Click: do(a.closeFolder)},
 		mygo.Separator(),
@@ -44,6 +45,9 @@ func (a *app) fileMenu(run func(func())) *mygo.MenuItem {
 // closeFolder closes the workspace and goes back to the welcome window.
 func (a *app) closeFolder() {
 	if a.root == "" {
+		return
+	}
+	if a.guardDirty(a.dirtyDocs(), a.closeFolder) {
 		return
 	}
 	a.closeWorkspace()

@@ -185,6 +185,7 @@ const (
 // File is a file read for showing.
 type File struct {
 	Text string
+	BOM  bool
 	Kind Kind
 	Size int64
 	// ModTime is the file's modification time as read.
@@ -225,6 +226,7 @@ func ReadFile(p string) (File, error) {
 	if f.Kind != Text {
 		return f, nil
 	}
+	f.BOM = bytes.HasPrefix(data, []byte("\xef\xbb\xbf"))
 	data = bytes.TrimPrefix(data, []byte("\xef\xbb\xbf"))
 	f.Text = string(data)
 	f.Plain = f.Size > PlainLimit

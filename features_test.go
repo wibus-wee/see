@@ -53,6 +53,26 @@ func TestSplitAndMoveTabs(t *testing.T) {
 	h.tt.Frame()
 }
 
+func TestTabShortcuts(t *testing.T) {
+	root := writeTree(t, map[string]string{"a.go": "package a\n", "b.go": "package b\n", "c.go": "package c\n"})
+	h := newHarness(t, root)
+	a, b, c := h.open("a.go"), h.open("b.go"), h.open("c.go")
+	check := func(key ui.Key, mods ui.Modifiers, want string) {
+		t.Helper()
+		h.tt.Key(mods, key)
+		h.tt.Frame()
+		if got := h.a.activePath(); got != want {
+			t.Fatalf("key %v mods %v: active %q, want %q", key, mods, got, want)
+		}
+	}
+	check(ui.Key1, ui.Cmd, a.path)
+	check(ui.Key2, ui.Cmd, b.path)
+	check(ui.Key9, ui.Cmd, c.path)
+	check(ui.Key8, ui.Cmd, c.path) // a missing position does nothing
+	check(ui.KeyTab, ui.Ctrl, a.path)
+	check(ui.KeyTab, ui.Ctrl|ui.Shift, c.path)
+}
+
 func TestDropZones(t *testing.T) {
 	for _, tc := range []struct {
 		x, y float32
@@ -85,7 +105,7 @@ func TestDropZones(t *testing.T) {
 func TestFindNavigator(t *testing.T) {
 	rg, err := search.FindRipgrep("")
 	if err != nil {
-		t.Skip("ripgrep is not installed; set NSR_RG")
+		t.Skip("ripgrep is not installed; set SEE_RG")
 	}
 	_ = rg
 	root := writeTree(t, map[string]string{
@@ -121,7 +141,7 @@ func TestFindNavigator(t *testing.T) {
 }
 
 func TestFindWithoutRipgrep(t *testing.T) {
-	t.Setenv("NSR_RG", "")
+	t.Setenv("SEE_RG", "")
 	t.Setenv("PATH", t.TempDir())
 	root := writeTree(t, map[string]string{"a.go": "x"})
 	h := newHarness(t, root)
@@ -243,12 +263,12 @@ func TestFileKinds(t *testing.T) {
 	}
 }
 
-// TestScreenshot draws the window for a look, when NSR_SHOT names a
+// TestScreenshot draws the window for a look, when SEE_SHOT names a
 // directory to write it to.
 func TestScreenshot(t *testing.T) {
-	dir := os.Getenv("NSR_SHOT")
+	dir := os.Getenv("SEE_SHOT")
 	if dir == "" {
-		t.Skip("set NSR_SHOT to a directory")
+		t.Skip("set SEE_SHOT to a directory")
 	}
 	root, h := goWorkspace(t)
 	h.tt.SetSize(1280, 800)
@@ -321,5 +341,75 @@ func TestAppearanceFollowsSystem(t *testing.T) {
 	h.a.chooseAppearance("dark")
 	if h.a.cfg.Appearance != "dark" || asked != "dark" {
 		t.Errorf("appearance %q, asked %q", h.a.cfg.Appearance, asked)
+	}
+}
+
+func TestCommandPaletteAndPreview(t *testing.T) {
+	root := writeTree(t, map[string]string{"a.go": "package a\n", "b.go": "package b\n", "c.go": "package c\n"})
+	h := newHarness(t, root)
+	a, b, c := filepath.Join(root, "a.go"), filepath.Join(root, "b.go"), filepath.Join(root, "c.go")
+	h.a.previewOpen(a)
+	h.a.previewOpen(b)
+	if names(h.a.focus.order) != "b.go" || h.a.focus.preview != b {
+		t.Fatalf("preview order %v, preview %q", h.a.focus.order, h.a.focus.preview)
+	}
+	h.tt.Frame()
+	h.tt.Key(ui.Cmd|ui.Shift, ui.KeyP)
+	if !h.a.palette.open {
+		t.Fatal("palette did not open")
+	}
+	h.tt.Type("keep preview")
+	h.tt.Frame()
+	h.tt.Key(0, ui.KeyEnter)
+	if h.a.palette.open || h.a.focus.preview != "" {
+		t.Fatal("command did not pin the preview")
+	}
+	h.a.previewOpen(c)
+	if names(h.a.focus.order) != "b.go c.go" {
+		t.Fatalf("pinned tab lost: %v", h.a.focus.order)
+	}
+	h.a.previewOpen(a)
+	if names(h.a.focus.order) != "b.go a.go" {
+		t.Fatalf("preview not replaced: %v", h.a.focus.order)
+	}
+}
+
+func TestTreePreviewDoubleClick(t *testing.T) {
+	root := writeTree(t, map[string]string{"a.go": "package a\n", "b.go": "package b\n"})
+	h := newHarness(t, root)
+	h.click("a.go")
+	if h.a.focus.preview != filepath.Join(root, "a.go") {
+		t.Fatalf("single click preview %q", h.a.focus.preview)
+	}
+	h.click("a.go")
+	if h.a.focus.preview != "" {
+		t.Fatalf("double click did not keep tab: %q", h.a.focus.preview)
+	}
+	h.click("b.go")
+	if names(h.a.focus.order) != "a.go b.go" {
+		t.Fatalf("tabs %v", h.a.focus.order)
+	}
+}
+
+func TestCollapseAllFolders(t *testing.T) {
+	root := writeTree(t, map[string]string{"a/b/file.go": "package p\n", "other/file.go": "package p\n"})
+	h := newHarness(t, root)
+	file := h.open("a/b/file.go")
+	a, b, other := filepath.Join(root, "a"), filepath.Join(root, "a", "b"), filepath.Join(root, "other")
+	h.a.tree.Open.Add(other)
+	h.a.reveal = file.path
+	h.tt.Frame()
+	h.click("Collapse All Folders")
+	h.tt.Frame()
+	if h.a.tree.Open.Len() != 0 || h.a.reveal != "" {
+		t.Fatalf("open folders: %d, pending reveal: %q", h.a.tree.Open.Len(), h.a.reveal)
+	}
+	if h.a.activePath() != file.path {
+		t.Fatal("collapsing folders changed the active file")
+	}
+	h.a.tree.Open.Add(a)
+	h.tt.Frame()
+	if h.a.tree.Open.Has(b) || h.a.tree.Open.Has(other) {
+		t.Fatal("nested folders reopened")
 	}
 }

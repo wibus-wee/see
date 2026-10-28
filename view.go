@@ -24,10 +24,14 @@ func editorBindings() []editor.Binding {
 	}
 	bs := []editor.Binding{
 		none(ui.Cmd, ui.KeyW),
+		none(ui.Cmd, ui.KeyS),
+		none(ui.Cmd|ui.Shift, ui.KeyS),
 		none(ui.Cmd, ui.KeyO),
 		none(ui.Cmd, ui.KeyP),
+		none(ui.Cmd|ui.Shift, ui.KeyP),
 		none(ui.Cmd|ui.Shift, ui.KeyO),
 		none(ui.Cmd|ui.Shift, ui.KeyF),
+		none(ui.Cmd|ui.Shift, ui.KeyV),
 		none(ui.Cmd, ui.KeyBackslash),
 		none(ui.Cmd, ui.KeyD), // split, as iTerm; the reader selects no next occurrence to edit
 		none(ui.Cmd|ui.Shift, ui.KeyD),
@@ -35,6 +39,9 @@ func editorBindings() []editor.Binding {
 		none(ui.Ctrl|ui.Shift, ui.KeyTab),
 		none(ui.Ctrl, ui.KeyMinus),
 		none(ui.Ctrl|ui.Shift, ui.KeyMinus),
+	}
+	for k := ui.Key1; k <= ui.Key9; k++ {
+		bs = append(bs, none(ui.Cmd, k))
 	}
 	if runtime.GOOS != "darwin" {
 		// Back and forward, as VS Code on Windows; the editor would move
@@ -78,6 +85,10 @@ func (a *app) view(c *ui.Context) {
 	a.shortcuts(c)
 	ui.Column(c).Fill().Children(func() {
 		a.toolbar(c, vibrant)
+		if a.confirm != nil {
+			q := a.confirm
+			a.banner(c, colWarnBg, q.message, q.actions)
+		}
 		ui.Row(c).Grow(1).FillWidth().AlignItems(ui.Stretch).Children(func() {
 			if a.sidebarOff {
 				a.editorArea(c)
@@ -93,6 +104,9 @@ func (a *app) view(c *ui.Context) {
 	if a.quick.open {
 		a.quickOpenPanel(c)
 	}
+	if a.palette.open {
+		a.commandPanel(c)
+	}
 }
 
 // shortcuts handles the app's keys wherever the focus is.
@@ -102,44 +116,40 @@ func (a *app) shortcuts(c *ui.Context) {
 	// the key (Alt+Left moves by words there, Control+- undoes).
 	inTerm := a.term.open && a.term.focused
 	switch {
-	case c.Shortcut(ui.Cmd, ui.KeyO):
-		a.openFolderDialog()
-	case c.Shortcut(ui.Cmd, ui.KeyComma) && a.openSettings != nil:
-		a.openSettings()
 	case c.Shortcut(ui.Cmd|ui.Shift, ui.Key1):
 		a.showWelcome = true
-	case c.Shortcut(ui.Cmd|ui.Shift, ui.KeyO), c.Shortcut(ui.Cmd, ui.KeyP):
+	case c.Shortcut(ui.Cmd, ui.KeyP):
 		a.openQuickly()
-	case c.Shortcut(ui.Cmd|ui.Shift, ui.KeyF):
-		a.sidebarOff, a.navigator = false, navFind
-	case c.Shortcut(ui.Cmd, ui.Key1):
-		a.sidebarOff, a.navigator = false, navFiles
-	case c.Shortcut(ui.Cmd, ui.Key0):
-		a.sidebarOff = !a.sidebarOff
-	case c.Shortcut(ui.Cmd|ui.Shift, ui.KeyY), c.Shortcut(ui.Ctrl, ui.KeyBackquote):
-		a.toggleTerminal() // Xcode's and VS Code's keys
-	case c.Shortcut(ui.Ctrl|ui.Shift, ui.KeyBackquote):
-		a.newTerminalTab()
-	case c.Shortcut(ui.Cmd, ui.KeyBackslash), c.Shortcut(ui.Cmd, ui.KeyD):
+	case c.Shortcut(ui.Ctrl, ui.KeyBackquote):
+		a.toggleTerminal()
+	case c.Shortcut(ui.Cmd, ui.KeyBackslash):
 		if inTerm {
 			a.splitTerminal()
 		} else {
 			a.splitActive(sideRight)
 		}
-	case c.Shortcut(ui.Cmd|ui.Shift, ui.KeyBackslash), c.Shortcut(ui.Cmd|ui.Shift, ui.KeyD):
+	case c.Shortcut(ui.Cmd|ui.Shift, ui.KeyBackslash):
 		a.splitActive(sideBottom)
-	case !inTerm && c.Shortcut(ui.Cmd, ui.KeyW):
-		if p := a.activePath(); p != "" {
-			a.closeDoc(p)
+	}
+	for _, cmd := range commands() {
+		if cmd.shortcutKey == 0 || (inTerm && ((cmd.shortcutMods&ui.Ctrl != 0 && cmd.shortcutKey != ui.KeyBackquote) || cmd.shortcutKey == ui.KeyW)) {
+			continue
+		}
+		if c.Shortcut(cmd.shortcutMods, cmd.shortcutKey) {
+			if inTerm && cmd.shortcutKey == ui.KeyD && cmd.shortcutMods == ui.Cmd {
+				a.splitTerminal()
+			} else {
+				cmd.run(a)
+			}
 		}
 	}
 	if inTerm {
 		return
 	}
-	back := c.Shortcut(ui.Ctrl, ui.KeyMinus) || c.Shortcut(ui.Ctrl|ui.Cmd, ui.KeyLeft)
-	fwd := c.Shortcut(ui.Ctrl|ui.Shift, ui.KeyMinus) || c.Shortcut(ui.Ctrl|ui.Cmd, ui.KeyRight)
-	next := c.Shortcut(ui.Ctrl, ui.KeyTab)
-	prev := c.Shortcut(ui.Ctrl|ui.Shift, ui.KeyTab)
+	back := c.Shortcut(ui.Ctrl|ui.Cmd, ui.KeyLeft)
+	fwd := c.Shortcut(ui.Ctrl|ui.Cmd, ui.KeyRight)
+	next := false
+	prev := false
 	if runtime.GOOS == "darwin" {
 		next = c.Shortcut(ui.Cmd|ui.Shift, ui.KeyBracketRight) || next
 		prev = c.Shortcut(ui.Cmd|ui.Shift, ui.KeyBracketLeft) || prev
@@ -214,7 +224,7 @@ func (a *app) toolbar(c *ui.Context, vibrant bool) {
 		row.Background(colToolbar)
 	}
 	row.Children(func() {
-		if iconButton(c, icSidebar, "Show Navigator", "Hide or Show the Navigator ("+keyLabel("Cmd+", "0")+")", false).Clicked() {
+		if iconButton(c, icSidebar, "Show Navigator", "Hide or Show the Navigator", false).Clicked() {
 			a.sidebarOff = !a.sidebarOff
 		}
 		ui.Text(c, filepath.Base(a.root)).Bold().SingleLine().MarginStart(4).Width(max(0, min(200, a.sidebarW-110))).Tooltip(tildePath(a.root))
@@ -292,7 +302,7 @@ func (a *app) navigatorPane(c *ui.Context, vibrant bool) {
 	}
 	pane.Children(func() {
 		ui.Row(c).FillWidth().Padding(2, 8).Gap(2).Justify(ui.Center).BorderWidth(0, 0, 1, 0).BorderColor(colHairline).Children(func() {
-			if iconButton(c, icFolder, "Project Navigator", "Show the Project Navigator ("+keyLabel("Cmd+", "1")+")", a.navigator == navFiles).Clicked() {
+			if iconButton(c, icFolder, "Project Navigator", "Show the Project Navigator", a.navigator == navFiles).Clicked() {
 				a.navigator = navFiles
 			}
 			if iconButton(c, icSearch, "Find Navigator", "Show the Find Navigator ("+keyLabel("Cmd+Shift+", "F")+")", a.navigator == navFind).Clicked() {
@@ -311,6 +321,11 @@ func (a *app) projectNavigator(c *ui.Context) {
 	ui.Row(c).Padding(8, 12, 4, 12).AlignItems(ui.Center).Gap(6).Children(func() {
 		folderGlyph(c, true, 15)
 		ui.Text(c, filepath.Base(a.root)).Bold().SingleLine().Grow(1).Tooltip(a.root)
+		if iconButton(c, icCollapse, "Collapse All Folders", "Collapse All Folders", false).Clicked() {
+			a.tree.Open.Clear()
+			a.reveal = ""
+			a.treeRow = -1
+		}
 		if iconButton(c, icRefresh, "Refresh", "Read the folders again", false).Clicked() {
 			a.refreshAll()
 		}
@@ -390,7 +405,9 @@ func (a *app) treeItem(c *ui.Context, p string) {
 		name = filepath.Base(p)
 	}
 	dim := (e.Dir && workspace.Ignored(name)) || strings.HasPrefix(name, ".")
-	row := ui.Row(c).Grow(1).AlignItems(ui.Center).Gap(6)
+	// Extend the hit area into the outline's row padding, keeping the
+	// disclosure arrow as a separate target.
+	row := ui.Row(c).Grow(1).AlignItems(ui.Center).Gap(6).Margin(-3, 0).MarginEnd(-8).Padding(3, 0)
 	row.Children(func() {
 		if e.Dir {
 			folderGlyph(c, a.tree.Open.Has(p), 15)
@@ -412,7 +429,11 @@ func (a *app) treeItem(c *ui.Context, p string) {
 	if e.Dir {
 		row.OnClick(func() { a.toggleDir(p) })
 	} else {
-		row.OnClick(func() { a.userOpen(p) })
+		row.OnClick(func() { a.previewOpen(p) })
+		if row.DoubleClicked() {
+			a.previewOpen(p)
+			a.focus.preview = ""
+		}
 		row.Drag(&tabDrag{path: p})
 	}
 }
@@ -682,6 +703,9 @@ func (a *app) tabBar(c *ui.Context, g *group) {
 			active := p == g.active
 			tab := tabs.Tab(i).Grow(1).Basis(0).MaxWidth(260).MinWidth(90).Padding(0, 8).Gap(6).
 				AlignItems(ui.Center).Justify(ui.Center).BorderWidth(0, 1, 0, 0).BorderColor(colHairline)
+			if tab.DoubleClicked() && g.preview == p {
+				g.preview = ""
+			}
 			tab.Drag(&tabDrag{from: g, path: p})
 			if v, over := ui.DragOver[*tabDrag](tab); over && v.path != p {
 				tab.DrawOver(func(pt *ui.Painter, r ui.Rect) {
@@ -711,7 +735,13 @@ func (a *app) tabBar(c *ui.Context, g *group) {
 				}
 				cl.OnClick(func() { a.closeTab(g, p) })
 				fileIcon(c, d.name, 13)
+				if d.buf != nil && d.buf.Modified() {
+					ui.Text(c, "●").FontSize(10).TextColor(colAccent)
+				}
 				name := ui.Text(c, d.name).FontSize(12).SingleLine().Shrink(1)
+				if g.preview == p {
+					name.Italic()
+				}
 				switch {
 				case d.gone:
 					name.Strikethrough().TextColor(colMuted)
@@ -786,6 +816,17 @@ func (a *app) jumpBar(c *ui.Context, g *group) {
 				})
 			}
 		}
+		if isMarkdown(p) {
+			ui.Box(c).Grow(1)
+			label := "Show Markdown Preview"
+			if g.markdownPreview[p] {
+				label = "Show Markdown Source"
+			}
+			if iconButton(c, icMarkdown, label, label+" ("+keyLabel("Cmd+Shift+", "V")+")", g.markdownPreview[p]).Clicked() {
+				a.focus = g
+				a.toggleMarkdownPreview(g)
+			}
+		}
 	})
 }
 
@@ -823,6 +864,18 @@ func (a *app) document(c *ui.Context, g *group, d *doc) {
 				a.reloadDoc(d)
 			})
 	case st != nil:
+		if v := d.buf.Version(); v != d.lspVersion {
+			d.lspVersion = v
+			if a.lsp != nil {
+				a.lsp.changed(d.uri, d.buf.Snapshot())
+			}
+			if d.buf.Modified() && g.preview == d.path {
+				g.preview = ""
+			}
+		}
+		if d.conflict {
+			a.banner(c, colWarnBg, "This file changed on disk. Your edits are preserved.", []action{{"Overwrite", func() { a.saveDoc(d, true) }}})
+		}
 		if d.gone {
 			a.banner(c, colWarnBg, "This file was deleted or moved on disk. The text below is how it was.", []action{
 				{"Reload", func() { a.reloadDoc(d) }},
@@ -832,9 +885,13 @@ func (a *app) document(c *ui.Context, g *group, d *doc) {
 		if d.plain || d.lossy {
 			msg := "Large file: syntax highlighting is off."
 			if d.lossy {
-				msg = "Bytes that are not UTF-8 show as �."
+				msg = "Bytes that are not UTF-8 show as �. This file is read-only to protect its encoding."
 			}
 			ui.Text(c, msg).FontSize(11).TextColor(colMuted).Padding(3, 12).FillWidth().Background(colTabBar)
+		}
+		if isMarkdown(d.path) && g.markdownPreview[d.path] {
+			a.markdownView(c, g, d)
+			return
 		}
 		ed := editor.View(c.Key(d.path), st).Grow(1).FillWidth()
 		switch {

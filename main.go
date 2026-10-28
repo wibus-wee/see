@@ -1,11 +1,12 @@
 // See is a desktop source code reader: a file tree,
-// tabs, a read-only code editor and Go to Definition through gopls, drawn
+// tabs, a code editor and Go to Definition through gopls, drawn
 // natively by MyGo's ui, with no web view.
 package main
 
 import (
 	"log"
 	"os"
+	"path/filepath"
 	"runtime"
 	"time"
 
@@ -21,7 +22,19 @@ func main() {
 		wins         = &windows{a: a}
 		quitting     bool
 	)
-	mygo.App.OnBeforeQuit(func(e *mygo.QuitEvent) { quitting = true })
+	mygo.App.OnBeforeQuit(func(e *mygo.QuitEvent) {
+		if !a.allowDirty && len(a.dirtyDocs()) > 0 {
+			e.PreventDefault()
+			if win != nil {
+				win.Update(func() {
+					a.showWelcome = false
+					a.guardDirty(a.dirtyDocs(), func() { quitting = true; mygo.App.Quit() })
+				})
+			}
+			return
+		}
+		quitting = true
+	})
 	// Light, dark, or the system's, from the start.
 	a.setAppearance = func(s string) { mygo.Theme.SetSource(themeSource(s)) }
 	a.setAppearance(cfg.Appearance)
@@ -98,6 +111,7 @@ func main() {
 				a.fileMenu(win.Update),
 				{Role: mygo.RoleEditMenu},
 				{Label: "View", Submenu: []*mygo.MenuItem{
+					{Label: "Command Palette…", Click: func(*mygo.MenuItem, *mygo.Window) { win.Update(a.openPalette) }},
 					{Label: "Appearance", Submenu: appearanceMenu(a)},
 				}},
 				{Role: mygo.RoleWindowMenu},
@@ -124,6 +138,8 @@ func main() {
 		switch {
 		case len(os.Args) > 1:
 			a.openWorkspace(os.Args[1])
+		case filepath.Base(os.Args[0]) == "see":
+			a.openWorkspace(".")
 		case cfg.LastWorkspace != "" && cfg.ReopenLast:
 			if _, err := os.Stat(cfg.LastWorkspace); err != nil {
 				a.welcomeNote = "The last folder, " + cfg.LastWorkspace + ", is no longer there."

@@ -455,22 +455,11 @@ func (a *app) searchPane(c *ui.Context) {
 }
 
 func (a *app) shortcutsPane(c *ui.Context) {
-	rows := []struct{ what, mods, key string }{
-		{"Open Folder", "Cmd+", "O"},
-		{"Open Quickly", "Cmd+Shift+", "O"},
-		{"Find in Workspace", "Cmd+Shift+", "F"},
-		{"Find in File", "Cmd+", "F"},
-		{"Go to Definition", "", "F12"},
-		{"Go Back", "Ctrl+", "-"},
-		{"Go Forward", "Ctrl+Shift+", "-"},
-		{"Add Editor on Right", "Cmd+", "D"},
-		{"Add Editor Below", "Cmd+Shift+", "D"},
-		{"Close Tab", "Cmd+", "W"},
-		{"Show or Hide the Terminal", "Cmd+Shift+", "Y"},
-		{"New Terminal", "Ctrl+Shift+", "`"},
-		{"Split Terminal (in a terminal)", "Cmd+", "D"},
-		{"Show or Hide the Navigator", "Cmd+", "0"},
-		{"Settings", "Cmd+", ","},
+	rows := []struct{ what, mods, key string }{}
+	for _, cmd := range commands() {
+		if cmd.key != "" {
+			rows = append(rows, struct{ what, mods, key string }{cmd.name, cmd.mods, cmd.key})
+		}
 	}
 	var fns []func()
 	for _, r := range rows {

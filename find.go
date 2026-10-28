@@ -256,7 +256,7 @@ func (a *app) chooseQuick(i int) {
 	}
 	p := q.results[i].Path
 	q.open = false
-	a.userOpen(joinRoot(a.root, p))
+	a.previewOpen(joinRoot(a.root, p))
 }
 
 func joinRoot(root, rel string) string { return filepath.Join(root, filepath.FromSlash(rel)) }
