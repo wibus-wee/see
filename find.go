@@ -21,6 +21,8 @@ import (
 // results streaming in from ripgrep.
 type findState struct {
 	opts        search.Options
+	field       ui.Handle
+	focus       bool
 	showFilters bool
 	running     bool
 	seq         int
@@ -210,13 +212,22 @@ type quickOpen struct {
 const maxQuickFiles = 200000
 
 func (a *app) openQuickly() {
-	if a.root == "" {
-		return
-	}
+	a.openQuickPanel("")
+}
+
+func (a *app) openQuickPanel(query string) {
 	q := &a.quick
-	q.open, q.query, q.ranked, q.sel = true, "", "\x00", 0
+	q.open, q.query, q.ranked, q.sel = true, query, "\x00", 0
 	q.list.Selected = &q.sel
-	if q.files != nil || q.listing {
+	a.ensureFiles()
+}
+
+// ensureFiles lists the workspace's files for Open Quickly and the tree's
+// filter, once: the list lasts until the workspace changes or a refresh
+// forgets it.
+func (a *app) ensureFiles() {
+	q := &a.quick
+	if q.files != nil || q.listing || a.root == "" {
 		return
 	}
 	q.listing = true
@@ -233,7 +244,8 @@ func (a *app) openQuickly() {
 			if q.files == nil {
 				q.files = []string{}
 			}
-			q.ranked = "\x00" // rank again
+			q.ranked = "\x00"      // rank again
+			a.filter.forQuery = "" // filter again over the new list
 		})
 	}()
 }
@@ -241,11 +253,20 @@ func (a *app) openQuickly() {
 // rankQuick ranks the files for the query when it changed.
 func (a *app) rankQuick() {
 	q := &a.quick
-	if q.ranked == q.query || q.files == nil {
+	if q.ranked == q.query {
 		return
 	}
 	q.ranked = q.query
-	q.results = search.Fuzzy(q.files, q.query, 60)
+	if strings.HasPrefix(q.query, ">") {
+		all := commands()
+		names := make([]string, len(all))
+		for i, cmd := range all {
+			names[i] = cmd.name
+		}
+		q.results = search.Fuzzy(names, strings.TrimSpace(q.query[1:]), len(names))
+	} else {
+		q.results = search.Fuzzy(q.files, q.query, 60)
+	}
 	q.sel = 0
 }
 
@@ -256,6 +277,15 @@ func (a *app) chooseQuick(i int) {
 	}
 	p := q.results[i].Path
 	q.open = false
+	if strings.HasPrefix(q.query, ">") {
+		for _, cmd := range commands() {
+			if cmd.name == p {
+				cmd.run(a)
+				return
+			}
+		}
+		return
+	}
 	a.previewOpen(joinRoot(a.root, p))
 }
 

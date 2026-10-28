@@ -15,7 +15,7 @@ See is a desktop app for exploring source code in a focused native interface. Op
 - Choose system, light, or dark appearance and adjust editor and terminal preferences.
 - Reopen recent folders and see changes made to files on disk.
 
-Edit and save text in the source view. The integrated terminal runs your shell in the workspace.
+Edit and save UTF-8 text in the source view. Unsaved changes are marked on tabs, and See asks before closing them. If a file changes on disk, See preserves your edits and asks before overwriting it. Files shown with replacement characters remain read-only. The integrated terminal runs your shell in the workspace.
 
 ## Getting started
 
@@ -40,6 +40,8 @@ go build -o see .
 
 Open the command palette with **Cmd+Shift+P** and choose **Shell Command: Install 'see' Command in PATH** to link the running executable at `~/.local/bin/see`. Add `~/.local/bin` to your `PATH` if needed. Then use `see` or `see .` to open the current folder, or `see /path/to/project` to open another folder. Keep the executable at its installed location; the link points to it. Build a persistent executable before installing, rather than running the app with `go run`.
 
+To remove the link, choose **Shell Command: Uninstall 'see' Command from PATH** in the command palette. It removes only a link pointing to the running executable.
+
 Click a file to open it in a preview tab; opening another file replaces that preview. Double-click the file or its tab, or use **Keep Preview Tab** in the command palette, to keep it.
 
 For a Markdown file, use the preview button in the editor bar or **Cmd+Shift+V** to switch between rendered Markdown and source. The preview uses the current buffer, including unsaved edits.
@@ -61,6 +63,7 @@ These are the macOS shortcuts; on other platforms, use Ctrl in place of Cmd. The
 | --- | --- |
 | Command palette | Cmd+Shift+P |
 | Open folder | Cmd+O |
+| Save / Save all | Cmd+S / Cmd+Shift+S |
 | Open Quickly | Cmd+Shift+O or Cmd+P |
 | Find in workspace | Cmd+Shift+F |
 | Find in file | Cmd+F |

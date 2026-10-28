@@ -117,6 +117,7 @@ func (a *app) applyEvents(evs []mygo.FileEvent) {
 	}
 	if len(evs) > 0 {
 		a.quick.files = nil // Open Quickly lists them again when next opened
+		a.filter.forQuery = ""
 	}
 }
 

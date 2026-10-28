@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 	"github.com/egoist/mygo/ui/markdown"
@@ -43,6 +44,7 @@ type app struct {
 	tree     ui.OutlineState[string]
 	treeRow  int
 	reveal   string // a path to choose in the tree once its row shows
+	filter   treeFilter
 	watchErr error
 	watching bool
 
@@ -76,12 +78,15 @@ type app struct {
 	refreshMenu                 func() // builds the menu bar again
 	find                        findState
 	quick                       quickOpen
-	palette                     commandPalette
 	confirm                     *confirmation
 	allowDirty                  bool
+	quitApproved                bool
 
 	navigator   int // the sidebar's navigator: navFiles or navFind
 	sidebarOff  bool
+	titleButton ui.Handle // the toolbar's project name, over which its menu shows
+	titleOpen   bool
+	popupMenu   func(x, y int, items []*mygo.MenuItem)
 	welcomeNote string
 	showWelcome bool   // the welcome window over an open workspace
 	version     string // the app's, shown on the welcome window
@@ -266,6 +271,7 @@ func (a *app) closeWorkspace() {
 	a.treeRow = -1
 	a.tree.List.Selected = &a.treeRow
 	a.reveal = ""
+	a.filter = treeFilter{}
 	a.docs = map[string]*doc{}
 	a.resetLayout()
 	a.hist.Clear()
@@ -333,6 +339,9 @@ func (a *app) loadDir(dir string) {
 // placeholder while they load or when reading them failed. Opening a
 // directory is what reads it.
 func (a *app) children(p string) []string {
+	if a.filtering() {
+		return a.filter.tree[p]
+	}
 	if isPlaceholder(p) {
 		return nil
 	}
@@ -422,6 +431,7 @@ func (a *app) refreshAll() {
 		a.reloadDoc(d)
 	}
 	a.quick.files = nil // listed again when next opened
+	a.filter.forQuery, a.filter.tree, a.filter.roots = "", nil, nil
 }
 
 // revealInTree opens the directories above p and chooses its row.

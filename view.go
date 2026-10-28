@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/plugins/glass"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
@@ -104,9 +105,6 @@ func (a *app) view(c *ui.Context) {
 	if a.quick.open {
 		a.quickOpenPanel(c)
 	}
-	if a.palette.open {
-		a.commandPanel(c)
-	}
 }
 
 // shortcuts handles the app's keys wherever the focus is.
@@ -170,10 +168,8 @@ func (a *app) shortcuts(c *ui.Context) {
 		a.cycleTab(-1)
 	}
 	if c.Shortcut(ui.Cmd, ui.KeyF) {
-		// The editor opens its find bar itself while it has the focus;
-		// from elsewhere, open the active document's.
 		if st := a.activeEditor(); st != nil {
-			st.Find(st.SelectedText())
+			st.Run(editor.Find)
 		}
 	}
 	if c.Shortcut(0, ui.KeyEscape) {
@@ -195,12 +191,27 @@ func keyLabel(mods, key string) string {
 
 // iconButton is a borderless toolbar button showing an icon, as AppKit's.
 func iconButton(c *ui.Context, icon *ui.SVG, label, tip string, on bool) ui.Element {
-	b := ui.ButtonBase(c).Label(label).Tooltip(tip).Padding(5).Radius(6).KeepFocus()
+	return iconButtonWithState(c, icon, label, tip, on, false, 6)
+}
+
+func glassToolbarButton(c *ui.Context, icon *ui.SVG, label, tip string, on bool) ui.Element {
+	b := ui.ButtonBase(c).Label(label).Tooltip(tip).Size(32, 32).Radius(16).Shrink(0).KeepFocus().
+		Center().Material(glass.Glass{Interactive: true})
+	color := colText
+	if on {
+		color = colAccent
+	}
+	b.Children(func() { ui.Icon(c, icon).Size(16, 16).TextColor(color) })
+	return b
+}
+
+func iconButtonWithState(c *ui.Context, icon *ui.SVG, label, tip string, on, disabled bool, radius float32) ui.Element {
+	b := ui.ButtonBase(c).Label(label).Tooltip(tip).Padding(6).Radius(radius).Shrink(0).KeepFocus().Disabled(disabled)
 	color := colMuted
 	if on {
 		color = colAccent
 	}
-	if b.Hovered() {
+	if !disabled && (b.Hovered() || b.Pressed()) {
 		b.Background(colPill)
 	}
 	b.Children(func() { ui.Icon(c, icon).Size(16, 16).TextColor(color) })
@@ -209,9 +220,8 @@ func iconButton(c *ui.Context, icon *ui.SVG, label, tip string, on bool) ui.Elem
 
 // ----- Toolbar -----
 
-// toolbarHeight is the title bar's height, the toolbar's: compact, as
-// Xcode's in its smaller size.
-const toolbarHeight = 38
+// toolbarHeight leaves room for the glass controls and window buttons.
+const toolbarHeight = 48
 
 // toolbar is the window's unified title bar and toolbar, as Xcode's: the
 // navigator's button, the folder's name, the activity view in the middle
@@ -219,41 +229,148 @@ const toolbarHeight = 38
 func (a *app) toolbar(c *ui.Context, vibrant bool) {
 	bar := c.TitleBar()
 	row := ui.Row(c).FillWidth().Height(max(bar.Height, toolbarHeight)).Padding(0, bar.Right+8, 0, max(bar.Left, 8)+4).Gap(4).
-		AlignItems(ui.Center).BorderWidth(0, 0, 1, 0).BorderColor(colHairline).DragWindow()
-	if !vibrant {
-		row.Background(colToolbar)
-	}
+		AlignItems(ui.Center).BorderWidth(0, 0, 1, 0).BorderColor(colHairline).Background(colToolbar).DragWindow()
 	row.Children(func() {
-		if iconButton(c, icSidebar, "Show Navigator", "Hide or Show the Navigator", false).Clicked() {
+		if glassToolbarButton(c, icSidebar, "Show Navigator", "Hide or Show the Navigator", !a.sidebarOff).Clicked() {
 			a.sidebarOff = !a.sidebarOff
 		}
-		ui.Text(c, filepath.Base(a.root)).Bold().SingleLine().MarginStart(4).Width(max(0, min(200, a.sidebarW-110))).Tooltip(tildePath(a.root))
+		ui.Column(c).Shrink(1).Gap(0).Justify(ui.Center).Children(func() {
+			a.projectTitle(c)
+			a.activityView(c)
+		})
 		ui.Box(c).Grow(1)
-		a.activityView(c)
-		ui.Box(c).Grow(1)
-		if iconButton(c, icSearch, "Open Quickly", "Open Quickly ("+keyLabel("Cmd+Shift+", "O")+")", false).Clicked() {
+		if glassToolbarButton(c, icSearch, "Open Quickly", "Open Quickly ("+keyLabel("Cmd+Shift+", "O")+")", false).Clicked() {
 			a.openQuickly()
 		}
-		if iconButton(c, icSplitH, "Split Right", "Add Editor on Right ("+keyLabel("Cmd+", "D")+")", false).Clicked() {
-			a.splitActive(sideRight)
-		}
-		if iconButton(c, icSplitV, "Split Down", "Add Editor Below ("+keyLabel("Cmd+Shift+", "D")+")", false).Clicked() {
-			a.splitActive(sideBottom)
-		}
-		if iconButton(c, icPanel, "Show Terminal", "Hide or Show the Terminal ("+keyLabel("Cmd+Shift+", "Y")+")", a.term.open).Clicked() {
+		ui.Row(c).Height(32).Radius(16).Padding(0, 3).AlignItems(ui.Center).Material(glass.Glass{}).Children(func() {
+			if iconButton(c, icSplitH, "Split Right", "Add Editor on Right ("+keyLabel("Cmd+", "D")+")", false).Clicked() {
+				a.splitActive(sideRight)
+			}
+			if iconButton(c, icSplitV, "Split Down", "Add Editor Below ("+keyLabel("Cmd+Shift+", "D")+")", false).Clicked() {
+				a.splitActive(sideBottom)
+			}
+		})
+		if glassToolbarButton(c, icPanel, "Show Terminal", "Hide or Show the Terminal ("+keyLabel("Cmd+Shift+", "Y")+")", a.term.open).Clicked() {
 			a.toggleTerminal()
 		}
 	})
 }
 
+// projectTitle is the toolbar's project name, as Peek's: a click opens a
+// native menu of the recent folders, with the one open checked, so the
+// window's title is also the way between projects.
+func (a *app) projectTitle(c *ui.Context) {
+	b := ui.ButtonBase(c).Label("Switch Project").Tooltip(tildePath(a.root)).
+		Padding(0, 7, 0, 5).Radius(6).Shrink(1).Bind(&a.titleButton)
+	if b.Hovered() || b.Pressed() {
+		b.Background(colPill)
+	}
+	b.OnClick(func() {
+		if a.popupMenu == nil {
+			return
+		}
+		r := a.titleButton.Bounds(c)
+		a.projectMenu(int(r.X), int(r.Y+r.H+4))
+	})
+	b.Children(func() {
+		ui.Row(c).Gap(4).AlignItems(ui.Center).Children(func() {
+			ui.Text(c, filepath.Base(a.root)).Bold().SingleLine().Shrink(1)
+			ui.Icon(c, icChevron).Size(9, 9).TextColor(colDim).Shrink(0)
+		})
+	})
+}
+
+// projectMenu opens the recent folders at x, y in the window, as Xcode's
+// Open Recent: the folder open is checked, and folders with the same name
+// show their parent's too.
+func (a *app) projectMenu(x, y int) {
+	var items []*mygo.MenuItem
+	for _, p := range a.cfg.Recent {
+		p := p
+		items = append(items, &mygo.MenuItem{
+			Label:   projectLabel(a.cfg.Recent, p),
+			ToolTip: p,
+			Type:    mygo.MenuItemCheckbox,
+			Checked: p == a.root,
+			Click: func(*mygo.MenuItem, *mygo.Window) {
+				a.post(func() { a.openRecent(p) })
+			},
+		})
+	}
+	if len(items) > 0 {
+		items = append(items, mygo.Separator())
+	}
+	items = append(items, &mygo.MenuItem{
+		Label:       "Open Folder…",
+		Accelerator: "CmdOrCtrl+O",
+		Click: func(*mygo.MenuItem, *mygo.Window) {
+			a.post(a.openFolderDialog)
+		},
+	})
+	a.popupMenu(x, y, items)
+}
+
+// projectLabel names a recent folder by its last part, and its parent's
+// too where another recent folder has the same name, as Peek does.
+func projectLabel(recent []string, p string) string {
+	name := filepath.Base(p)
+	for _, r := range recent {
+		if r != p && filepath.Base(r) == name {
+			return name + " — " + tildePath(filepath.Dir(p))
+		}
+	}
+	return name
+}
+
+// modeSwitch is the segmented control in the middle of the toolbar, as
+// Xcode's and Peek's: a track, and the chosen side raised from it. It
+// switches the navigator, and shows the sidebar as it does.
+func (a *app) modeSwitch(c *ui.Context) {
+	t := c.Theme()
+	const pad, inset = 12, 2
+	var widest float32
+	for _, label := range []string{"Files", "Find"} {
+		w, _ := c.MeasureText(0, ui.Span{Text: label, Size: t.FontSize})
+		widest = max(widest, w)
+	}
+	track, chosen := t.Text.Alpha(0.06), t.Background
+	if t.Dark {
+		track, chosen = t.Text.Alpha(0.10), t.Text.Alpha(0.24)
+	}
+	parts := ui.SegmentedBase(c, &a.navigator, 2)
+	parts.Track.Height(24).AlignItems(ui.Stretch).Padding(inset).Gap(inset).Radius(7).Background(track)
+	if c.Preferences().HighContrast {
+		parts.Track.Border(1, t.Border)
+	}
+	parts.Track.Children(func() {
+		for i, label := range []string{"Files", "Find"} {
+			s := parts.Segment(i).Width(widest + 2*pad).Radius(5).TextColor(t.Text)
+			if i == a.navigator {
+				s.Background(chosen).Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.15))
+			}
+			s.Children(func() { ui.Text(c, label).FontSize(t.FontSize).SingleLine() })
+		}
+	})
+	if parts.Track.Changed() {
+		a.sidebarOff = false
+	}
+}
+
 // activityView is the pill in the middle of the toolbar, as Xcode's: what
 // the app is doing, and what went wrong.
 func (a *app) activityView(c *ui.Context) {
-	pill := ui.Row(c).Height(24).MinWidth(240).MaxWidth(520).Shrink(1).Padding(0, 10).Gap(8).Radius(6).
-		AlignItems(ui.Center).Background(colPill)
+	pill := ui.Row(c).Height(16).MaxWidth(260).Shrink(1).Padding(0, 5).Gap(5).AlignItems(ui.Center)
 	pill.Children(func() {
-		ui.Text(c, filepath.Base(a.root)).FontSize(12).Bold().SingleLine().Shrink(0)
-		ui.Text(c, "│").FontSize(12).TextColor(colDim)
+		// The dot tells the state at a glance, as Peek's toolbar does: the
+		// accent while work goes on, red when it went wrong.
+		dot := colMuted
+		switch {
+		case a.finding, a.find.running, a.lspState == lspStarting:
+			dot = colAccent
+		case a.noticeError, a.lspState == lspFailed, a.watchErr != nil:
+			dot = colError
+		}
+		ui.Box(c).Size(6, 6).Radius(3).Background(dot).Shrink(0)
 		switch {
 		case a.finding:
 			ui.Spinner(c).FontSize(11)
@@ -301,14 +418,7 @@ func (a *app) navigatorPane(c *ui.Context, vibrant bool) {
 		pane.Background(colSidebar)
 	}
 	pane.Children(func() {
-		ui.Row(c).FillWidth().Padding(2, 8).Gap(2).Justify(ui.Center).BorderWidth(0, 0, 1, 0).BorderColor(colHairline).Children(func() {
-			if iconButton(c, icFolder, "Project Navigator", "Show the Project Navigator", a.navigator == navFiles).Clicked() {
-				a.navigator = navFiles
-			}
-			if iconButton(c, icSearch, "Find Navigator", "Show the Find Navigator ("+keyLabel("Cmd+Shift+", "F")+")", a.navigator == navFind).Clicked() {
-				a.navigator = navFind
-			}
-		})
+		a.navigatorBar(c)
 		if a.navigator == navFind {
 			a.findNavigator(c)
 		} else {
@@ -317,37 +427,159 @@ func (a *app) navigatorPane(c *ui.Context, vibrant bool) {
 	})
 }
 
+// navigatorBar switches between the file and find navigators.
+func (a *app) navigatorBar(c *ui.Context) {
+	t := c.Theme()
+	ui.Row(c).FillWidth().Padding(4, 8).BorderWidth(0, 0, 1, 0).
+		BorderColor(colHairline).Background(colSidebar).Children(func() {
+		parts := ui.SegmentedBase(c, &a.navigator, 2)
+		parts.Track.FillWidth().Height(30).Padding(3).Gap(2).Radius(15).Background(t.Text.Alpha(0.06)).Label("Navigator")
+		if c.Preferences().HighContrast {
+			parts.Track.Border(1, t.Border)
+		}
+		segments := []struct {
+			icon  *ui.SVG
+			label string
+		}{
+			{icFolder, "Show the Project Navigator"},
+			{icSearch, "Show the Find Navigator"},
+		}
+		parts.Track.Children(func() {
+			for i, s := range segments {
+				i, s := i, s
+				seg := parts.Segment(i).Width(38).Height(24).Radius(12).Label(s.label)
+				if i == a.navigator {
+					seg.Material(glass.Glass{Interactive: true})
+				}
+				seg.Children(func() {
+					color := colMuted
+					if i == a.navigator {
+						color = colText
+					}
+					ui.Icon(c, s.icon).Size(14, 14).TextColor(color)
+				})
+			}
+		})
+	})
+}
+
 func (a *app) projectNavigator(c *ui.Context) {
-	ui.Row(c).Padding(8, 12, 4, 12).AlignItems(ui.Center).Gap(6).Children(func() {
-		folderGlyph(c, true, 15)
-		ui.Text(c, filepath.Base(a.root)).Bold().SingleLine().Grow(1).Tooltip(a.root)
-		if iconButton(c, icCollapse, "Collapse All Folders", "Collapse All Folders", false).Clicked() {
+	a.syncFilter()
+	a.treeHeading(c)
+	switch {
+	case a.filtering():
+		switch {
+		case a.quick.err != nil:
+			ui.Column(c).Grow(1).Padding(8, 12).Gap(6).Children(func() {
+				ui.Text(c, "Could not list the files: "+describeErr(a.quick.err)).TextColor(colError).FontSize(12)
+				if ui.Button(c, "Retry").Clicked() {
+					a.retryFiles()
+				}
+			})
+		case a.quick.files == nil:
+			ui.Row(c).Padding(8, 12).Gap(8).Children(func() {
+				ui.Spinner(c)
+				ui.Text(c, "Listing files…").TextColor(colMuted)
+			})
+		case a.filter.matches == 0:
+			ui.Column(c).Grow(1).FillWidth().AlignItems(ui.Center).Justify(ui.Center).Children(func() {
+				ui.Text(c, "No Results").TextColor(colMuted)
+			})
+		default:
+			a.fileTree(c, a.filter.roots)
+		}
+	default:
+		rootDir := a.dirs[a.root]
+		switch {
+		case rootDir == nil || (!rootDir.loaded && rootDir.loading):
+			ui.Row(c).Padding(8, 12).Gap(8).Children(func() {
+				ui.Spinner(c)
+				ui.Text(c, "Loading…").TextColor(colMuted)
+			})
+		case !rootDir.loaded:
+			a.dirError(c, a.root, rootDir.err)
+		case len(rootDir.entries) == 0:
+			ui.Text(c, "This folder is empty.").TextColor(colMuted).Padding(8, 12)
+		default:
+			a.fileTree(c, entryPaths(rootDir))
+		}
+	}
+	if a.filter.toList {
+		a.filter.toList = false
+		if a.tree.Rows() > 0 {
+			a.tree.List.Handle.Focus(c)
+		}
+	}
+	a.filterBar(c)
+}
+
+// treeHeading is the navigator's title, as a source list's section: small
+// and muted, with what the filter matches at its side, and the actions on
+// the tree at its end.
+func (a *app) treeHeading(c *ui.Context) {
+	ui.Row(c).FillWidth().Padding(4, 10, 3, 10).Gap(6).AlignItems(ui.Center).Children(func() {
+		ui.Text(c, "Files").FontSize(11).Bold().TextColor(colMuted).Shrink(0)
+		if a.filtering() {
+			detail := fmt.Sprintf("%d of %d", a.filter.matches, len(a.quick.files))
+			if a.quick.files == nil {
+				detail = "Filtering…"
+			}
+			ui.Text(c, detail).FontSize(11).TextColor(colDim).SingleLine().Shrink(1)
+		}
+		ui.Box(c).Grow(1)
+		if glyphButton(c, icCollapse, "Collapse All Folders", "Collapse All Folders", false, a.filtering()).Clicked() {
 			a.tree.Open.Clear()
 			a.reveal = ""
 			a.treeRow = -1
 		}
-		if iconButton(c, icRefresh, "Refresh", "Read the folders again", false).Clicked() {
+		if glyphButton(c, icRefresh, "Refresh", "Read the folders again", false, false).Clicked() {
 			a.refreshAll()
 		}
 	})
-	rootDir := a.dirs[a.root]
-	switch {
-	case rootDir == nil || (!rootDir.loaded && rootDir.loading):
-		ui.Row(c).Padding(8, 12).Gap(8).Children(func() {
-			ui.Spinner(c)
-			ui.Text(c, "Loading…").TextColor(colMuted)
-		})
-	case !rootDir.loaded:
-		a.dirError(c, a.root, rootDir.err)
-	case len(rootDir.entries) == 0:
-		ui.Text(c, "This folder is empty.").TextColor(colMuted).Padding(8, 12)
-	default:
-		a.fileTree(c, entryPaths(rootDir))
+}
+
+// glyphButton is an icon button of a heading: smaller than the toolbar's,
+// as the actions beside a source list's title.
+func glyphButton(c *ui.Context, icon *ui.SVG, label, tip string, on, disabled bool) ui.Element {
+	b := ui.ButtonBase(c).Label(label).Tooltip(tip).Padding(3).Radius(4).Shrink(0).KeepFocus().Disabled(disabled)
+	color := colMuted
+	if on {
+		color = colAccent
 	}
+	if !disabled && (b.Hovered() || b.Pressed()) {
+		b.Background(colPill)
+	}
+	b.Children(func() { ui.Icon(c, icon).Size(13, 13).TextColor(color) })
+	return b
+}
+
+// filterBar is the field at the bottom of the navigator, as Xcode's and
+// Peek's: it filters the tree, Down moves into it, and Escape clears it.
+func (a *app) filterBar(c *ui.Context) {
+	ui.Row(c).Shrink(0).FillWidth().Padding(6, 10, 8, 10).Children(func() {
+		field := ui.SearchField(c, &a.filter.query).FillWidth().Label("Filter Files").Bind(&a.filter.field)
+		if a.filter.focus {
+			a.filter.focus = false
+			a.filter.field.Focus(c)
+		}
+		if field.Changed() {
+			a.filter.forQuery, a.filter.tree, a.filter.roots = "", nil, nil
+		}
+		if field.Shortcut(0, ui.KeyDown) {
+			a.filter.toList = true
+		}
+	})
+}
+
+// retryFiles lists the workspace's files again after listing failed.
+func (a *app) retryFiles() {
+	a.quick.files, a.quick.err, a.quick.listing = nil, nil, false
+	a.filter.forQuery = ""
+	a.ensureFiles()
 }
 
 func (a *app) fileTree(c *ui.Context, roots []string) {
-	a.tree.Indent = 14
+	a.tree.Indent = 12
 	tree := ui.Outline(c, &a.tree, roots, a.children, func(p string) { a.treeItem(c, p) }).Grow(1).FillWidth().Padding(0, 6).Label("Files")
 	// Choose the row of the active document once it shows.
 	if a.reveal != "" {
@@ -364,12 +596,38 @@ func (a *app) fileTree(c *ui.Context, roots []string) {
 	// only move the choice.
 	if tree.Submitted() && a.treeRow >= 0 && a.treeRow < a.tree.Rows() {
 		p := a.tree.Item(a.treeRow)
-		if e, ok := a.entry(p); ok && e.Dir {
+		if a.isTreeDir(p) {
 			a.toggleDir(p)
-		} else if ok {
-			a.userOpen(p)
+		} else {
+			a.openFromTree(p, false)
 		}
 	}
+}
+
+// The chosen row is already visible, so opening it need not reposition the tree.
+func (a *app) openFromTree(path string, preview bool) {
+	if preview {
+		a.previewOpen(path)
+	} else {
+		a.userOpen(path)
+	}
+	for i := range a.tree.Rows() {
+		if a.tree.Item(i) == path {
+			a.treeRow = i
+			break
+		}
+	}
+	a.reveal = ""
+}
+
+// isTreeDir reports whether a row is a folder, in the tree or in a
+// filter's tree.
+func (a *app) isTreeDir(p string) bool {
+	if a.filtering() {
+		return a.filter.tree[p] != nil
+	}
+	e, ok := a.entry(p)
+	return ok && e.Dir
 }
 
 func (a *app) toggleDir(p string) {
@@ -400,6 +658,9 @@ func (a *app) treeItem(c *ui.Context, p string) {
 		return
 	}
 	e, _ := a.entry(p)
+	if a.filtering() {
+		e = workspace.Entry{Name: filepath.Base(p), Path: p, Dir: a.filter.tree[p] != nil}
+	}
 	name := e.Name
 	if name == "" {
 		name = filepath.Base(p)
@@ -410,9 +671,9 @@ func (a *app) treeItem(c *ui.Context, p string) {
 	row := ui.Row(c).Grow(1).AlignItems(ui.Center).Gap(6).Margin(-3, 0).MarginEnd(-8).Padding(3, 0)
 	row.Children(func() {
 		if e.Dir {
-			folderGlyph(c, a.tree.Open.Has(p), 15)
+			folderGlyph(c, a.tree.Open.Has(p), 16)
 		} else {
-			fileIcon(c, name, 15)
+			fileIcon(c, name, 16)
 		}
 		t := ui.Text(c, name).SingleLine().Shrink(1)
 		if dim {
@@ -426,12 +687,30 @@ func (a *app) treeItem(c *ui.Context, p string) {
 			t.Strikethrough()
 		}
 	})
+	services := c.Services()
+	row.ContextMenu(func(m *ui.Menu) {
+		if m.Item("Copy Path").Chosen() {
+			services.WriteClipboard(p)
+		}
+		if m.Item("Show in Finder").Chosen() {
+			mygo.Shell.ShowItemInFolder(p)
+		}
+		if !e.Dir && m.Item("Open with External Editor").Chosen() {
+			_ = mygo.Shell.OpenPath(p)
+		}
+		if !e.Dir {
+			m.Separator()
+			if m.Item("Open").Chosen() {
+				a.openFromTree(p, false)
+			}
+		}
+	})
 	if e.Dir {
 		row.OnClick(func() { a.toggleDir(p) })
 	} else {
-		row.OnClick(func() { a.previewOpen(p) })
+		row.OnClick(func() { a.openFromTree(p, true) })
 		if row.DoubleClicked() {
-			a.previewOpen(p)
+			a.openFromTree(p, true)
 			a.focus.preview = ""
 		}
 		row.Drag(&tabDrag{path: p})
@@ -452,7 +731,11 @@ func (a *app) dirError(c *ui.Context, dir string, err error) {
 func (a *app) findNavigator(c *ui.Context) {
 	f := &a.find
 	ui.Column(c).FillWidth().Padding(8, 10).Gap(6).Children(func() {
-		field := ui.SearchField(c, &f.opts.Query).Label("Find in workspace").FillWidth()
+		field := ui.SearchField(c, &f.opts.Query).Label("Find in workspace").FillWidth().Bind(&f.field)
+		if f.focus {
+			f.focus = false
+			f.field.Focus(c)
+		}
 		if field.Changed() {
 			a.findSoon()
 		}
@@ -865,6 +1148,7 @@ func (a *app) document(c *ui.Context, g *group, d *doc) {
 			})
 	case st != nil:
 		if v := d.buf.Version(); v != d.lspVersion {
+			a.invalidateHover()
 			d.lspVersion = v
 			if a.lsp != nil {
 				a.lsp.changed(d.uri, d.buf.Snapshot())
@@ -958,8 +1242,7 @@ func (a *app) choicesPanel(c *ui.Context) {
 
 // ----- Open Quickly -----
 
-// quickOpenPanel is Xcode's Open Quickly: a field and the files it
-// matches, on a pane of glass over the window.
+// quickOpenPanel searches files, or commands when the query starts with >.
 func (a *app) quickOpenPanel(c *ui.Context) {
 	q := &a.quick
 	a.rankQuick()
@@ -992,19 +1275,26 @@ func (a *app) quickOpenPanel(c *ui.Context) {
 						q.list.ScrollTo(q.sel, ui.Center)
 					}
 				})
+				commandMode := strings.HasPrefix(q.query, ">")
 				switch {
-				case q.listing:
+				case !commandMode && a.root == "":
+					ui.Text(c, "Open a folder to search files, or type > to search commands.").TextColor(colMuted).Padding(8)
+				case !commandMode && q.listing:
 					ui.Row(c).Padding(8).Gap(8).Children(func() {
 						ui.Spinner(c)
 						ui.Text(c, "Listing files…").TextColor(colMuted)
 					})
-				case q.err != nil:
+				case !commandMode && q.err != nil:
 					ui.Text(c, q.err.Error()).TextColor(colError).Padding(8)
 				case len(q.results) == 0:
 					ui.Text(c, "No Matches").TextColor(colMuted).Padding(8)
 				default:
 					ui.Box(c).Height(1).FillWidth().Background(colSeparator)
-					ui.List(c, &q.list, len(q.results), func(i int) { a.quickRow(c, i) }).Grow(1).FillWidth().MaxHeight(380).Label("Files")
+					label := "Files"
+					if commandMode {
+						label = "Commands"
+					}
+					ui.List(c, &q.list, len(q.results), func(i int) { a.quickRow(c, i) }).Grow(1).FillWidth().MaxHeight(380).Label(label)
 				}
 			})
 		})
@@ -1014,6 +1304,23 @@ func (a *app) quickOpenPanel(c *ui.Context) {
 func (a *app) quickRow(c *ui.Context, i int) {
 	q := &a.quick
 	r := q.results[i]
+	if strings.HasPrefix(q.query, ">") {
+		row := ui.Row(c.Key(r.Path)).FillWidth().Padding(8).Gap(8).Radius(8).AlignItems(ui.Center)
+		if i == q.sel {
+			row.Background(colAccent)
+		}
+		row.OnClick(func() { a.chooseQuick(i) })
+		row.Children(func() {
+			ui.Text(c, r.Path).Grow(1).SingleLine()
+			for _, cmd := range commands() {
+				if cmd.name == r.Path && cmd.key != "" {
+					ui.Text(c, keyLabel(cmd.mods, cmd.key)).TextColor(colMuted)
+					break
+				}
+			}
+		})
+		return
+	}
 	dir, name := filepath.Split(filepath.FromSlash(r.Path))
 	row := ui.Row(c).FillWidth().Padding(5, 8).Gap(10).AlignItems(ui.Center).Radius(8)
 	if i == q.sel {

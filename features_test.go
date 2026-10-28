@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"image/png"
 	"os"
 	"path/filepath"
@@ -14,6 +15,31 @@ import (
 	"see/internal/lsp"
 	"see/internal/search"
 )
+
+func TestOpeningTreeFileKeepsScrollPosition(t *testing.T) {
+	files := make(map[string]string)
+	for i := range 60 {
+		files[fmt.Sprintf("file%02d.go", i)] = "package example\n"
+	}
+	h := newHarness(t, writeTree(t, files))
+	before, ok := h.tt.Find("file20.go")
+	if !ok {
+		t.Fatal("expected file20.go to be visible")
+	}
+	h.click("file20.go")
+	h.tt.Frame()
+	h.tt.Frame()
+	after, ok := h.tt.Find("file20.go")
+	if !ok || after.Y != before.Y {
+		t.Fatalf("opening a visible file moved its row: before %v, after %v, visible %v", before, after, ok)
+	}
+	if h.a.activePath() != filepath.Join(h.a.root, "file20.go") {
+		t.Fatalf("file did not open: %q", h.a.activePath())
+	}
+	if h.a.treeRow < 0 || h.a.treeRow >= h.a.tree.Rows() || h.a.tree.Item(h.a.treeRow) != h.a.activePath() {
+		t.Fatalf("opened file is not selected in the tree: row %d", h.a.treeRow)
+	}
+}
 
 func TestSplitAndMoveTabs(t *testing.T) {
 	root := writeTree(t, map[string]string{"a.go": strings.Repeat("// a\n", 200), "b.go": "package b\n", "c.go": "package c\n"})
@@ -99,6 +125,24 @@ func TestDropZones(t *testing.T) {
 	h.a.dropTab(&tabDrag{from: g, path: filepath.Join(h.a.root, "b.go")}, g, sideNone, 0)
 	if names(g.order) != "b.go a.go" {
 		t.Errorf("order %s", names(g.order))
+	}
+}
+
+func TestFindShortcutFocusesQuery(t *testing.T) {
+	h := newHarness(t, writeTree(t, map[string]string{"a.go": "hello"}))
+	h.a.sidebarOff = true
+	h.tt.Frame()
+	h.tt.Key(ui.Cmd|ui.Shift, ui.KeyF)
+	h.tt.Type("hello")
+	if h.a.find.opts.Query != "hello" {
+		t.Fatalf("query %q after shortcut and typing", h.a.find.opts.Query)
+	}
+	h.tt.Click("Show the Project Navigator")
+	h.tt.Frame()
+	h.tt.Key(ui.Cmd|ui.Shift, ui.KeyF)
+	h.tt.Type(" again")
+	if h.a.find.opts.Query != "hello again" {
+		t.Fatalf("query %q after reopening find", h.a.find.opts.Query)
 	}
 }
 
@@ -355,13 +399,13 @@ func TestCommandPaletteAndPreview(t *testing.T) {
 	}
 	h.tt.Frame()
 	h.tt.Key(ui.Cmd|ui.Shift, ui.KeyP)
-	if !h.a.palette.open {
+	if !h.a.quick.open || h.a.quick.query != ">" {
 		t.Fatal("palette did not open")
 	}
 	h.tt.Type("keep preview")
 	h.tt.Frame()
 	h.tt.Key(0, ui.KeyEnter)
-	if h.a.palette.open || h.a.focus.preview != "" {
+	if h.a.quick.open || h.a.focus.preview != "" {
 		t.Fatal("command did not pin the preview")
 	}
 	h.a.previewOpen(c)

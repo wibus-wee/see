@@ -6,9 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/egoist/mygo/plugins/glass"
 	"github.com/egoist/mygo/ui"
-	"see/internal/search"
+	"github.com/egoist/mygo/ui/editor"
 )
 
 type command struct {
@@ -24,7 +23,13 @@ func commands() []command {
 		{"Open Folder", "Cmd+", "O", ui.Cmd, ui.KeyO, func(a *app) { a.openFolderDialog() }},
 		{"Open Quickly", "Cmd+Shift+", "O", ui.Cmd | ui.Shift, ui.KeyO, func(a *app) { a.openQuickly() }},
 		{"Toggle Markdown Preview", "Cmd+Shift+", "V", ui.Cmd | ui.Shift, ui.KeyV, func(a *app) { a.toggleMarkdownPreview(a.focus) }},
-		{"Find in Workspace", "Cmd+Shift+", "F", ui.Cmd | ui.Shift, ui.KeyF, func(a *app) { a.sidebarOff, a.navigator = false, navFind }},
+		{"Find in Workspace", "Cmd+Shift+", "F", ui.Cmd | ui.Shift, ui.KeyF, func(a *app) {
+			a.sidebarOff, a.navigator, a.find.focus = false, navFind, true
+		}},
+		{"Filter Files", "Alt+Cmd+", "J", ui.Alt | ui.Cmd, ui.KeyJ, func(a *app) {
+			a.sidebarOff, a.navigator, a.filter.focus = false, navFiles, true
+		}},
+		{"Show or Hide the Navigator", "Cmd+", "0", ui.Cmd, ui.Key0, func(a *app) { a.sidebarOff = !a.sidebarOff }},
 		{"Go Back", "Ctrl+", "-", ui.Ctrl, ui.KeyMinus, func(a *app) { a.goBack() }},
 		{"Go Forward", "Ctrl+Shift+", "-", ui.Ctrl | ui.Shift, ui.KeyMinus, func(a *app) { a.goForward() }},
 		{"Next Tab", "Ctrl+", "Tab", ui.Ctrl, ui.KeyTab, func(a *app) { a.cycleTab(1) }},
@@ -51,11 +56,12 @@ func commands() []command {
 			}
 		}},
 		{"Shell Command: Install 'see' Command in PATH", "", "", 0, 0, func(a *app) { a.installSee() }},
+		{"Shell Command: Uninstall 'see' Command from PATH", "", "", 0, 0, func(a *app) { a.uninstallSee() }},
 	}
 	cmds = append(cmds,
 		command{"Find in File", "Cmd+", "F", 0, 0, func(a *app) {
 			if st := a.activeEditor(); st != nil {
-				st.Find(st.SelectedText())
+				st.Run(editor.Find)
 			}
 		}},
 		command{"Go to Definition", "", "F12", 0, 0, func(a *app) {
@@ -75,83 +81,8 @@ func commands() []command {
 
 }
 
-type commandPalette struct {
-	open  bool
-	query string
-	sel   int
-	list  ui.ListState
-}
-
 func (a *app) openPalette() {
-	a.quick.open = false
-	a.palette = commandPalette{open: true}
-	a.palette.list.Selected = &a.palette.sel
-}
-func (a *app) commandPanel(c *ui.Context) {
-	p := &a.palette
-	all := commands()
-	names := make([]string, len(all))
-	for i, cmd := range all {
-		names[i] = cmd.name
-	}
-	results := search.Fuzzy(names, p.query, len(names))
-	p.sel = max(0, min(p.sel, len(results)-1))
-	choose := func(i int) {
-		if i < 0 || i >= len(results) {
-			return
-		}
-		for _, cmd := range all {
-			if cmd.name == results[i].Path {
-				p.open = false
-				cmd.run(a)
-				return
-			}
-		}
-	}
-	ui.Overlay(c, func() {
-		backdrop := ui.Column(c).Absolute().Top(0).Left(0).Right(0).Bottom(0).AlignItems(ui.Center).Background(ui.RGBA(0, 0, 0, 0.18))
-		backdrop.OnClick(func() { p.open = false })
-		backdrop.Children(func() {
-			panel := ui.Column(c).Margin(90, 0, 0, 0).Width(640).MaxHeight(460).Radius(14).Padding(8).Gap(6).Material(glass.Glass{}).Border(1, colPopoverEdge).Shadow(0, 18, 48, 0, ui.RGBA(0, 0, 0, 0.5))
-			panel.OnClick(func() {})
-			panel.Children(func() {
-				in := ui.TextInput(c, &p.query).Placeholder("Command Palette").FontSize(20).AutoFocus().Background(ui.Transparent).BorderWidth(0)
-				switch {
-				case in.Submitted():
-					choose(p.sel)
-				case in.Shortcut(0, ui.KeyEscape):
-					p.open = false
-				case in.Shortcut(0, ui.KeyDown):
-					p.sel = min(p.sel+1, len(results)-1)
-					p.list.ScrollTo(p.sel, ui.Center)
-				case in.Shortcut(0, ui.KeyUp):
-					p.sel = max(p.sel-1, 0)
-					p.list.ScrollTo(p.sel, ui.Center)
-				}
-				if len(results) == 0 {
-					ui.Text(c, "No Matches").TextColor(colMuted).Padding(8)
-					return
-				}
-				ui.List(c, &p.list, len(results), func(i int) {
-					name := results[i].Path
-					row := ui.Row(c.Key(name)).FillWidth().Padding(8).Gap(8).Radius(8).AlignItems(ui.Center)
-					if i == p.sel {
-						row.Background(colAccent)
-					}
-					row.OnClick(func() { choose(i) })
-					row.Children(func() {
-						ui.Text(c, name).Grow(1).SingleLine()
-						for _, cmd := range all {
-							if cmd.name == name && cmd.key != "" {
-								ui.Text(c, keyLabel(cmd.mods, cmd.key)).TextColor(colMuted)
-								break
-							}
-						}
-					})
-				}).Grow(1).FillWidth().MaxHeight(380).Label("Commands")
-			})
-		})
-	})
+	a.openQuickPanel(">")
 }
 
 func (a *app) installSee() {
@@ -165,7 +96,7 @@ func (a *app) installSee() {
 		a.note("Could not locate the application: "+err.Error(), true)
 		return
 	}
-	if strings.Contains(filepath.ToSlash(exe), "/go-build") {
+	if strings.Contains(filepath.ToSlash(exe), "/go-build") || strings.Contains(filepath.ToSlash(exe), "/.mygo/dev/") {
 		a.note("Build a permanent executable before installing the see command.", true)
 		return
 	}
@@ -175,16 +106,13 @@ func (a *app) installSee() {
 		return
 	}
 	dir := filepath.Join(home, ".local", "bin")
-	path := filepath.Join(dir, "see")
-	if err = os.MkdirAll(dir, 0755); err == nil {
-		err = os.Symlink(exe, path)
-	}
+	path, already, err := installSeeLink(exe, dir)
 	if err != nil {
-		if target, e := os.Readlink(path); e == nil && target == exe {
-			a.note("The see command is already installed at "+path, false)
-			return
-		}
 		a.note(fmt.Sprintf("Could not install %s: %v", path, err), true)
+		return
+	}
+	if already {
+		a.note("The see command is already installed at "+path, false)
 		return
 	}
 	msg := "Installed see at " + path
@@ -198,4 +126,60 @@ func (a *app) installSee() {
 		msg += ". Add " + dir + " to your PATH."
 	}
 	a.note(msg, false)
+}
+
+func (a *app) uninstallSee() {
+	exe, err := os.Executable()
+	if err == nil {
+		exe, err = filepath.EvalSymlinks(exe)
+	}
+	if err != nil {
+		a.note("Could not locate the application: "+err.Error(), true)
+		return
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		a.note("Could not locate your home directory: "+err.Error(), true)
+		return
+	}
+	path, removed, err := uninstallSeeLink(exe, filepath.Join(home, ".local", "bin"))
+	if err != nil {
+		a.note(fmt.Sprintf("Could not uninstall %s: %v", path, err), true)
+	} else if !removed {
+		a.note("The see command is not installed at "+path, false)
+	} else {
+		a.note("Uninstalled see from "+path, false)
+	}
+}
+
+func uninstallSeeLink(exe, dir string) (path string, removed bool, err error) {
+	path = filepath.Join(dir, "see")
+	target, err := os.Readlink(path)
+	if os.IsNotExist(err) {
+		return path, false, nil
+	}
+	if err != nil {
+		return path, false, err
+	}
+	if target != exe {
+		return path, false, fmt.Errorf("link points to %s, not the running application", target)
+	}
+	if err := os.Remove(path); err != nil {
+		return path, false, err
+	}
+	return path, true, nil
+}
+
+func installSeeLink(exe, dir string) (path string, already bool, err error) {
+	path = filepath.Join(dir, "see")
+	if err = os.MkdirAll(dir, 0755); err == nil {
+		err = os.Symlink(exe, path)
+	}
+	if err != nil {
+		if target, e := os.Readlink(path); e == nil && target == exe {
+			return path, true, nil
+		}
+		return path, false, err
+	}
+	return path, false, nil
 }

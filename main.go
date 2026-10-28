@@ -23,16 +23,17 @@ func main() {
 		quitting     bool
 	)
 	mygo.App.OnBeforeQuit(func(e *mygo.QuitEvent) {
-		if !a.allowDirty && len(a.dirtyDocs()) > 0 {
+		if !a.quitApproved && len(a.dirtyDocs()) > 0 {
 			e.PreventDefault()
 			if win != nil {
 				win.Update(func() {
 					a.showWelcome = false
-					a.guardDirty(a.dirtyDocs(), func() { quitting = true; mygo.App.Quit() })
+					a.guardDirty(a.dirtyDocs(), func() { a.quitApproved = true; mygo.App.Quit() })
 				})
 			}
 			return
 		}
+		a.quitApproved = false
 		quitting = true
 	})
 	// Light, dark, or the system's, from the start.
@@ -55,7 +56,7 @@ func main() {
 			// the controls are placed in the middle of ours instead.
 			TitleBarStyle:        mygo.TitleBarHidden,
 			TitleBarHeight:       toolbarHeight,
-			TrafficLightPosition: &mygo.Point{X: 14, Y: (toolbarHeight - trafficLightSize) / 2},
+			TrafficLightPosition: &mygo.Point{X: 20, Y: (toolbarHeight - trafficLightSize) / 2},
 			Vibrancy:             mygo.VibrancySidebar,
 			Hidden:               true, // until a folder opens (windows.sync)
 			Content:              ui.View(func(c *ui.Context) { a.view(c); wins.sync(win) }),
@@ -76,6 +77,12 @@ func main() {
 		wins.main, wins.welcome = win, welcome
 		a.post = func(fn func()) { win.Update(func() { fn(); wins.sync(nil) }) }
 		a.setTitle = win.SetTitle
+		// The project switcher is a native menu, as Xcode's Open Recent:
+		// PopupAt waits for the menu to close, so it runs off the UI
+		// thread, and its choices come back through post.
+		a.popupMenu = func(x, y int, items []*mygo.MenuItem) {
+			go mygo.NewMenu(items).PopupAt(win, x, y)
+		}
 		// Closing either window hides it, unless the app is quitting: the
 		// main window's closes the folder and goes back to the welcome
 		// window, and the welcome window's leaves the app running, as

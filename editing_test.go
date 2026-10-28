@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 )
 
@@ -74,5 +75,51 @@ func TestDirtyCloseAndWorkspaceSwitchRequireDecision(t *testing.T) {
 	got, _ := os.ReadFile(path)
 	if string(got) != "edited" || h.a.root == root {
 		t.Fatal("save and switch did not complete")
+	}
+}
+
+func TestEditAndSaveWithKeyboard(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "a.txt")
+	if err := os.WriteFile(path, []byte("hello"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	h := newHarness(t, root)
+	d := h.a.openFile(path, nil)
+	h.settle(func() bool { return d.buf != nil })
+	h.a.focusEditor = h.ed(d)
+	h.tt.Frame()
+	h.tt.Type("X")
+	if !d.buf.Modified() {
+		t.Fatalf("typing did not edit: %q", d.buf.String())
+	}
+	h.tt.Key(ui.Cmd, ui.KeyS)
+	got, err := os.ReadFile(path)
+	if err != nil || string(got) != d.buf.String() || d.buf.Modified() {
+		t.Fatalf("keyboard save: %q, %v", got, err)
+	}
+}
+
+func TestFindInFileFocusesQuery(t *testing.T) {
+	root := writeTree(t, map[string]string{"a.txt": "one needle two needle"})
+	h := newHarness(t, root)
+	d := h.a.openFile(filepath.Join(root, "a.txt"), nil)
+	h.settle(func() bool { return d.buf != nil && h.ed(d) != nil })
+	h.a.focusEditor = h.ed(d)
+	h.tt.Frame()
+	h.tt.Key(ui.Cmd, ui.KeyF)
+	h.tt.Type("needle")
+	if count, _ := h.ed(d).FindMatches(); count != 2 {
+		t.Fatalf("find matches %d after typing, document %q", count, d.buf.String())
+	}
+	if d.buf.String() != "one needle two needle" {
+		t.Fatalf("typing changed document: %q", d.buf.String())
+	}
+	h.tt.Key(0, ui.KeyEscape)
+	h.tt.Click("Show the Find Navigator")
+	h.tt.Key(ui.Cmd, ui.KeyF)
+	h.tt.Type("one")
+	if count, _ := h.ed(d).FindMatches(); count != 1 {
+		t.Fatalf("find matches %d after opening from sidebar", count)
 	}
 }

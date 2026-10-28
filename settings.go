@@ -244,13 +244,13 @@ func (a *app) settingsContent(c *ui.Context, bar ui.TitleBar) {
 	// The title bar: back and forward on a pill of glass, then the title.
 	ui.Row(c).FillWidth().Height(max(bar.Height, settingsBarHeight)).Padding(0, 20, 0, 16).Gap(12).AlignItems(ui.Center).DragWindow().Children(func() {
 		ui.Row(c).Height(32).Radius(16).Padding(0, 4).Gap(0).AlignItems(ui.Center).Material(glass.Glass{}).Children(func() {
-			back := iconButton(c, icBack, "Back", "Back", false).Disabled(len(s.back) == 0)
+			back := iconButtonWithState(c, icBack, "Back", "Back", false, len(s.back) == 0, 13)
 			if back.Clicked() && len(s.back) > 0 {
 				s.forward = append(s.forward, s.pane)
 				s.pane, s.back = s.back[len(s.back)-1], s.back[:len(s.back)-1]
 			}
 			ui.Box(c).Size(1, 16).Background(colSeparator)
-			fwd := iconButton(c, icForward, "Forward", "Forward", false).Disabled(len(s.forward) == 0)
+			fwd := iconButtonWithState(c, icForward, "Forward", "Forward", false, len(s.forward) == 0, 13)
 			if fwd.Clicked() && len(s.forward) > 0 {
 				s.back = append(s.back, s.pane)
 				s.pane, s.forward = s.forward[len(s.forward)-1], s.forward[:len(s.forward)-1]
@@ -457,15 +457,15 @@ func (a *app) searchPane(c *ui.Context) {
 func (a *app) shortcutsPane(c *ui.Context) {
 	rows := []struct{ what, mods, key string }{}
 	for _, cmd := range commands() {
-		if cmd.key != "" {
-			rows = append(rows, struct{ what, mods, key string }{cmd.name, cmd.mods, cmd.key})
-		}
+		rows = append(rows, struct{ what, mods, key string }{cmd.name, cmd.mods, cmd.key})
 	}
 	var fns []func()
 	for _, r := range rows {
 		fns = append(fns, func() {
 			labeled(c, r.what, "")
-			ui.Text(c, keyLabel(r.mods, r.key)).TextColor(colMuted).Padding(2, 8).Radius(6).Background(colPill)
+			if r.key != "" {
+				ui.Text(c, keyLabel(r.mods, r.key)).TextColor(colMuted).Padding(2, 8).Radius(6).Background(colPill)
+			}
 		})
 	}
 	card(c, fns...)
