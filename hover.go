@@ -25,6 +25,53 @@ type hoverState struct {
 	cancel context.CancelFunc
 	cmd    bool          // Cmd held, as the last frame saw
 	link   *editor.State // the editor showing a link
+	cache  map[hoverKey]hoverResult
+	epoch  uint64
+}
+
+type hoverKey struct {
+	path    string
+	version uint64
+	offset  int
+	cmd     bool
+}
+
+type hoverResult struct {
+	start, end int
+	markdown   string
+	location   *hoverLocation
+	at         time.Time
+}
+
+type hoverLocation struct {
+	path string
+	line int
+}
+
+const hoverCacheTTL = 10 * time.Second
+const hoverCacheLimit = 128
+
+func (a *app) invalidateHover() {
+	a.hover.epoch++
+	a.hover.seq++
+	if a.hover.cancel != nil {
+		a.hover.cancel()
+		a.hover.cancel = nil
+	}
+	a.hover.cache = nil
+	a.hideLink()
+}
+
+func (a *app) showHover(st *editor.State, cmd bool, r hoverResult) {
+	if cmd {
+		if !a.hover.cmd {
+			return
+		}
+		a.hideLink()
+		st.TextBackgrounds = []editor.TextBackground{{Start: r.start, End: r.end, Color: colLink}}
+		a.hover.link = st
+	}
+	st.ShowHover(r.start, r.end, "", func(c *ui.Context) { hoverContent(c, r.markdown, r.location) })
 }
 
 // hoverAt answers an editor's hover request: with the symbol's
@@ -41,7 +88,7 @@ func (a *app) hoverAt(d *doc, st *editor.State, r editor.HoverRequest) {
 		a.hover.cancel()
 	}
 	a.hover.seq++
-	seq, gen, cmd := a.hover.seq, a.gen, a.hover.cmd
+	seq, gen, cmd, epoch := a.hover.seq, a.gen, a.hover.cmd, a.hover.epoch
 	snap := d.buf.Snapshot()
 	pos := snap.Pos(r.Offset)
 	line := snap.Line(pos.Line)
@@ -50,9 +97,14 @@ func (a *app) hoverAt(d *doc, st *editor.State, r editor.HoverRequest) {
 		return // not on a word
 	}
 	lineStart := snap.LineStart(pos.Line)
+	key := hoverKey{path: d.path, version: snap.Version(), offset: lineStart + ws, cmd: cmd}
+	if cached, ok := a.hover.cache[key]; ok && r.Offset >= cached.start && r.Offset < cached.end && time.Since(cached.at) < hoverCacheTTL {
+		a.showHover(st, cmd, cached)
+		return
+	}
 	ctx, cancel := context.WithTimeout(a.wsCtx, 10*time.Second)
 	a.hover.cancel = cancel
-	m, root := a.lsp, a.root
+	m := a.lsp
 	go func() {
 		defer cancel()
 		c, err := m.get(ctx)
@@ -66,13 +118,15 @@ func (a *app) hoverAt(d *doc, st *editor.State, r editor.HoverRequest) {
 		at := lsp.Position{Line: pos.Line, Character: lsp.ColumnToLSP(line, pos.Col, enc)}
 		start, end := lineStart+ws, lineStart+we
 		var md string
+		var location *hoverLocation
 		if cmd {
 			locs, err := c.Definition(ctx, d.uri, at)
 			targets, _ := targetsOf(locs)
 			if err != nil || len(targets) == 0 {
 				return
 			}
-			md = definitionPreview(root, targets[0])
+			location = &hoverLocation{path: targets[0].path, line: targets[0].pos.Line + 1}
+			md = definitionPreview(targets[0])
 		} else {
 			text, rng, err := c.Hover(ctx, d.uri, at)
 			if err != nil || strings.TrimSpace(text) == "" {
@@ -85,18 +139,25 @@ func (a *app) hoverAt(d *doc, st *editor.State, r editor.HoverRequest) {
 			}
 		}
 		a.post(func() {
-			if a.gen != gen || a.hover.seq != seq {
+			if a.gen != gen || a.hover.seq != seq || a.hover.epoch != epoch || a.docs[d.path] != d || d.buf == nil || d.buf.Version() != key.version {
 				return // the pointer has moved on
 			}
-			if cmd {
-				if !a.hover.cmd {
-					return // Cmd let go meanwhile
+			visible := false
+			for _, g := range a.groups() {
+				if g.active == d.path && g.eds[d.path] == st {
+					visible = true
+					break
 				}
-				a.hideLink()
-				st.TextBackgrounds = []editor.TextBackground{{Start: start, End: end, Color: colLink}}
-				a.hover.link = st
 			}
-			st.ShowHover(start, end, "", func(c *ui.Context) { hoverContent(c, md) })
+			if !visible {
+				return
+			}
+			if a.hover.cache == nil || len(a.hover.cache) >= hoverCacheLimit {
+				a.hover.cache = make(map[hoverKey]hoverResult)
+			}
+			result := hoverResult{start: start, end: end, markdown: md, location: location, at: time.Now()}
+			a.hover.cache[key] = result
+			a.showHover(st, cmd, result)
 		})
 	}()
 }
@@ -109,35 +170,49 @@ func (a *app) hideLink() {
 	}
 }
 
-// renderHover styles the editor's hover card as a popover: the editor's
-// own card, rounder, with room for Markdown.
+// renderHover keeps the editor's selectable hover and gives it the app's
+// popover colors and a subtle elevation.
 func (a *app) renderHover(c *ui.Context, panel ui.Element, h *editor.HoverCard) {
 	editor.DefaultHover(c, panel, h)
-	panel.Radius(10).MaxWidth(620).Background(colPopover).Border(1, colPopoverEdge).
-		Shadow(0, 8, 24, 0, ui.RGBA(0, 0, 0, 0.45))
+	panel.Radius(8).MaxWidth(620).Background(colPopover).Border(1, colPopoverEdge).
+		Shadow(0, 3, 12, 0, ui.RGBA(0, 0, 0, 0.14))
 }
 
-func hoverContent(c *ui.Context, md string) {
-	ui.Column(c).MaxWidth(600).MaxHeight(420).Children(func() {
-		ui.Scroll(c).Children(func() {
-			markdown.View(c, md, &markdown.Options{WrapCode: true})
-		})
+func hoverContent(c *ui.Context, md string, location *hoverLocation) {
+	ui.Column(c).MaxWidth(600).MaxHeight(420).Gap(8).Children(func() {
+		if location != nil {
+			ui.Row(c).FillWidth().Gap(6).AlignItems(ui.Center).Tooltip(fmt.Sprintf("%s:%d", location.path, location.line)).Children(func() {
+				fileIcon(c, filepath.Base(location.path), 13)
+				ui.Row(c).Gap(0).Shrink(1).Children(func() {
+					ui.Text(c, filepath.Base(location.path)).FontSize(12).TextColor(colText).SingleLine().Shrink(1)
+					ui.Text(c, fmt.Sprintf(":%d", location.line)).FontSize(12).TextColor(colText).SingleLine().Shrink(0)
+				})
+				parent := filepath.Base(filepath.Dir(location.path))
+				if parent != "." && parent != string(filepath.Separator) {
+					ui.Text(c, parent).FontSize(11).TextColor(colMuted).SingleLine().Shrink(1)
+				}
+			})
+		}
+		if md != "" {
+			ui.Scroll(c).MaxHeight(380).Shrink(1).Label("Hover documentation").Children(func() {
+				markdown.View(c, md, nil)
+			})
+		}
 	})
 }
 
-// definitionPreview is Markdown showing a definition's first lines,
-// read from its file, under where it is.
-func definitionPreview(root string, t target) string {
+// definitionPreview reads the declaration and its surrounding lines as Markdown.
+func definitionPreview(t target) string {
 	data, err := os.ReadFile(t.path)
 	if err != nil || len(data) > 4<<20 {
-		return fmt.Sprintf("*%s:%d*", relPath(root, t.path), t.pos.Line+1)
+		return ""
 	}
 	lines := strings.Split(string(data), "\n")
 	from := max(0, t.pos.Line-docLinesAbove(lines, t.pos.Line))
 	to := min(len(lines), t.pos.Line+12)
 	snippet := strings.TrimRight(strings.ReplaceAll(strings.Join(lines[from:to], "\n"), "\r", ""), "\n")
 	lang := strings.TrimPrefix(filepath.Ext(t.path), ".")
-	return fmt.Sprintf("*%s:%d*\n\n```%s\n%s\n```", relPath(root, t.path), t.pos.Line+1, lang, snippet)
+	return fmt.Sprintf("```%s\n%s\n```", lang, snippet)
 }
 
 // docLinesAbove counts the comment lines right above line, up to 6, so

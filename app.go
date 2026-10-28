@@ -414,6 +414,7 @@ func (a *app) refreshDir(dir string) {
 // refreshAll reads every loaded directory and open document again, for
 // when watching is not possible.
 func (a *app) refreshAll() {
+	a.invalidateHover()
 	for dir := range a.dirs {
 		a.refreshDir(dir)
 	}
@@ -484,6 +485,10 @@ func (a *app) showLoaded(g *group, d *doc) {
 	if st == nil {
 		st = a.newEditor(g, d)
 		g.eds[d.path] = st
+		if a.lsp != nil && a.cfg.trusted(a.root) && strings.EqualFold(filepath.Ext(d.path), ".go") {
+			m, ctx := a.lsp, a.wsCtx
+			go func() { _, _ = m.get(ctx) }()
+		}
 	}
 	to, ok := g.pending[d.path]
 	if !ok {
@@ -918,6 +923,7 @@ func (a *app) trust() {
 
 func (a *app) retryLSP() {
 	if a.lsp != nil {
+		a.invalidateHover()
 		a.lsp.retry()
 		a.lspState, a.lspErr = a.lsp.status()
 		a.notice = ""

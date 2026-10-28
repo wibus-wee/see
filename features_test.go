@@ -220,8 +220,8 @@ func TestHoverAndCmdLink(t *testing.T) {
 	if len(st.TextBackgrounds) != 1 || st.TextBackgrounds[0].Start != start || st.TextBackgrounds[0].End != start+len("名字") {
 		t.Errorf("link %+v", st.TextBackgrounds)
 	}
-	md := definitionPreview(root, target{path: bPath, pos: lsp.Position{Line: 3}})
-	if !strings.Contains(md, "b/b.go:4") || !strings.Contains(md, "// 名字 is 🎉.") || !strings.Contains(md, "func 名字() {}") {
+	md := definitionPreview(target{path: bPath, pos: lsp.Position{Line: 3}})
+	if !strings.Contains(md, "// 名字 is 🎉.") || !strings.Contains(md, "func 名字() {}") {
 		t.Errorf("preview %q", md)
 	}
 	// Letting Cmd go takes the link away.

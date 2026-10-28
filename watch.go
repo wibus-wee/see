@@ -73,6 +73,9 @@ func (a *app) startWatch() {
 // applyEvents refreshes what changes on disk touch: the loaded
 // directories they are in, and the open documents they name.
 func (a *app) applyEvents(evs []mygo.FileEvent) {
+	if len(evs) > 0 {
+		a.invalidateHover()
+	}
 	dirs := map[string]bool{}
 	for _, ev := range evs {
 		p := filepath.Join(a.root, filepath.FromSlash(ev.Path))

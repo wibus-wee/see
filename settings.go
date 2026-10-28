@@ -396,7 +396,7 @@ func (a *app) editorPane(c *ui.Context) {
 }
 
 func (a *app) intelligencePane(c *ui.Context) {
-	status := "Starts the first time Go to Definition or a hover needs it."
+	status := "Starts when a Go file opens in a trusted folder."
 	path, err := findGopls(a.root)
 	switch {
 	case err != nil:
