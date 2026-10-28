@@ -30,7 +30,8 @@ import (
 type app struct {
 	post       func(func())           // runs fn on the UI thread, then redraws
 	pickFolder func() (string, error) // a blocking folder dialog
-	setTitle   func(string)           // the window's title
+	trashItem  func(string) error
+	setTitle   func(string) // the window's title
 	startLSP   func(logf func(string, ...any)) starter
 	cfg        *config
 	logf       func(string, ...any)
@@ -92,6 +93,8 @@ type app struct {
 	find                        findState
 	quick                       quickOpen
 	confirm                     *confirmation
+	deleteConfirm               *confirmation
+	createEntry                 *entryPrompt
 	allowDirty                  bool
 	quitApproved                bool
 
@@ -181,15 +184,16 @@ type target struct {
 
 func newApp(cfg *config) *app {
 	a := &app{
-		cfg:      cfg,
-		docs:     map[string]*doc{},
-		dirs:     map[string]*dirState{},
-		post:     func(fn func()) { fn() },
-		setTitle: func(string) {},
-		startLSP: startGopls,
-		logf:     log.Printf,
-		treeRow:  -1,
-		sidebarW: 260,
+		cfg:       cfg,
+		docs:      map[string]*doc{},
+		dirs:      map[string]*dirState{},
+		post:      func(fn func()) { fn() },
+		trashItem: mygo.Shell.TrashItem,
+		setTitle:  func(string) {},
+		startLSP:  startGopls,
+		logf:      log.Printf,
+		treeRow:   -1,
+		sidebarW:  260,
 	}
 	if cfg.SidebarWidth >= 160 {
 		a.sidebarW = cfg.SidebarWidth
@@ -286,6 +290,8 @@ func (a *app) openWorkspace(dir string) {
 // closeWorkspace forgets the workspace: its tabs, caches, searches, watch
 // and language server.
 func (a *app) closeWorkspace() {
+	a.createEntry = nil
+	a.deleteConfirm = nil
 	if a.root != "" {
 		a.saveConfig()
 	}
@@ -408,15 +414,15 @@ func (a *app) children(p string) []string {
 	}
 	if !d.loaded {
 		if d.err != nil {
-			return []string{p + errorSuffix}
+			return a.withEntryPrompt(p, []string{p + errorSuffix})
 		}
-		return []string{p + loadingSuffix}
+		return a.withEntryPrompt(p, []string{p + loadingSuffix})
 	}
 	out := entryPaths(d)
 	if d.err != nil {
 		out = append(out, p+errorSuffix) // a refresh failed: keep the old list
 	}
-	return out
+	return a.withEntryPrompt(p, out)
 }
 
 func entryPaths(d *dirState) []string {
@@ -430,10 +436,11 @@ func entryPaths(d *dirState) []string {
 const (
 	loadingSuffix = "\x00loading"
 	errorSuffix   = "\x00error"
+	entrySuffix   = "\x00new-entry"
 )
 
 func isPlaceholder(p string) bool {
-	return strings.HasSuffix(p, loadingSuffix) || strings.HasSuffix(p, errorSuffix)
+	return strings.HasSuffix(p, loadingSuffix) || strings.HasSuffix(p, errorSuffix) || strings.HasSuffix(p, entrySuffix)
 }
 
 // entry finds the tree entry of a path in its loaded parent.

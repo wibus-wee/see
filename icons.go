@@ -10,6 +10,7 @@ import (
 // Icons drawn after SF Symbols' shapes (not copies of them), in the
 // color of the text around them.
 var (
+	icAdd        = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>`))
 	icFolder     = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6.5A2.5 2.5 0 0 1 5.5 4h4.1c.7 0 1.3.3 1.8.8L12.8 6.3h5.7A2.5 2.5 0 0 1 21 8.8v8.7a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"/></svg>`))
 	icFolderOpen = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6.5A2.5 2.5 0 0 1 5.5 4h4.1c.7 0 1.3.3 1.8.8L12.8 6.3h5.2A2.5 2.5 0 0 1 20.5 8.8V10H8.3a2.5 2.5 0 0 0-2.4 1.8L3.6 19.2A2.5 2.5 0 0 1 3 17.5z"/><path d="M8.3 11.5h13.1c.8 0 1.4.8 1.1 1.6l-1.8 5.4A2.2 2.2 0 0 1 18.6 20H5.2c-.8 0-1.4-.8-1.1-1.6l1.9-5.4a2.4 2.4 0 0 1 2.3-1.5z"/></svg>`))
 	icPage       = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 24"><path d="M3.5 1h8.4c.5 0 1 .2 1.4.6l4.6 4.6c.4.4.6.9.6 1.4V20.5A2.5 2.5 0 0 1 16 23H3.5A2.5 2.5 0 0 1 1 20.5v-17A2.5 2.5 0 0 1 3.5 1z"/></svg>`))

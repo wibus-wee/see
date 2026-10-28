@@ -98,6 +98,10 @@ func (a *app) view(c *ui.Context) {
 			q := a.confirm
 			a.banner(c, colWarnBg, q.message, q.actions)
 		}
+		if a.deleteConfirm != nil {
+			q := a.deleteConfirm
+			a.banner(c, colWarnBg, q.message, q.actions)
+		}
 		ui.Row(c).Grow(1).FillWidth().AlignItems(ui.Stretch).Children(func() {
 			if progress == 0 {
 				a.editorArea(c)
@@ -553,6 +557,18 @@ func (a *app) navigatorBar(c *ui.Context) {
 }
 
 func (a *app) projectNavigator(c *ui.Context) {
+	// The tree's folder rows take drops before this root target.
+	container := ui.Column(c).Grow(1).FillWidth()
+	if paths := container.DroppedFiles(); paths != nil {
+		a.copyInto(a.root, paths)
+	}
+	if v, ok := ui.Drop[*tabDrag](container); ok && v.from == nil {
+		a.copyInto(a.root, []string{v.path})
+	}
+	container.Children(func() { a.projectNavigatorContent(c) })
+}
+
+func (a *app) projectNavigatorContent(c *ui.Context) {
 	a.syncFilter()
 	a.treeHeading(c)
 	switch {
@@ -587,10 +603,10 @@ func (a *app) projectNavigator(c *ui.Context) {
 			})
 		case !rootDir.loaded:
 			a.dirError(c, a.root, rootDir.err)
-		case len(rootDir.entries) == 0:
+		case len(rootDir.entries) == 0 && a.createEntry == nil:
 			ui.Text(c, "This folder is empty.").TextColor(colMuted).Padding(8, 12)
 		default:
-			a.fileTree(c, entryPaths(rootDir))
+			a.fileTree(c, a.withEntryPrompt(a.root, entryPaths(rootDir)))
 		}
 	}
 	if a.filter.toList {
@@ -617,6 +633,12 @@ func (a *app) treeHeading(c *ui.Context) {
 			ui.Text(c, detail).FontSize(11).TextColor(colDim).SingleLine().Shrink(1)
 		}
 		ui.Box(c).Grow(1)
+		if glyphButton(c, icAdd, "New File", "New File in Project", false, false).Clicked() {
+			a.beginEntry(a.entryTarget(), false)
+		}
+		if glyphButton(c, icFolder, "New Folder", "New Folder in Project", false, false).Clicked() {
+			a.beginEntry(a.entryTarget(), true)
+		}
 		if glyphButton(c, icCollapse, "Collapse All Folders", "Collapse All Folders", false, a.filtering()).Clicked() {
 			a.tree.Open.Clear()
 			a.reveal = ""
@@ -732,6 +754,11 @@ func (a *app) toggleDir(p string) {
 
 func (a *app) treeItem(c *ui.Context, p string) {
 	switch {
+	case strings.HasSuffix(p, entrySuffix):
+		if a.createEntry != nil && p == a.createEntry.dir+entrySuffix {
+			a.entryPanel(c)
+		}
+		return
 	case strings.HasSuffix(p, loadingSuffix):
 		ui.Text(c, "Loading…").TextColor(colMuted).FontSize(12)
 		return
@@ -794,6 +821,17 @@ func (a *app) treeItem(c *ui.Context, p string) {
 	})
 	services := c.Services()
 	row.ContextMenu(func(m *ui.Menu) {
+		dir := p
+		if !e.Dir {
+			dir = filepath.Dir(p)
+		}
+		if m.Item("New File…").Chosen() {
+			a.beginEntry(dir, false)
+		}
+		if m.Item("New Folder…").Chosen() {
+			a.beginEntry(dir, true)
+		}
+		m.Separator()
 		if m.Item("Copy Path").Chosen() {
 			services.WriteClipboard(p)
 		}
@@ -809,17 +847,39 @@ func (a *app) treeItem(c *ui.Context, p string) {
 				a.openFromTree(p, false)
 			}
 		}
+		m.Separator()
+		if m.Item("Move to Trash").Chosen() {
+			a.requestTrash(p)
+		}
 	})
 	if e.Dir {
-		row.OnClick(func() { a.toggleDir(p) })
+		if paths := row.DroppedFiles(); paths != nil {
+			a.copyInto(p, paths)
+		}
+		if v, ok := ui.Drop[*tabDrag](row); ok && v.from == nil {
+			a.copyInto(p, []string{v.path})
+		}
+		_, treeOver := ui.DragOver[*tabDrag](row)
+		if row.FileDragOver() || treeOver {
+			row.Background(colDropZone)
+		}
+		row.OnClick(func() {
+			for i := range a.tree.Rows() {
+				if a.tree.Item(i) == p {
+					a.treeRow = i
+					break
+				}
+			}
+			a.toggleDir(p)
+		})
 	} else {
 		row.OnClick(func() { a.openFromTree(p, true) })
 		if row.DoubleClicked() {
 			a.openFromTree(p, true)
 			a.focus.preview = ""
 		}
-		row.Drag(&tabDrag{path: p})
 	}
+	row.Drag(&tabDrag{path: p})
 }
 
 func (a *app) dirError(c *ui.Context, dir string, err error) {
@@ -1025,17 +1085,21 @@ func (a *app) groupView(c *ui.Context, g *group) {
 func (a *app) dropArea(c *ui.Context, g *group, content func()) {
 	area := ui.Column(c).Grow(1).FillWidth()
 	_, over := ui.DragOver[*tabDrag](area)
+	fileOver := area.FileDragOver()
 	zone := sideNone
-	if x, y, in := area.PointerPosition(); in || over {
+	if x, y, in := area.PointerPosition(); in || over || fileOver {
 		b := area.LayoutBounds()
 		zone = zoneAt(x, y, b.W, b.H)
 	}
 	if v, ok := ui.Drop[*tabDrag](area); ok {
 		a.dropTab(v, g, zone, len(g.order))
 	}
+	if paths := area.DroppedFiles(); paths != nil {
+		a.openDropped(g, zone, paths)
+	}
 	area.Children(func() {
 		content()
-		if over {
+		if over || fileOver {
 			b := area.LayoutBounds()
 			hl := ui.Box(c).Absolute().Background(colDropZone).Radius(6).Border(2, colAccent).PassThrough()
 			switch zone {
@@ -1079,6 +1143,9 @@ func zoneAt(x, y, w, h float32) side {
 func (a *app) dropTab(v *tabDrag, g *group, s side, at int) {
 	a.cancelNav()
 	if v.from == nil || !v.from.has(v.path) {
+		if a.isTreeDir(v.path) {
+			return
+		}
 		// A file from the tree.
 		target := g
 		if s != sideNone {
