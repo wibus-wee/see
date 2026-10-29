@@ -9,6 +9,8 @@ import (
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 	"see/internal/lsp"
+
+	"see/internal/langserver"
 )
 
 type diagnosticClient struct{ *fakeClient }
@@ -21,13 +23,11 @@ func TestOpenDocumentRequestsDiagnostics(t *testing.T) {
 	root := writeTree(t, map[string]string{"a.ts": "😀 Missing = 1"})
 	h := newHarness(t, root)
 	h.a.cfg.trust(root)
-	h.a.tsLSP.stop()
+	h.a.tsLSP.Stop()
 	client := &diagnosticClient{&fakeClient{enc: lsp.UTF16}}
-	m := newGoLSP(root, func(context.Context, string, func(error)) (langClient, error) { return client, nil }, nil)
-	m.language = typeScriptLanguage
-	m.onDiagnostics = h.a.diagnosticsHandler(h.a.gen, m)
+	m := newTypeScriptServer(root, func(context.Context, string, func(error)) (langserver.Client, error) { return client, nil }, nil, h.a.diagnosticsHandler(h.a.gen), nil)
 	h.a.tsLSP = m
-	defer m.stopWait(time.Second)
+	defer m.StopWait(time.Second)
 	d := h.open("a.ts")
 	h.settle(func() bool { return len(h.ed(d).Diagnostics()) > 0 })
 	diag := h.ed(d).Diagnostics()[0]
@@ -36,7 +36,7 @@ func TestOpenDocumentRequestsDiagnostics(t *testing.T) {
 	}
 	old := d.buf.Snapshot()
 	d.buf.Reset("new text")
-	m.onDiagnostics(d.uri, old, []lsp.Diagnostic{{Message: "stale"}}, lsp.UTF16)
+	h.a.diagnosticsHandler(h.a.gen)(m, d.uri, old, []lsp.Diagnostic{{Message: "stale"}}, lsp.UTF16)
 	for len(h.q) > 0 {
 		(<-h.q)()
 	}
@@ -61,7 +61,7 @@ func TestTrustPromptOnOpeningCode(t *testing.T) {
 
 func TestOutputContainsServerFailure(t *testing.T) {
 	h := newHarness(t, "")
-	h.a.serverStateLog("tsrs", lspFailed, context.DeadlineExceeded)
+	h.a.serverStateLog("tsrs", langserver.Failed, context.DeadlineExceeded)
 	st := ui.NewTester(h.a.logView, 700, 300)
 	if !strings.Contains(strings.Join(st.Texts(), " "), "tsrs") || !st.HasText("Clear Output") {
 		t.Fatalf("output: %v", st.Texts())

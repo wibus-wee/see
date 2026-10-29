@@ -15,7 +15,7 @@ func TestNewFileShortcut(t *testing.T) {
 	h.a.cfg.path = filepath.Join(t.TempDir(), "config.json")
 	path := filepath.Join(root, "new.txt")
 	called := false
-	h.a.pickNewFile = func(dir string) (string, error) { called = true; return path, nil }
+	h.host.newFile = func(dir string) (string, error) { called = true; return path, nil }
 	h.tt.Key(ui.Cmd, ui.KeyN)
 	d := h.a.docs[h.a.activePath()]
 	if d == nil || !d.untitled || called {
@@ -60,13 +60,13 @@ func TestDirtyConfirmationUsesDialog(t *testing.T) {
 	h.tt.Key(ui.Cmd, ui.KeyN)
 	d := h.a.docs[h.a.activePath()]
 	d.buf.Set("draft")
-	h.a.confirmDirty = func(string) (int, error) { return 2, nil }
+	h.host.confirm = func(string) (int, error) { return 2, nil }
 	h.tt.Key(ui.Cmd, ui.KeyW)
 	h.settle(func() bool { return h.a.confirm == nil })
 	if h.a.docs[d.path] != d {
 		t.Fatal("cancel closed the file")
 	}
-	h.a.confirmDirty = func(string) (int, error) { return 1, nil }
+	h.host.confirm = func(string) (int, error) { return 1, nil }
 	h.tt.Key(ui.Cmd, ui.KeyW)
 	h.settle(func() bool { return h.a.docs[d.path] == nil })
 }

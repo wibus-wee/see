@@ -309,7 +309,7 @@ func (a *app) editorsAndPanel(c *ui.Context, editors func()) {
 
 func (a *app) terminalPanel(c *ui.Context) {
 	tp := &a.term
-	panel := ui.Row(c).Fill().AlignItems(ui.Stretch).Background(colEditor).BorderWidth(1, 0, 0, 0).BorderColor(colHairline)
+	panel := ui.Row(c).Fill().AlignItems(ui.Stretch).Background(colors(c).editor).BorderWidth(1, 0, 0, 0).BorderColor(colors(c).hairline)
 	panel.Children(func() {
 		ui.Column(c).Grow(1).FillHeight().Children(func() {
 			switch {
@@ -320,7 +320,7 @@ func (a *app) terminalPanel(c *ui.Context) {
 			case tp.loading:
 				ui.Row(c).Grow(1).FillWidth().Center().Gap(8).Children(func() {
 					ui.Spinner(c)
-					ui.Text(c, "Loading the terminal…").TextColor(colMuted)
+					ui.Text(c, "Loading the terminal…").TextColor(colors(c).muted)
 				})
 			case tp.active != nil:
 				a.paneSplit(c, tp.active, tp.active.panes)
@@ -347,7 +347,7 @@ func (a *app) termPaneView(c *ui.Context, tab *termTab, p *termPane) {
 	box := ui.Column(c.Key(p)).Grow(1).Fill()
 	if len(tab.panes) > 1 && tab.active == p {
 		box.DrawOver(func(pt *ui.Painter, r ui.Rect) {
-			pt.Fill(ui.Rect{X: r.X, Y: r.Y, W: r.W, H: 1}, colAccent, 0)
+			pt.Fill(ui.Rect{X: r.X, Y: r.Y, W: r.W, H: 1}, c.Theme().Accent, 0)
 		})
 	}
 	box.Children(func() {
@@ -362,7 +362,7 @@ func (a *app) termPaneView(c *ui.Context, tab *termTab, p *termPane) {
 // its terminals, under a row of small buttons.
 func (a *app) termTabList(c *ui.Context) {
 	tp := &a.term
-	ui.Column(c).Width(168).Shrink(0).FillHeight().Background(colTabBar).BorderWidth(0, 0, 0, 1).BorderColor(colHairline).Children(func() {
+	ui.Column(c).Width(168).Shrink(0).FillHeight().Background(colors(c).tabBar).BorderWidth(0, 0, 0, 1).BorderColor(colors(c).hairline).Children(func() {
 		ui.Row(c).FillWidth().Height(26).Padding(0, 4).Gap(0).AlignItems(ui.Center).Children(func() {
 			small := func(icon *ui.SVG, label, tip string) bool {
 				return iconButton(c, icon, label, tip, false).Padding(3).Clicked()
@@ -392,10 +392,10 @@ func (a *app) termTabList(c *ui.Context) {
 			ui.Column(c).FillWidth().Padding(0, 4, 4, 4).Gap(1).Children(func() {
 				row := ui.Row(c.Key("output")).FillWidth().Height(24).Padding(0, 6).Gap(6).Radius(5).AlignItems(ui.Center)
 				if tp.output {
-					row.Background(colSelectedRow)
+					row.Background(colors(c).selectedRow)
 				}
 				row.OnClick(func() { tp.output = true; tp.focus = nil })
-				row.Children(func() { symbolIcon(c, icLines, 12, colMuted); ui.Text(c, "Output").FontSize(12) })
+				row.Children(func() { symbolIcon(c, icLines, 12, colors(c).muted); ui.Text(c, "Output").FontSize(12) })
 				for i, tab := range tp.tabs {
 					a.termTabRow(c, i, tab)
 				}
@@ -413,9 +413,9 @@ func (a *app) termTabRow(c *ui.Context, i int, tab *termTab) {
 	hovered := row.Hovered()
 	switch {
 	case active:
-		row.Background(colSelectedRow)
+		row.Background(colors(c).selectedRow)
 	case hovered:
-		row.Background(colPill)
+		row.Background(colors(c).pill)
 	}
 	row.OnClick(func() {
 		tp.active = tab
@@ -423,21 +423,21 @@ func (a *app) termTabRow(c *ui.Context, i int, tab *termTab) {
 		tp.focus = tab.active
 	})
 	row.Children(func() {
-		symbolIcon(c, icPrompt, 12, colMuted)
+		symbolIcon(c, icPrompt, 12, colors(c).muted)
 		title := tab.active.title
 		if title == "" {
 			title = shellName()
 		}
 		t := ui.Text(c, title).FontSize(12).SingleLine().Grow(1).Shrink(1)
 		if !active {
-			t.TextColor(colMuted)
+			t.TextColor(colors(c).muted)
 		}
 		if len(tab.panes) > 1 {
-			ui.Text(c, fmt.Sprint(len(tab.panes))).FontSize(10).TextColor(colMuted).Padding(0, 5).Radius(7).Background(colPill)
+			ui.Text(c, fmt.Sprint(len(tab.panes))).FontSize(10).TextColor(colors(c).muted).Padding(0, 5).Radius(7).Background(colors(c).pill)
 		}
 		cl := ui.ButtonBase(c).Label(fmt.Sprintf("Close Terminal %d", i+1)).Size(14, 14).Radius(3).Center().KeepFocus()
 		if hovered {
-			cl.Children(func() { symbolIcon(c, icClose, 9, colMuted) })
+			cl.Children(func() { symbolIcon(c, icClose, 9, colors(c).muted) })
 		}
 		cl.OnClick(func() {
 			for len(tab.panes) > 0 {

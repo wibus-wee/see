@@ -23,15 +23,11 @@ import (
 // ErrNoRipgrep is returned when ripgrep is not installed.
 var ErrNoRipgrep = errors.New("ripgrep (rg) is not installed")
 
-// FindRipgrep finds rg: $SEE_RG (or the legacy $NSR_RG), then PATH. One inside the workspace is
+// FindRipgrep finds rg: $SEE_RG, then PATH. One inside the workspace is
 // never used.
 func FindRipgrep(root string) (string, error) {
 	var candidates []string
-	p, ok := os.LookupEnv("SEE_RG")
-	if !ok {
-		p = os.Getenv("NSR_RG")
-	}
-	if p != "" {
+	if p := os.Getenv("SEE_RG"); p != "" {
 		candidates = append(candidates, p)
 	}
 	if p, err := exec.LookPath("rg"); err == nil {

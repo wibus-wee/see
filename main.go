@@ -17,17 +17,6 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
-func dirtyDialog(parent *mygo.Window) func(string) (int, error) {
-	return func(message string) (int, error) {
-		result, err := mygo.Dialog.Message(mygo.MessageOptions{
-			Parent: parent, Type: mygo.MessageWarning, Title: "Unsaved Changes",
-			Message: message, Detail: "Do you want to save your changes?",
-			Buttons: []string{"Save", "Discard Changes", "Cancel"}, CancelButton: 2,
-		})
-		return result.Button, err
-	}
-}
-
 func main() {
 	if isCLIInvocation(os.Args[0]) && (len(os.Args) < 2 || os.Args[1] != cliOpenArg) {
 		if err := runCLI(os.Args[1:], os.Stderr); err != nil {
@@ -38,7 +27,7 @@ func main() {
 	}
 	startShellPath()
 	mygo.Use(native.Plugin)
-	cfg := loadAppConfig(configPath())
+	cfg := loadConfig(configPath())
 	a := newApp(cfg)
 	var (
 		win, welcome  *mygo.Window
@@ -64,8 +53,7 @@ func main() {
 		quitting = true
 	})
 	// Light, dark, or the system's, from the start.
-	a.setAppearance = func(s string) { mygo.Theme.SetSource(themeSource(s)) }
-	a.setAppearance(cfg.Appearance)
+	mygo.Theme.SetSource(themeSource(cfg.Appearance))
 	mygo.App.SetName("See")
 	mygo.App.WhenReady(func() {
 		a.version = mygo.App.Version()
@@ -129,7 +117,6 @@ func main() {
 			}
 			child := newApp(cfg)
 			child.version = a.version
-			child.setAppearance = a.setAppearance
 			width, height := defaultWindowWidth, defaultWindowHeight
 			if path == "" {
 				width, height = welcomeWidth, welcomeHeight
@@ -145,13 +132,15 @@ func main() {
 			p := &projectWindow{app: child, win: childWin}
 			projects = append(projects, p)
 			child.post = func(fn func()) { childWin.Update(fn) }
-			child.setWorkspaceSize = func(width, height int) {
-				childWin.SetResizable(true)
-				childWin.SetMinimizable(true)
-				childWin.SetMaximizable(true)
-				childWin.SetSize(width, height)
-				childWin.Center()
+			host := newWindowHost(child, childWin)
+			host.own, host.welcomeSized = true, path == ""
+			host.createProject = createProject
+			host.setMenu = func() {
+				if varSetMenu != nil {
+					varSetMenu()
+				}
 			}
+			child.host = host
 			childWin.OnResize(func() {
 				childWin.Update(func() {
 					if !childWin.IsMaximized() && !childWin.IsFullScreen() {
@@ -160,41 +149,6 @@ func main() {
 					}
 				})
 			})
-			welcomeSize := path == ""
-			child.setTitle = func(title string) {
-				childWin.SetTitle(title)
-				wantWelcome := child.root == ""
-				if wantWelcome != welcomeSize {
-					welcomeSize = wantWelcome
-					if wantWelcome {
-						childWin.SetSize(welcomeWidth, welcomeHeight)
-						childWin.SetResizable(false)
-						childWin.SetMinimizable(false)
-						childWin.SetMaximizable(false)
-					}
-					childWin.Center()
-				}
-			}
-			child.popupMenu = func(x, y int, items []*mygo.MenuItem) { go mygo.NewMenu(items).PopupAt(childWin, x, y) }
-			child.pickFolder = func() (string, error) {
-				paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Parent: childWin, Title: "Open Folder", Directory: true})
-				if err != nil || len(paths) == 0 {
-					return "", err
-				}
-				return paths[0], nil
-			}
-			child.pickNewFile = func(root string) (string, error) {
-				return mygo.Dialog.Save(mygo.SaveDialogOptions{Parent: childWin, Title: "New File", DefaultPath: root, ButtonLabel: "Create"})
-			}
-			child.confirmDirty = dirtyDialog(childWin)
-			child.openProjectWindow = createProject
-			child.newProjectWindow = func() { createProject("") }
-			child.openSettings, child.closeSettings = settingsWindow(child)
-			child.refreshMenu = func() {
-				if varSetMenu != nil {
-					varSetMenu()
-				}
-			}
 			childWin.OnFocus(func() { activate(p) })
 			childWin.OnClose(func(e *mygo.CloseEvent) {
 				if quitting {
@@ -209,9 +163,7 @@ func main() {
 						}
 						child.closeWorkspace()
 						projects = slices.DeleteFunc(projects, func(item *projectWindow) bool { return item == p })
-						if child.closeSettings != nil {
-							child.closeSettings()
-						}
+						child.host.closeSettings()
 						childWin.Destroy()
 						if active == p {
 							activate(primary)
@@ -230,8 +182,10 @@ func main() {
 			childWin.Show()
 			childWin.Focus()
 		}
-		a.openProjectWindow = createProject
-		a.newProjectWindow = func() { createProject("") }
+		host := newWindowHost(a, win)
+		host.wins, host.welcome = wins, welcome
+		host.createProject = createProject
+		a.host = host
 
 		a.post = func(fn func()) { win.Update(func() { fn(); wins.sync(nil) }) }
 		if shellPathReady != nil {
@@ -239,15 +193,11 @@ func main() {
 				<-shellPathReady
 				win.Update(func() {
 					for _, project := range projects {
-						if project.app.refreshSettings != nil {
-							project.app.refreshSettings()
-						}
+						project.app.host.refreshSettings()
 					}
 				})
 			}()
 		}
-		a.setTitle = win.SetTitle
-		a.setWorkspaceSize = func(width, height int) { win.SetSize(width, height); win.Center() }
 		win.OnResize(func() {
 			win.Update(func() {
 				if !win.IsMaximized() && !win.IsFullScreen() {
@@ -256,12 +206,6 @@ func main() {
 				}
 			})
 		})
-		// The project switcher is a native menu, as Xcode's Open Recent:
-		// PopupAt waits for the menu to close, so it runs off the UI
-		// thread, and its choices come back through post.
-		a.popupMenu = func(x, y int, items []*mygo.MenuItem) {
-			go mygo.NewMenu(items).PopupAt(win, x, y)
-		}
 		// Closing either window hides it, unless the app is quitting: the
 		// main window's closes the folder and goes back to the welcome
 		// window, and the welcome window's leaves the app running, as
@@ -303,7 +247,6 @@ func main() {
 				win.Update(wins.reopen)
 			}
 		})
-		a.openSettings, a.closeSettings = settingsWindow(a)
 		// The menu bar, built again as the recent folders and the
 		// appearance change, since its items show them.
 		setMenu := func() {
@@ -322,23 +265,8 @@ func main() {
 		}
 		varSetMenu = setMenu
 		cfg.onRecent = setMenu
-		a.refreshMenu = setMenu
+		host.setMenu = setMenu
 		setMenu()
-		a.pickFolder = func() (string, error) {
-			parent := win // on the window in front; this runs off the UI thread
-			if wins.welcomeUp.Load() {
-				parent = welcome
-			}
-			paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Parent: parent, Title: "Open Folder", Directory: true})
-			if err != nil || len(paths) == 0 {
-				return "", err
-			}
-			return paths[0], nil
-		}
-		a.pickNewFile = func(root string) (string, error) {
-			return mygo.Dialog.Save(mygo.SaveDialogOptions{Parent: win, Title: "New File", DefaultPath: root, ButtonLabel: "Create"})
-		}
-		a.confirmDirty = dirtyDialog(win)
 		// A folder on the command line, else the welcome window, or the
 		// last folder when the user asked for it at launch.
 		a.showWelcome = true // until a folder opens
@@ -364,10 +292,10 @@ func main() {
 			}
 			p.app.closeTerminals()
 			if p.app.lsp != nil {
-				p.app.lsp.stopWait(2 * time.Second)
+				p.app.lsp.StopWait(2 * time.Second)
 			}
 			if p.app.tsLSP != nil {
-				p.app.tsLSP.stopWait(2 * time.Second)
+				p.app.tsLSP.StopWait(2 * time.Second)
 			}
 		}
 	})
@@ -407,7 +335,7 @@ func appMenu(a *app) *mygo.MenuItem {
 		{Role: mygo.RoleAbout},
 		updater.MenuItem(),
 		mygo.Separator(),
-		{Label: "Settings…", Accelerator: "CmdOrCtrl+,", Click: func(*mygo.MenuItem, *mygo.Window) { a.openSettings() }},
+		{Label: "Settings…", Accelerator: "CmdOrCtrl+,", Click: func(*mygo.MenuItem, *mygo.Window) { a.host.openSettings() }},
 		mygo.Separator(),
 		{Role: mygo.RoleServices},
 		mygo.Separator(),
@@ -417,157 +345,6 @@ func appMenu(a *app) *mygo.MenuItem {
 		mygo.Separator(),
 		{Role: mygo.RoleQuit},
 	}}
-}
-
-// settingsWindow returns what opens the settings window, one at a time,
-// and what closes it: a window of its own, its sidebar over the
-// desktop's material, as macOS's System Settings.
-func settingsWindow(a *app) (open, close func()) {
-	var w, fontPopover *mygo.Window
-	a.refreshSettings = func() {
-		if w != nil && !w.IsDestroyed() {
-			w.Update(func() {})
-		}
-	}
-	open = func() {
-		if w != nil && !w.IsDestroyed() {
-			w.Focus()
-			return
-		}
-		a.settings = settingsState{}
-		w = mygo.NewWindow(mygo.WindowOptions{
-			Title:                "Settings",
-			Width:                900,
-			Height:               680,
-			MinWidth:             620,
-			MinHeight:            400,
-			TitleBarStyle:        mygo.TitleBarHidden,
-			TitleBarHeight:       settingsBarHeight,
-			TrafficLightPosition: &mygo.Point{X: 20, Y: (settingsBarHeight - trafficLightSize) / 2},
-			Vibrancy:             mygo.VibrancySidebar,
-			Content:              ui.View(a.settingsView),
-		})
-		current := w
-		customPath := a.cfg.ExternalTerminalPath
-		go func() {
-			apps, err := mygo.Shell.InstalledApps()
-			if err != nil {
-				return
-			}
-			for _, app := range apps {
-				for name, id := range externalTerminalIDs {
-					if app.ID != id {
-						continue
-					}
-					data, err := mygo.Shell.FileIcon(app.Path, 36)
-					if err != nil {
-						continue
-					}
-					current.Update(func() {
-						if w != current || current.IsDestroyed() {
-							return
-						}
-						icon, err := ui.DecodeBitmap(data)
-						if err == nil {
-							if a.settings.terminalIcons == nil {
-								a.settings.terminalIcons = make(map[string]*ui.Bitmap)
-							}
-							a.settings.terminalIcons[name] = icon
-						}
-					})
-				}
-			}
-		}()
-		if customPath != "" {
-			a.loadTerminalIcon(customPath)
-		}
-	}
-	a.loadTerminalIcon = func(path string) {
-		if w == nil || w.IsDestroyed() {
-			return
-		}
-		current := w
-		go func() {
-			data, err := mygo.Shell.FileIcon(path, 36)
-			current.Update(func() {
-				if w != current || current.IsDestroyed() || a.cfg.ExternalTerminalPath != path {
-					return
-				}
-				if a.settings.terminalIcons == nil {
-					a.settings.terminalIcons = make(map[string]*ui.Bitmap)
-				}
-				delete(a.settings.terminalIcons, "Custom App")
-				if err == nil {
-					if icon, err := ui.DecodeBitmap(data); err == nil {
-						a.settings.terminalIcons["Custom App"] = icon
-					}
-				}
-			})
-		}()
-	}
-	a.pickTerminalApp = func() {
-		if w == nil || w.IsDestroyed() {
-			return
-		}
-		current := w
-		go func() {
-			paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Parent: current, Title: "Choose Terminal App", DefaultPath: "/Applications", Filters: []mygo.FileFilter{{Name: "Applications", Extensions: []string{"app"}}}})
-			current.Update(func() {
-				if w != current || current.IsDestroyed() {
-					return
-				}
-				if err != nil {
-					a.note("Could not choose terminal app: "+err.Error(), true)
-					a.post(func() {})
-					return
-				}
-				if len(paths) == 0 {
-					return
-				}
-				a.cfg.ExternalTerminalPath = paths[0]
-				a.settingsChanged()
-				a.loadTerminalIcon(paths[0])
-			})
-		}()
-	}
-	a.openFontPopover = func(anchor ui.Rect, terminal bool) {
-		if w == nil || w.IsDestroyed() {
-			return
-		}
-		if fontPopover != nil && !fontPopover.IsDestroyed() {
-			fontPopover.Close()
-			return
-		}
-		a.settings.fontQuery = ""
-		a.settings.fontOpen = true
-		fontPopover = mygo.NewFlyout(mygo.FlyoutOptions{
-			Parent: w, Anchor: mygo.Rectangle{X: int(anchor.X), Y: int(anchor.Y), Width: int(anchor.W), Height: int(anchor.H)},
-			Placement: mygo.PlacementRightStart, Gap: 6, Width: 300, Height: 390,
-			Focusable: true, Popover: true, Shadow: true, CornerRadius: 14,
-			Content: ui.View(func(c *ui.Context) { a.fontPopover(c, terminal) }),
-		})
-		current := fontPopover
-		current.OnClosed(func() {
-			if fontPopover == current {
-				fontPopover = nil
-				a.settings.fontOpen = false
-			}
-			if w != nil && !w.IsDestroyed() {
-				w.Update(func() {})
-			}
-		})
-	}
-	a.closeFontPopover = func() {
-		if fontPopover != nil && !fontPopover.IsDestroyed() {
-			fontPopover.Close()
-		}
-	}
-	close = func() {
-		if w != nil && !w.IsDestroyed() {
-			w.Close()
-		}
-	}
-	return open, close
 }
 
 // trafficLightSize is the height of macOS's window buttons, which the

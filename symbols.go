@@ -53,6 +53,10 @@ func symbolName(icon *ui.SVG) string {
 		return "minus"
 	case icRefresh:
 		return "arrow.clockwise"
+	case icGitOpen:
+		return "doc"
+	case icGitDiscard:
+		return "arrow.uturn.backward"
 	case icGit:
 		return "arrow.triangle.branch"
 	case icCollapse:

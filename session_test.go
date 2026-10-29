@@ -54,7 +54,7 @@ func TestWorkspaceWindowSizeRestoresPerProject(t *testing.T) {
 	h.a.saveConfig()
 	h.a.cfg = loadConfig(configFile)
 	var width, height int
-	h.a.setWorkspaceSize = func(w, h int) { width, height = w, h }
+	h.host.resize = func(w, h int) { width, height = w, h }
 	h.a.openWorkspace(first)
 	if width != 1050 || height != 700 {
 		t.Fatalf("first size = %d x %d", width, height)

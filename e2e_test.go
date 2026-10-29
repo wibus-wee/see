@@ -10,6 +10,8 @@ import (
 	"github.com/egoist/mygo/ui/editor"
 
 	"see/internal/lsp"
+
+	"see/internal/langserver"
 )
 
 // TestRealGopls jumps across files with a real gopls, through Unicode
@@ -28,10 +30,10 @@ func TestRealGopls(t *testing.T) {
 	})
 	h := newHarness(t, root)
 	h.a.startLSP = startGopls // the real one, found through SEE_GOPLS
-	h.a.lsp = newGoLSP(h.a.root, h.a.startLSP(testLogf(t)), func(s lspState, err error) {
+	h.a.lsp = langserver.New(langserver.Options{Name: "gopls", Root: h.a.root, Start: h.a.startLSP(testLogf(t)), OnState: func(s langserver.State, err error) {
 		h.a.post(func() { h.a.lspState, h.a.lspErr = s, err })
-	})
-	defer h.a.lsp.stopWait(5e9)
+	}})
+	defer h.a.lsp.StopWait(5e9)
 	h.a.cfg.trust(h.a.root)
 
 	a := h.open("a.go")
@@ -46,7 +48,7 @@ func TestRealGopls(t *testing.T) {
 	if h.a.notice != "" {
 		t.Fatalf("notice %q (lsp %v %v), fake calls %v", h.a.notice, h.a.lspState, h.a.lspErr, h.fc.calls())
 	}
-	if h.a.lspState != lspReady {
+	if h.a.lspState != langserver.Ready {
 		t.Errorf("lsp state %v, want ready", h.a.lspState)
 	}
 	if strings.Contains(strings.Join(h.fc.calls(), ","), "definition") {
@@ -61,7 +63,7 @@ func TestRealGopls(t *testing.T) {
 	h.goBackAndCheck(a, a.buf.Pos(off))
 
 	// The symbol's documentation, as a hover shows it.
-	c, err := h.a.lsp.get(context.Background())
+	c, err := h.a.lsp.Get(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}

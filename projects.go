@@ -34,9 +34,7 @@ func (a *app) fileMenu(run func(func())) *mygo.MenuItem {
 	return &mygo.MenuItem{Label: "File", Submenu: []*mygo.MenuItem{
 		{Label: "New File…", Disabled: a.root == "", Click: do(a.newFile)},
 		{Label: "New Window", Click: do(func() {
-			if a.newProjectWindow != nil {
-				a.newProjectWindow()
-			}
+			a.host.openProjectWindow("")
 		})},
 		{Label: "Open Folder…", Click: do(a.openFolderDialog)},
 		{Label: "Open Recent", Submenu: recent},

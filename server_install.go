@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+
+	"see/internal/langserver"
 )
 
 // managedTypeScriptDir contains only See's TypeScript server installation.
@@ -125,12 +127,12 @@ func (a *app) removeManagedTypeScript(services ui.Services) {
 	old := a.tsLSP
 	a.tsEpoch++
 	a.tsLSP = nil
-	a.tsState, a.tsErr = lspOff, nil
+	a.tsState, a.tsErr = langserver.Off, nil
 	gen := a.gen
 	dest := managedTypeScriptDir()
 	go func() {
 		if old != nil {
-			old.stopWait(2 * time.Second)
+			old.StopWait(2 * time.Second)
 		}
 		var err error
 		if dest == "" {

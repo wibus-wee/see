@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -113,6 +114,9 @@ func removeDraft(d *doc) {
 type confirmation struct {
 	message string
 	actions []action
+	// inWindow shows the question in the window, where the host has no
+	// dialog to ask it in.
+	inWindow bool
 }
 
 func (a *app) dirtyDocs() []*doc {
@@ -152,26 +156,27 @@ func (a *app) guardDirty(docs []*doc, proceed func()) bool {
 		}},
 		{"Cancel", func() { a.confirm = nil }},
 	}
-	if a.confirmDirty != nil {
-		q, ask, post := a.confirm, a.confirmDirty, a.post
-		go func() {
-			choice, err := ask(q.message)
-			post(func() {
-				if a.confirm != q {
-					return
-				}
-				if err != nil {
-					a.note("Could not show the confirmation: "+err.Error(), true)
-					a.confirm = nil
-					return
-				}
+	q, ask, post := a.confirm, a.host.confirmDirty, a.post
+	go func() {
+		choice, err := ask(q.message)
+		post(func() {
+			if a.confirm != q {
+				return
+			}
+			switch {
+			case errors.Is(err, errNoDialog):
+				q.inWindow = true
+			case err != nil:
+				a.note("Could not show the confirmation: "+err.Error(), true)
+				a.confirm = nil
+			default:
 				if choice < 0 || choice >= len(q.actions) {
 					choice = 2
 				}
 				q.actions[choice].fn()
-			})
-		}()
-	}
+			}
+		})
+	}()
 	return true
 }
 
@@ -207,11 +212,11 @@ func (a *app) saveDocs(docs []*doc, done func()) {
 }
 
 func (a *app) saveUntitled(d *doc, done func(bool)) {
-	if d.saving || a.pickNewFile == nil {
+	if d.saving {
 		return
 	}
 	d.saving = true
-	root, gen, pick := a.root, a.gen, a.pickNewFile
+	root, gen, pick := a.root, a.gen, a.host.pickNewFile
 	go func() {
 		path, err := pick(root)
 		a.post(func() {

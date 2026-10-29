@@ -36,7 +36,7 @@ func (a *app) requestTrash(path string) {
 				return
 			}
 			a.deleteConfirm = nil
-			gen, trash, post := a.gen, a.trashItem, a.post
+			gen, trash, post := a.gen, a.host.trashItem, a.post
 			go func() {
 				err := trash(path)
 				post(func() {
@@ -122,7 +122,7 @@ func (a *app) entryPanel(c *ui.Context) {
 			}
 		})
 		if q.err != "" {
-			ui.Text(c, q.err).TextColor(colError).FontSize(12).Wrap()
+			ui.Text(c, q.err).TextColor(colors(c).err).FontSize(12).Wrap()
 		}
 	})
 }

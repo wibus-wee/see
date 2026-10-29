@@ -13,6 +13,8 @@ import (
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 	"see/internal/lsp"
+
+	"see/internal/langserver"
 )
 
 func TestHoverCacheAndInvalidation(t *testing.T) {
@@ -24,7 +26,7 @@ func TestHoverCacheAndInvalidation(t *testing.T) {
 	st := h.ed(d)
 	off := at(d, "名字()")
 	h.tt.Frame()
-	h.settle(func() bool { return h.a.lspState == lspReady })
+	h.settle(func() bool { return h.a.lspState == langserver.Ready })
 	st.OnHover(editor.HoverRequest{Offset: off})
 	h.settle(func() bool { return len(h.a.hover.cache) == 1 })
 	count := func() int {
@@ -119,7 +121,7 @@ func TestHoverDropsResultAfterEdit(t *testing.T) {
 	}
 	d := h.open("a.go")
 	h.tt.Frame()
-	h.settle(func() bool { return h.a.lspState == lspReady })
+	h.settle(func() bool { return h.a.lspState == langserver.Ready })
 	h.drainNow()
 	h.ed(d).OnHover(editor.HoverRequest{Offset: at(d, "名字()")})
 	select {

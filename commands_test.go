@@ -27,12 +27,12 @@ func TestWorkspaceSymbolShortcutAndNavigation(t *testing.T) {
 	root := writeTree(t, map[string]string{"a.go": "package a\nfunc Thing() {}\n"})
 	h := newHarness(t, root)
 	h.a.cfg.trust(root)
-	h.a.lsp.stop()
-	h.a.tsLSP.stop()
+	h.a.lsp.Stop()
+	h.a.tsLSP.Stop()
 	h.a.tsLSP = nil
 	c := &symbolClient{fakeClient: &fakeClient{enc: lsp.UTF16}, path: filepath.Join(root, "a.go")}
-	h.a.lsp = newGoLSP(root, func(context.Context, string, func(error)) (langClient, error) { return c, nil }, nil)
-	defer h.a.lsp.stopWait(time.Second)
+	h.a.lsp = serverOf(root, c)
+	defer h.a.lsp.StopWait(time.Second)
 	h.tt.Key(ui.Cmd, ui.KeyT)
 	h.tt.Frame()
 	if !h.a.quick.open || h.a.quick.query != "#" {

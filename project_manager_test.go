@@ -48,7 +48,7 @@ func TestOpenProjectUsesNewWindowWhenWorkspaceOpen(t *testing.T) {
 	other := writeTree(t, map[string]string{"b.txt": "b"})
 	h := newHarness(t, root)
 	var opened string
-	h.a.openProjectWindow = func(path string) { opened = path }
+	h.host.openProject = func(path string) bool { opened = path; return true }
 	h.a.openProject(other)
 	if opened != other || h.a.root != root {
 		t.Fatalf("opened %q, original root %q", opened, h.a.root)
@@ -66,7 +66,7 @@ func TestOpenProjectUsesNewWindowWhenWorkspaceOpen(t *testing.T) {
 func TestNewWindowShortcut(t *testing.T) {
 	h := newHarness(t, writeTree(t, map[string]string{"a.txt": "a"}))
 	count := 0
-	h.a.newProjectWindow = func() { count++ }
+	h.host.openProject = func(string) bool { count++; return true }
 	h.tt.Key(ui.Cmd|ui.Shift, ui.KeyN)
 	if count != 1 {
 		t.Fatalf("new windows requested = %d", count)
@@ -76,7 +76,7 @@ func TestNewWindowShortcut(t *testing.T) {
 func TestNewWindowShortcutFromWelcome(t *testing.T) {
 	h := newHarness(t, "")
 	count := 0
-	h.a.newProjectWindow = func() { count++ }
+	h.host.openProject = func(string) bool { count++; return true }
 	h.tt.Key(ui.Cmd|ui.Shift, ui.KeyN)
 	welcome := ui.NewTester(h.a.welcomeView, welcomeWidth, welcomeHeight)
 	welcome.Key(ui.Cmd|ui.Shift, ui.KeyN)

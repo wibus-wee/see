@@ -163,7 +163,7 @@ func TestMoveFolderToTrashFromTree(t *testing.T) {
 	root := writeTree(t, map[string]string{"folder/child.txt": "child"})
 	h := newHarness(t, root)
 	trashed := make(chan string, 1)
-	h.a.trashItem = func(path string) error { err := os.RemoveAll(path); trashed <- path; return err }
+	h.host.trash = func(path string) error { err := os.RemoveAll(path); trashed <- path; return err }
 	if err := h.tt.RightClick("folder"); err != nil {
 		t.Fatal(err)
 	}

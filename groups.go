@@ -26,7 +26,11 @@ type group struct {
 	relatedBounds   ui.Rect
 	pointerAnchor   ui.Point
 	pointerInEditor bool
-	caretAnchor     ui.Point
+	// changeBars are the Git change bars the editor shows, in the window,
+	// and changeBarPress is whether a press on one is being taken.
+	changeBars     []changeBar
+	changeBarPress bool
+	caretAnchor    ui.Point
 }
 
 // goTo is a place to show in a document: a position of the buffer, or
@@ -231,7 +235,7 @@ func (a *app) releaseIfUnused(path string) {
 	}
 	d.seq++ // drop a load on its way
 	if m := a.serverFor(d.path); m != nil {
-		m.close(d.uri)
+		m.Close(d.uri)
 	}
 }
 

@@ -4,10 +4,14 @@ import (
 	"github.com/egoist/mygo/ui/editor"
 	"see/internal/lsp"
 	"see/internal/uri"
+
+	"see/internal/langserver"
 )
 
-func (a *app) diagnosticsHandler(gen int, m *languageServer) func(string, editor.Snapshot, []lsp.Diagnostic, string) {
-	return func(docURI string, snap editor.Snapshot, ds []lsp.Diagnostic, encoding string) {
+// diagnosticsHandler shows a server's diagnostics in the editors of the
+// document, if the server is still the one for it.
+func (a *app) diagnosticsHandler(gen int) func(*langserver.Server, string, editor.Snapshot, []lsp.Diagnostic, string) {
+	return func(m *langserver.Server, docURI string, snap editor.Snapshot, ds []lsp.Diagnostic, encoding string) {
 		path, err := uri.ToPath(docURI)
 		if err != nil {
 			return

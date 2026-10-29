@@ -15,7 +15,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 	"github.com/egoist/mygo/ui/markdown"
@@ -24,28 +23,20 @@ import (
 	"see/internal/nav"
 	"see/internal/uri"
 	"see/internal/workspace"
+
+	"see/internal/langserver"
 )
 
 // app is the reader's state. It lives on the UI thread: background work
 // hands its results back through post, which runs them there.
 type app struct {
-	post              func(func())                 // runs fn on the UI thread, then redraws
-	pickFolder        func() (string, error)       // a blocking folder dialog
-	pickNewFile       func(string) (string, error) // a blocking save dialog
-	pickTerminalApp   func()
-	loadTerminalIcon  func(string)
-	refreshSettings   func()
-	trashItem         func(string) error
-	confirmDirty      func(string) (int, error) // a blocking native confirmation
-	openProjectWindow func(string)
-	newProjectWindow  func()
-	setTitle          func(string) // the window's title
-	setWorkspaceSize  func(int, int)
-	windowWidth       int
-	windowHeight      int
-	startLSP          func(logf func(string, ...any)) starter
-	cfg               *config
-	logf              func(string, ...any)
+	post         func(func()) // runs fn on the UI thread, then redraws
+	host         host         // the window and the desktop around it
+	windowWidth  int
+	windowHeight int
+	startLSP     func(logf func(string, ...any)) langserver.Starter
+	cfg          *config
+	logf         func(string, ...any)
 
 	// The workspace.
 	root     string // as the user opened it
@@ -68,6 +59,7 @@ type app struct {
 	focus       *group
 	nextGroup   int
 	focusEditor *editor.State // an editor to give the keyboard to
+	focusImage  string        // an image preview to give the keyboard to once loaded
 
 	// Navigation.
 	hist         nav.History
@@ -77,14 +69,14 @@ type app struct {
 	findingLabel string
 	choices      *defChoices // several definitions to choose from
 
-	lsp            *languageServer
-	tsLSP          *languageServer
-	tsState        lspState
+	lsp            *langserver.Server
+	tsLSP          *langserver.Server
+	tsState        langserver.State
 	tsErr          error
 	tsEpoch        uint64
 	serverJob      bool
 	serverJobErr   string
-	lspState       lspState
+	lspState       langserver.State
 	lspErr         error
 	trustDismissed bool
 	trustAsk       bool   // asking whether to trust the workspace
@@ -92,28 +84,22 @@ type app struct {
 	notice         string // the last message for the user
 	noticeError    bool
 
-	hover    hoverState
-	term     termPanel
-	logs     logStore
-	settings settingsState
-	// openSettings shows the settings window, closeSettings closes it.
-	openSettings, closeSettings func()
-	openFontPopover             func(ui.Rect, bool)
-	closeFontPopover            func()
-	refreshMenu                 func() // builds the menu bar again
-	find                        findState
-	quick                       quickOpen
-	confirm                     *confirmation
-	deleteConfirm               *confirmation
-	createEntry                 *entryPrompt
-	allowDirty                  bool
-	quitApproved                bool
+	hover         hoverState
+	term          termPanel
+	logs          logStore
+	settings      settingsState
+	find          findState
+	quick         quickOpen
+	confirm       *confirmation
+	deleteConfirm *confirmation
+	createEntry   *entryPrompt
+	allowDirty    bool
+	quitApproved  bool
 
 	navigator        int // the sidebar's navigator: navFiles or navFind
 	sidebarOff       bool
 	titleButton      ui.Handle // the toolbar's project name, over which its menu shows
 	titleOpen        bool
-	popupMenu        func(x, y int, items []*mygo.MenuItem)
 	welcomeNote      string
 	showWelcome      bool   // the welcome window over an open workspace
 	version          string // the app's, shown on the welcome window
@@ -126,7 +112,6 @@ type app struct {
 	themeAccent      ui.Color
 	// setAppearance forces light or dark, or "" the system's; the app's
 	// windows follow it.
-	setAppearance func(string)
 }
 
 const (
@@ -173,6 +158,9 @@ type doc struct {
 	lspVersion        uint64
 	diagnostics       []editor.Diagnostic
 	diagnosticVersion uint64
+	gitBase           *editor.Buffer
+	gitChanges        *editor.DiffState
+	gitBaseSeq        uint64
 }
 
 type draftCache struct {
@@ -189,31 +177,38 @@ type fileStamp struct {
 
 // defChoices are the definitions a request found, to choose from.
 type defChoices struct {
-	g     *group
-	from  nav.Entry
-	enc   string
-	locs  []target
-	title string
+	g             *group
+	from          nav.Entry
+	enc           string
+	locs          []target
+	title         string
+	selected      int
+	previewEditor *editor.State
+	previewPath   string
+	buffers       map[string]*editor.Buffer
+	collapsed     map[string]bool
 }
 
 type target struct {
-	name string
-	path string
-	pos  lsp.Position
+	name         string
+	path         string
+	pos          lsp.Position
+	preview      []string
+	previewStart int
+	end          lsp.Position
 }
 
 func newApp(cfg *config) *app {
 	a := &app{
-		cfg:       cfg,
-		docs:      map[string]*doc{},
-		dirs:      map[string]*dirState{},
-		post:      func(fn func()) { fn() },
-		trashItem: mygo.Shell.TrashItem,
-		setTitle:  func(string) {},
-		startLSP:  startGopls,
-		logf:      log.Printf,
-		treeRow:   -1,
-		sidebarW:  260,
+		cfg:      cfg,
+		docs:     map[string]*doc{},
+		dirs:     map[string]*dirState{},
+		post:     func(fn func()) { fn() },
+		host:     noHost{},
+		startLSP: startGopls,
+		logf:     log.Printf,
+		treeRow:  -1,
+		sidebarW: 260,
 	}
 	if cfg.SidebarWidth >= 160 {
 		a.sidebarW = cfg.SidebarWidth
@@ -244,11 +239,9 @@ func (a *app) activeEditor() *editor.State { return a.focus.eds[a.focus.active] 
 
 // openFolderDialog asks for a folder, off the UI thread, and opens it.
 func (a *app) openFolderDialog() {
-	if a.pickFolder == nil {
-		return
-	}
+	pick := a.host.pickFolder
 	go func() {
-		p, err := a.pickFolder()
+		p, err := pick()
 		a.post(func() {
 			switch {
 			case err != nil:
@@ -286,29 +279,32 @@ func (a *app) openWorkspace(dir string) {
 	a.showWelcome = false
 	a.wsCtx, a.wsCancel = context.WithCancel(context.Background())
 	gen := a.gen
-	a.lsp = newGoLSP(root, a.startLSP(a.serverLog("gopls")), func(s lspState, err error) {
-		a.post(func() {
-			if a.gen == gen {
-				a.lspState, a.lspErr = s, err
-				a.serverStateLog("gopls", s, err)
-			}
-		})
+	a.lsp = langserver.New(langserver.Options{
+		Name:  "gopls",
+		Root:  root,
+		Start: a.startLSP(a.serverLog("gopls")),
+		OnState: func(s langserver.State, err error) {
+			a.post(func() {
+				if a.gen == gen {
+					a.lspState, a.lspErr = s, err
+					a.serverStateLog("gopls", s, err)
+				}
+			})
+		},
+		OnDiagnostics: a.diagnosticsHandler(gen),
+		Logf:          a.serverLog("gopls"),
 	})
-	a.lsp.onDiagnostics = a.diagnosticsHandler(gen, a.lsp)
-	a.lsp.logf = a.serverLog("gopls")
 	a.resetTypeScriptServer()
 	a.loadDir(root)
 	a.startWatch()
 	a.startGit()
 	a.restoreSession()
 	a.windowWidth, a.windowHeight = workspaceSize(a.cfg.Workspaces[root])
-	if a.setWorkspaceSize != nil {
-		a.setWorkspaceSize(a.windowWidth, a.windowHeight)
-	}
+	a.host.setWorkspaceSize(a.windowWidth, a.windowHeight)
 	a.cfg.LastWorkspace = root
 	a.cfg.addRecent(root)
 	a.saveConfig()
-	a.setTitle(filepath.Base(root))
+	a.host.setTitle(filepath.Base(root))
 }
 
 // closeWorkspace forgets the workspace: its tabs, caches, searches, watch
@@ -326,14 +322,14 @@ func (a *app) closeWorkspace() {
 	a.cancelNav()
 	a.closeTerminals()
 	if a.lsp != nil {
-		a.lsp.stop()
+		a.lsp.Stop()
 		a.lsp = nil
 	}
 	if a.tsLSP != nil {
-		a.tsLSP.stop()
+		a.tsLSP.Stop()
 		a.tsLSP = nil
 	}
-	a.tsState, a.tsErr = lspOff, nil
+	a.tsState, a.tsErr = langserver.Off, nil
 	a.root, a.realRoot = "", ""
 	a.dirs = map[string]*dirState{}
 	a.tree = ui.OutlineState[string]{}
@@ -347,14 +343,14 @@ func (a *app) closeWorkspace() {
 	a.choices = nil
 	a.trustAsk, a.afterTrust = false, nil
 	a.trustDismissed = false
-	a.lspState, a.lspErr = lspOff, nil
+	a.lspState, a.lspErr = langserver.Off, nil
 	a.watchErr, a.watching = nil, false
 	a.git = gitState{}
 	a.notice = ""
 	a.hover = hoverState{}
 	a.find.reset()
 	a.quick = quickOpen{}
-	a.setTitle("See")
+	a.host.setTitle("See")
 }
 
 // saveConfigSoon saves the settings once they stop changing for a
@@ -536,6 +532,10 @@ func (a *app) openFile(path string, pos *editor.Pos) *doc {
 
 // openIn shows path in g, at the place to says, if any.
 func (a *app) openIn(g *group, path string, to goTo) *doc {
+	a.term.maximized = false
+	a.git.diff = nil
+	a.git.diffSeq++
+	a.git.peek = nil
 	path = docPath(a.root, a.realRoot, path)
 	d := a.docs[path]
 	if d == nil {
@@ -725,7 +725,7 @@ func (a *app) loaded(d *doc, f workspace.File, buf *editor.Buffer, same bool, er
 			st.SetScrollY(p.y)
 		}
 		if m := a.serverFor(d.path); m != nil {
-			m.changed(d.uri, d.buf.Snapshot())
+			m.Changed(d.uri, d.buf.Snapshot())
 		}
 	}
 	for _, g := range a.groups() {
@@ -789,12 +789,14 @@ func (a *app) newEditor(g *group, d *doc) *editor.State {
 		Label:    d.name,
 		Bindings: editorBindings(),
 		Theme:    a.edTheme,
+		DiffBase: d.gitBase,
 	}
 	a.applyEditorPrefs(st)
 	if d.buf.Version() == d.diagnosticVersion {
 		st.SetDiagnostics(d.diagnosticVersion, d.diagnostics)
 	}
 	st.OnDefinition = func(offset int) { a.goToDefinition(g, d, offset) }
+	a.loadGitBase(d)
 	st.ContextMenu = func(menu *ui.Menu) {
 		if menu.Item("Find References").Shortcut(ui.Shift, ui.KeyF12).Chosen() {
 			a.focus = g
@@ -841,6 +843,10 @@ func (a *app) here() (nav.Entry, bool) {
 func (a *app) userOpen(path string) {
 	a.cancelNav()
 	a.openFile(path, nil)
+	a.focusImage = ""
+	if isImagePath(a.activePath()) {
+		a.focusImage = a.activePath()
+	}
 	if st := a.activeEditor(); st != nil {
 		a.focusEditor = st
 	}
@@ -851,6 +857,7 @@ func (a *app) previewOpen(path string) {
 	path = docPath(a.root, a.realRoot, path)
 	if g.has(path) {
 		a.userActivateIn(g, path)
+		a.focusImage = ""
 		return
 	}
 	old := g.preview
@@ -859,6 +866,7 @@ func (a *app) previewOpen(path string) {
 	}
 	at := slices.Index(g.order, old)
 	a.userOpen(path)
+	a.focusImage = "" // a single-click preview keeps focus in the tree
 	if old != "" {
 		a.closeTab(g, old)
 		g.addTab(path, at)
@@ -870,11 +878,19 @@ func (a *app) previewOpen(path string) {
 func (a *app) userActivate(path string) { a.userActivateIn(a.focus, path) }
 
 func (a *app) userActivateIn(g *group, path string) {
+	a.term.maximized = false
+	a.git.diff = nil
+	a.git.diffSeq++
+	a.git.peek = nil
 	if path == g.active && g == a.focus {
 		return
 	}
 	a.cancelNav()
 	a.activateIn(g, path)
+	a.focusImage = ""
+	if isImagePath(path) {
+		a.focusImage = path
+	}
 	if st := g.eds[path]; st != nil {
 		a.focusEditor = st
 	}
@@ -979,17 +995,17 @@ func targetsOf(locs []lsp.Location) (targets []target, skipped int) {
 			skipped++
 			continue
 		}
-		targets = append(targets, target{name: l.Name, path: p, pos: l.Range.Start})
+		targets = append(targets, target{name: l.Name, path: p, pos: l.Range.Start, end: l.Range.End})
 	}
 	return targets, skipped
 }
 
-func definition(ctx context.Context, m *languageServer, docURI string, snap editor.Snapshot, pos editor.Pos, line string) ([]lsp.Location, string, error) {
-	c, err := m.get(ctx)
+func definition(ctx context.Context, m *langserver.Server, docURI string, snap editor.Snapshot, pos editor.Pos, line string) ([]lsp.Location, string, error) {
+	c, err := m.Get(ctx)
 	if err != nil {
 		return nil, "", err
 	}
-	if err := m.sync(ctx, c, docURI, snap); err != nil {
+	if err := m.Sync(ctx, c, docURI, snap); err != nil {
 		return nil, "", err
 	}
 	enc := c.Encoding()
@@ -1050,8 +1066,8 @@ func (a *app) trust() {
 func (a *app) retryLSP() {
 	if a.lsp != nil {
 		a.invalidateHover()
-		a.lsp.retry()
-		a.lspState, a.lspErr = a.lsp.status()
+		a.lsp.Retry()
+		a.lspState, a.lspErr = a.lsp.Status()
 		a.notice = ""
 		a.openServerDocuments(a.lsp)
 	}
@@ -1076,7 +1092,7 @@ func describeErr(err error) string {
 	return err.Error()
 }
 
-func (a *app) serverFor(path string) *languageServer {
+func (a *app) serverFor(path string) *langserver.Server {
 	if strings.EqualFold(filepath.Ext(path), ".go") {
 		return a.lsp
 	}
@@ -1089,8 +1105,8 @@ func (a *app) serverFor(path string) *languageServer {
 func (a *app) retryTypeScriptLSP() {
 	if a.tsLSP != nil {
 		a.invalidateHover()
-		a.tsLSP.retry()
-		a.tsState, a.tsErr = a.tsLSP.status()
+		a.tsLSP.Retry()
+		a.tsState, a.tsErr = a.tsLSP.Status()
 		a.notice = ""
 		a.openServerDocuments(a.tsLSP)
 	}
@@ -1098,42 +1114,38 @@ func (a *app) retryTypeScriptLSP() {
 
 func (a *app) resetTypeScriptServer() {
 	a.tsEpoch++
-	a.tsState, a.tsErr = lspOff, nil
+	a.tsState, a.tsErr = langserver.Off, nil
 	a.tsLSP = nil
 	if a.root == "" {
 		return
 	}
 	gen, epoch := a.gen, a.tsEpoch
-	a.tsLSP = newGoLSP(a.root, startTypeScriptServer(a.serverLog("tsrs")), func(s lspState, err error) {
+	a.tsLSP = newTypeScriptServer(a.root, startTypeScriptServer(a.serverLog("tsrs")), func(s langserver.State, err error) {
 		a.post(func() {
 			if a.gen == gen && a.tsEpoch == epoch {
 				a.tsState, a.tsErr = s, err
 				a.serverStateLog("tsrs", s, err)
 			}
 		})
-	})
-	a.tsLSP.name = "tsrs"
-	a.tsLSP.language = typeScriptLanguage
-	a.tsLSP.logf = a.serverLog("tsrs")
-	a.tsLSP.onDiagnostics = a.diagnosticsHandler(gen, a.tsLSP)
+	}, a.diagnosticsHandler(gen), a.serverLog("tsrs"))
 }
 
-func (a *app) openLanguageDocument(m *languageServer, ctx context.Context, d *doc, docURI string, snap editor.Snapshot) {
-	client, err := m.get(ctx)
+func (a *app) openLanguageDocument(m *langserver.Server, ctx context.Context, d *doc, docURI string, snap editor.Snapshot) {
+	client, err := m.Get(ctx)
 	if err != nil {
 		return
 	}
-	if err = m.sync(ctx, client, docURI, snap); err != nil {
+	if err = m.Sync(ctx, client, docURI, snap); err != nil {
 		return
 	}
 	a.post(func() {
 		if a.docs[d.path] == d && a.serverFor(d.path) == m && d.buf != nil && d.buf.Version() != snap.Version() {
-			m.changed(docURI, d.buf.Snapshot())
+			m.Changed(docURI, d.buf.Snapshot())
 		}
 	})
 }
 
-func (a *app) openServerDocuments(only *languageServer) {
+func (a *app) openServerDocuments(only *langserver.Server) {
 	if a.wsCtx == nil || !a.cfg.trusted(a.root) {
 		return
 	}
@@ -1178,6 +1190,7 @@ func (a *app) findUsagesAt(callers bool, anchor ui.Point, validAnchor bool) {
 		a.afterTrust = func() { a.findUsagesAt(callers, anchor, validAnchor) }
 		return
 	}
+	a.term.maximized = false
 	a.cancelNav()
 	a.hideLink()
 	snap := d.buf.Snapshot()
@@ -1194,11 +1207,11 @@ func (a *app) findUsagesAt(callers bool, anchor ui.Point, validAnchor bool) {
 	seq, gen := a.navSeq, a.gen
 	go func() {
 		defer cancel()
-		c, err := m.get(ctx)
+		c, err := m.Get(ctx)
 		var locations []lsp.Location
 		enc := ""
 		if err == nil {
-			err = m.sync(ctx, c, d.uri, snap)
+			err = m.Sync(ctx, c, d.uri, snap)
 		}
 		if err == nil {
 			enc = c.Encoding()
@@ -1245,40 +1258,99 @@ func (a *app) findUsagesAt(callers bool, anchor ui.Point, validAnchor bool) {
 				return
 			}
 			a.choices = &defChoices{g: g, from: from, enc: enc, locs: targets, title: name}
-			a.showRelatedResults(a.choices, anchor, validAnchor)
+			a.git.peek = nil
+			a.loadRelatedPreviews(a.choices)
 		})
 	}()
 }
 
-func (a *app) showRelatedResults(ch *defChoices, anchor ui.Point, validAnchor bool) {
-	if a.popupMenu == nil {
+func (a *app) loadRelatedPreviews(ch *defChoices) {
+	// Snapshots preserve unsaved edits without reading editor state in a worker.
+	snapshots := make(map[string]editor.Snapshot)
+	for _, t := range ch.locs {
+		path := docPath(a.root, a.realRoot, t.path)
+		if d := a.docs[path]; d != nil && d.buf != nil {
+			snapshots[t.path] = d.buf.Snapshot()
+		}
+	}
+	targets := slices.Clone(ch.locs)
+	ctx, gen := a.wsCtx, a.gen
+	go func() {
+		files := make(map[string][]string)
+		buffers := make(map[string]*editor.Buffer)
+		for i := range targets {
+			if ctx.Err() != nil {
+				return
+			}
+			t := &targets[i]
+			if snap, ok := snapshots[t.path]; ok {
+				if buffers[t.path] == nil {
+					buffers[t.path] = editor.NewBuffer(snap.String())
+					buffers[t.path].SetLanguage(editor.LanguageFor(t.path))
+				}
+				if t.pos.Line >= 0 && t.pos.Line < snap.LineCount() {
+					t.previewStart = max(0, t.pos.Line-2)
+					for line := t.previewStart; line < min(snap.LineCount(), t.pos.Line+3); line++ {
+						t.preview = append(t.preview, snap.Line(line))
+					}
+				}
+				continue
+			}
+			lines, ok := files[t.path]
+			if !ok {
+				if f, err := workspace.ReadFile(t.path); err == nil && f.Kind == workspace.Text {
+					lines = strings.Split(f.Text, "\n")
+					buffers[t.path] = editor.NewBuffer(f.Text)
+					buffers[t.path].SetLanguage(editor.LanguageFor(t.path))
+				}
+				files[t.path] = lines
+			}
+			if t.pos.Line >= 0 && t.pos.Line < len(lines) {
+				t.previewStart = max(0, t.pos.Line-2)
+				t.preview = slices.Clone(lines[t.previewStart:min(len(lines), t.pos.Line+3)])
+			}
+		}
+		a.post(func() {
+			if a.gen == gen && a.choices == ch {
+				ch.locs = targets
+				ch.buffers = buffers
+				a.selectRelated(ch, ch.selected)
+			}
+		})
+	}()
+}
+
+func (a *app) selectRelated(ch *defChoices, index int) {
+	if index < 0 || index >= len(ch.locs) {
 		return
 	}
-	items := []*mygo.MenuItem{{Label: fmt.Sprintf("%d %s", len(ch.locs), ch.title), Disabled: true}, mygo.Separator()}
-	for _, loc := range ch.locs {
-		t := loc
-		label := fmt.Sprintf("%s:%d", relPath(a.root, t.path), t.pos.Line+1)
-		if t.name != "" {
-			label = t.name + " — " + label
-		}
-		items = append(items, &mygo.MenuItem{Label: label, ToolTip: t.path, Click: func(*mygo.MenuItem, *mygo.Window) {
-			a.post(func() {
-				if a.choices == ch {
-					a.jump(ch.g, ch.from, t, ch.enc)
-				}
-			})
-		}})
+	ch.selected = index
+	t := ch.locs[index]
+	buf := ch.buffers[t.path]
+	if buf == nil {
+		ch.previewEditor = nil
+		ch.previewPath = ""
+		return
 	}
-	if !validAnchor {
-		r := ch.g.relatedBounds
-		anchor = ui.Point{X: r.X, Y: r.Y + r.H}
+	if ch.previewEditor == nil || ch.previewPath != t.path {
+		ch.previewEditor = &editor.State{Buffer: buf, ReadOnly: true, Label: "Reference code preview", Theme: a.edTheme}
+		a.applyEditorPrefs(ch.previewEditor)
+		ch.previewPath = t.path
 	}
-	a.popupMenu(int(anchor.X), int(anchor.Y), items)
+	line := min(max(t.pos.Line, 0), buf.LineCount()-1)
+	col := lsp.ColumnFromLSP(buf.Line(line), t.pos.Character, ch.enc)
+	ch.previewEditor.LineBackgrounds = []editor.LineBackground{{First: line, Last: line, Color: a.colors().pill}}
+	ch.previewEditor.GoTo(editor.Pos{Line: line, Col: col})
+	if t.end.Line == t.pos.Line && t.end.Character > t.pos.Character {
+		end := lsp.ColumnFromLSP(buf.Line(line), t.end.Character, ch.enc)
+		ch.previewEditor.TextBackgrounds = []editor.TextBackground{{Start: buf.Offset(editor.Pos{Line: line, Col: col}), End: buf.Offset(editor.Pos{Line: line, Col: end}), Color: a.colors().match}}
+	} else {
+		ch.previewEditor.TextBackgrounds = nil
+	}
 }
 
 func (a *app) openProject(path string) {
-	if a.root != "" && a.openProjectWindow != nil {
-		a.openProjectWindow(path)
+	if a.root != "" && a.host.openProjectWindow(path) {
 		return
 	}
 	a.openWorkspace(path)

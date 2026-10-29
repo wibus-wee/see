@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+
+	"see/internal/langserver"
 )
 
 type logEntry struct {
@@ -47,15 +49,15 @@ func (a *app) serverLog(source string) func(string, ...any) {
 		a.post(func() {})
 	}
 }
-func (a *app) serverStateLog(source string, state lspState, err error) {
+func (a *app) serverStateLog(source string, state langserver.State, err error) {
 	msg := ""
 	level := slog.LevelInfo
 	switch state {
-	case lspStarting:
+	case langserver.Starting:
 		msg = "Starting"
-	case lspReady:
+	case langserver.Ready:
 		msg = "Ready"
-	case lspFailed:
+	case langserver.Failed:
 		level = slog.LevelError
 		msg = fmt.Sprintf("Failed: %v", err)
 	}
@@ -73,15 +75,15 @@ func (a *app) logView(c *ui.Context) {
 		})
 		entries := a.logs.snapshot()
 		if len(entries) == 0 {
-			ui.Text(c, "No output yet.").TextColor(colMuted).Padding(12)
+			ui.Text(c, "No output yet.").TextColor(colors(c).muted).Padding(12)
 			return
 		}
 		ui.Scroll(c).Grow(1).FillWidth().Children(func() {
 			ui.Column(c).FillWidth().Padding(2, 12, 12, 12).Gap(3).Children(func() {
 				for i, e := range entries {
-					color := colMuted
+					color := colors(c).muted
 					if e.level >= slog.LevelError {
-						color = colError
+						color = colors(c).err
 					}
 					ui.Text(c.Key(i), e.at.Format("15:04:05")+"  "+strings.ToUpper(e.level.String())+"  "+e.source+"  "+e.message).FontSize(12).TextColor(color)
 				}

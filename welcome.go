@@ -22,9 +22,6 @@ var (
 	reopenIcon = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>`))
 )
 
-// The welcome window's colors, set from the palette (usePalette).
-var colWelcomeLeft, colWelcomeRight, colWelcomeTile, colWelcomeHover ui.Color
-
 // welcomeWindow fills the welcome window (welcomeWindowSize), its title
 // bar hidden behind the left side, as Xcode's.
 func (a *app) welcomeWindow(c *ui.Context) {
@@ -40,13 +37,13 @@ const welcomeWidth, welcomeHeight = 740, 440
 // welcomeIntro is the left side: the icon, the name, the version and what
 // to do.
 func (a *app) welcomeIntro(c *ui.Context) {
-	ui.Column(c).Grow(1).Shrink(1).FillHeight().Background(colWelcomeLeft).Padding(16, 28, 18, 28).Children(func() {
+	ui.Column(c).Grow(1).Shrink(1).FillHeight().Background(colors(c).welcomeLeft).Padding(16, 28, 18, 28).Children(func() {
 		ui.Box(c).Height(26) // under the window's buttons
 		ui.Column(c).Grow(1).FillWidth().AlignItems(ui.Center).Gap(6).Children(func() {
 			ui.Image(c, appIcon).Size(120, 120)
-			ui.Text(c, "See").FontSize(28).Bold().TextColor(colText).TextAlign(ui.Center)
+			ui.Text(c, "See").FontSize(28).Bold().TextColor(colors(c).text).TextAlign(ui.Center)
 			if a.version != "" {
-				ui.Text(c, "Version "+a.version).FontSize(13).TextColor(colMuted)
+				ui.Text(c, "Version "+a.version).FontSize(13).TextColor(colors(c).muted)
 			}
 			ui.Box(c).Height(12)
 			ui.Column(c).Gap(2).Width(300).Children(func() {
@@ -56,11 +53,11 @@ func (a *app) welcomeIntro(c *ui.Context) {
 				}
 			})
 			if a.welcomeNote != "" {
-				ui.Text(c, a.welcomeNote).FontSize(12).TextColor(colError).MaxWidth(380).TextAlign(ui.Center).Padding(8, 0, 0, 0)
+				ui.Text(c, a.welcomeNote).FontSize(12).TextColor(colors(c).err).MaxWidth(380).TextAlign(ui.Center).Padding(8, 0, 0, 0)
 			}
 		})
 		showWelcome := !a.cfg.ReopenLast
-		ui.Checkbox(c, &showWelcome, "Show this window when See launches").FontSize(12).TextColor(colMuted).OnClick(func() {
+		ui.Checkbox(c, &showWelcome, "Show this window when See launches").FontSize(12).TextColor(colors(c).muted).OnClick(func() {
 			a.cfg.ReopenLast = !showWelcome
 			a.saveConfig()
 		})
@@ -78,18 +75,18 @@ func (a *app) lastFolder() string {
 func (a *app) welcomeAction(c *ui.Context, icon *ui.SVG, title, detail, shortcut string, fn func()) {
 	row := ui.Row(c).FillWidth().Padding(6, 8).Gap(10).AlignItems(ui.Center).Radius(8).Cursor(ui.CursorPointer).Label(title)
 	if row.Hovered() {
-		row.Background(colWelcomeHover)
+		row.Background(colors(c).welcomeHover)
 	}
 	if shortcut != "" {
 		row.Tooltip(shortcut)
 	}
 	row.OnClick(fn).Children(func() {
-		ui.Box(c).Size(30, 30).Shrink(0).Radius(7).Background(colWelcomeTile).Center().Children(func() {
-			symbolIcon(c, icon, 16, colText)
+		ui.Box(c).Size(30, 30).Shrink(0).Radius(7).Background(colors(c).welcomeTile).Center().Children(func() {
+			symbolIcon(c, icon, 16, colors(c).text)
 		})
 		ui.Column(c).Grow(1).Shrink(1).Gap(1).Children(func() {
-			ui.Text(c, title).FontSize(13).Bold().TextColor(colText).SingleLine()
-			ui.Text(c, detail).FontSize(11).TextColor(colMuted).SingleLine()
+			ui.Text(c, title).FontSize(13).Bold().TextColor(colors(c).text).SingleLine()
+			ui.Text(c, detail).FontSize(11).TextColor(colors(c).muted).SingleLine()
 		})
 	})
 }
@@ -97,12 +94,12 @@ func (a *app) welcomeAction(c *ui.Context, icon *ui.SVG, title, detail, shortcut
 // welcomeRecent is the right side: the folders opened lately, newest
 // first.
 func (a *app) welcomeRecent(c *ui.Context) {
-	ui.Column(c).Width(280).Shrink(0).FillHeight().Background(colWelcomeRight).
-		BorderWidth(0, 0, 0, 1).BorderColor(colSeparator).Padding(10, 8).Children(func() {
+	ui.Column(c).Width(280).Shrink(0).FillHeight().Background(colors(c).welcomeRight).
+		BorderWidth(0, 0, 0, 1).BorderColor(colors(c).separator).Padding(10, 8).Children(func() {
 		recent := a.cfg.Recent
 		if len(recent) == 0 {
 			ui.Column(c).Grow(1).FillWidth().Center().Children(func() {
-				ui.Text(c, "No Recent Folders").FontSize(13).TextColor(colDim)
+				ui.Text(c, "No Recent Folders").FontSize(13).TextColor(colors(c).dim)
 			})
 			return
 		}
@@ -128,7 +125,7 @@ func (a *app) recentRow(c *ui.Context, p string, forget *string) {
 	case current:
 		row.Background(a.theme.Selection)
 	case row.Hovered():
-		row.Background(colWelcomeHover)
+		row.Background(colors(c).welcomeHover)
 	}
 	row.OnClick(func() { a.openRecent(p) })
 	row.ContextMenu(func(m *ui.Menu) {
@@ -144,10 +141,10 @@ func (a *app) recentRow(c *ui.Context, p string, forget *string) {
 		}
 	})
 	row.Children(func() {
-		symbolIcon(c, folderIcon, 22, colFolder)
+		symbolIcon(c, folderIcon, 22, colors(c).folder)
 		ui.Column(c).Grow(1).Shrink(1).Gap(1).Children(func() {
-			ui.Text(c, filepath.Base(p)).FontSize(13).Bold().TextColor(colText).SingleLine()
-			ui.Text(c, tildePath(filepath.Dir(p))).FontSize(11).TextColor(colMuted).SingleLine()
+			ui.Text(c, filepath.Base(p)).FontSize(13).Bold().TextColor(colors(c).text).SingleLine()
+			ui.Text(c, tildePath(filepath.Dir(p))).FontSize(11).TextColor(colors(c).muted).SingleLine()
 		})
 	})
 }

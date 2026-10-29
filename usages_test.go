@@ -7,22 +7,71 @@ import (
 	"testing"
 	"time"
 
-	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 	"see/internal/lsp"
+	"see/internal/nav"
 )
 
 type usageClient struct {
 	*fakeClient
 	target string
+	line   int
 }
 
 func (c *usageClient) References(context.Context, string, lsp.Position) ([]lsp.Location, error) {
-	return []lsp.Location{{URI: uriOf(c.target), Range: lsp.Range{Start: lsp.Position{Line: 0}}}}, nil
+	return []lsp.Location{{URI: uriOf(c.target), Range: lsp.Range{Start: lsp.Position{Line: c.line}}}}, nil
 }
 func (c *usageClient) Callers(context.Context, string, lsp.Position) ([]lsp.Location, error) {
-	return []lsp.Location{{URI: uriOf(c.target), Range: lsp.Range{Start: lsp.Position{Line: 0}}}}, nil
+	return []lsp.Location{{URI: uriOf(c.target), Range: lsp.Range{Start: lsp.Position{Line: c.line}}}}, nil
+}
+
+func TestReferencesShowSurroundingUnsavedCode(t *testing.T) {
+	root := writeTree(t, map[string]string{"a.go": "package a\nfunc F() {}", "b.go": "old"})
+	h := newHarness(t, root)
+	h.a.cfg.trust(root)
+	h.a.lsp.Stop()
+	client := &usageClient{fakeClient: &fakeClient{enc: lsp.UTF16}, target: filepath.Join(root, "b.go"), line: 3}
+	m := serverOf(root, client)
+	h.a.lsp = m
+	defer m.StopWait(time.Second)
+	b := h.open("b.go")
+	b.buf.Set("zero\none\n  before\n    F()\n  after\nfive\nsix")
+	d := h.open("a.go")
+	h.ed(d).GoTo(d.buf.Pos(at(d, "F()")))
+	h.a.findUsages(false)
+	h.settle(func() bool { return h.a.choices != nil && len(h.a.choices.locs[0].preview) > 0 })
+	target := h.a.choices.locs[0]
+	if target.previewStart != 1 || !slices.Equal(target.preview, []string{"one", "  before", "    F()", "  after", "five"}) {
+		t.Fatalf("context at %d: %q", target.previewStart, target.preview)
+	}
+	if h.a.choices.previewEditor == nil || h.a.choices.previewEditor.Buffer.String() != b.buf.String() {
+		t.Fatal("preview does not show the unsaved file")
+	}
+	if _, ok := h.tt.Find("Reference code preview"); !ok {
+		t.Fatal("reference editor is missing")
+	}
+}
+
+func TestReferenceSelectionChangesPreview(t *testing.T) {
+	root := writeTree(t, map[string]string{"a.go": "package a\nfunc F() {}", "b.go": "first\nsecond", "c.go": "third\nfourth"})
+	h := newHarness(t, root)
+	d := h.open("a.go")
+	b, c := filepath.Join(root, "b.go"), filepath.Join(root, "c.go")
+	ch := &defChoices{g: h.a.focus, from: nav.Entry{Path: d.path}, title: "references", enc: lsp.UTF16,
+		locs:    []target{{path: b, pos: lsp.Position{Line: 0}, preview: []string{"first"}}, {path: c, pos: lsp.Position{Line: 1}, preview: []string{"third", "fourth"}}},
+		buffers: map[string]*editor.Buffer{b: editor.NewBuffer("first\nsecond"), c: editor.NewBuffer("third\nfourth")}}
+	h.a.choices = ch
+	h.a.selectRelated(ch, 0)
+	h.tt.Frame()
+	h.click("c.go:2")
+	if ch.selected != 1 || ch.previewEditor.Buffer.String() != "third\nfourth" || ch.previewEditor.CursorPos().Line != 1 {
+		t.Fatal("selecting another reference did not update the code preview")
+	}
+	h.click("Toggle references in c.go")
+	if _, ok := h.tt.Find("c.go:2"); ok {
+		t.Fatal("collapsed file still shows references")
+	}
 }
 
 func TestFindUsagesShowsResultsAndNavigates(t *testing.T) {
@@ -30,27 +79,37 @@ func TestFindUsagesShowsResultsAndNavigates(t *testing.T) {
 	h := newHarness(t, root)
 	h.a.cfg.trust(root)
 	old := h.a.lsp
-	old.stop()
+	old.Stop()
 	client := &usageClient{fakeClient: &fakeClient{enc: lsp.UTF16}, target: filepath.Join(root, "b.go")}
-	m := newGoLSP(root, func(context.Context, string, func(error)) (langClient, error) { return client, nil }, nil)
+	m := serverOf(root, client)
 	h.a.lsp = m
-	defer m.stopWait(time.Second)
-	var menu []*mygo.MenuItem
-	h.a.popupMenu = func(x, y int, items []*mygo.MenuItem) { menu = items }
+	defer m.StopWait(time.Second)
 	d := h.open("a.go")
 	h.ed(d).GoTo(d.buf.Pos(at(d, "F()")))
 	h.a.findUsages(false)
 	h.settle(func() bool { return h.a.choices != nil })
-	if h.a.choices.title != "references" || len(menu) != 3 {
+	if h.a.choices.title != "references" {
 		t.Fatalf("results %v", h.tt.Texts())
 	}
-	menu[2].Click(menu[2], nil)
+	h.settle(func() bool { return len(h.a.choices.locs[0].preview) > 0 })
+	if !slices.Equal(h.a.choices.locs[0].preview, []string{"package a", "func G() { F() }"}) {
+		t.Fatalf("preview: %q", h.a.choices.locs[0].preview)
+	}
+	h.click("b.go:1")
+	if h.a.choices == nil || h.a.choices.previewEditor == nil {
+		t.Fatal("selection did not show the code preview")
+	}
+	h.click("b.go:1")
 	h.settle(func() bool { return h.a.activePath() == filepath.Join(root, "b.go") })
 	h.a.activate(d.path)
 	h.a.findUsages(true)
 	h.settle(func() bool { return h.a.choices != nil })
-	if h.a.choices.title != "callers" || len(menu) != 3 {
+	if h.a.choices.title != "callers" {
 		t.Fatalf("callers %v", h.tt.Texts())
+	}
+	h.tt.Key(0, ui.KeyEscape)
+	if h.a.choices != nil {
+		t.Fatal("Escape did not close callers")
 	}
 }
 
@@ -58,11 +117,11 @@ func TestEditorContextMenuFindsReferencesAndCallers(t *testing.T) {
 	root := writeTree(t, map[string]string{"a.go": "package a\nfunc F() {}", "b.go": "package a\nfunc G() { F() }"})
 	h := newHarness(t, root)
 	h.a.cfg.trust(root)
-	h.a.lsp.stop()
+	h.a.lsp.Stop()
 	client := &usageClient{fakeClient: &fakeClient{enc: lsp.UTF16}, target: filepath.Join(root, "b.go")}
-	m := newGoLSP(root, func(context.Context, string, func(error)) (langClient, error) { return client, nil }, nil)
+	m := serverOf(root, client)
 	h.a.lsp = m
-	defer m.stopWait(time.Second)
+	defer m.StopWait(time.Second)
 	d := h.open("a.go")
 	st := h.ed(d)
 	st.GoTo(d.buf.Pos(at(d, "F()")))
@@ -97,13 +156,11 @@ func TestReferencesMenuUsesRightClickPosition(t *testing.T) {
 	root := writeTree(t, map[string]string{"a.go": "package a\nfunc F() {}", "b.go": "package a\nfunc G() { F() }"})
 	h := newHarness(t, root)
 	h.a.cfg.trust(root)
-	h.a.lsp.stop()
+	h.a.lsp.Stop()
 	client := &usageClient{fakeClient: &fakeClient{enc: lsp.UTF16}, target: filepath.Join(root, "b.go")}
-	m := newGoLSP(root, func(context.Context, string, func(error)) (langClient, error) { return client, nil }, nil)
+	m := serverOf(root, client)
 	h.a.lsp = m
-	defer m.stopWait(time.Second)
-	var x, y int
-	h.a.popupMenu = func(px, py int, _ []*mygo.MenuItem) { x, y = px, py }
+	defer m.StopWait(time.Second)
 	d := h.open("a.go")
 	h.ed(d).GoTo(d.buf.Pos(at(d, "F()")))
 	h.tt.Frame()
@@ -117,14 +174,7 @@ func TestReferencesMenuUsesRightClickPosition(t *testing.T) {
 		t.Fatalf("menu %v: %v", h.tt.Menu(), err)
 	}
 	h.settle(func() bool { return h.a.choices != nil })
-	if absInt(x-int(clickX)) > 2 || absInt(y-int(clickY)) > 2 {
-		t.Fatalf("menu at (%d,%d), right-click at (%v,%v)", x, y, clickX, clickY)
+	if _, ok := h.tt.Find("Close References Preview"); !ok {
+		t.Fatal("references preview is missing")
 	}
-}
-
-func absInt(x int) int {
-	if x < 0 {
-		return -x
-	}
-	return x
 }

@@ -16,6 +16,8 @@ import (
 	"see/internal/nav"
 	"see/internal/search"
 	uriutil "see/internal/uri"
+
+	"see/internal/langserver"
 )
 
 // ----- The find navigator: text in the workspace, with ripgrep -----
@@ -307,7 +309,7 @@ func (a *app) searchSymbols(query string) {
 	ctx, cancel := context.WithTimeout(a.wsCtx, 20*time.Second)
 	q.symbolCancel, q.symbolLoading = cancel, true
 	gen, ranked, request := a.gen, q.ranked, q.gen
-	servers := []*languageServer{a.lsp, a.tsLSP}
+	servers := []*langserver.Server{a.lsp, a.tsLSP}
 	go func() {
 		defer cancel()
 		select {
@@ -326,8 +328,8 @@ func (a *app) searchSymbols(query string) {
 				continue
 			}
 			count++
-			go func(m *languageServer) {
-				c, err := m.get(ctx)
+			go func(m *langserver.Server) {
+				c, err := m.Get(ctx)
 				var out []quickSymbol
 				if err == nil {
 					if client, ok := c.(interface {

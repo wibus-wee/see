@@ -5,7 +5,11 @@ import (
 	"github.com/egoist/mygo/ui/editor"
 )
 
-// palette is the app's colors in one appearance, after Xcode's.
+// palette is the app's colors in one appearance, after Xcode's. The
+// separators and secondary text are AppKit's separatorColor and
+// secondaryLabelColor: translucent, so that they read the same over the
+// sidebar, the toolbar and the editor. The toolbar is the editor's color,
+// as macOS 27's uniform toolbar over the content.
 type palette struct {
 	editor, sidebar, toolbar, tabBar, tabActive, tabHover ui.Color
 	separator, hairline                                   ui.Color
@@ -20,14 +24,14 @@ type palette struct {
 var darkPalette = palette{
 	editor:       ui.RGB(0x1f, 0x1f, 0x24),
 	sidebar:      ui.RGB(0x29, 0x29, 0x2d),
-	toolbar:      ui.RGB(0x25, 0x25, 0x29),
+	toolbar:      ui.RGB(0x1f, 0x1f, 0x24),
 	tabBar:       ui.RGB(0x25, 0x25, 0x29),
 	tabActive:    ui.RGB(0x1f, 0x1f, 0x24),
 	tabHover:     ui.RGBA(0xff, 0xff, 0xff, 0.04),
-	separator:    ui.RGB(0x38, 0x38, 0x3c),
-	hairline:     ui.RGBA(0, 0, 0, 0.45),
+	separator:    ui.RGBA(0xff, 0xff, 0xff, 0.10),
+	hairline:     ui.RGBA(0xff, 0xff, 0xff, 0.08),
 	text:         ui.RGB(0xdf, 0xdf, 0xe0),
-	muted:        ui.RGB(0x98, 0x98, 0x9d),
+	muted:        ui.RGBA(0xff, 0xff, 0xff, 0.55),
 	dim:          ui.RGB(0x6c, 0x6c, 0x70),
 	err:          ui.RGB(0xff, 0x6b, 0x60),
 	warnBg:       ui.RGB(0x3a, 0x30, 0x12),
@@ -52,14 +56,14 @@ var darkPalette = palette{
 var lightPalette = palette{
 	editor:       ui.RGB(0xff, 0xff, 0xff),
 	sidebar:      ui.RGB(0xf2, 0xf2, 0xf4),
-	toolbar:      ui.RGB(0xfa, 0xfa, 0xfb),
+	toolbar:      ui.RGB(0xff, 0xff, 0xff),
 	tabBar:       ui.RGB(0xeb, 0xeb, 0xed),
 	tabActive:    ui.RGB(0xff, 0xff, 0xff),
 	tabHover:     ui.RGBA(0, 0, 0, 0.04),
-	separator:    ui.RGB(0xdc, 0xdc, 0xde),
-	hairline:     ui.RGBA(0, 0, 0, 0.12),
+	separator:    ui.RGBA(0, 0, 0, 0.10),
+	hairline:     ui.RGBA(0, 0, 0, 0.08),
 	text:         ui.RGB(0x1d, 0x1d, 0x1f),
-	muted:        ui.RGB(0x6e, 0x6e, 0x73),
+	muted:        ui.RGBA(0, 0, 0, 0.50),
 	dim:          ui.RGB(0xa1, 0xa1, 0xa6),
 	err:          ui.RGB(0xd7, 0x00, 0x15),
 	warnBg:       ui.RGB(0xff, 0xf4, 0xd4),
@@ -81,31 +85,22 @@ var lightPalette = palette{
 	selectedRow:  ui.RGBA(0, 0, 0, 0.07),
 }
 
-// The colors in use, set from the palette of the window's appearance as
-// each frame starts (applyAppearance). The UI thread alone reads them.
-var (
-	colEditor, colSidebar, colToolbar, colTabBar, colTabActive, colTabHover ui.Color
-	colSeparator, colHairline                                               ui.Color
-	colText, colMuted, colDim, colError                                     ui.Color
-	colWarnBg, colInfoBg, colPill                                           ui.Color
-	colPage, colFolder, colLink, colMatch                                   ui.Color
-	colPopover, colPopoverEdge, colDropZone                                 ui.Color
-	colAccent                                                               ui.Color
-	colSettings, colCard, colSelectedRow                                    ui.Color
-)
+// colors returns the palette of the appearance the window of c shows.
+// The accent is the theme's: c.Theme().Accent.
+func colors(c *ui.Context) *palette {
+	if c.Theme().Dark {
+		return &darkPalette
+	}
+	return &lightPalette
+}
 
-func init() { usePalette(&darkPalette, ui.RGB(0x0a, 0x84, 0xff)) }
-
-func usePalette(p *palette, accent ui.Color) {
-	colEditor, colSidebar, colToolbar, colTabBar, colTabActive, colTabHover = p.editor, p.sidebar, p.toolbar, p.tabBar, p.tabActive, p.tabHover
-	colSeparator, colHairline = p.separator, p.hairline
-	colText, colMuted, colDim, colError = p.text, p.muted, p.dim, p.err
-	colWarnBg, colInfoBg, colPill = p.warnBg, p.infoBg, p.pill
-	colPage, colFolder, colLink, colMatch = p.page, p.folder, p.link, p.match
-	colPopover, colPopoverEdge, colDropZone = p.popover, p.popoverEdge, p.dropZone
-	colWelcomeLeft, colWelcomeRight, colWelcomeTile, colWelcomeHover = p.welcomeLeft, p.welcomeRight, p.welcomeTile, p.welcomeHover
-	colSettings, colCard, colSelectedRow = p.settings, p.card, p.selectedRow
-	colAccent = accent
+// colors returns the palette of the appearance the app last drew in, for
+// what is not drawn in a frame of its own.
+func (a *app) colors() *palette {
+	if a.theme != nil && !a.theme.Dark {
+		return &lightPalette
+	}
+	return &darkPalette
 }
 
 // applyAppearance takes the window's appearance, light or dark, which
@@ -122,12 +117,11 @@ func (a *app) applyAppearance(c *ui.Context) {
 	if base.Dark {
 		p = &darkPalette
 	}
-	usePalette(p, base.Accent)
 	t := *base // keeps the desktop's accent, contrast and text size
-	t.Background = colEditor
-	t.Text = colText
-	t.TextMuted = colMuted
-	t.Border = colSeparator
+	t.Background = p.editor
+	t.Text = p.text
+	t.TextMuted = p.muted
+	t.Border = p.separator
 	t.Spacing = 3
 	t.FontSize = 13 * max(1, c.Preferences().TextScale)
 	t.Radius = 6
@@ -144,9 +138,12 @@ func (a *app) applyAppearance(c *ui.Context) {
 	}
 	a.theme = &t
 	a.edTheme = editor.DefaultTheme(&t)
-	a.edTheme.Background = colEditor
+	a.edTheme.Background = p.editor
 	if a.git.diff != nil {
 		a.git.diff.Theme = a.edTheme
+	}
+	if a.git.peek != nil {
+		a.git.peek.diff.Theme = a.edTheme
 	}
 	for _, g := range a.groups() {
 		for _, st := range g.eds {
@@ -160,10 +157,6 @@ func (a *app) applyAppearance(c *ui.Context) {
 func (a *app) chooseAppearance(s string) {
 	a.cfg.Appearance = s
 	a.saveConfig()
-	if a.setAppearance != nil {
-		a.setAppearance(s)
-	}
-	if a.refreshMenu != nil {
-		a.refreshMenu() // its radio items show the choice
-	}
+	a.host.setAppearance(s)
+	a.host.refreshMenu() // its radio items show the choice
 }

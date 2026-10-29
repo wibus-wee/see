@@ -15,6 +15,8 @@ import (
 	"github.com/egoist/mygo/ui/markdown"
 
 	"see/internal/lsp"
+
+	"see/internal/langserver"
 )
 
 // hoverState follows language server hover requests: only the latest one
@@ -68,7 +70,7 @@ func (a *app) showHover(st *editor.State, cmd bool, r hoverResult) {
 			return
 		}
 		a.hideLink()
-		st.TextBackgrounds = []editor.TextBackground{{Start: r.start, End: r.end, Color: colLink}}
+		st.TextBackgrounds = []editor.TextBackground{{Start: r.start, End: r.end, Color: a.colors().link}}
 		a.hover.link = st
 	}
 	st.ShowHover(r.start, r.end, "", func(c *ui.Context) { hoverContent(c, r.markdown, r.location) })
@@ -82,7 +84,7 @@ func (a *app) hoverAt(d *doc, st *editor.State, r editor.HoverRequest) {
 	if m == nil || d.buf == nil || !a.cfg.trusted(a.root) {
 		return
 	}
-	if s, _ := m.status(); s == lspFailed {
+	if s, _ := m.Status(); s == langserver.Failed {
 		return
 	}
 	if a.hover.cancel != nil {
@@ -107,11 +109,11 @@ func (a *app) hoverAt(d *doc, st *editor.State, r editor.HoverRequest) {
 	a.hover.cancel = cancel
 	go func() {
 		defer cancel()
-		c, err := m.get(ctx)
+		c, err := m.Get(ctx)
 		if err != nil {
 			return
 		}
-		if m.sync(ctx, c, d.uri, snap) != nil {
+		if m.Sync(ctx, c, d.uri, snap) != nil {
 			return
 		}
 		enc := c.Encoding()
@@ -174,7 +176,7 @@ func (a *app) hideLink() {
 // popover colors and a subtle elevation.
 func (a *app) renderHover(c *ui.Context, panel ui.Element, h *editor.HoverCard) {
 	editor.DefaultHover(c, panel, h)
-	panel.Radius(8).MaxWidth(620).Background(colPopover).Border(1, colPopoverEdge).
+	panel.Radius(8).MaxWidth(620).Background(colors(c).popover).Border(1, colors(c).popoverEdge).
 		Shadow(0, 3, 12, 0, ui.RGBA(0, 0, 0, 0.14))
 }
 
@@ -184,12 +186,12 @@ func hoverContent(c *ui.Context, md string, location *hoverLocation) {
 			ui.Row(c).FillWidth().Gap(6).AlignItems(ui.Center).Tooltip(fmt.Sprintf("%s:%d", location.path, location.line)).Children(func() {
 				fileIcon(c, filepath.Base(location.path), 13)
 				ui.Row(c).Gap(0).Shrink(1).Children(func() {
-					ui.Text(c, filepath.Base(location.path)).FontSize(12).TextColor(colText).SingleLine().Shrink(1)
-					ui.Text(c, fmt.Sprintf(":%d", location.line)).FontSize(12).TextColor(colText).SingleLine().Shrink(0)
+					ui.Text(c, filepath.Base(location.path)).FontSize(12).TextColor(colors(c).text).SingleLine().Shrink(1)
+					ui.Text(c, fmt.Sprintf(":%d", location.line)).FontSize(12).TextColor(colors(c).text).SingleLine().Shrink(0)
 				})
 				parent := filepath.Base(filepath.Dir(location.path))
 				if parent != "." && parent != string(filepath.Separator) {
-					ui.Text(c, parent).FontSize(11).TextColor(colMuted).SingleLine().Shrink(1)
+					ui.Text(c, parent).FontSize(11).TextColor(colors(c).muted).SingleLine().Shrink(1)
 				}
 			})
 		}

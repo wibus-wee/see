@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"image/png"
 	"os"
 	"path/filepath"
 	"slices"
@@ -15,36 +16,75 @@ import (
 	"github.com/egoist/mygo/ui/editor"
 
 	"see/internal/lsp"
+
+	"see/internal/langserver"
 )
 
 func init() { watchFiles = nil } // tests feed file events themselves
 
+func TestMain(m *testing.M) {
+	dir, err := os.MkdirTemp("", "see-test-home-")
+	if err != nil {
+		panic(err)
+	}
+	realCache, _ := os.UserCacheDir()
+	for _, key := range []string{"HOME", "USERPROFILE", "APPDATA", "LOCALAPPDATA", "XDG_CONFIG_HOME"} {
+		if err := os.Setenv(key, dir); err != nil {
+			panic(err)
+		}
+	}
+	shareNativesCache(realCache)
+	code := m.Run()
+	_ = os.RemoveAll(dir)
+	os.Exit(code)
+}
+
+// shareNativesCache links mygo's cache of native libraries in the test
+// home to the user's, so that libghostty downloads once rather than on
+// every run. The test home keeps the rest of the cache to itself.
+func shareNativesCache(realCache string) {
+	testCache, err := os.UserCacheDir()
+	if realCache == "" || err != nil || testCache == realCache {
+		return
+	}
+	shared := filepath.Join(realCache, "mygo")
+	if os.MkdirAll(shared, 0o755) != nil || os.MkdirAll(testCache, 0o755) != nil {
+		return
+	}
+	_ = os.Symlink(shared, filepath.Join(testCache, "mygo"))
+}
+
+// harnessWidth and harnessHeight are the size of the harness's window.
+const harnessWidth, harnessHeight = 1100, 700
+
 // harness runs the app's view in a tester, with background results
 // queued until the test lets them through.
 type harness struct {
-	t   *testing.T
-	a   *app
-	tt  *ui.Tester
-	q   chan func()
-	fc  *fakeClient
-	ran int // queued results run
+	t    *testing.T
+	a    *app
+	tt   *ui.Tester
+	q    chan func()
+	fc   *fakeClient
+	host *fakeHost
+	ran  int // queued results run
 }
 
 func newHarness(t *testing.T, root string) *harness {
 	t.Helper()
-	h := &harness{t: t, q: make(chan func(), 1024), fc: &fakeClient{enc: lsp.UTF16}}
+	h := &harness{t: t, q: make(chan func(), 1024), fc: &fakeClient{enc: lsp.UTF16}, host: &fakeHost{}}
 	h.a = newApp(&config{})
+	h.a.host = h.host
 	h.a.post = func(fn func()) { h.q <- fn }
 	h.a.logf = testLogf(t)
-	h.a.startLSP = func(func(string, ...any)) starter {
-		return func(ctx context.Context, root string, onExit func(error)) (langClient, error) {
+	h.a.startLSP = func(func(string, ...any)) langserver.Starter {
+		return func(ctx context.Context, root string, onExit func(error)) (langserver.Client, error) {
 			if h.fc.startErr != nil {
 				return nil, h.fc.startErr
 			}
 			return h.fc, nil
 		}
 	}
-	h.tt = ui.NewTester(h.a.view, 1100, 700)
+	h.tt = ui.NewTester(h.a.view, harnessWidth, harnessHeight)
 	if root != "" {
 		h.a.openWorkspace(root)
 		h.settle(func() bool { d := h.a.dirs[h.a.root]; return d != nil && d.loaded })
@@ -403,7 +443,7 @@ func TestDefinitionJumpBackForward(t *testing.T) {
 	if got := strings.Join(h.fc.calls(), ","); !strings.HasPrefix(got, "open a.go,definition") {
 		t.Errorf("calls %s", got)
 	}
-	if h.a.lspState != lspReady {
+	if h.a.lspState != langserver.Ready {
 		t.Errorf("state %v", h.a.lspState)
 	}
 	h.tt.Key(ui.Ctrl, ui.KeyMinus) // back
@@ -521,7 +561,7 @@ func TestNoDefinitionAndNoGopls(t *testing.T) {
 	h2.fc.startErr = errNoGopls
 	m := h2.open("m.go")
 	h2.ed(m).OnDefinition(0)
-	h2.settle(func() bool { return !h2.a.finding && h2.a.lspState == lspFailed })
+	h2.settle(func() bool { return !h2.a.finding && h2.a.lspState == langserver.Failed })
 	if !strings.Contains(h2.a.notice, "needs gopls") || !h2.tt.HasText("Retry") {
 		t.Errorf("notice %q, texts %q", h2.a.notice, h2.tt.Texts())
 	}
@@ -532,7 +572,7 @@ func TestNoDefinitionAndNoGopls(t *testing.T) {
 	h2.fc.startErr = nil
 	h2.click("Retry gopls")
 	h2.ed(m).OnDefinition(0)
-	h2.settle(func() bool { return !h2.a.finding && h2.a.lspState == lspReady })
+	h2.settle(func() bool { return !h2.a.finding && h2.a.lspState == langserver.Ready })
 }
 
 func TestTrustIsAskedFirst(t *testing.T) {
@@ -545,7 +585,7 @@ func TestTrustIsAskedFirst(t *testing.T) {
 		t.Fatalf("texts %q, calls %v", h.tt.Texts(), h.fc.calls())
 	}
 	h.click("Trust Folder")
-	h.settle(func() bool { return !h.a.finding && h.a.lspState == lspReady })
+	h.settle(func() bool { return !h.a.finding && h.a.lspState == langserver.Ready })
 	if !h.a.cfg.trusted(h.a.root) || len(h.fc.calls()) == 0 {
 		t.Error("not trusted after Trust Folder")
 	}
@@ -611,13 +651,13 @@ func TestWorkspaceSwitchDropsOldWork(t *testing.T) {
 	}
 	a := h.open("a.go")
 	h.ed(a).OnDefinition(at(a, "名字()"))
-	h.settle(func() bool { return h.a.lspState == lspReady })
+	h.settle(func() bool { return h.a.lspState == langserver.Ready })
 	other := writeTree(t, map[string]string{"o.txt": "other\n"})
 	h.a.openWorkspace(other)
 	close(release)
 	h.settle(func() bool { d := h.a.dirs[h.a.root]; return d != nil && d.loaded })
 	h.drainNow()
-	if len(h.a.focus.order) != 0 || h.a.lspState != lspOff || !h.tt.HasText("o.txt") {
+	if len(h.a.focus.order) != 0 || h.a.lspState != langserver.Off || !h.tt.HasText("o.txt") {
 		t.Errorf("tabs %s, lsp %v, texts %q", names(h.a.focus.order), h.a.lspState, h.tt.Texts())
 	}
 	h.fc.mu.Lock()
@@ -699,31 +739,97 @@ func TestF12GoesToDefinition(t *testing.T) {
 	}
 }
 
-func TestRenamedConfigMigration(t *testing.T) {
-	dir := t.TempDir()
-	old := filepath.Join(dir, "NativeSourceReader", "config.json")
-	path := filepath.Join(dir, "See", "config.json")
-	if err := os.MkdirAll(filepath.Dir(old), 0700); err != nil {
-		t.Fatal(err)
+// serverOf is a language server whose client is c.
+func serverOf(root string, c langserver.Client) *langserver.Server {
+	return langserver.New(langserver.Options{Name: "gopls", Root: root, Start: func(context.Context, string, func(error)) (langserver.Client, error) { return c, nil }})
+}
+
+// shot draws the window into name in the directory $SEE_SHOT names, for a
+// look; without one it does nothing.
+func (h *harness) shot(name string) {
+	dir := os.Getenv("SEE_SHOT")
+	if dir == "" {
+		return
 	}
-	if err := os.WriteFile(old, []byte(`{"appearance":"dark","recentWorkspaces":["/project"]}`), 0600); err != nil {
-		t.Fatal(err)
+	h.tt.Frame()
+	f, err := os.Create(filepath.Join(dir, name))
+	if err != nil {
+		h.t.Fatal(err)
 	}
-	c := loadAppConfig(path)
-	if c.Appearance != "dark" || len(c.Recent) != 1 || c.path != path {
-		t.Fatalf("legacy config: %+v", c)
+	defer f.Close()
+	if err := png.Encode(f, h.tt.Image()); err != nil {
+		h.t.Fatal(err)
 	}
-	if err := c.save(); err != nil {
-		t.Fatal(err)
+}
+
+// fakeHost is a host without a desktop, as noHost, but for what a test
+// gives it to see what the app asks.
+type fakeHost struct {
+	noHost
+	newFile     func(root string) (string, error)
+	confirm     func(message string) (int, error)
+	trash       func(path string) error
+	copy        func(paths ...string) error
+	copyPNG     func(png []byte) error
+	openProject func(path string) bool
+	resize      func(width, height int)
+	appearance  func(string)
+	fontPopover func(anchor ui.Rect, terminal bool)
+}
+
+func (f *fakeHost) pickNewFile(root string) (string, error) {
+	if f.newFile == nil {
+		return f.noHost.pickNewFile(root)
 	}
-	c.Appearance = "light"
-	if err := c.save(); err != nil {
-		t.Fatal(err)
+	return f.newFile(root)
+}
+
+func (f *fakeHost) confirmDirty(message string) (int, error) {
+	if f.confirm == nil {
+		return f.noHost.confirmDirty(message)
 	}
-	if got := loadAppConfig(path).Appearance; got != "light" {
-		t.Fatalf("new config not preferred: %q", got)
+	return f.confirm(message)
+}
+
+func (f *fakeHost) trashItem(path string) error {
+	if f.trash == nil {
+		return f.noHost.trashItem(path)
 	}
-	if got := loadConfig(old).Appearance; got != "dark" {
-		t.Fatalf("legacy config modified: %q", got)
+	return f.trash(path)
+}
+
+func (f *fakeHost) copyFiles(paths ...string) error {
+	if f.copy == nil {
+		return f.noHost.copyFiles(paths...)
+	}
+	return f.copy(paths...)
+}
+
+func (f *fakeHost) copyImage(png []byte) error {
+	if f.copyPNG == nil {
+		return f.noHost.copyImage(png)
+	}
+	return f.copyPNG(png)
+}
+
+func (f *fakeHost) openProjectWindow(path string) bool {
+	return f.openProject != nil && f.openProject(path)
+}
+
+func (f *fakeHost) setWorkspaceSize(width, height int) {
+	if f.resize != nil {
+		f.resize(width, height)
+	}
+}
+
+func (f *fakeHost) setAppearance(appearance string) {
+	if f.appearance != nil {
+		f.appearance(appearance)
+	}
+}
+
+func (f *fakeHost) openFontPopover(anchor ui.Rect, terminal bool) {
+	if f.fontPopover != nil {
+		f.fontPopover(anchor, terminal)
 	}
 }

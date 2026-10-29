@@ -14,6 +14,8 @@ import (
 
 	"see/internal/lsp"
 	"see/internal/search"
+
+	"see/internal/langserver"
 )
 
 func TestOpeningTreeFileKeepsScrollPosition(t *testing.T) {
@@ -64,8 +66,11 @@ func TestQuickButtonCenteredInEditorHeader(t *testing.T) {
 	h.a.sidebarW = 260
 	h.a.notice = "Go to Definition works in Go files, with gopls."
 	h.tt.Frame()
+	// The middle of the editor's part of the toolbar: past the sidebar
+	// and its divider, to the window's edge.
+	center := (h.a.sidebarW + 1 + harnessWidth) / 2
 	r, ok := h.tt.Find("Open Quickly")
-	if !ok || r.X+r.W/2 < 679 || r.X+r.W/2 > 681 {
+	if !ok || r.X+r.W/2 < center-1 || r.X+r.W/2 > center+1 {
 		t.Fatalf("quick button is not centered in the editor header: %+v, found %v", r, ok)
 	}
 	h.click("Open Quickly")
@@ -110,6 +115,28 @@ func TestSplitAndMoveTabs(t *testing.T) {
 		t.Errorf("a.go let go while shown: groups %d", len(h.a.groups()))
 	}
 	h.tt.Frame()
+}
+
+// ⌘D splits right and ⇧⌘D down, as iTerm, even with the editor focused,
+// which would take ⌘D for Select Next Occurrence.
+func TestCmdDSplits(t *testing.T) {
+	root := writeTree(t, map[string]string{"a.go": "package a\n\nfunc A() {}\n"})
+	h := newHarness(t, root)
+	h.open("a.go")
+	h.tt.Frame()
+	if n := len(h.a.groups()); n != 1 {
+		t.Fatalf("%d groups before", n)
+	}
+	h.tt.Key(ui.Cmd, ui.KeyD)
+	h.tt.Frame()
+	if n := len(h.a.groups()); n != 2 {
+		t.Fatalf("%d groups after ⌘D, want 2", n)
+	}
+	h.tt.Key(ui.Cmd|ui.Shift, ui.KeyD)
+	h.tt.Frame()
+	if n := len(h.a.groups()); n != 3 {
+		t.Fatalf("%d groups after ⇧⌘D, want 3", n)
+	}
 }
 
 func TestTabShortcuts(t *testing.T) {
@@ -315,7 +342,7 @@ func TestHoverAsksNothingUntrusted(t *testing.T) {
 	m := h.open("m.go")
 	h.ed(m).OnHover(editor.HoverRequest{Offset: 2})
 	h.tt.Frame()
-	if len(h.fc.calls()) != 0 || h.a.lspState != lspOff {
+	if len(h.fc.calls()) != 0 || h.a.lspState != langserver.Off {
 		t.Errorf("calls %v, state %v", h.fc.calls(), h.a.lspState)
 	}
 }
@@ -394,14 +421,14 @@ func TestAppearanceFollowsSystem(t *testing.T) {
 	d := h.open("a.go")
 	h.tt.SetDark(true)
 	h.tt.Frame()
-	if colEditor != darkPalette.editor || !h.a.theme.Dark {
-		t.Fatalf("dark: editor %v", colEditor)
+	if h.a.colors() != &darkPalette || h.a.theme.Background != darkPalette.editor {
+		t.Fatalf("dark: editor %v", h.a.theme.Background)
 	}
 	darkTheme := h.ed(d).Theme
 	h.tt.SetDark(false)
 	h.tt.Frame()
-	if colEditor != lightPalette.editor || h.a.theme.Dark {
-		t.Errorf("light: editor %v", colEditor)
+	if h.a.colors() != &lightPalette || h.a.theme.Background != lightPalette.editor {
+		t.Errorf("light: editor %v", h.a.theme.Background)
 	}
 	if st := h.ed(d); st.Theme == darkTheme || st.Theme.Background != lightPalette.editor {
 		t.Error("the open editor kept the dark theme")
@@ -414,7 +441,7 @@ func TestAppearanceFollowsSystem(t *testing.T) {
 	}
 	// Choosing an appearance is remembered, and asks the windows for it.
 	var asked string
-	h.a.setAppearance = func(s string) { asked = s }
+	h.host.appearance = func(s string) { asked = s }
 	h.a.chooseAppearance("dark")
 	if h.a.cfg.Appearance != "dark" || asked != "dark" {
 		t.Errorf("appearance %q, asked %q", h.a.cfg.Appearance, asked)

@@ -106,7 +106,7 @@ go test ./...
 
 The application UI and workspace orchestration live in the root package. `internal/workspace` handles file discovery and classification, `internal/search` implements search and quick open, and `internal/lsp`, `internal/uri`, and `internal/nav` support code navigation.
 
-Settings and recent folders are stored in `See/config.json` under the operating system's user configuration directory. On first launch after the rename, See reads the former `NativeSourceReader/config.json` if the new file does not exist; future saves use the new path. The former `NSR_RG` and `NSR_GOPLS` variables remain supported when their `SEE_` equivalents are unset.
+Settings and recent folders are stored in `See/config.json` under the operating system's user configuration directory.
 
 ### Release
 

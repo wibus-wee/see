@@ -57,7 +57,7 @@ func TestSettingsPanes(t *testing.T) {
 	h.a.cfg.trust(h.a.root)
 	h.a.settingsGo("intelligence")
 	st.Frame()
-	if err := st.Click("Remove"); err != nil {
+	if err := st.Click("Remove trusted folder " + h.a.root); err != nil {
 		t.Fatal(err)
 	}
 	if h.a.cfg.trusted(h.a.root) {
@@ -118,7 +118,7 @@ func TestFontPickerUpdatesEditor(t *testing.T) {
 	h.a.settings.pane = "editor"
 	h.a.settings.fontFamilies = []ui.FontFamily{{Name: "Test Mono", Monospaced: true}, {Name: "Test Sans"}}
 	var anchor ui.Rect
-	h.a.openFontPopover = func(r ui.Rect, terminal bool) { anchor = r; h.a.settings.fontOpen = true }
+	h.host.fontPopover = func(r ui.Rect, terminal bool) { anchor = r; h.a.settings.fontOpen = true }
 	st := ui.NewTester(h.a.settingsView, 760, 560)
 	if err := st.Click("Choose Font"); err != nil {
 		t.Fatal(err)

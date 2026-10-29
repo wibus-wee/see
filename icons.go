@@ -23,6 +23,8 @@ var (
 	icClose      = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M7 7l10 10M17 7 7 17"/></svg>`))
 	icMinus      = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12h14"/></svg>`))
 	icRefresh    = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5v4h-4"/></svg>`))
+	icGitOpen    = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 3h5a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9"/><path d="M3 7h10M9 3l4 4-4 4"/></svg>`))
+	icGitDiscard = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-2"/></svg>`))
 	icGit        = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="4" r="2"/><circle cx="6" cy="20" r="2"/><circle cx="18" cy="6" r="2"/><path d="M6 6v12M18 8c0 6-12 4-12 10"/></svg>`))
 	icCollapse   = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M8 12h8"/></svg>`))
 	icMarkdown   = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M6 15V9l2.5 3L11 9v6M15.5 9v6m-2-2 2 2 2-2"/></svg>`))
@@ -125,7 +127,7 @@ func kindOf(name string) fileKind {
 func fileIcon(c *ui.Context, name string, size float32) {
 	k := kindOf(name)
 	ui.Box(c).Size(size*0.84, size).Shrink(0).Children(func() {
-		ui.Icon(c, icPage).Size(size*0.84, size).TextColor(colPage)
+		ui.Icon(c, icPage).Size(size*0.84, size).TextColor(colors(c).page)
 		if k.glyph != "" {
 			fs := size * 0.46
 			if len(k.glyph) > 1 {
@@ -150,5 +152,5 @@ func folderGlyph(c *ui.Context, open bool, size float32) {
 	if open {
 		ic = icFolderOpen
 	}
-	symbolIcon(c, ic, size, colFolder).Shrink(0)
+	symbolIcon(c, ic, size, colors(c).folder).Shrink(0)
 }

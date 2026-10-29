@@ -45,21 +45,6 @@ func configPath() string {
 	return filepath.Join(dir, "See", "config.json")
 }
 
-// loadAppConfig reads the former settings only when the See settings do not
-// exist. Subsequent saves go to the new path and leave the old file intact.
-func loadAppConfig(path string) *config {
-	if path == "" {
-		return loadConfig(path)
-	}
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		legacy := filepath.Join(filepath.Dir(filepath.Dir(path)), "NativeSourceReader", "config.json")
-		c := loadConfig(legacy)
-		c.path = path
-		return c
-	}
-	return loadConfig(path)
-}
-
 // loadConfig reads the configuration at p; a missing or broken file gives
 // the defaults.
 func loadConfig(p string) *config {

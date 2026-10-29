@@ -14,13 +14,13 @@ func (a *app) fontPreview(c *ui.Context, terminal bool) {
 	if family == "" {
 		family = "monospace"
 	}
-	ui.Column(c).FillWidth().Padding(12, 14).Gap(2).Radius(10).Background(colCard).Border(1, colSeparator).Children(func() {
+	ui.Column(c).FillWidth().Padding(12, 14).Gap(2).Radius(10).Background(colors(c).card).Border(1, colors(c).separator).Children(func() {
 		if terminal {
 			ui.Text(c, "~/project $ go test ./...").Font(family).FontSize(float32(size)).SingleLine()
-			ui.Text(c, "ok    example/project    0.24s").Font(family).FontSize(float32(size)).TextColor(colMuted).SingleLine()
+			ui.Text(c, "ok    example/project    0.24s").Font(family).FontSize(float32(size)).TextColor(colors(c).muted).SingleLine()
 		} else {
 			ui.Text(c, "func main() {").Font(family).FontSize(float32(size)).SingleLine()
-			ui.Text(c, "    fmt.Println(\"Hello, world!\")").Font(family).FontSize(float32(size)).TextColor(colMuted).SingleLine()
+			ui.Text(c, "    fmt.Println(\"Hello, world!\")").Font(family).FontSize(float32(size)).TextColor(colors(c).muted).SingleLine()
 			ui.Text(c, "}").Font(family).FontSize(float32(size)).SingleLine()
 		}
 	})
@@ -37,12 +37,10 @@ func (a *app) fontPicker(c *ui.Context, terminal bool) {
 		label = "System Monospace"
 	}
 	labeled(c, "Font Family", "Choose a font for code and text.")
-	ui.Text(c, label).TextColor(colMuted).SingleLine().Shrink(1)
+	ui.Text(c, label).TextColor(colors(c).muted).SingleLine().Shrink(1)
 	button := ui.Button(c, "Choose…").Label("Choose Font").Bind(&s.fontButton)
 	button.OnClick(func() {
-		if a.openFontPopover != nil {
-			a.openFontPopover(s.fontButton.Bounds(c), terminal)
-		}
+		a.host.openFontPopover(s.fontButton.Bounds(c), terminal)
 	})
 }
 
@@ -53,7 +51,7 @@ func (a *app) fontPopover(c *ui.Context, terminal bool) {
 	if c.Vibrancy() {
 		c.Root().Background(ui.Transparent)
 	} else {
-		c.Root().Background(colPopover)
+		c.Root().Background(colors(c).popover)
 	}
 	services := c.Services()
 	if s.fontFamilies == nil && s.fontLoading == nil {
@@ -79,7 +77,7 @@ func (a *app) fontPopover(c *ui.Context, terminal bool) {
 		ui.Scroll(c).FillWidth().Grow(1).Children(func() {
 			ui.Column(c).FillWidth().Gap(1).Children(func() {
 				if s.fontLoading != nil {
-					ui.Text(c, "Loading fonts…").TextColor(colMuted).Padding(8)
+					ui.Text(c, "Loading fonts…").TextColor(colors(c).muted).Padding(8)
 					return
 				}
 				query := strings.ToLower(strings.TrimSpace(s.fontQuery))
@@ -96,7 +94,7 @@ func (a *app) fontPopover(c *ui.Context, terminal bool) {
 					count++
 				}
 				if count == 0 {
-					ui.Text(c, "No fonts found").TextColor(colMuted).Padding(8)
+					ui.Text(c, "No fonts found").TextColor(colors(c).muted).Padding(8)
 				}
 			})
 		})
@@ -106,15 +104,15 @@ func (a *app) fontPopover(c *ui.Context, terminal bool) {
 func (a *app) fontOption(c *ui.Context, family, label string, selected, terminal bool) {
 	row := ui.ButtonBase(c.Key("font:"+family)).Label(label).FillWidth().Padding(7, 10).Radius(8)
 	if selected {
-		row.Background(colAccent)
+		row.Background(c.Theme().Accent)
 	} else if row.Hovered() {
-		row.Background(colPill)
+		row.Background(colors(c).pill)
 	}
 	row.Children(func() {
 		ui.Row(c).FillWidth().AlignItems(ui.Center).Children(func() {
-			ui.Text(c, label).Grow(1).SingleLine().TextColor(rowText(selected, colText))
+			ui.Text(c, label).Grow(1).SingleLine().TextColor(rowText(selected, colors(c).text))
 			if selected {
-				symbolIcon(c, icCheck, 12, rowText(true, colText))
+				symbolIcon(c, icCheck, 12, rowText(true, colors(c).text))
 			}
 		})
 	})
@@ -128,8 +126,6 @@ func (a *app) fontOption(c *ui.Context, family, label string, selected, terminal
 		}
 		a.settings.fontOpen = false
 		a.settingsChanged()
-		if a.closeFontPopover != nil {
-			a.closeFontPopover()
-		}
+		a.host.closeFontPopover()
 	})
 }
