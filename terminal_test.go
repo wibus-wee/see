@@ -117,6 +117,33 @@ func TestTerminalKeysStayInTheShell(t *testing.T) {
 	}
 }
 
+func TestSplitTerminalList(t *testing.T) {
+	h := termHarness(t)
+	tp := &h.a.term
+	first := tp.active.active
+	h.a.splitTerminal()
+	h.settle(func() bool { return len(tp.active.panes) == 2 })
+	second := tp.active.active
+	h.tt.Frame()
+	if !h.tt.HasText("┌") || !h.tt.HasText("└") {
+		t.Fatal("split terminals have no tree connectors")
+	}
+	if err := h.tt.Click("Terminal 1.1"); err != nil {
+		t.Fatal(err)
+	}
+	h.tt.Frame()
+	if tp.active.active != first {
+		t.Fatal("selecting a split did not activate it")
+	}
+	if err := h.tt.Click("Close Terminal 1.1"); err != nil {
+		t.Fatal(err)
+	}
+	h.tt.Frame()
+	if len(tp.active.panes) != 1 || tp.active.active != second || tp.focus != second {
+		t.Fatal("closing the selected split did not focus the remaining terminal")
+	}
+}
+
 func TestTerminalLinksOpenInTheEditor(t *testing.T) {
 	h := termHarness(t)
 	p := h.a.term.active.active
