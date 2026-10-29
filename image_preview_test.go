@@ -1,12 +1,15 @@
 package main
 
 import (
+	"bytes"
 	"image"
 	"image/color"
 	"image/png"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/egoist/mygo/ui"
 )
 
 func writePreviewImage(t *testing.T, path string, width, height int) {
@@ -22,6 +25,32 @@ func writePreviewImage(t *testing.T, path string, width, height int) {
 	}
 	if err := f.Close(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestCopyTreeFileAndImagePreview(t *testing.T) {
+	root := writeTree(t, map[string]string{"file.txt": "hello"})
+	path := filepath.Join(root, "picture.png")
+	writePreviewImage(t, path, 20, 10)
+	h := newHarness(t, root)
+	var copiedFile string
+	var copiedImage []byte
+	h.host.copy = func(paths ...string) error { copiedFile = paths[0]; return nil }
+	h.host.copyPNG = func(data []byte) error { copiedImage = data; return nil }
+	h.click("file.txt")
+	h.tt.Key(ui.Cmd, ui.KeyC)
+	if copiedFile != filepath.Join(root, "file.txt") {
+		t.Fatalf("copied file = %q", copiedFile)
+	}
+	h.open("picture.png")
+	h.tt.Key(ui.Cmd, ui.KeyC)
+	h.settle(func() bool { return copiedImage != nil })
+	img, err := png.Decode(bytes.NewReader(copiedImage))
+	if err != nil || img.Bounds().Dx() != 20 || img.Bounds().Dy() != 10 {
+		t.Fatalf("copied image: %v", err)
+	}
+	if copiedFile != filepath.Join(root, "file.txt") {
+		t.Fatal("image copy also copied the tree selection")
 	}
 }
 
