@@ -21,6 +21,9 @@ type group struct {
 	eds             map[string]*editor.State
 	pending         map[string]goTo // where to go once a document loads
 	markdownPreview map[string]bool
+	hexPreview      map[string]bool
+	hexLists        map[string]*ui.ListState
+	hexControls     map[string]*hexControl
 	tabSel          int
 	relatedHandle   ui.Handle
 	relatedBounds   ui.Rect
@@ -202,6 +205,12 @@ func (a *app) closeTab(g *group, path string) {
 	delete(g.eds, path)
 	delete(g.pending, path)
 	delete(g.markdownPreview, path)
+	delete(g.hexPreview, path)
+	delete(g.hexLists, path)
+	if v := g.hexControls[path]; v != nil && v.cancel != nil {
+		v.cancel()
+	}
+	delete(g.hexControls, path)
 	if g.active == path {
 		g.active = ""
 		if n := len(g.mru); n > 0 {
@@ -232,6 +241,8 @@ func (a *app) releaseIfUnused(path string) {
 	delete(a.docs, path)
 	if d.untitled {
 		removeDraft(d)
+	} else {
+		a.removeRecovery(d)
 	}
 	d.seq++ // drop a load on its way
 	if m := a.serverFor(d.path); m != nil {
@@ -262,6 +273,9 @@ func (a *app) moveTab(from *group, path string, to *group, s side, at int) {
 	}
 	ed := from.eds[path]
 	previewMarkdown := from.markdownPreview[path]
+	previewHex := from.hexPreview[path]
+	hexList := from.hexLists[path]
+	hexCtl := from.hexControls[path]
 	alreadyOpen := to.has(path)
 	pend, hasPend := from.pending[path]
 	if to.has(path) {
@@ -273,6 +287,24 @@ func (a *app) moveTab(from *group, path string, to *group, s side, at int) {
 			to.markdownPreview = make(map[string]bool)
 		}
 		to.markdownPreview[path] = true
+	}
+	if !alreadyOpen && previewHex {
+		if to.hexPreview == nil {
+			to.hexPreview = map[string]bool{}
+		}
+		to.hexPreview[path] = true
+	}
+	if !alreadyOpen && hexList != nil {
+		if to.hexLists == nil {
+			to.hexLists = map[string]*ui.ListState{}
+		}
+		to.hexLists[path] = hexList
+	}
+	if !alreadyOpen && hexCtl != nil {
+		if to.hexControls == nil {
+			to.hexControls = map[string]*hexControl{}
+		}
+		to.hexControls[path] = hexCtl
 	}
 	if ed != nil {
 		to.eds[path] = ed
@@ -286,6 +318,9 @@ func (a *app) moveTab(from *group, path string, to *group, s side, at int) {
 	delete(from.eds, path)
 	delete(from.pending, path)
 	delete(from.markdownPreview, path)
+	delete(from.hexPreview, path)
+	delete(from.hexLists, path)
+	delete(from.hexControls, path)
 	if from.active == path {
 		from.active = ""
 		if n := len(from.mru); n > 0 {

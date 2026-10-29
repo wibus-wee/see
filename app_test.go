@@ -379,8 +379,9 @@ func TestUnreadableFiles(t *testing.T) {
 		"crlf.go":  "package a\r\n\r\nfunc 中() {}\r\n",
 	})
 	h := newHarness(t, root)
-	h.open("bin.dat")
-	if !h.tt.HasText("bin.dat is a binary file") {
+	binary := h.open("bin.dat")
+	h.settle(func() bool { return binary.hex != nil && len(binary.hex.pages) > 0 })
+	if !h.tt.HasText("Byte 0 7F") {
 		t.Errorf("texts %q", h.tt.Texts())
 	}
 	d := h.open("latin.go")

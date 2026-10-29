@@ -93,6 +93,7 @@ type app struct {
 	confirm       *confirmation
 	deleteConfirm *confirmation
 	createEntry   *entryPrompt
+	renameEntry   *renamePrompt
 	allowDirty    bool
 	quitApproved  bool
 
@@ -142,6 +143,7 @@ type doc struct {
 	markdownText    string
 	markdownVersion uint64
 	markdownCached  bool
+	hex             *hexState
 
 	loading           bool
 	err               error
@@ -311,6 +313,7 @@ func (a *app) openWorkspace(dir string) {
 // and language server.
 func (a *app) closeWorkspace() {
 	a.createEntry = nil
+	a.renameEntry = nil
 	a.deleteConfirm = nil
 	if a.root != "" {
 		a.saveConfig()
@@ -616,6 +619,7 @@ func (a *app) loadDoc(d *doc) {
 	d.seq++
 	seq, gen := d.seq, a.gen
 	lossy, needBuf, stamp, untitled := d.lossy, d.buf == nil, d.stamp, d.untitled
+	path, root, name := d.path, a.root, d.name
 	var snap editor.Snapshot
 	if !needBuf {
 		snap = d.buf.Snapshot() // cheap: a version of the rope
@@ -624,7 +628,7 @@ func (a *app) loadDoc(d *doc) {
 		if !needBuf {
 			// A reload: skip files whose size and time are as they were,
 			// without reading them.
-			if fi, err := os.Stat(d.path); err == nil && (fileStamp{fi.Size(), fi.ModTime()}) == stamp {
+			if fi, err := os.Stat(path); err == nil && (fileStamp{fi.Size(), fi.ModTime()}) == stamp {
 				a.post(func() {
 					if a.gen == gen && a.docs[d.path] == d && d.seq == seq {
 						d.loading, d.gone, d.err = false, false, nil
@@ -633,14 +637,18 @@ func (a *app) loadDoc(d *doc) {
 				return
 			}
 		}
-		f, err := workspace.ReadFile(d.path)
+		f, err := workspace.ReadFile(path)
+		var recovery *recoveryRecord
+		if needBuf && !untitled {
+			recovery = readRecovery(root, path)
+		}
 		var picture *ui.Bitmap
-		if err == nil && f.Kind != workspace.TooLarge && isImagePath(d.path) {
-			picture, err = readImage(d.path)
+		if err == nil && f.Kind != workspace.TooLarge && isImagePath(path) {
+			picture, err = readImage(path)
 		}
 		var buf *editor.Buffer
 		if err == nil && f.Kind == workspace.BadEncoding && lossy {
-			f = readLossy(d.path, f)
+			f = readLossy(path, f)
 		}
 		if err == nil && picture == nil && f.Kind == workspace.Text && needBuf {
 			// Build the buffer here, off the UI thread: it is safe from
@@ -651,7 +659,7 @@ func (a *app) loadDoc(d *doc) {
 				buf.Set(f.Text)
 			}
 			if !f.Plain {
-				buf.SetLanguage(editor.LanguageFor(d.name))
+				buf.SetLanguage(editor.LanguageFor(name))
 			}
 		}
 		// Compare with what is shown here, off the UI thread, so the UI
@@ -669,8 +677,27 @@ func (a *app) loadDoc(d *doc) {
 			if picture != nil {
 				f.Kind = workspace.Binary
 			}
-			a.loaded(d, f, buf, same, err)
+			if recovery != nil && err == nil && f.Kind == workspace.Text && recovery.Text == f.Text {
+				a.removeRecovery(d)
+				recovery = nil
+			}
+			if recovery != nil && (err == nil && f.Kind == workspace.Text || errors.Is(err, fs.ErrNotExist)) {
+				if err != nil {
+					f = workspace.File{Kind: workspace.Text, Text: recovery.Base, BOM: recovery.BOM}
+					buf = editor.NewBuffer(f.Text)
+				}
+				if recovery.Text != f.Text || err != nil {
+					buf.Set(recovery.Text)
+				}
+				a.loaded(d, f, buf, false, nil)
+				d.diskText, d.bom = recovery.Base, recovery.BOM
+				d.conflict = err == nil && (f.Text != recovery.Base || f.BOM != recovery.BOM)
+				d.gone = errors.Is(err, fs.ErrNotExist)
+			} else {
+				a.loaded(d, f, buf, same, err)
+			}
 			if err == nil && (d.buf == nil || !d.buf.Modified()) {
+				d.hex = nil
 				d.image = picture
 			}
 		})
@@ -1139,7 +1166,7 @@ func (a *app) openLanguageDocument(m *langserver.Server, ctx context.Context, d 
 		return
 	}
 	a.post(func() {
-		if a.docs[d.path] == d && a.serverFor(d.path) == m && d.buf != nil && d.buf.Version() != snap.Version() {
+		if d.uri == docURI && a.docs[d.path] == d && a.serverFor(d.path) == m && d.buf != nil && d.buf.Version() != snap.Version() {
 			m.Changed(docURI, d.buf.Snapshot())
 		}
 	})

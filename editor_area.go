@@ -186,10 +186,10 @@ func (a *app) document(c *ui.Context, g *group, d *doc) {
 			ui.Spinner(c)
 			ui.Text(c, "Loading "+d.name+"…").TextColor(colors(c).muted)
 		})
+	case g.hexPreview[d.path] || d.kind == workspace.Binary && d.image == nil:
+		a.hexView(c, g, d)
 	case d.image != nil:
 		a.imagePreview(c, g, d)
-	case d.kind == workspace.Binary:
-		a.message(c, d.name+" is a binary file", fmt.Sprintf("It is not shown as source (%s).", size(d.size)), "", nil)
 	case d.kind == workspace.TooLarge:
 		a.message(c, d.name+" is too large to show",
 			fmt.Sprintf("It is %s; files up to %s open here.", size(d.size), size(workspace.MaxSize)), "", nil)
@@ -205,6 +205,8 @@ func (a *app) document(c *ui.Context, g *group, d *doc) {
 			d.lspVersion = v
 			if d.untitled {
 				a.cacheDraft(d)
+			} else if !d.lossy {
+				a.cacheRecovery(d)
 			}
 			if m := a.serverFor(d.path); m != nil {
 				m.Changed(d.uri, d.buf.Snapshot())
