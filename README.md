@@ -14,12 +14,13 @@ See is a desktop app for exploring source code in a focused native interface. Op
 - Find text in a file or across a workspace, with case, whole-word, regular expression, and path filters.
 - Open files quickly by fuzzy name search and navigate backward and forward through your reading history.
 - Preview Markdown with native formatting, code blocks, tables, and local images, or switch back to its source.
+- Inspect binary files as read-only hexadecimal bytes with offsets and printable ASCII, including files too large to open as text.
 - Explore Go, TypeScript, and JavaScript code with definitions, references, callers, diagnostics, and symbol hover information via language servers.
 - Use a built-in terminal with tabs and split panes, rooted in the open workspace.
 - Choose system, light, or dark appearance and adjust editor and terminal preferences.
 - Reopen recent folders and see changes made to files on disk.
 
-Edit and save UTF-8 text in the source view. Unsaved changes are marked on tabs, and See asks before closing them. If a file changes on disk, See preserves your edits and asks before overwriting it. Files shown with replacement characters remain read-only. The integrated terminal runs your shell in the workspace.
+Edit and save UTF-8 text in the source view. Unsaved changes are marked on tabs, and See asks before closing them. If a file changes on disk, See preserves your edits and asks before overwriting it. Files shown with replacement characters remain read-only. See caches unsaved text for open files so it can restore edits after an unexpected exit; if the disk version changed, it preserves the recovered edits and asks before overwriting. The integrated terminal runs your shell in the workspace.
 
 ## Getting started
 
@@ -52,6 +53,10 @@ To remove the link, choose **Shell Command: Uninstall 'see' Command from PATH** 
 Open another folder while a project is open to show it in a separate window. Use **File → New Window** or **Cmd+Shift+N** to start another window; closing a window checks that window for unsaved changes.
 
 Click a file to open it as a preview; opening another file replaces that preview. Double-click the file, its tab, or its name in the path bar, or use **Keep Preview Tab** in the command palette, to keep it. Tabs appear when more than one file is open.
+
+Rename a file or folder from its context menu. On macOS, select an item in the file navigator and press Return to rename it; press Escape to cancel.
+
+Binary files open as a read-only hexadecimal view. Use **Show File Bytes** in the editor bar to inspect the bytes of any saved file, including files too large to open as text. The view reads the file on disk, so unsaved text edits are not shown there. Click a byte and Shift-click or use Shift with the arrow keys to select a range; **Copy Hex** copies up to 1 MiB. Enter a hexadecimal offset to jump, or search for text or a byte sequence prefixed with `hex:` (for example, `hex: 00 FF`).
 
 For a Markdown file, use the preview button in the editor bar or **Cmd+Shift+V** to switch between rendered Markdown and source. The preview uses the current buffer, including unsaved edits.
 

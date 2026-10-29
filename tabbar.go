@@ -174,7 +174,7 @@ func (a *app) jumpBar(c *ui.Context, g *group) {
 				})
 			}
 		}
-		if len(g.order) == 1 || isMarkdown(p) {
+		if len(g.order) == 1 || isMarkdown(p) || a.canViewBytes(p) {
 			ui.Box(c).Grow(1)
 		}
 		if len(g.order) == 1 {
@@ -184,6 +184,18 @@ func (a *app) jumpBar(c *ui.Context, g *group) {
 			}
 			if glyphButton(c, icClose, "Close "+name, "Close File", false, false).Clicked() {
 				a.closeTab(g, p)
+			}
+		}
+		if a.canViewBytes(p) {
+			label := "Show File Bytes"
+			if g.hexPreview[p] {
+				label = "Show File"
+			}
+			if iconButton(c, icHex, label, label, g.hexPreview[p]).Clicked() {
+				if g.hexPreview == nil {
+					g.hexPreview = map[string]bool{}
+				}
+				g.hexPreview[p] = !g.hexPreview[p]
 			}
 		}
 		if isMarkdown(p) {

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/egoist/mygo"
@@ -235,11 +236,12 @@ func (a *app) fileTree(c *ui.Context, roots []string) {
 			}
 		}
 	}
-	// Enter opens the file chosen, or opens or closes the folder; arrows
-	// only move the choice.
+	// Enter renames the selected item on macOS; elsewhere it opens it.
 	if tree.Submitted() && a.treeRow >= 0 && a.treeRow < a.tree.Rows() {
 		p := a.tree.Item(a.treeRow)
-		if a.isTreeDir(p) {
+		if runtime.GOOS == "darwin" {
+			a.beginRename(p)
+		} else if a.isTreeDir(p) {
 			a.toggleDir(p)
 		} else {
 			a.openFromTree(p, false)
@@ -326,6 +328,10 @@ func (a *app) treeItem(c *ui.Context, p string) {
 		} else {
 			fileIcon(c, name, 16)
 		}
+		if a.renameEntry != nil && a.renameEntry.path == p {
+			a.renameField(c, a.renameEntry)
+			return
+		}
 		t := ui.Text(c, name).SingleLine().Shrink(1)
 		if dim {
 			t.TextColor(colors(c).dim)
@@ -364,6 +370,9 @@ func (a *app) treeItem(c *ui.Context, p string) {
 			a.beginEntry(dir, true)
 		}
 		m.Separator()
+		if m.Item("Rename…").Chosen() {
+			a.beginRename(p)
+		}
 		if m.Item("Copy").Chosen() {
 			a.copyFile(p)
 		}
