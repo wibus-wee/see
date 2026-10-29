@@ -244,6 +244,34 @@ func TestFindNavigator(t *testing.T) {
 	}
 }
 
+func TestFindClickSelectsOpenedMatch(t *testing.T) {
+	root := writeTree(t, map[string]string{"a.go": "first hit\nsecond hit\n"})
+	h := newHarness(t, root)
+	h.a.navigator = navFind
+	path := filepath.Join(root, "a.go")
+	h.a.find.results = []search.File{{Path: path, Matches: []search.Match{
+		{Line: 0, Col: 6, End: 9, Preview: "first hit", PreStart: 6, PreEnd: 9},
+		{Line: 1, Col: 7, End: 10, Preview: "second hit", PreStart: 7, PreEnd: 10},
+	}}}
+	h.a.find.tree.Open.Add(findKey{path: path, match: -1})
+	h.tt.Frame()
+	for i, label := range []string{"first", "second"} {
+		r, ok := h.tt.Find(label)
+		if !ok {
+			t.Fatalf("missing match preview %q", label)
+		}
+		h.tt.ClickAt(r.X+r.W/2, r.Y+r.H/2)
+		h.tt.Frame()
+		row := h.a.find.row
+		if row < 0 || row >= h.a.find.tree.Rows() || h.a.find.tree.Item(row) != (findKey{path: path, match: i}) {
+			t.Fatalf("after clicking %q, selected row %d", label, row)
+		}
+		if h.a.activePath() != path {
+			t.Fatalf("after clicking %q, active path %q", label, h.a.activePath())
+		}
+	}
+}
+
 func TestFindWithoutRipgrep(t *testing.T) {
 	t.Setenv("SEE_RG", "")
 	t.Setenv("PATH", t.TempDir())

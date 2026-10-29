@@ -39,7 +39,7 @@ func sidebarColor(c *ui.Context, vibrant bool) ui.Color {
 // navigatorBar switches between the file and find navigators.
 func (a *app) navigatorBar(c *ui.Context) {
 	t := c.Theme()
-	ui.Row(c).FillWidth().Padding(4, 10, 6, 10).Children(func() {
+	ui.Row(c).FillWidth().Padding(0, 10, 10, 10).Children(func() {
 		parts := ui.SegmentedBase(c, &a.navigator, 3)
 		parts.Track.FillWidth().Height(30).Padding(3).Gap(2).Radius(15).Background(t.Text.Alpha(0.06)).Label("Navigator")
 		if c.Preferences().HighContrast {
@@ -537,5 +537,13 @@ func (a *app) findRow(c *ui.Context, k findKey) {
 		ui.Text(c, trimmed).FontSize(12).TextColor(colors(c).muted).SingleLine().Shrink(1)
 	})
 	row.Tooltip(fmt.Sprintf("Line %d", m.Line+1))
-	row.OnClick(func() { a.openMatch(k) })
+	row.OnClick(func() {
+		for i := 0; i < a.find.tree.Rows(); i++ {
+			if a.find.tree.Item(i) == k {
+				a.find.row = i
+				break
+			}
+		}
+		a.openMatch(k)
+	})
 }
