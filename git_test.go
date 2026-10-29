@@ -53,11 +53,23 @@ func TestGitGutterKeepsTextPositionWhenBaseChanges(t *testing.T) {
 			if !ok {
 				t.Fatal("editor caret missing")
 			}
+			imageBefore := h.tt.Image()
 			st.DiffBase = editor.NewBuffer(d.buf.String())
 			h.tt.Frame()
 			after, ok := h.tt.TextCaret()
 			if !ok || before.X != after.X {
 				t.Fatalf("caret moved when base loaded: %v -> %v", before, after)
+			}
+			if tc.numbers != editor.LineNumbersOff {
+				imageAfter := h.tt.Image()
+				// Compare the gutter on the first line, where the number is painted.
+				for y := int(before.Y); y < int(before.Y+before.H); y++ {
+					for x := max(0, int(before.X)-100); x < int(before.X)-8; x++ {
+						if imageBefore.At(x, y) != imageAfter.At(x, y) {
+							t.Fatalf("gutter changed when base loaded at %d,%d", x, y)
+						}
+					}
+				}
 			}
 			st.DiffBase = nil
 			h.tt.Frame()

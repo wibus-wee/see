@@ -251,12 +251,14 @@ func (a *app) document(c *ui.Context, g *group, d *doc) {
 			a.markdownView(c, g, d)
 			return
 		}
-		ed := editor.View(c.Key(d.path), st).Grow(1).FillWidth()
-		// MyGo adds six points to its gutter when a diff base arrives.
-		// Reserve that space until then so the text does not move.
-		if st.DiffBase == nil {
-			ed.Margin(0, 0, 0, 6)
+		// Reserve the Git gutter even before a base is available. Comparing
+		// the buffer with itself gives an empty diff without moving line numbers.
+		base := st.DiffBase
+		if base == nil {
+			st.DiffBase = st.Buffer
 		}
+		ed := editor.View(c.Key(d.path), st).Grow(1).FillWidth()
+		st.DiffBase = base
 		x, y, over := ed.PointerPosition()
 		if over {
 			wx, wy := ed.LocalToWindow(x, y)
@@ -281,9 +283,7 @@ func (a *app) document(c *ui.Context, g *group, d *doc) {
 		if !st.NoFolding {
 			gutter += fontSize * lineHeight * 0.8
 		}
-		if st.DiffBase != nil {
-			gutter += 6
-		}
+		gutter += 6
 		g.changeBars = g.changeBars[:0]
 		if d.gitChanges != nil {
 			// The editor paints its change bars immediately before the fold
