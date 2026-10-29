@@ -11,8 +11,13 @@ import (
 func (a *app) tabBar(c *ui.Context, g *group) {
 	// Names shown by more than one tab get their folder too.
 	count := map[string]int{}
+	seen := map[string]bool{}
 	for _, p := range g.order {
-		count[filepath.Base(p)]++
+		path := tabPath(p)
+		if !seen[path] {
+			count[filepath.Base(path)]++
+			seen[path] = true
+		}
 	}
 	g.tabSel = slices.Index(g.order, g.active)
 	tabs := ui.TabsBase(c, &g.tabSel, len(g.order))
@@ -22,7 +27,13 @@ func (a *app) tabBar(c *ui.Context, g *group) {
 	}
 	tabs.List.Children(func() {
 		for i, p := range g.order {
-			d := a.docs[p]
+			path := tabPath(p)
+			d := a.docs[path]
+			diff := g.diffs[p]
+			if diff != nil {
+				path = filepath.Join(a.git.root, diff.name)
+				d = &doc{name: filepath.Base(diff.name)}
+			}
 			if d == nil {
 				continue
 			}
@@ -51,12 +62,23 @@ func (a *app) tabBar(c *ui.Context, g *group) {
 			if d.untitled {
 				tab.Tooltip(d.name)
 			} else {
-				tab.Tooltip(relPath(a.root, p))
+				tab.Tooltip(relPath(a.root, path))
 			}
 			tab.Children(func() {
 				// The close button shows on the left, as Xcode's, while the
 				// tab is hovered.
-				cl := ui.ButtonBase(c).Label("Close "+d.name).Size(16, 16).Radius(4).Center().KeepFocus()
+				nameLabel := d.name
+				if isMarkdownTab(p) {
+					nameLabel += " Preview"
+				}
+				if diff != nil {
+					if diff.staged {
+						nameLabel += " (Staged)"
+					} else {
+						nameLabel += " (Working Tree)"
+					}
+				}
+				cl := ui.ButtonBase(c).Label("Close "+nameLabel).Size(16, 16).Radius(4).Center().KeepFocus()
 				if hovered || active {
 					cl.Children(func() { symbolIcon(c, icClose, 10, colors(c).muted) })
 					if cl.Hovered() {
@@ -68,7 +90,7 @@ func (a *app) tabBar(c *ui.Context, g *group) {
 				if d.buf != nil && d.buf.Modified() {
 					ui.Text(c, "●").FontSize(10).TextColor(c.Theme().Accent)
 				}
-				name := ui.Text(c, d.name).FontSize(12).SingleLine().Shrink(1)
+				name := ui.Text(c, nameLabel).FontSize(12).SingleLine().Shrink(1)
 				if g.preview == p {
 					name.Italic()
 				}
@@ -79,7 +101,7 @@ func (a *app) tabBar(c *ui.Context, g *group) {
 					name.TextColor(colors(c).muted)
 				}
 				if count[d.name] > 1 {
-					ui.Text(c, filepath.Base(filepath.Dir(p))).FontSize(11).TextColor(colors(c).dim).SingleLine().Shrink(2)
+					ui.Text(c, filepath.Base(filepath.Dir(path))).FontSize(11).TextColor(colors(c).dim).SingleLine().Shrink(2)
 				}
 				if d.loading {
 					ui.Spinner(c).FontSize(10)
@@ -93,10 +115,37 @@ func (a *app) tabBar(c *ui.Context, g *group) {
 	}
 }
 
+func (a *app) diffJumpBar(c *ui.Context, g *group) {
+	v := g.diffs[g.active]
+	if v == nil {
+		return
+	}
+	ui.Row(c).FillWidth().Height(26).Padding(0, 6).Gap(5).AlignItems(ui.Center).Background(colors(c).editor).
+		BorderWidth(0, 0, 1, 0).BorderColor(colors(c).separator).Children(func() {
+		folderGlyph(c, false, 13)
+		ui.Text(c, filepath.Base(a.root)).FontSize(12).TextColor(colors(c).muted).SingleLine()
+		symbolIcon(c, icChevron, 9, colors(c).dim)
+		fileIcon(c, filepath.Base(v.name), 12)
+		ui.Text(c, v.name).FontSize(12).SingleLine().Shrink(1)
+		label := "Working Tree"
+		if v.staged {
+			label = "Staged"
+		}
+		ui.Text(c, label).FontSize(12).TextColor(colors(c).muted).SingleLine()
+		ui.Box(c).Grow(1)
+		if len(g.order) == 1 && len(a.groups()) == 1 {
+			if glyphButton(c, icClose, "Close "+filepath.Base(v.name)+" ("+label+")", "Close Diff", false, false).Clicked() {
+				a.closeTab(g, g.active)
+			}
+		}
+	})
+}
+
 // jumpBar is Xcode's jump bar: back and forward, then the path of the
 // document, whose folders reveal themselves in the navigator.
 func (a *app) jumpBar(c *ui.Context, g *group) {
-	p := g.active
+	tab := g.active
+	p := tabPath(tab)
 	if p == "" {
 		return
 	}
@@ -174,19 +223,23 @@ func (a *app) jumpBar(c *ui.Context, g *group) {
 				})
 			}
 		}
-		if len(g.order) == 1 || isMarkdown(p) || a.canViewBytes(p) {
+		showClose := len(g.order) == 1 && len(a.groups()) == 1
+		if showClose || isMarkdown(p) || a.canViewBytes(p) {
 			ui.Box(c).Grow(1)
 		}
-		if len(g.order) == 1 {
+		if showClose {
 			name := filepath.Base(p)
 			if d := a.docs[p]; d != nil {
 				name = d.name
 			}
+			if isMarkdownTab(tab) {
+				name += " Preview"
+			}
 			if glyphButton(c, icClose, "Close "+name, "Close File", false, false).Clicked() {
-				a.closeTab(g, p)
+				a.closeTab(g, tab)
 			}
 		}
-		if a.canViewBytes(p) {
+		if !isMarkdownTab(tab) && a.canViewBytes(p) {
 			label := "Show File Bytes"
 			if g.hexPreview[p] {
 				label = "Show File"
@@ -199,13 +252,18 @@ func (a *app) jumpBar(c *ui.Context, g *group) {
 			}
 		}
 		if isMarkdown(p) {
-			label := "Show Markdown Preview"
-			if g.markdownPreview[p] {
+			label := "Open Markdown Preview"
+			if g.markdownPreview[p] || isMarkdownTab(tab) {
 				label = "Show Markdown Source"
 			}
-			if iconButton(c, icMarkdown, label, label+" ("+keyLabel("Cmd+Shift+", "V")+")", g.markdownPreview[p]).Clicked() {
+			if iconButton(c, icMarkdown, label, label+" ("+keyLabel("Cmd+Shift+", "V")+")", g.markdownPreview[p] || isMarkdownTab(tab)).Clicked() {
 				a.focus = g
-				a.toggleMarkdownPreview(g)
+				if isMarkdownTab(tab) || g.markdownPreview[p] {
+					delete(g.markdownPreview, p)
+					a.openIn(g, p, goTo{})
+				} else {
+					a.openMarkdownTab(g)
+				}
 			}
 		}
 	})

@@ -139,8 +139,10 @@ func (a *app) applyAppearance(c *ui.Context) {
 	a.theme = &t
 	a.edTheme = editor.DefaultTheme(&t)
 	a.edTheme.Background = p.editor
-	if a.git.diff != nil {
-		a.git.diff.Theme = a.edTheme
+	for _, g := range a.groups() {
+		for _, v := range g.diffs {
+			v.state.Theme = a.edTheme
+		}
 	}
 	if a.git.peek != nil {
 		a.git.peek.diff.Theme = a.edTheme

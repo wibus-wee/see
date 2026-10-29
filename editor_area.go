@@ -10,34 +10,38 @@ import (
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 
+	"see/internal/git"
 	"see/internal/workspace"
 )
 
 // tabDrag is a tab, or a file of the tree, being dragged: onto a tab bar
 // it goes among the tabs, onto an editor's edge it splits the editor.
 type tabDrag struct {
-	from *group // nil for a file of the tree
-	path string
+	from   *group // nil for a file of the tree
+	path   string
+	change *git.Change
+	staged bool
 }
 
 func (a *app) editorArea(c *ui.Context) {
 	ui.Column(c).Fill().Background(colors(c).editor).Children(func() {
 		a.editorsAndPanel(c, func() {
-			if a.git.diff != nil {
-				a.gitDiffView(c)
-			} else {
-				ui.Column(c).Fill().Children(func() { a.layoutView(c, a.layout) })
-			}
+			ui.Column(c).Fill().Children(func() { a.layoutView(c, a.layout) })
 		})
 	})
 }
 
 func (a *app) layoutView(c *ui.Context, n *layout) {
+	if n == nil {
+		return
+	}
 	if n.g != nil {
 		a.groupView(c, n.g)
 		return
 	}
-	first, second := func() { a.layoutView(c, n.a) }, func() { a.layoutView(c, n.b) }
+	// A drop in the first child can collapse n before the second is built.
+	left, right := n.a, n.b
+	first, second := func() { a.layoutView(c, left) }, func() { a.layoutView(c, right) }
 	if n.vertical {
 		if ui.SplitVerticalPercent(c.Key(n), &n.pct, first, second).Grow(1).FillWidth().Changed() {
 			a.saveConfigSoon()
@@ -60,17 +64,18 @@ func (a *app) groupView(c *ui.Context, g *group) {
 	}
 	col.Children(func() {
 		if len(g.order) > 0 {
-			if len(g.order) > 1 {
+			if len(g.order) > 1 || len(a.groups()) > 1 {
 				a.tabBar(c, g)
 			}
-			a.jumpBar(c, g)
+			if isDiffTab(g.active) {
+				a.diffJumpBar(c, g)
+			} else {
+				a.jumpBar(c, g)
+			}
 		}
 		if g == a.focus {
 			if a.trustAsk {
 				a.trustBanner(c)
-			}
-			if a.choices != nil && a.choices.g == g && a.choices.title == "" {
-				a.choicesPanel(c)
 			}
 		}
 		a.dropArea(c, g, func() { a.groupContent(c, g) })
@@ -149,6 +154,10 @@ func zoneAt(x, y, w, h float32) side {
 
 func (a *app) dropTab(v *tabDrag, g *group, s side, at int) {
 	a.cancelNav()
+	if v.change != nil {
+		a.showGitDiffIn(*v.change, v.staged, g, s, at)
+		return
+	}
 	if v.from == nil || !v.from.has(v.path) {
 		if a.isTreeDir(v.path) {
 			return
@@ -165,7 +174,14 @@ func (a *app) dropTab(v *tabDrag, g *group, s side, at int) {
 }
 
 func (a *app) groupContent(c *ui.Context, g *group) {
-	d := a.docs[g.active]
+	if v := g.diffs[g.active]; v != nil {
+		view := editor.DiffView(c, v.state).Grow(1).FillWidth()
+		if view.FocusWithin() {
+			a.focus = g
+		}
+		return
+	}
+	d := a.docs[tabPath(g.active)]
 	if d == nil {
 		ui.Column(c).Grow(1).FillWidth().Center().Gap(6).Children(func() {
 			ui.Text(c, "No Editor").FontSize(20).TextColor(colors(c).dim)
@@ -221,7 +237,7 @@ func (a *app) document(c *ui.Context, g *group, d *doc) {
 		if d.gone {
 			a.banner(c, colors(c).warnBg, "This file was deleted or moved on disk. The text below is how it was.", []action{
 				{"Reload", func() { a.reloadDoc(d) }},
-				{"Close", func() { a.closeTab(g, d.path) }},
+				{"Close", func() { a.closeTab(g, g.active) }},
 			})
 		}
 		if d.plain || d.lossy {
@@ -231,11 +247,16 @@ func (a *app) document(c *ui.Context, g *group, d *doc) {
 			}
 			ui.Text(c, msg).FontSize(11).TextColor(colors(c).muted).Padding(3, 12).FillWidth().Background(colors(c).tabBar)
 		}
-		if isMarkdown(d.path) && g.markdownPreview[d.path] {
+		if isMarkdownTab(g.active) || isMarkdown(d.path) && g.markdownPreview[d.path] {
 			a.markdownView(c, g, d)
 			return
 		}
 		ed := editor.View(c.Key(d.path), st).Grow(1).FillWidth()
+		// MyGo adds six points to its gutter when a diff base arrives.
+		// Reserve that space until then so the text does not move.
+		if st.DiffBase == nil {
+			ed.Margin(0, 0, 0, 6)
+		}
 		x, y, over := ed.PointerPosition()
 		if over {
 			wx, wy := ed.LocalToWindow(x, y)
@@ -317,11 +338,17 @@ func (a *app) document(c *ui.Context, g *group, d *doc) {
 		st.OnInput = func(ev ui.InputEvent) bool { return a.changeBarInput(g, d, st, origin, ev) }
 		if peek := a.git.peek; peek != nil && peek.doc == d && peek.group == g {
 			a.editorPeek(c, bounds, st, peek.line, d.name+" — Git changes", "Close Change Preview", diffHeight(st, peek.diff), func() { a.git.peek = nil }, func() {
-				editor.DiffView(c, peek.diff).Grow(1).FillWidth()
+				ui.Scroll(c).Grow(1).FillWidth().TrackScroll(&peek.scroll).Label("Git change preview").Children(func() {
+					editor.DiffView(c, peek.diff).FillWidth()
+				})
 			})
 		}
-		if ch := a.choices; ch != nil && ch.title != "" && ch.g == g && ch.from.Path == d.path {
-			a.editorPeek(c, bounds, st, ch.from.Line, fmt.Sprintf("%d %s", len(ch.locs), ch.title), "Close References Preview", 264, func() { a.choices = nil }, func() { a.relatedView(c, ch) })
+		if ch := a.choices; ch != nil && ch.g == g && ch.from.Path == d.path {
+			closeLabel := "Close References Preview"
+			if ch.title == "definitions" {
+				closeLabel = "Close Definitions Preview"
+			}
+			a.editorPeek(c, bounds, st, ch.from.Line, fmt.Sprintf("%d %s", len(ch.locs), ch.title), closeLabel, 264, func() { a.choices = nil }, func() { a.relatedView(c, ch) })
 		}
 		line := d.buf.Line(pos.Line)
 		prefix := strings.ReplaceAll(line[:min(pos.Col, len(line))], "\t", "    ")
@@ -339,6 +366,38 @@ func (a *app) document(c *ui.Context, g *group, d *doc) {
 			a.focus = g // the editor clicked in is the one keys go to
 		}
 	}
+}
+
+func diffHunkOffset(st *editor.State, d *editor.DiffState, index int) float32 {
+	if index <= 0 {
+		return 0
+	}
+	fontSize, lineHeight := st.Font.Size, st.LineHeight
+	if fontSize <= 0 {
+		fontSize = 13
+	}
+	if lineHeight <= 0 {
+		lineHeight = 1.5
+	}
+	context := d.ContextLines
+	if context <= 0 {
+		context = 3
+	}
+	var height float32
+	shown := 0
+	for i, h := range d.Hunks() {
+		from := max(shown, h.NewStart-context)
+		if from > shown {
+			height += 32
+		}
+		if i == index {
+			return max(0, height-float32(context)*fontSize*lineHeight)
+		}
+		after := min(d.New.LineCount(), h.NewEnd+context)
+		height += float32(h.NewStart-from+h.OldEnd-h.OldStart+h.NewEnd-h.NewStart+after-h.NewEnd) * fontSize * lineHeight
+		shown = after
+	}
+	return height
 }
 
 // changeBar is a Git change bar of an editor, in the window, and the line
@@ -421,17 +480,21 @@ func (a *app) relatedView(c *ui.Context, ch *defChoices) {
 	ui.Row(c).Fill().AlignItems(ui.Stretch).Children(func() {
 		ui.Column(c).Grow(2).FillHeight().Clip().Children(func() {
 			if ch.previewEditor == nil {
-				ui.Text(c, "Loading code preview…").FontSize(12).TextColor(colors(c).muted).Padding(12)
+				message := "Loading code preview…"
+				if ch.buffers != nil {
+					message = "Code preview unavailable"
+				}
+				ui.Text(c, message).FontSize(12).TextColor(colors(c).muted).Padding(12)
 			} else {
 				editor.View(c.Key("reference-code"), ch.previewEditor).Grow(1).FillWidth()
 			}
 		})
 		ui.Column(c).Grow(1).FillHeight().BorderWidth(0, 0, 0, 1).BorderColor(colors(c).separator).Children(func() {
-			ui.Scroll(c).Grow(1).FillWidth().Label("Reference results").Children(func() {
+			ui.Scroll(c).Grow(1).FillWidth().Label("Navigation results").Children(func() {
 				ui.Column(c).FillWidth().Children(func() {
 					for _, path := range paths {
 						indices := groups[path]
-						file := ui.ButtonBase(c.Key(path)).FillWidth().Padding(5, 8).Gap(6).Label("Toggle references in " + relPath(a.root, path))
+						file := ui.ButtonBase(c.Key(path)).FillWidth().Padding(5, 8).Gap(6).Label("Toggle " + ch.title + " in " + relPath(a.root, path)).Tooltip(path)
 						if file.Hovered() {
 							file.Background(colors(c).pill)
 						}
@@ -441,7 +504,8 @@ func (a *app) relatedView(c *ui.Context, ch *defChoices) {
 								arrow = "▸"
 							}
 							ui.Text(c, arrow).TextColor(colors(c).muted)
-							ui.Text(c, relPath(a.root, path)).FontSize(12).SingleLine().Grow(1).Shrink(1)
+							ui.Text(c, filepath.Base(path)).FontSize(12).SingleLine().Shrink(1)
+							ui.Text(c, relPath(a.root, filepath.Dir(path))).FontSize(11).TextColor(colors(c).muted).SingleLine().Grow(1).Shrink(1)
 							ui.Text(c, fmt.Sprint(len(indices))).FontSize(11).TextColor(colors(c).muted)
 						})
 						file.OnClick(func() { ch.collapsed[path] = !ch.collapsed[path] })
@@ -458,7 +522,7 @@ func (a *app) relatedView(c *ui.Context, ch *defChoices) {
 							if text == "" {
 								text = label
 							}
-							row := ui.ButtonBase(c.Key(i)).FillWidth().Padding(4, 8, 4, 25).Radius(4).Label(label).Tooltip("Select to preview; double-click to open")
+							row := ui.ButtonBase(c.Key(i)).FillWidth().Padding(4, 8, 4, 25).Radius(4).Justify(ui.Start).Label(label).Tooltip("Select to preview; double-click to open")
 							if i == ch.selected {
 								row.Background(colors(c).selectedRow)
 							} else if row.Hovered() {
@@ -556,33 +620,4 @@ func (a *app) trustBanner(c *ui.Context) {
 	a.banner(c, colors(c).infoBg,
 		"Go to Definition and symbol help run language servers in “"+filepath.Base(a.root)+"”. Servers may run project tools and download dependencies or toolchains. Reading works without them.",
 		[]action{{"Trust Folder", a.trust}, {"Not Now", func() { a.trustAsk, a.afterTrust = false, nil; a.trustDismissed = true }}})
-}
-
-func (a *app) choicesPanel(c *ui.Context) {
-	ch := a.choices
-	ui.Column(c).FillWidth().Padding(6, 12).Gap(2).Background(colors(c).tabBar).BorderWidth(0, 0, 1, 0).BorderColor(colors(c).separator).Children(func() {
-		ui.Row(c).AlignItems(ui.Center).Children(func() {
-			title := ch.title
-			if title == "" {
-				title = "definitions"
-			}
-			if len(ch.locs) == 1 {
-				title = strings.TrimSuffix(title, "s")
-			}
-			ui.Text(c, fmt.Sprintf("%d %s", len(ch.locs), title)).Bold().Grow(1)
-			ui.Button(c, "Cancel").OnClick(func() { a.choices = nil })
-		})
-		ui.Scroll(c).MaxHeight(180).FillWidth().Children(func() {
-			ui.Column(c).FillWidth().Children(func() {
-				for i, t := range ch.locs {
-					label := fmt.Sprintf("%s:%d", relPath(a.root, t.path), t.pos.Line+1)
-					b := ui.Button(c.Key(i), label).FillWidth()
-					if i == 0 {
-						b.AutoFocus()
-					}
-					b.OnClick(func() { a.jump(ch.g, ch.from, t, ch.enc) })
-				}
-			})
-		})
-	})
 }

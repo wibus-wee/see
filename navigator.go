@@ -79,7 +79,7 @@ func (a *app) projectNavigator(c *ui.Context) {
 	if paths := container.DroppedFiles(); paths != nil {
 		a.copyInto(a.root, paths)
 	}
-	if v, ok := ui.Drop[*tabDrag](container); ok && v.from == nil {
+	if v, ok := ui.Drop[*tabDrag](container); ok && v.from == nil && v.change == nil {
 		a.copyInto(a.root, []string{v.path})
 	}
 	container.Children(func() { a.projectNavigatorContent(c) })
@@ -251,7 +251,6 @@ func (a *app) fileTree(c *ui.Context, roots []string) {
 
 // The chosen row is already visible, so opening it need not reposition the tree.
 func (a *app) openFromTree(path string, preview bool) {
-	a.git.diff = nil
 	a.git.diffSeq++
 	if preview {
 		a.previewOpen(path)
@@ -400,7 +399,7 @@ func (a *app) treeItem(c *ui.Context, p string) {
 		if paths := row.DroppedFiles(); paths != nil {
 			a.copyInto(p, paths)
 		}
-		if v, ok := ui.Drop[*tabDrag](row); ok && v.from == nil {
+		if v, ok := ui.Drop[*tabDrag](row); ok && v.from == nil && v.change == nil {
 			a.copyInto(p, []string{v.path})
 		}
 		_, treeOver := ui.DragOver[*tabDrag](row)

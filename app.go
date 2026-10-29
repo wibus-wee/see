@@ -232,10 +232,20 @@ func uriOf(path string) string { return uri.FromPath(path) }
 func (a *app) note(msg string, isErr bool) { a.notice, a.noticeError = msg, isErr }
 
 // activePath is the focused group's active document.
-func (a *app) activePath() string { return a.focus.active }
+func (a *app) activePath() string {
+	if isDiffTab(a.focus.active) {
+		return ""
+	}
+	return tabPath(a.focus.active)
+}
 
 // activeEditor is the editor of the focused group's active document.
-func (a *app) activeEditor() *editor.State { return a.focus.eds[a.focus.active] }
+func (a *app) activeEditor() *editor.State {
+	if isMarkdownTab(a.focus.active) {
+		return nil
+	}
+	return a.focus.eds[a.focus.active]
+}
 
 // ----- Workspace -----
 
@@ -536,7 +546,6 @@ func (a *app) openFile(path string, pos *editor.Pos) *doc {
 // openIn shows path in g, at the place to says, if any.
 func (a *app) openIn(g *group, path string, to goTo) *doc {
 	a.term.maximized = false
-	a.git.diff = nil
 	a.git.diffSeq++
 	a.git.peek = nil
 	path = docPath(a.root, a.realRoot, path)
@@ -572,7 +581,7 @@ func (a *app) closeDoc(path string) { a.closeTab(a.focus, path) }
 // showLoaded gives g an editor of d once d's text is there, and goes
 // where g was asked to go in it.
 func (a *app) showLoaded(g *group, d *doc) {
-	if d.buf == nil || !g.has(d.path) {
+	if d.buf == nil || !g.hasDocument(d.path) {
 		return
 	}
 	st := g.eds[d.path]
@@ -906,7 +915,6 @@ func (a *app) userActivate(path string) { a.userActivateIn(a.focus, path) }
 
 func (a *app) userActivateIn(g *group, path string) {
 	a.term.maximized = false
-	a.git.diff = nil
 	a.git.diffSeq++
 	a.git.peek = nil
 	if path == g.active && g == a.focus {
@@ -1051,7 +1059,9 @@ func (a *app) definitionFound(g *group, from nav.Entry, targets []target, enc st
 	case len(targets) == 1:
 		a.jump(g, from, targets[0], enc)
 	default:
-		a.choices = &defChoices{g: g, from: from, enc: enc, locs: targets}
+		a.choices = &defChoices{g: g, from: from, enc: enc, locs: targets, title: "definitions"}
+		a.git.peek = nil
+		a.loadRelatedPreviews(a.choices)
 	}
 }
 
@@ -1360,7 +1370,11 @@ func (a *app) selectRelated(ch *defChoices, index int) {
 		return
 	}
 	if ch.previewEditor == nil || ch.previewPath != t.path {
-		ch.previewEditor = &editor.State{Buffer: buf, ReadOnly: true, Label: "Reference code preview", Theme: a.edTheme}
+		label := "Reference code preview"
+		if ch.title == "definitions" {
+			label = "Definition code preview"
+		}
+		ch.previewEditor = &editor.State{Buffer: buf, ReadOnly: true, Label: label, Theme: a.edTheme}
 		a.applyEditorPrefs(ch.previewEditor)
 		ch.previewPath = t.path
 	}

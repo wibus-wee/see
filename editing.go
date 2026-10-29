@@ -184,7 +184,7 @@ func (a *app) guardDirty(docs []*doc, proceed func()) bool {
 
 func (a *app) saveActive() {
 	if a.focus != nil {
-		if d := a.docs[a.focus.active]; d != nil {
+		if d := a.docs[tabPath(a.focus.active)]; d != nil {
 			a.saveDocs([]*doc{d}, nil)
 		}
 	}

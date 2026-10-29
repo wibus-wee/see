@@ -13,7 +13,7 @@ See is a desktop app for exploring source code in a focused native interface. Op
 - Open multiple project folders in separate windows, browse files in tabs, and arrange editors side by side or vertically.
 - Find text in a file or across a workspace, with case, whole-word, regular expression, and path filters.
 - Open files quickly by fuzzy name search and navigate backward and forward through your reading history.
-- Preview Markdown with native formatting, code blocks, tables, and local images, or switch back to its source.
+- Preview Markdown with native formatting, code blocks, tables, and local or remote images, or switch back to its source.
 - Inspect binary files as read-only hexadecimal bytes with offsets and printable ASCII, including files too large to open as text.
 - Explore Go, TypeScript, and JavaScript code with definitions, references, callers, diagnostics, and symbol hover information via language servers.
 - Use a built-in terminal with tabs and split panes, rooted in the open workspace.
@@ -58,7 +58,9 @@ Rename a file or folder from its context menu. On macOS, select an item in the f
 
 Binary files open as a read-only hexadecimal view. Use **Show File Bytes** in the editor bar to inspect the bytes of any saved file, including files too large to open as text. The view reads the file on disk, so unsaved text edits are not shown there. Click a byte and Shift-click or use Shift with the arrow keys to select a range; **Copy Hex** copies up to 1 MiB. Enter a hexadecimal offset to jump, or search for text or a byte sequence prefixed with `hex:` (for example, `hex: 00 FF`).
 
-For a Markdown file, use the preview button in the editor bar or **Cmd+Shift+V** to switch between rendered Markdown and source. The preview uses the current buffer, including unsaved edits.
+For a Markdown file, use the preview button in the editor bar or **Cmd+Shift+V** to open a separate preview tab. Drag that tab to an editor edge to view it beside the source. The preview uses the current buffer, including unsaved edits.
+
+Images in their own paragraph can use Markdown image syntax or a standalone HTML `<img>` tag. Remote HTTP and HTTPS images are fetched when the preview opens; their host can see the request. Other HTML blocks display as source.
 
 When running from source, the terminal's emulator library may be downloaded on first use.
 
@@ -88,7 +90,7 @@ These are the macOS shortcuts; on other platforms, use Ctrl in place of Cmd. The
 | Find in workspace | Cmd+Shift+F |
 | Find in file | Cmd+F |
 | Toggle navigator | Cmd+B or Cmd+0 |
-| Toggle Markdown preview | Cmd+Shift+V |
+| Open Markdown preview | Cmd+Shift+V |
 | Go to definition | F12 |
 | Find references | Shift+F12 |
 | Navigate back / forward | Ctrl+- / Ctrl+Shift+- |

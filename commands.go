@@ -27,7 +27,7 @@ func commands() []command {
 		{"Open Folder", "Cmd+", "O", ui.Cmd, ui.KeyO, func(a *app) { a.openFolderDialog() }},
 		{"Open Quickly", "Cmd+Shift+", "O", ui.Cmd | ui.Shift, ui.KeyO, func(a *app) { a.openQuickly() }},
 		{"Search Workspace Symbols", "Cmd+", "T", ui.Cmd, ui.KeyT, func(a *app) { a.openQuickPanel("#") }},
-		{"Toggle Markdown Preview", "Cmd+Shift+", "V", ui.Cmd | ui.Shift, ui.KeyV, func(a *app) { a.toggleMarkdownPreview(a.focus) }},
+		{"Open Markdown Preview", "Cmd+Shift+", "V", ui.Cmd | ui.Shift, ui.KeyV, func(a *app) { a.openMarkdownTab(a.focus) }},
 		{"Find in Workspace", "Cmd+Shift+", "F", ui.Cmd | ui.Shift, ui.KeyF, func(a *app) {
 			a.sidebarOff, a.navigator, a.find.focus = false, navFind, true
 		}},
@@ -43,7 +43,7 @@ func commands() []command {
 		{"Save", "Cmd+", "S", ui.Cmd, ui.KeyS, func(a *app) { a.saveActive() }},
 		{"Save All", "Cmd+Shift+", "S", ui.Cmd | ui.Shift, ui.KeyS, func(a *app) { a.saveAll() }},
 		{"Close Tab", "Cmd+", "W", ui.Cmd, ui.KeyW, func(a *app) {
-			if p := a.activePath(); p != "" {
+			if p := a.focus.active; p != "" {
 				a.closeDoc(p)
 			}
 		}},

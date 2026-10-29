@@ -19,18 +19,31 @@ type gitState struct {
 	decor                  map[string]byte
 	err                    string
 	loading, pending, busy bool
-	diff                   *editor.DiffState
-	diffName               string
-	diffStaged             bool
 	diffSeq                uint64
 	peek                   *gitPeek
 }
 
 type gitPeek struct {
-	doc   *doc
-	group *group
-	line  int
-	diff  *editor.DiffState
+	doc    *doc
+	group  *group
+	line   int
+	diff   *editor.DiffState
+	scroll ui.ScrollState
+}
+
+type gitDiffTab struct {
+	state  *editor.DiffState
+	patch  editor.FilePatch
+	name   string
+	staged bool
+}
+
+func (a *app) newGitDiffTab(p editor.FilePatch, name string, staged bool) *gitDiffTab {
+	d := &editor.DiffState{Theme: a.edTheme}
+	a.applyDiffPrefs(d)
+	d.SetPatch(p)
+	d.GoToHunk(0)
+	return &gitDiffTab{state: d, patch: p, name: name, staged: staged}
 }
 
 func (a *app) startGit() {
@@ -152,13 +165,14 @@ func (a *app) loadGitBase(d *doc) {
 
 func (a *app) showGitPeek(g *group, d *doc, st *editor.State, line int) {
 	if st.DiffBase != nil {
-		diff := &editor.DiffState{Old: st.DiffBase, New: d.buf, Layout: editor.DiffUnified, Theme: a.edTheme}
+		diff := &editor.DiffState{Old: st.DiffBase, New: d.buf, Layout: editor.DiffUnified, Theme: a.edTheme, FitContent: true}
 		a.applyDiffPrefs(diff)
 		for i, h := range diff.Hunks() {
 			if line >= h.NewStart && line < max(h.NewEnd, h.NewStart+1) || h.NewStart >= d.buf.LineCount() && line == d.buf.LineCount()-1 {
 				a.choices = nil
 				diff.GoToHunk(i)
 				a.git.peek = &gitPeek{doc: d, group: g, line: line, diff: diff}
+				a.git.peek.scroll.Y = diffHunkOffset(st, diff, i)
 				return
 			}
 		}
@@ -202,7 +216,6 @@ func (a *app) gitAction(args ...string) {
 			if err != nil {
 				a.note("Git: "+err.Error(), true)
 			} else {
-				a.git.diff = nil
 				a.git.diffSeq++
 				if args[0] == "commit" {
 					a.git.message = ""
@@ -217,7 +230,6 @@ func (a *app) gitAction(args ...string) {
 func (a *app) openGitFile(ch git.Change) {
 	path := filepath.Join(a.git.root, filepath.FromSlash(ch.Path))
 	a.term.maximized = false
-	a.git.diff = nil
 	a.git.diffSeq++
 	a.userOpen(path)
 }
@@ -263,7 +275,6 @@ func (a *app) discardGitChange(ch git.Change) {
 					if err != nil {
 						a.note("Could not discard Git changes: "+err.Error(), true)
 					} else {
-						a.git.diff = nil
 						a.git.diffSeq++
 						if ch.Index == '?' {
 							a.removed(path)
@@ -288,6 +299,10 @@ func (a *app) discardGitChange(ch git.Change) {
 }
 
 func (a *app) showGitDiff(ch git.Change, staged bool) {
+	a.showGitDiffIn(ch, staged, a.focus, sideNone, len(a.focus.order))
+}
+
+func (a *app) showGitDiffIn(ch git.Change, staged bool, target *group, placement side, at int) {
 	if a.git.root == "" {
 		return
 	}
@@ -296,12 +311,12 @@ func (a *app) showGitDiff(ch git.Change, staged bool) {
 	a.git.diffSeq++
 	seq, gen, root, ctx := a.git.diffSeq, a.gen, a.git.root, a.wsCtx
 	go func() {
-		args := []string{"diff", "--no-ext-diff", "--no-color"}
+		args := []string{"diff", "--no-ext-diff", "--no-color", "--unified=2147483647"}
 		if staged {
 			args = append(args, "--cached")
 		}
 		if ch.Index == '?' {
-			args = []string{"diff", "--no-index", "--no-ext-diff", "--no-color", "--", "/dev/null", filepath.Join(root, ch.Path)}
+			args = []string{"diff", "--no-index", "--no-ext-diff", "--no-color", "--unified=2147483647", "--", "/dev/null", filepath.Join(root, ch.Path)}
 		} else {
 			args = append(args, "--", ch.Path)
 		}
@@ -311,7 +326,7 @@ func (a *app) showGitDiff(ch git.Change, staged bool) {
 		}
 		patches, parseErr := editor.ParsePatch(string(out))
 		a.post(func() {
-			if a.gen != gen || a.git.diffSeq != seq {
+			if a.gen != gen || a.git.diffSeq != seq || a.layout.find(target) == nil {
 				return
 			}
 			if err != nil {
@@ -322,10 +337,18 @@ func (a *app) showGitDiff(ch git.Change, staged bool) {
 				a.note("No text diff available for "+ch.Path, true)
 				return
 			}
-			d := &editor.DiffState{Theme: a.edTheme, FitContent: true}
-			a.applyDiffPrefs(d)
-			d.SetPatch(patches[0])
-			a.git.diff, a.git.diffName, a.git.diffStaged = d, ch.Path, staged
+			v := a.newGitDiffTab(patches[0], ch.Path, staged)
+			key := diffTab(ch.Path, staged)
+			if placement != sideNone {
+				target = a.splitBeside(target, placement)
+				at = 0
+			}
+			if target.diffs == nil {
+				target.diffs = map[string]*gitDiffTab{}
+			}
+			target.diffs[key] = v
+			target.addTab(key, at)
+			a.activateIn(target, key)
 		})
 	}()
 }
@@ -396,13 +419,14 @@ func (a *app) gitRow(c *ui.Context, ch git.Change, staged bool) {
 	}
 	container := ui.Row(c.Key(fmt.Sprintf("%t:%s", staged, ch.Path))).FillWidth().Padding(1, 13).Gap(2).Radius(4).AlignItems(ui.Center)
 	hovered := container.Hovered()
-	if a.git.diff != nil && a.git.diffName == ch.Path && a.git.diffStaged == staged {
+	if a.focus.active == diffTab(ch.Path, staged) {
 		container.Background(colors(c).selectedRow)
 	} else if hovered {
 		container.Background(colors(c).pill)
 	}
 	container.Children(func() {
 		row := ui.ButtonBase(c).Label(label+" diff: "+ch.Path).Tooltip(ch.Path).Grow(1).Padding(4, 4).Radius(4)
+		row.Drag(&tabDrag{change: &ch, staged: staged})
 		row.Children(func() {
 			ui.Row(c).FillWidth().Gap(6).AlignItems(ui.Center).Children(func() {
 				fileIcon(c, filepath.Base(ch.Path), 15)
@@ -445,29 +469,5 @@ func (a *app) gitRow(c *ui.Context, ch git.Change, staged bool) {
 			status = 'U'
 		}
 		ui.Text(c, string(status)).FontSize(11).TextColor(a.gitStatusColor(status)).Padding(0, 4)
-	})
-}
-
-func (a *app) gitDiffView(c *ui.Context) {
-	ui.Column(c).Fill().Children(func() {
-		ui.Row(c).FillWidth().Padding(6, 10).Gap(8).AlignItems(ui.Center).BorderWidth(0, 0, 1, 0).BorderColor(colors(c).hairline).Children(func() {
-			fileIcon(c, filepath.Base(a.git.diffName), 16)
-			ui.Text(c, a.git.diffName).FontSize(12).SingleLine().Shrink(1)
-			kind := "Working Tree"
-			if a.git.diffStaged {
-				kind = "Staged"
-			}
-			ui.Text(c, kind).FontSize(11).TextColor(colors(c).muted)
-			ui.Box(c).Grow(1)
-			if glyphButton(c, icClose, "Close Diff", "Close Diff", false, false).Clicked() {
-				a.git.diff = nil
-				a.git.diffSeq++
-			}
-		})
-		if a.git.diff != nil {
-			ui.Scroll(c).Grow(1).FillWidth().Children(func() {
-				editor.DiffView(c, a.git.diff).FillWidth()
-			})
-		}
 	})
 }

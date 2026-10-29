@@ -16,13 +16,13 @@ import (
 
 func TestDiffFollowsEditorPreferences(t *testing.T) {
 	h := newHarness(t, "")
-	h.a.git.diff = &editor.DiffState{}
+	d := &editor.DiffState{}
+	h.a.focus.diffs = map[string]*gitDiffTab{"test": {state: d}}
 	h.a.cfg.FontFamily = "Test Mono"
 	h.a.cfg.FontSize = 21
 	h.a.cfg.SoftWrap = true
 	h.a.cfg.LineNumbers = int(editor.LineNumbersOff)
 	h.a.applyEditorPrefsAll()
-	d := h.a.git.diff
 	if d.Font.Family != "Test Mono" || d.Font.Size != 21 || !d.Wrap || !d.NoLineNumbers {
 		t.Fatalf("diff preferences: font=%+v wrap=%v no numbers=%v", d.Font, d.Wrap, d.NoLineNumbers)
 	}
@@ -32,6 +32,179 @@ func TestDiffFollowsEditorPreferences(t *testing.T) {
 	h.a.applyEditorPrefsAll()
 	if d.Font.Size != 12 || d.Wrap || d.NoLineNumbers {
 		t.Fatalf("updated preferences: %+v", d.Font)
+	}
+}
+
+func TestGitGutterKeepsTextPositionWhenBaseChanges(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		numbers   editor.LineNumbers
+		noFolding bool
+	}{{"default", editor.LineNumbersOn, false}, {"no numbers or folding", editor.LineNumbersOff, true}} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := writeTree(t, map[string]string{"file.txt": "example\n"})
+			h := newHarness(t, root)
+			d := h.open("file.txt")
+			st := h.ed(d)
+			st.LineNumbers, st.NoFolding = tc.numbers, tc.noFolding
+			h.a.focusEditor = st
+			h.tt.Frame()
+			before, ok := h.tt.TextCaret()
+			if !ok {
+				t.Fatal("editor caret missing")
+			}
+			st.DiffBase = editor.NewBuffer(d.buf.String())
+			h.tt.Frame()
+			after, ok := h.tt.TextCaret()
+			if !ok || before.X != after.X {
+				t.Fatalf("caret moved when base loaded: %v -> %v", before, after)
+			}
+			st.DiffBase = nil
+			h.tt.Frame()
+			last, ok := h.tt.TextCaret()
+			if !ok || last.X != before.X {
+				t.Fatalf("caret moved when base cleared: %v -> %v", before, last)
+			}
+		})
+	}
+}
+
+func TestGitChangePreviewScrollsUnderPointer(t *testing.T) {
+	root := writeTree(t, map[string]string{"file.txt": strings.Repeat("new line\n", 100)})
+	h := newHarness(t, root)
+	d := h.open("file.txt")
+	st := h.ed(d)
+	st.DiffBase = editor.NewBuffer(strings.Repeat("old line\n", 100))
+	h.a.showGitPeek(h.a.focus, d, st, 0)
+	h.tt.Frame()
+	peek := h.a.git.peek
+	if peek == nil {
+		t.Fatal("change preview missing")
+	}
+	r, ok := h.tt.Find("Git change preview")
+	if !ok || peek.scroll.MaxY <= 0 {
+		t.Fatalf("preview cannot scroll: %+v", peek.scroll)
+	}
+	h.tt.Scroll(r.X+r.W/2, r.Y+r.H/2, 0, 100)
+	h.tt.Frame()
+	if peek.scroll.Y <= 0 {
+		t.Fatal("wheel over change preview did not scroll it")
+	}
+}
+
+func TestGitDiffShowsWholeFile(t *testing.T) {
+	root := t.TempDir()
+	ctx := context.Background()
+	run := func(args ...string) {
+		t.Helper()
+		if out, err := git.Command(ctx, root, args...); err != nil {
+			t.Fatalf("git %v: %v (%s)", args, err, out)
+		}
+	}
+	run("init", "-q")
+	run("config", "user.name", "Test")
+	run("config", "user.email", "test@example.com")
+	path := filepath.Join(root, "file.txt")
+	base := "first line\n" + strings.Repeat("unchanged\n", 20) + "old middle\n" + strings.Repeat("unchanged\n", 20) + "last line\n"
+	staged := strings.Replace(base, "old middle", "staged middle", 1)
+	working := strings.Replace(staged, "staged middle", "working middle", 1)
+	write := func(s string) {
+		t.Helper()
+		if err := os.WriteFile(path, []byte(s), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write(base)
+	run("add", "--", "file.txt")
+	run("commit", "-qm", "initial")
+	write(staged)
+	run("add", "--", "file.txt")
+	write(working)
+	h := newHarness(t, root)
+	h.a.refreshGit()
+	h.settle(func() bool { return h.a.git.root != "" })
+	ch := git.Change{Path: "file.txt", Index: 'M', Work: 'M'}
+	for _, tc := range []struct {
+		staged   bool
+		old, new string
+	}{{true, base, staged}, {false, staged, working}} {
+		key := diffTab(ch.Path, tc.staged)
+		h.a.showGitDiff(ch, tc.staged)
+		h.settle(func() bool { return h.a.focus.diffs[key] != nil })
+		d := h.a.focus.diffs[key].state
+		if d.FitContent {
+			t.Fatal("diff must use its shared scroll")
+		}
+		if d.Old.String() != strings.TrimSuffix(tc.old, "\n") || d.New.String() != strings.TrimSuffix(tc.new, "\n") {
+			t.Fatalf("staged=%v: diff omitted file content", tc.staged)
+		}
+		if pos := d.CursorPos(); pos.Line != 21 {
+			t.Fatalf("staged=%v: initial cursor at %v, want first change", tc.staged, pos)
+		}
+	}
+	g := h.a.focus
+	key := g.active
+	h.a.splitActive(sideRight)
+	other := h.a.focus
+	if other == g || other.diffs[key] == nil || other.diffs[key].state == g.diffs[key].state {
+		t.Fatal("splitting a diff did not create an independent view")
+	}
+	h.a.moveTab(other, key, g, sideNone, len(g.order))
+	if h.a.focus != g || !g.has(key) || len(h.a.groups()) != 1 {
+		t.Fatal("moving a diff back did not merge the groups")
+	}
+	h.tt.Frame()
+	h.a.closeTab(g, key)
+	if g.has(key) || g.diffs[key] != nil {
+		t.Fatal("closing the diff left its tab or view behind")
+	}
+	h.tt.Frame()
+	if _, ok := h.tt.Find("Open files"); ok {
+		t.Fatal("single diff unnecessarily shows a tab bar")
+	}
+	if _, ok := h.tt.Find("Close file.txt (Staged)"); !ok {
+		t.Fatal("single diff is missing its close control")
+	}
+}
+
+func TestDragGitDiffFromSidebar(t *testing.T) {
+	root := t.TempDir()
+	run := func(args ...string) {
+		t.Helper()
+		if out, err := git.Command(context.Background(), root, args...); err != nil {
+			t.Fatalf("git %v: %v (%s)", args, err, out)
+		}
+	}
+	run("init", "-q")
+	run("config", "user.name", "Test")
+	run("config", "user.email", "test@example.com")
+	path := filepath.Join(root, "file.txt")
+	if err := os.WriteFile(path, []byte("old\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	run("add", "file.txt")
+	run("commit", "-qm", "initial")
+	if err := os.WriteFile(path, []byte("new\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	h := newHarness(t, root)
+	h.a.navigator = navGit
+	h.a.refreshGit()
+	h.settle(func() bool { return h.a.git.root != "" && !h.a.git.loading })
+	h.open("file.txt")
+	h.tt.Frame()
+	r, ok := h.tt.Find("Unstaged diff: file.txt")
+	if !ok {
+		t.Fatal("Git row missing")
+	}
+	h.tt.Press(r.X+20, r.Y+r.H/2)
+	h.tt.Move(r.X+50, r.Y+r.H/2)
+	h.tt.Move(harnessWidth-30, harnessHeight/2)
+	h.tt.Release(harnessWidth-30, harnessHeight/2)
+	key := diffTab("file.txt", false)
+	h.settle(func() bool { return h.a.focus.diffs[key] != nil })
+	if len(h.a.groups()) != 2 || h.a.focus.active != key {
+		t.Fatalf("drag did not open a diff beside the editor: groups=%d", len(h.a.groups()))
 	}
 }
 

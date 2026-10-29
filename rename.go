@@ -126,15 +126,21 @@ func (a *app) renamed(old, dst string) {
 			for i, p := range g.order {
 				if p == path {
 					g.order[i] = next
+				} else if p == markdownTab(path) {
+					g.order[i] = markdownTab(next)
 				}
 			}
 			for i, p := range g.mru {
 				if p == path {
 					g.mru[i] = next
+				} else if p == markdownTab(path) {
+					g.mru[i] = markdownTab(next)
 				}
 			}
 			if g.active == path {
 				g.active = next
+			} else if g.active == markdownTab(path) {
+				g.active = markdownTab(next)
 			}
 			if g.preview == path {
 				g.preview = next

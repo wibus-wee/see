@@ -48,3 +48,27 @@ func TestDiffScrollOverHunkHeader(t *testing.T) {
 		t.Fatalf("scroll over code: before=%+v after=%+v visible=%v", codeBefore, next, ok)
 	}
 }
+
+func TestDiffHorizontalScrollMovesBothSides(t *testing.T) {
+	line := strings.Repeat("abcdefghij", 30)
+	d := &editor.DiffState{Old: editor.NewBuffer(line + "\nold"), New: editor.NewBuffer(line + "\nnew"), ExpandUnchanged: true}
+	tt := ui.NewTester(func(c *ui.Context) { editor.DiffView(c, d).Fill() }, 700, 300)
+	tt.Frame()
+	before := tt.Image()
+	tt.Scroll(200, 10, 100, 0)
+	tt.Frame()
+	after := tt.Image()
+	for _, x := range []int{50, 400} {
+		changed := 0
+		for y := 0; y < 20; y++ {
+			for dx := 0; dx < 250; dx++ {
+				if before.At(x+dx, y) != after.At(x+dx, y) {
+					changed++
+				}
+			}
+		}
+		if changed == 0 {
+			t.Fatalf("horizontal scroll did not move the side at x=%d", x)
+		}
+	}
+}

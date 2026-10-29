@@ -537,9 +537,16 @@ func TestSeveralDefinitions(t *testing.T) {
 	}
 	a := h.open("a.go")
 	h.ed(a).OnDefinition(at(a, "名字()"))
-	h.settle(func() bool { return h.a.choices != nil })
-	if !h.tt.HasText("2 definitions") || !h.tt.HasText("b/b.go:4") {
+	h.settle(func() bool { return h.a.choices != nil && h.a.choices.buffers != nil })
+	if !h.tt.HasText("2 definitions") {
 		t.Fatalf("texts %q", h.tt.Texts())
+	}
+	if _, ok := h.tt.Find("Close Definitions Preview"); !ok {
+		t.Fatal("definition preview is missing")
+	}
+	h.click("a.go:5")
+	if h.a.choices == nil || h.a.choices.selected != 1 || h.a.choices.previewEditor == nil {
+		t.Fatal("selecting a definition did not show its preview")
 	}
 	h.click("a.go:5")
 	if h.a.choices != nil || h.a.activePath() != a.path || h.ed(a).CursorPos() != (editor.Pos{Line: 4, Col: 5}) {

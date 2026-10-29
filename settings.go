@@ -98,9 +98,9 @@ func (a *app) applyEditorPrefsAll() {
 		for _, st := range g.eds {
 			a.applyEditorPrefs(st)
 		}
-	}
-	if a.git.diff != nil {
-		a.applyDiffPrefs(a.git.diff)
+		for _, v := range g.diffs {
+			a.applyDiffPrefs(v.state)
+		}
 	}
 }
 

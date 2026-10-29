@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
@@ -24,6 +26,7 @@ type group struct {
 	hexPreview      map[string]bool
 	hexLists        map[string]*ui.ListState
 	hexControls     map[string]*hexControl
+	diffs           map[string]*gitDiffTab
 	tabSel          int
 	relatedHandle   ui.Handle
 	relatedBounds   ui.Rect
@@ -47,6 +50,18 @@ type goTo struct {
 }
 
 func (g *group) has(path string) bool { return slices.Contains(g.order, path) }
+
+const markdownTabPrefix = "\x00preview:markdown:"
+const diffTabPrefix = "\x00diff:"
+
+func markdownTab(path string) string { return markdownTabPrefix + path }
+func isMarkdownTab(tab string) bool  { return strings.HasPrefix(tab, markdownTabPrefix) }
+func isDiffTab(tab string) bool      { return strings.HasPrefix(tab, diffTabPrefix) }
+func diffTab(path string, staged bool) string {
+	return fmt.Sprintf("%s%t:%s", diffTabPrefix, staged, path)
+}
+func tabPath(tab string) string               { return strings.TrimPrefix(tab, markdownTabPrefix) }
+func (g *group) hasDocument(path string) bool { return g.has(path) || g.has(markdownTab(path)) }
 
 // side is where a new group goes beside another.
 type side int
@@ -175,7 +190,9 @@ func (a *app) activateIn(g *group, path string) {
 	g.active = path
 	g.mru = slices.DeleteFunc(g.mru, func(p string) bool { return p == path })
 	g.mru = append(g.mru, path)
-	a.revealInTree(path)
+	if !isDiffTab(path) {
+		a.revealInTree(tabPath(path))
+	}
 	a.saveConfigSoon()
 }
 
@@ -185,10 +202,14 @@ func (a *app) closeTab(g *group, path string) {
 	if !g.has(path) {
 		return
 	}
-	if d := a.docs[path]; d != nil && d.buf != nil && d.buf.Modified() {
+	docPath := tabPath(path)
+	if isDiffTab(path) {
+		delete(g.diffs, path)
+	}
+	if d := a.docs[docPath]; d != nil && d.buf != nil && d.buf.Modified() {
 		last := true
 		for _, other := range a.groups() {
-			if other != g && other.has(path) {
+			if (other != g && other.hasDocument(docPath)) || (other == g && ((path != docPath && other.has(docPath)) || (path == docPath && other.has(markdownTab(docPath))))) {
 				last = false
 				break
 			}
@@ -202,27 +223,29 @@ func (a *app) closeTab(g *group, path string) {
 	}
 	g.order = slices.DeleteFunc(g.order, func(p string) bool { return p == path })
 	g.mru = slices.DeleteFunc(g.mru, func(p string) bool { return p == path })
-	delete(g.eds, path)
-	delete(g.pending, path)
-	delete(g.markdownPreview, path)
-	delete(g.hexPreview, path)
-	delete(g.hexLists, path)
-	if v := g.hexControls[path]; v != nil && v.cancel != nil {
-		v.cancel()
+	if !g.hasDocument(docPath) {
+		delete(g.eds, docPath)
+		delete(g.pending, docPath)
+		delete(g.markdownPreview, docPath)
+		delete(g.hexPreview, docPath)
+		delete(g.hexLists, docPath)
+		if v := g.hexControls[docPath]; v != nil && v.cancel != nil {
+			v.cancel()
+		}
+		delete(g.hexControls, docPath)
 	}
-	delete(g.hexControls, path)
 	if g.active == path {
 		g.active = ""
 		if n := len(g.mru); n > 0 {
 			g.active = g.mru[n-1]
 		}
 	}
-	a.releaseIfUnused(path)
+	a.releaseIfUnused(docPath)
 	if len(g.order) == 0 && len(a.groups()) > 1 {
 		a.removeGroup(g)
 	}
-	if a.focus == g && g.active != "" {
-		a.revealInTree(g.active)
+	if a.focus == g && g.active != "" && !isDiffTab(g.active) {
+		a.revealInTree(tabPath(g.active))
 	}
 	a.saveConfigSoon()
 }
@@ -230,7 +253,7 @@ func (a *app) closeTab(g *group, path string) {
 // releaseIfUnused lets a document go once no group shows it.
 func (a *app) releaseIfUnused(path string) {
 	for _, g := range a.groups() {
-		if g.has(path) {
+		if g.hasDocument(path) {
 			return
 		}
 	}
@@ -271,6 +294,53 @@ func (a *app) moveTab(from *group, path string, to *group, s side, at int) {
 		a.activateIn(to, path)
 		return
 	}
+	if isDiffTab(path) {
+		if to.diffs == nil {
+			to.diffs = map[string]*gitDiffTab{}
+		}
+		if !to.has(path) {
+			to.diffs[path] = from.diffs[path]
+		}
+		to.addTab(path, at)
+		delete(from.diffs, path)
+		from.order = slices.DeleteFunc(from.order, func(p string) bool { return p == path })
+		from.mru = slices.DeleteFunc(from.mru, func(p string) bool { return p == path })
+		if from.active == path {
+			from.active = ""
+			if n := len(from.mru); n > 0 {
+				from.active = from.mru[n-1]
+			}
+		}
+		if len(from.order) == 0 && len(a.groups()) > 1 {
+			a.removeGroup(from)
+		}
+		a.activateIn(to, path)
+		return
+	}
+	if isMarkdownTab(path) {
+		underlying := tabPath(path)
+		to.addTab(path, at)
+		if d := a.docs[underlying]; d != nil {
+			a.showLoaded(to, d)
+		}
+		from.order = slices.DeleteFunc(from.order, func(p string) bool { return p == path })
+		from.mru = slices.DeleteFunc(from.mru, func(p string) bool { return p == path })
+		if !from.hasDocument(underlying) {
+			delete(from.eds, underlying)
+			delete(from.pending, underlying)
+		}
+		if from.active == path {
+			from.active = ""
+			if n := len(from.mru); n > 0 {
+				from.active = from.mru[n-1]
+			}
+		}
+		if len(from.order) == 0 && len(a.groups()) > 1 {
+			a.removeGroup(from)
+		}
+		a.activateIn(to, path)
+		return
+	}
 	ed := from.eds[path]
 	previewMarkdown := from.markdownPreview[path]
 	previewHex := from.hexPreview[path]
@@ -307,7 +377,13 @@ func (a *app) moveTab(from *group, path string, to *group, s side, at int) {
 		to.hexControls[path] = hexCtl
 	}
 	if ed != nil {
-		to.eds[path] = ed
+		if from.has(markdownTab(path)) && !alreadyOpen {
+			if d := a.docs[path]; d != nil {
+				to.eds[path] = a.newEditor(to, d)
+			}
+		} else {
+			to.eds[path] = ed
+		}
 	}
 	if hasPend {
 		to.pending[path] = pend
@@ -315,7 +391,9 @@ func (a *app) moveTab(from *group, path string, to *group, s side, at int) {
 	// Close it in from without letting the document go.
 	from.order = slices.DeleteFunc(from.order, func(p string) bool { return p == path })
 	from.mru = slices.DeleteFunc(from.mru, func(p string) bool { return p == path })
-	delete(from.eds, path)
+	if !from.hasDocument(path) {
+		delete(from.eds, path)
+	}
 	delete(from.pending, path)
 	delete(from.markdownPreview, path)
 	delete(from.hexPreview, path)
@@ -345,6 +423,20 @@ func (a *app) splitActive(s side) {
 		return
 	}
 	ng.addTab(path, 0)
+	if isDiffTab(path) {
+		if v := g.diffs[path]; v != nil {
+			ng.diffs = map[string]*gitDiffTab{path: a.newGitDiffTab(v.patch, v.name, v.staged)}
+		}
+		a.activateIn(ng, path)
+		return
+	}
+	if isMarkdownTab(path) {
+		a.activateIn(ng, path)
+		if d := a.docs[tabPath(path)]; d != nil {
+			a.showLoaded(ng, d)
+		}
+		return
+	}
 	if ed := g.eds[path]; ed != nil {
 		pos := ed.CursorPos()
 		ng.pending[path] = goTo{pos: &pos}

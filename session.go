@@ -37,14 +37,15 @@ func (a *app) resizedWorkspace(width, height int) {
 }
 
 type sessionLayout struct {
-	Tabs     []sessionTab   `json:"tabs,omitempty"`
-	Active   string         `json:"active,omitempty"`
-	Preview  string         `json:"preview,omitempty"`
-	Focused  bool           `json:"focused,omitempty"`
-	Vertical bool           `json:"vertical,omitempty"`
-	Percent  float32        `json:"percent,omitempty"`
-	First    *sessionLayout `json:"first,omitempty"`
-	Second   *sessionLayout `json:"second,omitempty"`
+	Tabs          []sessionTab   `json:"tabs,omitempty"`
+	Active        string         `json:"active,omitempty"`
+	ActivePreview bool           `json:"activePreview,omitempty"`
+	Preview       string         `json:"preview,omitempty"`
+	Focused       bool           `json:"focused,omitempty"`
+	Vertical      bool           `json:"vertical,omitempty"`
+	Percent       float32        `json:"percent,omitempty"`
+	First         *sessionLayout `json:"first,omitempty"`
+	Second        *sessionLayout `json:"second,omitempty"`
 }
 
 type sessionTab struct {
@@ -54,6 +55,7 @@ type sessionTab struct {
 	Line            int    `json:"line,omitempty"`
 	Column          int    `json:"column,omitempty"`
 	MarkdownPreview bool   `json:"markdownPreview,omitempty"`
+	PreviewTab      bool   `json:"previewTab,omitempty"`
 }
 
 func (a *app) captureSession() {
@@ -66,9 +68,16 @@ func (a *app) captureSession() {
 			return &sessionLayout{Vertical: n.vertical, Percent: n.pct, First: snapshot(n.a), Second: snapshot(n.b)}
 		}
 		g := n.g
-		s := &sessionLayout{Active: g.active, Preview: g.preview, Focused: g == a.focus}
-		for _, path := range g.order {
-			tab := sessionTab{Path: path, MarkdownPreview: g.markdownPreview[path]}
+		s := &sessionLayout{Active: tabPath(g.active), ActivePreview: isMarkdownTab(g.active), Preview: g.preview, Focused: g == a.focus}
+		if isDiffTab(g.active) {
+			s.Active = ""
+		}
+		for _, key := range g.order {
+			if isDiffTab(key) {
+				continue
+			}
+			path := tabPath(key)
+			tab := sessionTab{Path: path, MarkdownPreview: !isMarkdownTab(key) && g.markdownPreview[path], PreviewTab: isMarkdownTab(key)}
 			if d := a.docs[path]; d != nil && d.untitled {
 				tab.Untitled, tab.Name = true, d.name
 			}
@@ -119,7 +128,11 @@ func (a *app) restoreSession() {
 		g := a.newGroup()
 		n := &layout{g: g, parent: parent}
 		for _, tab := range saved.Tabs {
-			if !filepath.IsAbs(tab.Path) || g.has(tab.Path) {
+			key := tab.Path
+			if tab.PreviewTab {
+				key = markdownTab(tab.Path)
+			}
+			if !filepath.IsAbs(tab.Path) || g.has(key) || (tab.PreviewTab && !isMarkdown(tab.Path)) {
 				continue
 			}
 			pos := editor.Pos{Line: max(tab.Line, 0), Col: max(tab.Column, 0)}
@@ -134,7 +147,19 @@ func (a *app) restoreSession() {
 				a.docs[tab.Path] = d
 				a.loadDoc(d)
 			}
-			a.openIn(g, tab.Path, goTo{pos: &pos})
+			if tab.PreviewTab {
+				d := a.docs[tab.Path]
+				if d == nil {
+					d = &doc{path: tab.Path, uri: uriOf(tab.Path), name: filepath.Base(tab.Path)}
+					a.docs[tab.Path] = d
+					a.loadDoc(d)
+				}
+				g.addTab(key, len(g.order))
+				a.activateIn(g, key)
+				a.showLoaded(g, d)
+			} else {
+				a.openIn(g, tab.Path, goTo{pos: &pos})
+			}
 			if tab.MarkdownPreview {
 				if g.markdownPreview == nil {
 					g.markdownPreview = map[string]bool{}
@@ -142,8 +167,12 @@ func (a *app) restoreSession() {
 				g.markdownPreview[tab.Path] = true
 			}
 		}
-		if g.has(saved.Active) {
-			g.active = saved.Active
+		active := saved.Active
+		if saved.ActivePreview {
+			active = markdownTab(active)
+		}
+		if g.has(active) {
+			g.active = active
 		}
 		if g.has(saved.Preview) {
 			g.preview = saved.Preview
@@ -164,7 +193,7 @@ func (a *app) restoreSession() {
 		}
 		a.focus = focused
 		if focused.active != "" {
-			a.revealInTree(focused.active)
+			a.revealInTree(tabPath(focused.active))
 		}
 	}
 }
