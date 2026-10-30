@@ -99,32 +99,20 @@ func installTypeScriptServer(ctx context.Context, dest string) error {
 }
 
 func (a *app) installManagedTypeScript(services ui.Services) {
-	if a.serverJob {
-		return
-	}
-	a.serverJob, a.serverJobErr = true, ""
-	dest := managedTypeScriptDir()
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-		defer cancel()
-		err := installTypeScriptServer(ctx, dest)
-		a.post(func() {
-			a.serverJob = false
-			if err != nil {
-				a.serverJobErr = err.Error()
-			} else {
-				a.retryTypeScriptLSP()
-			}
-			services.Invalidate()
-		})
-	}()
+	a.runInstallJob("typescript", services, func(ctx context.Context) error {
+		return installTypeScriptServer(ctx, managedTypeScriptDir())
+	}, func() {
+		if a.serverJobErr == "" {
+			a.retryTypeScriptLSP()
+		}
+	})
 }
 
 func (a *app) removeManagedTypeScript(services ui.Services) {
 	if a.serverJob {
 		return
 	}
-	a.serverJob, a.serverJobErr = true, ""
+	a.serverJob, a.serverJobName, a.serverJobErr = true, "typescript", ""
 	old := a.tsLSP
 	a.tsEpoch++
 	a.tsLSP = nil
