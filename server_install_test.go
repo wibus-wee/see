@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+
+	"see/internal/shellpath"
 )
 
 func TestInstallTypeScriptServerUsesPrivateDirectory(t *testing.T) {
@@ -111,5 +113,34 @@ func TestManagedTypeScriptPersistsAcrossAppInstances(t *testing.T) {
 	defer second.a.closeWorkspace()
 	if got, err := findTypeScriptServer(root); err != nil || got != managedTypeScriptEntry() {
 		t.Fatalf("after reopening: path %q, error %v", got, err)
+	}
+}
+
+func TestInstallWaitsForShellPath(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell fixture")
+	}
+	dir := t.TempDir()
+	bun := filepath.Join(dir, "bun")
+	if err := os.WriteFile(bun, []byte("#!/bin/sh\nmkdir -p node_modules/tsrs/bin\nprintf server > node_modules/tsrs/bin/tsrs\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", "/usr/bin:/bin")
+	ready := make(chan struct{})
+	t.Cleanup(shellpath.Override(ready))
+	result := make(chan error, 1)
+	dest := filepath.Join(t.TempDir(), "tsrs")
+	go func() { result <- installTypeScriptServer(context.Background(), dest) }()
+	select {
+	case err := <-result:
+		t.Fatalf("installation did not wait: %v", err)
+	case <-time.After(30 * time.Millisecond):
+	}
+	if err := os.Setenv("PATH", dir+string(os.PathListSeparator)+"/usr/bin:/bin"); err != nil {
+		t.Fatal(err)
+	}
+	close(ready)
+	if err := <-result; err != nil {
+		t.Fatal(err)
 	}
 }

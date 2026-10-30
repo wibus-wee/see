@@ -8,6 +8,7 @@ import (
 	"unicode/utf8"
 
 	"see/internal/nav"
+	"see/internal/workspace"
 
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
@@ -19,7 +20,7 @@ type renamePrompt struct {
 }
 
 func (a *app) beginRename(path string) {
-	if path == a.root || !within(a.root, path) || isPlaceholder(path) {
+	if path == a.root || !workspace.Within(a.root, path) || isPlaceholder(path) {
 		return
 	}
 	a.renameEntry = &renamePrompt{path: path, name: filepath.Base(path)}
@@ -93,14 +94,14 @@ func (a *app) submitRename(q *renamePrompt) {
 func (a *app) renamed(old, dst string) {
 	for _, entries := range [][]nav.Entry{a.hist.Back, a.hist.Forward} {
 		for i := range entries {
-			if within(old, entries[i].Path) {
+			if workspace.Within(old, entries[i].Path) {
 				rel, _ := filepath.Rel(old, entries[i].Path)
 				entries[i].Path = filepath.Join(dst, rel)
 			}
 		}
 	}
 	for path, d := range a.docs {
-		if !within(old, path) {
+		if !workspace.Within(old, path) {
 			continue
 		}
 		rel, _ := filepath.Rel(old, path)
@@ -189,7 +190,7 @@ func (a *app) renamed(old, dst string) {
 		}
 	}
 	for dir := range a.dirs {
-		if within(old, dir) {
+		if workspace.Within(old, dir) {
 			delete(a.dirs, dir)
 		}
 	}

@@ -18,6 +18,7 @@ import (
 	"see/internal/lsp"
 
 	"see/internal/langserver"
+	"see/internal/workspace"
 )
 
 func init() { watchFiles = nil } // tests feed file events themselves
@@ -717,13 +718,13 @@ func TestConfigRoundTrip(t *testing.T) {
 }
 
 func TestDocPath(t *testing.T) {
-	if got := docPath("/tmp/w", "/private/tmp/w", "/private/tmp/w/a/b.go"); got != filepath.Clean("/tmp/w/a/b.go") {
+	if got := workspace.DocPath("/tmp/w", "/private/tmp/w", "/private/tmp/w/a/b.go"); got != filepath.Clean("/tmp/w/a/b.go") {
 		t.Errorf("got %q", got)
 	}
-	if got := docPath("/tmp/w", "/private/tmp/w", "/usr/lib/go/src/fmt/print.go"); got != "/usr/lib/go/src/fmt/print.go" {
+	if got := workspace.DocPath("/tmp/w", "/private/tmp/w", "/usr/lib/go/src/fmt/print.go"); got != "/usr/lib/go/src/fmt/print.go" {
 		t.Errorf("got %q", got)
 	}
-	if within("/a/b", "/a/bc") || !within("/a/b", "/a/b/c") || within("/a/b", "/a") {
+	if workspace.Within("/a/b", "/a/bc") || !workspace.Within("/a/b", "/a/b/c") || workspace.Within("/a/b", "/a") {
 		t.Error("within")
 	}
 }

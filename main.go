@@ -15,6 +15,9 @@ import (
 	"github.com/egoist/mygo/plugins/updater"
 	"github.com/egoist/mygo/plugins/updater/native"
 	"github.com/egoist/mygo/ui"
+
+	"see/internal/shellpath"
+	"see/internal/workspace"
 )
 
 func main() {
@@ -25,7 +28,7 @@ func main() {
 		}
 		return
 	}
-	startShellPath()
+	shellpath.Start()
 	mygo.Use(native.Plugin)
 	cfg := loadConfig(configPath())
 	a := newApp(cfg)
@@ -105,7 +108,7 @@ func main() {
 			a.showWelcome = false
 			wins.sync(nil)
 			if path != "" {
-				if root, err := canonicalRoot(path); err == nil {
+				if root, err := workspace.CanonicalRoot(path); err == nil {
 					for _, p := range projects {
 						if p.app.root == root {
 							p.win.Show()
@@ -188,9 +191,9 @@ func main() {
 		a.host = host
 
 		a.post = func(fn func()) { win.Update(func() { fn(); wins.sync(nil) }) }
-		if shellPathReady != nil {
+		if ready := shellpath.Ready(); ready != nil {
 			go func() {
-				<-shellPathReady
+				<-ready
 				win.Update(func() {
 					for _, project := range projects {
 						project.app.host.refreshSettings()

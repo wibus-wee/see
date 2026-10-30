@@ -494,7 +494,7 @@ func (a *app) relatedView(c *ui.Context, ch *defChoices) {
 				ui.Column(c).FillWidth().Children(func() {
 					for _, path := range paths {
 						indices := groups[path]
-						file := ui.ButtonBase(c.Key(path)).FillWidth().Padding(5, 8).Gap(6).Label("Toggle " + ch.title + " in " + relPath(a.root, path)).Tooltip(path)
+						file := ui.ButtonBase(c.Key(path)).FillWidth().Padding(5, 8).Gap(6).Label("Toggle " + ch.title + " in " + workspace.RelPath(a.root, path)).Tooltip(path)
 						if file.Hovered() {
 							file.Background(colors(c).pill)
 						}
@@ -505,7 +505,7 @@ func (a *app) relatedView(c *ui.Context, ch *defChoices) {
 							}
 							ui.Text(c, arrow).TextColor(colors(c).muted)
 							ui.Text(c, filepath.Base(path)).FontSize(12).SingleLine().Shrink(1)
-							ui.Text(c, relPath(a.root, filepath.Dir(path))).FontSize(11).TextColor(colors(c).muted).SingleLine().Grow(1).Shrink(1)
+							ui.Text(c, workspace.RelPath(a.root, filepath.Dir(path))).FontSize(11).TextColor(colors(c).muted).SingleLine().Grow(1).Shrink(1)
 							ui.Text(c, fmt.Sprint(len(indices))).FontSize(11).TextColor(colors(c).muted)
 						})
 						file.OnClick(func() { ch.collapsed[path] = !ch.collapsed[path] })
@@ -514,7 +514,7 @@ func (a *app) relatedView(c *ui.Context, ch *defChoices) {
 						}
 						for _, i := range indices {
 							t := ch.locs[i]
-							label := fmt.Sprintf("%s:%d", relPath(a.root, t.path), t.pos.Line+1)
+							label := fmt.Sprintf("%s:%d", workspace.RelPath(a.root, t.path), t.pos.Line+1)
 							text := t.name
 							if n := t.pos.Line - t.previewStart; n >= 0 && n < len(t.preview) {
 								text = strings.TrimSpace(t.preview[n])

@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/egoist/mygo/ui"
+
+	"see/internal/workspace"
 )
 
 // The welcome window, after Xcode's: the app's icon, name and actions on
@@ -161,7 +163,7 @@ func (a *app) openRecent(p string) {
 // tildePath shows a path in the home directory with ~.
 func tildePath(p string) string {
 	home, err := os.UserHomeDir()
-	if err != nil || home == "" || !within(home, p) {
+	if err != nil || home == "" || !workspace.Within(home, p) {
 		return p
 	}
 	if p == home {

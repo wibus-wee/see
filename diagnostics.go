@@ -6,6 +6,7 @@ import (
 	"see/internal/uri"
 
 	"see/internal/langserver"
+	"see/internal/workspace"
 )
 
 // diagnosticsHandler shows a server's diagnostics in the editors of the
@@ -38,7 +39,7 @@ func (a *app) diagnosticsHandler(gen int) func(*langserver.Server, string, edito
 			if a.gen != gen || a.serverFor(path) != m {
 				return
 			}
-			path = docPath(a.root, a.realRoot, path)
+			path = workspace.DocPath(a.root, a.realRoot, path)
 			d := a.docs[path]
 			if d == nil || d.buf == nil || d.buf.Version() != snap.Version() {
 				return

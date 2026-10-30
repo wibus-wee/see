@@ -85,12 +85,12 @@ func (a *app) applyEvents(evs []mygo.FileEvent) {
 			// Something under p changed: read again what is loaded there,
 			// and the documents in it.
 			for dir := range a.dirs {
-				if within(p, dir) {
+				if workspace.Within(p, dir) {
 					dirs[dir] = true
 				}
 			}
 			for _, d := range a.docs {
-				if within(p, d.path) {
+				if workspace.Within(p, d.path) {
 					a.reloadDoc(d)
 				}
 			}
@@ -126,7 +126,7 @@ func (a *app) applyEvents(evs []mygo.FileEvent) {
 // until the user closes them.
 func (a *app) removed(p string) {
 	for _, d := range a.docs {
-		if within(p, d.path) {
+		if workspace.Within(p, d.path) {
 			if d.buf != nil {
 				d.gone = true
 			} else {
@@ -137,7 +137,7 @@ func (a *app) removed(p string) {
 	// The folder itself and those under it: their rows go once their
 	// parent is read again.
 	for dir := range a.dirs {
-		if within(p, dir) {
+		if workspace.Within(p, dir) {
 			delete(a.dirs, dir)
 		}
 	}

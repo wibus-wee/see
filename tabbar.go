@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"github.com/egoist/mygo/ui"
+
+	"see/internal/workspace"
 )
 
 func (a *app) tabBar(c *ui.Context, g *group) {
@@ -62,7 +64,7 @@ func (a *app) tabBar(c *ui.Context, g *group) {
 			if d.untitled {
 				tab.Tooltip(d.name)
 			} else {
-				tab.Tooltip(relPath(a.root, path))
+				tab.Tooltip(workspace.RelPath(a.root, path))
 			}
 			tab.Children(func() {
 				// The close button shows on the left, as Xcode's, while the
@@ -167,7 +169,7 @@ func (a *app) jumpBar(c *ui.Context, g *group) {
 				a.findUsagesAt(false, ui.Point{X: g.relatedBounds.X, Y: g.relatedBounds.Y + g.relatedBounds.H}, true)
 			}
 		})
-		outside := !within(a.root, p)
+		outside := !workspace.Within(a.root, p)
 		if d := a.docs[p]; d != nil && d.untitled {
 			outside = false
 		}
@@ -178,7 +180,7 @@ func (a *app) jumpBar(c *ui.Context, g *group) {
 			ui.Text(c, filepath.Base(a.root)).FontSize(12).TextColor(colors(c).muted).SingleLine()
 		}
 		symbolIcon(c, icChevron, 9, colors(c).dim)
-		parts := strings.Split(relPath(a.root, p), "/")
+		parts := strings.Split(workspace.RelPath(a.root, p), "/")
 		if d := a.docs[p]; d != nil && d.untitled {
 			parts = []string{d.name}
 		} else if outside {

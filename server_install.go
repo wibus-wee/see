@@ -12,6 +12,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"see/internal/langserver"
+	"see/internal/shellpath"
 )
 
 // managedTypeScriptDir contains only See's TypeScript server installation.
@@ -51,7 +52,7 @@ func managedTypeScriptInstalled() bool {
 
 // installTypeScriptServer stages the packages before exposing an installation.
 func installTypeScriptServer(ctx context.Context, dest string) error {
-	if err := waitShellPath(ctx); err != nil {
+	if err := shellpath.Wait(ctx); err != nil {
 		return err
 	}
 	if dest == "" {

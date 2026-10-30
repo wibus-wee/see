@@ -8,6 +8,8 @@ import (
 
 	"github.com/egoist/mygo/plugins/glass"
 	"github.com/egoist/mygo/ui"
+
+	"see/internal/workspace"
 )
 
 // quickOpenPanel searches files, or commands when the query starts with >.
@@ -97,7 +99,7 @@ func (a *app) quickRow(c *ui.Context, i int) {
 		row.OnClick(func() { a.chooseQuick(i) })
 		row.Children(func() {
 			ui.Text(c, s.name).Grow(1).SingleLine()
-			ui.Text(c, fmt.Sprintf("%s:%d", relPath(a.root, s.target.path), s.target.pos.Line+1)).TextColor(colors(c).muted).SingleLine()
+			ui.Text(c, fmt.Sprintf("%s:%d", workspace.RelPath(a.root, s.target.path), s.target.pos.Line+1)).TextColor(colors(c).muted).SingleLine()
 		})
 		return
 	}

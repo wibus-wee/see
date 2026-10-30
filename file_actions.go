@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"github.com/egoist/mygo/ui"
+
+	"see/internal/workspace"
 )
 
 type entryPrompt struct {
@@ -17,12 +19,12 @@ type entryPrompt struct {
 }
 
 func (a *app) requestTrash(path string) {
-	if path == a.root || !within(a.root, path) || a.deleteConfirm != nil {
+	if path == a.root || !workspace.Within(a.root, path) || a.deleteConfirm != nil {
 		return
 	}
 	var dirty []*doc
 	for _, d := range a.dirtyDocs() {
-		if within(path, d.path) {
+		if workspace.Within(path, d.path) {
 			dirty = append(dirty, d)
 		}
 	}
@@ -232,7 +234,7 @@ func copyEntry(src, dst string) error {
 		if err != nil {
 			return err
 		}
-		if within(realSrc, realParent) {
+		if workspace.Within(realSrc, realParent) {
 			return fmt.Errorf("cannot copy a folder into itself")
 		}
 		if err = os.Mkdir(dst, info.Mode().Perm()); err != nil {

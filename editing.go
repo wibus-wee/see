@@ -233,7 +233,7 @@ func (a *app) saveUntitled(d *doc, done func(bool)) {
 				done(false)
 				return
 			}
-			path = docPath(a.root, a.realRoot, path)
+			path = workspace.DocPath(a.root, a.realRoot, path)
 			if a.docs[path] != nil {
 				d.saving = false
 				a.note("That file is already open.", true)

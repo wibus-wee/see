@@ -269,7 +269,7 @@ func (a *app) openFolderDialog() {
 // level of entries loads in the background, and nothing else is read
 // until the user opens it.
 func (a *app) openWorkspace(dir string) {
-	root, err := canonicalRoot(dir)
+	root, err := workspace.CanonicalRoot(dir)
 	if err != nil {
 		a.welcomeNote = fmt.Sprintf("Could not open %s: %v", dir, describeErr(err))
 		if errors.Is(err, fs.ErrNotExist) && slices.Contains(a.cfg.Recent, dir) {
@@ -526,10 +526,10 @@ func (a *app) refreshAll() {
 
 // revealInTree opens the directories above p and chooses its row.
 func (a *app) revealInTree(p string) {
-	if a.root == "" || !within(a.root, p) || p == a.root {
+	if a.root == "" || !workspace.Within(a.root, p) || p == a.root {
 		return
 	}
-	for dir := filepath.Dir(p); dir != a.root && within(a.root, dir); dir = filepath.Dir(dir) {
+	for dir := filepath.Dir(p); dir != a.root && workspace.Within(a.root, dir); dir = filepath.Dir(dir) {
 		a.tree.Open.Add(dir)
 	}
 	a.reveal = p
@@ -548,7 +548,7 @@ func (a *app) openIn(g *group, path string, to goTo) *doc {
 	a.term.maximized = false
 	a.git.diffSeq++
 	a.git.peek = nil
-	path = docPath(a.root, a.realRoot, path)
+	path = workspace.DocPath(a.root, a.realRoot, path)
 	d := a.docs[path]
 	if d == nil {
 		d = &doc{path: path, uri: uriOf(path), name: filepath.Base(path)}
@@ -890,7 +890,7 @@ func (a *app) userOpen(path string) {
 
 func (a *app) previewOpen(path string) {
 	g := a.focus
-	path = docPath(a.root, a.realRoot, path)
+	path = workspace.DocPath(a.root, a.realRoot, path)
 	if g.has(path) {
 		a.userActivateIn(g, path)
 		a.focusImage = ""
@@ -1117,7 +1117,7 @@ func describeErr(err error) string {
 		return "it does not exist"
 	case errors.Is(err, fs.ErrPermission):
 		return "permission denied"
-	case errors.Is(err, errNotDir):
+	case errors.Is(err, workspace.ErrNotDir):
 		return "it is not a folder"
 	case errors.Is(err, workspace.ErrNotRegular):
 		return "it is not a regular file"
@@ -1305,7 +1305,7 @@ func (a *app) loadRelatedPreviews(ch *defChoices) {
 	// Snapshots preserve unsaved edits without reading editor state in a worker.
 	snapshots := make(map[string]editor.Snapshot)
 	for _, t := range ch.locs {
-		path := docPath(a.root, a.realRoot, t.path)
+		path := workspace.DocPath(a.root, a.realRoot, t.path)
 		if d := a.docs[path]; d != nil && d.buf != nil {
 			snapshots[t.path] = d.buf.Snapshot()
 		}

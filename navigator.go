@@ -518,7 +518,7 @@ func (a *app) findRow(c *ui.Context, k findKey) {
 		ui.Row(c).Grow(1).Gap(6).AlignItems(ui.Center).Children(func() {
 			fileIcon(c, filepath.Base(k.path), 14)
 			ui.Text(c, filepath.Base(k.path)).Bold().SingleLine().Shrink(0)
-			if dir := filepath.Dir(relPath(a.root, k.path)); dir != "." {
+			if dir := filepath.Dir(workspace.RelPath(a.root, k.path)); dir != "." {
 				ui.Text(c, dir).FontSize(11).TextColor(colors(c).dim).SingleLine().Shrink(1)
 			}
 			ui.Box(c).Grow(1)

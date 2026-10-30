@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/egoist/mygo/ui"
+
+	"see/internal/workspace"
 )
 
 // treeFilter is the file tree's filter, as Xcode's navigator filter: the
@@ -82,7 +84,7 @@ func buildFilterTree(root string, files []string, query string) (map[string][]st
 	matches := 0
 	for _, rel := range files {
 		p := filepath.Join(root, filepath.FromSlash(rel))
-		if !within(root, p) || !holdsWords(relPath(root, p), words) {
+		if !workspace.Within(root, p) || !holdsWords(workspace.RelPath(root, p), words) {
 			continue
 		}
 		matches++
@@ -92,7 +94,7 @@ func buildFilterTree(root string, files []string, query string) (map[string][]st
 				seen[p] = true
 				tree[parent] = append(tree[parent], p)
 			}
-			if !within(root, parent) {
+			if !workspace.Within(root, parent) {
 				break
 			}
 			p = parent

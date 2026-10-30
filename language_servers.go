@@ -9,10 +9,12 @@ import (
 	"runtime"
 	"strings"
 
-	"see/internal/lsp"
-
 	"github.com/egoist/mygo/ui/editor"
+
 	"see/internal/langserver"
+	"see/internal/lsp"
+	"see/internal/shellpath"
+	"see/internal/workspace"
 )
 
 // errNoGopls is returned when no gopls is installed.
@@ -47,7 +49,7 @@ func findGopls(root string) (string, error) {
 		if !filepath.IsAbs(p) {
 			continue
 		}
-		if root != "" && within(root, p) {
+		if root != "" && workspace.Within(root, p) {
 			continue
 		}
 		if fi, err := os.Stat(p); err == nil && fi.Mode().IsRegular() {
@@ -60,7 +62,7 @@ func findGopls(root string) (string, error) {
 // startGopls is the langserver.Starter of the real gopls.
 func startGopls(logf func(string, ...any)) langserver.Starter {
 	return func(ctx context.Context, root string, onExit func(error)) (langserver.Client, error) {
-		if err := waitShellPath(ctx); err != nil {
+		if err := shellpath.Wait(ctx); err != nil {
 			return nil, err
 		}
 		path, err := findGopls(root)
@@ -139,7 +141,7 @@ func findTypeScriptServer(root string) (string, error) {
 	if r, err := filepath.EvalSymlinks(root); err == nil {
 		realRoot = r
 	}
-	if root != "" && (within(root, p) || within(realRoot, resolved)) {
+	if root != "" && (workspace.Within(root, p) || workspace.Within(realRoot, resolved)) {
 		return "", errNoTypeScriptServer
 	}
 	if fi, err := os.Stat(resolved); err != nil || !fi.Mode().IsRegular() {
@@ -150,7 +152,7 @@ func findTypeScriptServer(root string) (string, error) {
 
 func startTypeScriptServer(logf func(string, ...any)) langserver.Starter {
 	return func(ctx context.Context, root string, onExit func(error)) (langserver.Client, error) {
-		if err := waitShellPath(ctx); err != nil {
+		if err := shellpath.Wait(ctx); err != nil {
 			return nil, err
 		}
 		path, err := findTypeScriptServer(root)

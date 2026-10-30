@@ -11,6 +11,7 @@ import (
 	"github.com/egoist/mygo/ui/editor"
 
 	"see/internal/git"
+	"see/internal/workspace"
 )
 
 type gitState struct {
@@ -115,12 +116,12 @@ func (a *app) loadGitBase(d *doc) {
 		return
 	}
 	gitPath := path
-	if !within(root, gitPath) && a.realRoot != "" && within(a.root, path) {
+	if !workspace.Within(root, gitPath) && a.realRoot != "" && workspace.Within(a.root, path) {
 		if sub, err := filepath.Rel(a.root, path); err == nil {
 			gitPath = filepath.Join(a.realRoot, sub)
 		}
 	}
-	if !within(root, gitPath) {
+	if !workspace.Within(root, gitPath) {
 		return
 	}
 	rel, err := filepath.Rel(root, gitPath)
@@ -238,7 +239,7 @@ func (a *app) discardGitChange(ch git.Change) {
 	if a.git.busy || a.git.root == "" || a.deleteConfirm != nil {
 		return
 	}
-	path := docPath(a.root, a.realRoot, filepath.Join(a.git.root, filepath.FromSlash(ch.Path)))
+	path := workspace.DocPath(a.root, a.realRoot, filepath.Join(a.git.root, filepath.FromSlash(ch.Path)))
 	if d := a.docs[path]; d != nil && d.buf != nil && d.buf.Modified() {
 		a.note("Save or close the file's unsaved edits before discarding its Git changes.", true)
 		return
