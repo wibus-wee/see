@@ -17,6 +17,7 @@ func TestReadNewRepository(t *testing.T) {
 		}
 	}
 	run("init", "-q")
+	run("config", "commit.gpgsign", "false")
 	name := ":odd name\nfile"
 	if err := os.WriteFile(filepath.Join(root, name), []byte("hello\n"), 0600); err != nil {
 		t.Fatal(err)
@@ -34,6 +35,19 @@ func TestReadNewRepository(t *testing.T) {
 	_, _, changes, err = Read(ctx, root)
 	if err != nil || len(changes) != 1 || changes[0].Index != '?' {
 		t.Fatalf("unstaged: %#v %v", changes, err)
+	}
+	if h := Head(ctx, root); h != "" {
+		t.Fatalf("head without commits: %q", h)
+	}
+	run("add", "--", name)
+	run("-c", "user.name=See", "-c", "user.email=see@example.com", "commit", "-q", "-m", "first")
+	first := Head(ctx, root)
+	if len(first) < 40 {
+		t.Fatalf("head: %q", first)
+	}
+	run("-c", "user.name=See", "-c", "user.email=see@example.com", "commit", "-q", "--allow-empty", "-m", "second")
+	if h := Head(ctx, root); h == first || len(h) < 40 {
+		t.Fatalf("head after a commit: %q, was %q", h, first)
 	}
 }
 

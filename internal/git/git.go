@@ -57,6 +57,16 @@ func Read(ctx context.Context, dir string) (root, branch string, changes []Chang
 	return root, strings.TrimSpace(string(b)), ParseStatus(out), nil
 }
 
+// Head returns the commit HEAD names, or "" in a repository without
+// commits yet.
+func Head(ctx context.Context, root string) string {
+	out, err := Command(ctx, root, "rev-parse", "--verify", "--quiet", "HEAD")
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
 // ParseStatus parses the output of git status --porcelain=v1 -z.
 func ParseStatus(out []byte) []Change {
 	parts := strings.Split(string(out), "\x00")

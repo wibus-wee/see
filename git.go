@@ -16,6 +16,7 @@ import (
 
 type gitState struct {
 	root, branch, message  string
+	head                   string // HEAD's commit, so committed versions are read again only when it moves
 	changes                []git.Change
 	decor                  map[string]byte
 	err                    string
@@ -83,12 +84,16 @@ func (a *app) refreshGit() {
 	ctx, root, gen := a.wsCtx, a.root, a.gen
 	go func() {
 		r, b, changes, err := git.Read(ctx, root)
+		var head string
+		if err == nil {
+			head = git.Head(ctx, r)
+		}
 		a.post(func() {
 			if a.gen != gen {
 				return
 			}
 			a.git.loading = false
-			a.git.root, a.git.branch, a.git.changes = r, b, changes
+			a.git.root, a.git.branch, a.git.changes, a.git.head = r, b, changes, head
 			a.git.decor = git.Decorations(r, changes)
 			for _, d := range a.docs {
 				if d.buf != nil {
@@ -108,13 +113,21 @@ func (a *app) refreshGit() {
 }
 
 // loadGitBase reads the committed version off the UI thread. A tracked file
-// added to the index has an empty committed version.
+// added to the index has an empty committed version. It is read again only
+// when the repository, HEAD, the file's path or its status changed: git's
+// status refreshes every few seconds, and reading every open file's
+// committed version each time spawned two git processes a file.
 func (a *app) loadGitBase(d *doc) {
+	if key := a.gitBaseKey(d); key != "" && key == d.gitBaseKey {
+		return
+	}
 	d.gitBaseSeq++
+	d.gitBaseKey = ""
 	seq, gen, root, ctx, path := d.gitBaseSeq, a.gen, a.git.root, a.wsCtx, d.path
 	if root == "" || ctx == nil || d.untitled {
 		return
 	}
+	key := a.gitBaseKey(d)
 	gitPath := path
 	if !workspace.Within(root, gitPath) && a.realRoot != "" && workspace.Within(a.root, path) {
 		if sub, err := filepath.Rel(a.root, path); err == nil {
@@ -128,6 +141,7 @@ func (a *app) loadGitBase(d *doc) {
 	if err != nil {
 		return
 	}
+	d.gitBaseKey = key
 	go func() {
 		_, trackedErr := git.Command(ctx, root, "ls-files", "--error-unmatch", "--", rel)
 		var base []byte
@@ -142,6 +156,11 @@ func (a *app) loadGitBase(d *doc) {
 		a.post(func() {
 			if a.gen != gen || a.docs[path] != d || d.gitBaseSeq != seq {
 				return
+			}
+			if trackedErr != nil || err != nil {
+				// Untracked, newly added or a failed read: ask again on
+				// the next refresh rather than trusting it.
+				d.gitBaseKey = ""
 			}
 			if valid && d.gitBase != nil && d.gitBase.String() == string(base) || !valid && d.gitBase == nil {
 				return
@@ -162,6 +181,34 @@ func (a *app) loadGitBase(d *doc) {
 			}
 		})
 	}()
+}
+
+// gitBaseKey names what d's committed version depends on, or "" when it
+// cannot be told.
+func (a *app) gitBaseKey(d *doc) string {
+	root := a.git.root
+	if root == "" || a.git.head == "" || d.untitled {
+		return ""
+	}
+	gitPath := d.path
+	if !workspace.Within(root, gitPath) && a.realRoot != "" && workspace.Within(a.root, gitPath) {
+		if sub, err := filepath.Rel(a.root, gitPath); err == nil {
+			gitPath = filepath.Join(a.realRoot, sub)
+		}
+	}
+	rel, err := filepath.Rel(root, gitPath)
+	if err != nil || !workspace.Within(root, gitPath) {
+		return ""
+	}
+	rel = filepath.ToSlash(rel)
+	status := "  "
+	for _, ch := range a.git.changes {
+		if ch.Path == rel || ch.OldPath == rel {
+			status = string([]byte{ch.Index, ch.Work})
+			break
+		}
+	}
+	return root + "\x00" + a.git.head + "\x00" + rel + "\x00" + status
 }
 
 func (a *app) showGitPeek(g *group, d *doc, st *editor.State, line int) {

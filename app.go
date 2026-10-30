@@ -163,6 +163,7 @@ type doc struct {
 	gitBase           *editor.Buffer
 	gitChanges        *editor.DiffState
 	gitBaseSeq        uint64
+	gitBaseKey        string // what the committed version was read for; see loadGitBase
 }
 
 type draftCache struct {

@@ -401,3 +401,43 @@ func TestDiscardUntrackedUsesTrash(t *testing.T) {
 		t.Fatalf("file still exists: %v", err)
 	}
 }
+
+func TestGitBaseReadsAgainOnlyWhenHeadMoves(t *testing.T) {
+	root := t.TempDir()
+	ctx := context.Background()
+	run := func(args ...string) {
+		t.Helper()
+		if _, err := git.Command(ctx, root, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	run("init", "-q")
+	run("config", "commit.gpgsign", "false")
+	run("config", "user.name", "Test")
+	run("config", "user.email", "test@example.com")
+	path := filepath.Join(root, "file.txt")
+	if err := os.WriteFile(path, []byte("first\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	run("add", "--", "file.txt")
+	run("commit", "-qm", "first")
+	h := newHarness(t, root)
+	h.a.refreshGit()
+	h.settle(func() bool { return h.a.git.head != "" })
+	d := h.a.openFile(path, nil)
+	h.settle(func() bool { return h.ed(d) != nil && h.ed(d).DiffBase != nil })
+	seq := d.gitBaseSeq
+	for range 3 {
+		h.a.refreshGit()
+		h.settle(func() bool { return !h.a.git.loading })
+	}
+	if d.gitBaseSeq != seq {
+		t.Fatalf("refreshes with HEAD unchanged read the committed version again: seq %d -> %d", seq, d.gitBaseSeq)
+	}
+	if err := os.WriteFile(path, []byte("second\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	run("commit", "-qam", "second")
+	h.a.refreshGit()
+	h.settle(func() bool { return h.ed(d).DiffBase != nil && h.ed(d).DiffBase.String() == "second\n" })
+}
