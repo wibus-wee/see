@@ -96,7 +96,7 @@ func (a *app) runFind() {
 		return
 	}
 	if f.rg == "" && f.rgErr == nil {
-		f.rg, f.rgErr = search.FindRipgrep(a.root)
+		f.rg, f.rgErr = findRipgrep(a.root)
 	}
 	if f.rgErr != nil {
 		f.err = f.rgErr
@@ -252,7 +252,7 @@ func (a *app) ensureFiles() {
 	}
 	q.listing = true
 	gen, root := a.gen, a.root
-	rg, _ := search.FindRipgrep(root) // "" lists by walking
+	rg, _ := findRipgrep(root) // "" lists by walking
 	ctx := a.wsCtx
 	go func() {
 		files, truncated, err := search.ListFiles(ctx, rg, root, maxQuickFiles)
