@@ -2,6 +2,7 @@ package app
 
 import (
 	"path/filepath"
+	"see/internal/config"
 	"testing"
 
 	"github.com/egoist/mygo/ui/editor"
@@ -19,9 +20,9 @@ func TestWorkspaceSessionRestoresTabsAndSplit(t *testing.T) {
 	h.a.sidebarOff = true
 	h.a.navigator = navGit
 	configFile := filepath.Join(t.TempDir(), "config.json")
-	h.a.cfg.path = configFile
+	h.a.cfg.SetPath(configFile)
 	h.a.closeWorkspace()
-	h.a.cfg = loadConfig(configFile)
+	h.a.cfg = config.Load(configFile)
 	h.a.openWorkspace(root)
 	gs := h.a.groups()
 	if len(gs) != 2 || !h.a.layout.vertical || h.a.layout.pct != 37 {
@@ -43,16 +44,16 @@ func TestWorkspaceWindowSizeRestoresPerProject(t *testing.T) {
 	first, second := t.TempDir(), t.TempDir()
 	h := newHarness(t, first)
 	configFile := filepath.Join(t.TempDir(), "config.json")
-	h.a.cfg.path = configFile
+	h.a.cfg.SetPath(configFile)
 	h.a.resizedWorkspace(1050, 700)
 	h.a.saveConfig()
 	h.a.openWorkspace(second)
-	if h.a.windowWidth != defaultWindowWidth || h.a.windowHeight != defaultWindowHeight {
+	if h.a.windowWidth != config.DefaultWindowWidth || h.a.windowHeight != config.DefaultWindowHeight {
 		t.Fatal("new project did not use default size")
 	}
 	h.a.resizedWorkspace(1440, 900)
 	h.a.saveConfig()
-	h.a.cfg = loadConfig(configFile)
+	h.a.cfg = config.Load(configFile)
 	var width, height int
 	h.host.resize = func(w, h int) { width, height = w, h }
 	h.a.openWorkspace(first)

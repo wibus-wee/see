@@ -7,9 +7,9 @@ import (
 )
 
 func (a *App) fontPreview(c *ui.Context, terminal bool) {
-	family, size := a.cfg.FontFamily, a.cfg.fontSize()
+	family, size := a.cfg.FontFamily, a.cfg.EditorFontSize()
 	if terminal {
-		family, size = a.cfg.TermFontFamily, a.cfg.termFontSize()
+		family, size = a.cfg.TermFontFamily, a.cfg.TerminalFontSize()
 	}
 	if family == "" {
 		family = "monospace"

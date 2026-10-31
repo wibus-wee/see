@@ -111,7 +111,7 @@ func (a *App) welcomeRecent(c *ui.Context) {
 			})
 		})
 		if forget != "" {
-			a.cfg.removeRecent(forget)
+			a.cfg.RemoveRecent(forget)
 			a.saveConfig()
 		}
 	})
@@ -136,7 +136,7 @@ func (a *App) recentRow(c *ui.Context, p string, forget *string) {
 			*forget = p
 		}
 		if m.Item("Clear Recents").Chosen() {
-			a.cfg.clearRecent()
+			a.cfg.ClearRecent()
 		}
 	})
 	row.Children(func() {

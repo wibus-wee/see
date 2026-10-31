@@ -19,6 +19,7 @@ import (
 	"github.com/egoist/mygo/ui/editor"
 	"github.com/egoist/mygo/ui/markdown"
 
+	"see/internal/config"
 	"see/internal/lsp"
 	"see/internal/nav"
 	"see/internal/uri"
@@ -35,7 +36,7 @@ type App struct {
 	windowWidth  int
 	windowHeight int
 	startLSP     func(logf func(string, ...any)) langserver.Starter
-	cfg          *config
+	cfg          *config.Config
 	logf         func(string, ...any)
 
 	// The workspace.
@@ -201,7 +202,7 @@ type target struct {
 	end          lsp.Position
 }
 
-func newApp(cfg *config) *App {
+func newApp(cfg *config.Config) *App {
 	a := &App{
 		cfg:      cfg,
 		docs:     map[string]*doc{},
@@ -274,7 +275,7 @@ func (a *App) openWorkspace(dir string) {
 	if err != nil {
 		a.welcomeNote = fmt.Sprintf("Could not open %s: %v", dir, describeErr(err))
 		if errors.Is(err, fs.ErrNotExist) && slices.Contains(a.cfg.Recent, dir) {
-			a.cfg.removeRecent(dir)
+			a.cfg.RemoveRecent(dir)
 			a.saveConfig()
 		}
 		return
@@ -312,10 +313,10 @@ func (a *App) openWorkspace(dir string) {
 	a.startWatch()
 	a.startGit()
 	a.restoreSession()
-	a.windowWidth, a.windowHeight = workspaceSize(a.cfg.Workspaces[root])
+	a.windowWidth, a.windowHeight = config.WorkspaceSize(a.cfg.Workspaces[root])
 	a.host.setWorkspaceSize(a.windowWidth, a.windowHeight)
 	a.cfg.LastWorkspace = root
-	a.cfg.addRecent(root)
+	a.cfg.AddRecent(root)
 	a.saveConfig()
 	a.host.setTitle(filepath.Base(root))
 }
@@ -387,7 +388,7 @@ func (a *App) saveConfig() {
 	if a.root != "" && !a.restoringSession {
 		a.captureSession()
 	}
-	if err := a.cfg.save(); err != nil {
+	if err := a.cfg.Save(); err != nil {
 		a.logf("saving settings: %v", err)
 	}
 }
@@ -589,10 +590,10 @@ func (a *App) showLoaded(g *group, d *doc) {
 	if st == nil {
 		st = a.newEditor(g, d)
 		g.eds[d.path] = st
-		if m := a.serverFor(d.path); m != nil && !a.cfg.trusted(a.root) && !a.trustDismissed {
+		if m := a.serverFor(d.path); m != nil && !a.cfg.IsTrusted(a.root) && !a.trustDismissed {
 			a.trustAsk = true
 		}
-		if m := a.serverFor(d.path); m != nil && a.cfg.trusted(a.root) {
+		if m := a.serverFor(d.path); m != nil && a.cfg.IsTrusted(a.root) {
 			ctx := a.wsCtx
 			snap, docURI := d.buf.Snapshot(), d.uri
 			go a.openLanguageDocument(m, ctx, d, docURI, snap)
@@ -992,7 +993,7 @@ func (a *App) goToDefinition(g *group, d *doc, offset int) {
 		a.note("No language server is configured for this file.", false)
 		return
 	}
-	if !a.cfg.trusted(a.root) {
+	if !a.cfg.IsTrusted(a.root) {
 		a.trustAsk = true
 		a.afterTrust = func() { a.goToDefinition(g, d, offset) }
 		return
@@ -1091,7 +1092,7 @@ func (a *App) jump(g *group, from nav.Entry, t target, enc string) {
 
 // trust records that the user trusts the workspace to run language servers in.
 func (a *App) trust() {
-	a.cfg.trust(a.root)
+	a.cfg.Trust(a.root)
 	a.saveConfig()
 	a.trustAsk = false
 	a.openServerDocuments(nil)
@@ -1184,7 +1185,7 @@ func (a *App) openLanguageDocument(m *langserver.Server, ctx context.Context, d 
 }
 
 func (a *App) openServerDocuments(only *langserver.Server) {
-	if a.wsCtx == nil || !a.cfg.trusted(a.root) {
+	if a.wsCtx == nil || !a.cfg.IsTrusted(a.root) {
 		return
 	}
 	for _, d := range a.docs {
@@ -1223,7 +1224,7 @@ func (a *App) findUsagesAt(callers bool, anchor ui.Point, validAnchor bool) {
 		a.note("No language server is configured for this file.", false)
 		return
 	}
-	if !a.cfg.trusted(a.root) {
+	if !a.cfg.IsTrusted(a.root) {
 		a.trustAsk = true
 		a.afterTrust = func() { a.findUsagesAt(callers, anchor, validAnchor) }
 		return

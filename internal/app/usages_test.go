@@ -29,7 +29,7 @@ func (c *usageClient) Callers(context.Context, string, lsp.Position) ([]lsp.Loca
 func TestReferencesShowSurroundingUnsavedCode(t *testing.T) {
 	root := writeTree(t, map[string]string{"a.go": "package a\nfunc F() {}", "b.go": "old"})
 	h := newHarness(t, root)
-	h.a.cfg.trust(root)
+	h.a.cfg.Trust(root)
 	h.a.lsp.Stop()
 	client := &usageClient{fakeClient: &fakeClient{enc: lsp.UTF16}, target: filepath.Join(root, "b.go"), line: 3}
 	m := serverOf(root, client)
@@ -77,7 +77,7 @@ func TestReferenceSelectionChangesPreview(t *testing.T) {
 func TestFindUsagesShowsResultsAndNavigates(t *testing.T) {
 	root := writeTree(t, map[string]string{"a.go": "package a\nfunc F() {}", "b.go": "package a\nfunc G() { F() }"})
 	h := newHarness(t, root)
-	h.a.cfg.trust(root)
+	h.a.cfg.Trust(root)
 	old := h.a.lsp
 	old.Stop()
 	client := &usageClient{fakeClient: &fakeClient{enc: lsp.UTF16}, target: filepath.Join(root, "b.go")}
@@ -116,7 +116,7 @@ func TestFindUsagesShowsResultsAndNavigates(t *testing.T) {
 func TestEditorContextMenuFindsReferencesAndCallers(t *testing.T) {
 	root := writeTree(t, map[string]string{"a.go": "package a\nfunc F() {}", "b.go": "package a\nfunc G() { F() }"})
 	h := newHarness(t, root)
-	h.a.cfg.trust(root)
+	h.a.cfg.Trust(root)
 	h.a.lsp.Stop()
 	client := &usageClient{fakeClient: &fakeClient{enc: lsp.UTF16}, target: filepath.Join(root, "b.go")}
 	m := serverOf(root, client)
@@ -155,7 +155,7 @@ func TestEditorContextMenuFindsReferencesAndCallers(t *testing.T) {
 func TestReferencesMenuUsesRightClickPosition(t *testing.T) {
 	root := writeTree(t, map[string]string{"a.go": "package a\nfunc F() {}", "b.go": "package a\nfunc G() { F() }"})
 	h := newHarness(t, root)
-	h.a.cfg.trust(root)
+	h.a.cfg.Trust(root)
 	h.a.lsp.Stop()
 	client := &usageClient{fakeClient: &fakeClient{enc: lsp.UTF16}, target: filepath.Join(root, "b.go")}
 	m := serverOf(root, client)

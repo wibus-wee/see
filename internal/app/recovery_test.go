@@ -3,13 +3,14 @@ package app
 import (
 	"os"
 	"path/filepath"
+	"see/internal/config"
 	"testing"
 )
 
 func TestNamedFileRecoveryAndConflict(t *testing.T) {
 	root := writeTree(t, map[string]string{"a.txt": "original"})
 	h := newHarness(t, root)
-	h.a.cfg.path = filepath.Join(t.TempDir(), "config.json")
+	h.a.cfg.SetPath(filepath.Join(t.TempDir(), "config.json"))
 	d := h.open("a.txt")
 	d.buf.Set("unsaved")
 	h.tt.Frame()
@@ -20,7 +21,7 @@ func TestNamedFileRecoveryAndConflict(t *testing.T) {
 	if err := os.WriteFile(path, []byte("external"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	h.a.cfg = loadConfig(h.a.cfg.path)
+	h.a.cfg = config.Load(h.a.cfg.Path())
 	h.a.openWorkspace(root)
 	h.settle(func() bool { return h.a.docs[path] != nil && h.a.docs[path].buf != nil })
 	d = h.a.docs[path]
@@ -41,7 +42,7 @@ func TestNamedFileRecoveryAndConflict(t *testing.T) {
 func TestNamedFileRecoveryWhenDeleted(t *testing.T) {
 	root := writeTree(t, map[string]string{"a.txt": "original"})
 	h := newHarness(t, root)
-	h.a.cfg.path = filepath.Join(t.TempDir(), "config.json")
+	h.a.cfg.SetPath(filepath.Join(t.TempDir(), "config.json"))
 	d := h.open("a.txt")
 	d.buf.Set("unsaved")
 	h.tt.Frame()
@@ -52,7 +53,7 @@ func TestNamedFileRecoveryWhenDeleted(t *testing.T) {
 	if err := os.Remove(path); err != nil {
 		t.Fatal(err)
 	}
-	h.a.cfg = loadConfig(h.a.cfg.path)
+	h.a.cfg = config.Load(h.a.cfg.Path())
 	h.a.openWorkspace(root)
 	h.settle(func() bool { return h.a.docs[path] != nil && h.a.docs[path].buf != nil })
 	d = h.a.docs[path]

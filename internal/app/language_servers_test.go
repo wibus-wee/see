@@ -25,7 +25,7 @@ func (c *languageRecordingClient) DidOpen(uri, language string, version int, tex
 func TestTypeScriptDefinitionRoutesToOwnServer(t *testing.T) {
 	root := writeTree(t, map[string]string{"a.tsx": "const App = thing;", "b.ts": "export const thing = 1;"})
 	h := newHarness(t, root)
-	h.a.cfg.trust(root)
+	h.a.cfg.Trust(root)
 	fc := &languageRecordingClient{fakeClient: &fakeClient{enc: lsp.UTF16}, language: make(chan string, 1)}
 	target := filepath.Join(root, "b.ts")
 	fc.def = func(context.Context, string, lsp.Position) ([]lsp.Location, error) {

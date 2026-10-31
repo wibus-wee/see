@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"path/filepath"
+	"see/internal/config"
 	"slices"
 	"testing"
 
@@ -11,18 +12,18 @@ import (
 )
 
 func TestRecentFolders(t *testing.T) {
-	c := &config{}
-	for i := range maxRecent + 3 {
-		c.addRecent(fmt.Sprint("/w", i))
+	c := &config.Config{}
+	for i := range config.MaxRecent + 3 {
+		c.AddRecent(fmt.Sprint("/w", i))
 	}
-	if len(c.Recent) != maxRecent || c.Recent[0] != fmt.Sprint("/w", maxRecent+2) {
+	if len(c.Recent) != config.MaxRecent || c.Recent[0] != fmt.Sprint("/w", config.MaxRecent+2) {
 		t.Fatalf("recent %q", c.Recent)
 	}
-	c.addRecent("/w5") // again: moves to the front, once
-	if c.Recent[0] != "/w5" || len(c.Recent) != maxRecent || slices.Index(c.Recent[1:], "/w5") >= 0 {
+	c.AddRecent("/w5") // again: moves to the front, once
+	if c.Recent[0] != "/w5" || len(c.Recent) != config.MaxRecent || slices.Index(c.Recent[1:], "/w5") >= 0 {
 		t.Errorf("recent %q", c.Recent)
 	}
-	c.removeRecent("/w5")
+	c.RemoveRecent("/w5")
 	if slices.Contains(c.Recent, "/w5") {
 		t.Errorf("recent %q", c.Recent)
 	}
@@ -172,7 +173,7 @@ func TestFileMenuSwitchesProjects(t *testing.T) {
 	b := writeTree(t, map[string]string{"b.go": "package b\n"})
 	h := newHarness(t, a)
 	rebuilt := 0
-	h.a.cfg.onRecent = func() { rebuilt++ }
+	h.a.cfg.SetRecentHook(func() { rebuilt++ })
 	h.a.openWorkspace(b)
 	if rebuilt == 0 {
 		t.Error("the menu was not rebuilt for a new recent folder")

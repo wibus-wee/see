@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"runtime"
+	"see/internal/config"
 	"slices"
 	"time"
 
@@ -30,7 +31,7 @@ func Main() {
 	}
 	shellpath.Start()
 	mygo.Use(native.Plugin)
-	cfg := loadConfig(configPath())
+	cfg := config.Load(config.Path())
 	a := newApp(cfg)
 	var (
 		win, welcome  *mygo.Window
@@ -62,8 +63,8 @@ func Main() {
 		a.version = mygo.App.Version()
 		win = mygo.NewWindow(mygo.WindowOptions{
 			Title:     "See",
-			Width:     defaultWindowWidth,
-			Height:    defaultWindowHeight,
+			Width:     config.DefaultWindowWidth,
+			Height:    config.DefaultWindowHeight,
 			MinWidth:  480,
 			MinHeight: 320,
 			// The toolbar shares a line with the window controls, and the
@@ -120,7 +121,7 @@ func Main() {
 			}
 			child := newApp(cfg)
 			child.version = a.version
-			width, height := defaultWindowWidth, defaultWindowHeight
+			width, height := config.DefaultWindowWidth, config.DefaultWindowHeight
 			if path == "" {
 				width, height = welcomeWidth, welcomeHeight
 			}
@@ -267,7 +268,7 @@ func Main() {
 			}))
 		}
 		varSetMenu = setMenu
-		cfg.onRecent = setMenu
+		cfg.SetRecentHook(setMenu)
 		host.setMenu = setMenu
 		setMenu()
 		// A folder on the command line, else the welcome window, or the

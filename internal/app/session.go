@@ -2,29 +2,11 @@ package app
 
 import (
 	"path/filepath"
+	"see/internal/config"
 	"slices"
 
 	"github.com/egoist/mygo/ui/editor"
 )
-
-// workspaceSession stores only navigation and presentation state; file contents
-// remain on disk and are loaded through the normal document pipeline.
-type workspaceSession struct {
-	Layout        *sessionLayout `json:"layout,omitempty"`
-	SidebarHidden bool           `json:"sidebarHidden,omitempty"`
-	Navigator     int            `json:"navigator,omitempty"`
-	WindowWidth   int            `json:"windowWidth,omitempty"`
-	WindowHeight  int            `json:"windowHeight,omitempty"`
-}
-
-const defaultWindowWidth, defaultWindowHeight = 1280, 820
-
-func workspaceSize(s workspaceSession) (int, int) {
-	if s.WindowWidth < 480 || s.WindowHeight < 320 || s.WindowWidth > 10000 || s.WindowHeight > 10000 {
-		return defaultWindowWidth, defaultWindowHeight
-	}
-	return s.WindowWidth, s.WindowHeight
-}
 
 func (a *App) resizedWorkspace(width, height int) {
 	if a.root == "" || width < 480 || height < 320 || width > 10000 || height > 10000 {
@@ -36,39 +18,17 @@ func (a *App) resizedWorkspace(width, height int) {
 	}
 }
 
-type sessionLayout struct {
-	Tabs          []sessionTab   `json:"tabs,omitempty"`
-	Active        string         `json:"active,omitempty"`
-	ActivePreview bool           `json:"activePreview,omitempty"`
-	Preview       string         `json:"preview,omitempty"`
-	Focused       bool           `json:"focused,omitempty"`
-	Vertical      bool           `json:"vertical,omitempty"`
-	Percent       float32        `json:"percent,omitempty"`
-	First         *sessionLayout `json:"first,omitempty"`
-	Second        *sessionLayout `json:"second,omitempty"`
-}
-
-type sessionTab struct {
-	Path            string `json:"path"`
-	Untitled        bool   `json:"untitled,omitempty"`
-	Name            string `json:"name,omitempty"`
-	Line            int    `json:"line,omitempty"`
-	Column          int    `json:"column,omitempty"`
-	MarkdownPreview bool   `json:"markdownPreview,omitempty"`
-	PreviewTab      bool   `json:"previewTab,omitempty"`
-}
-
 func (a *App) captureSession() {
-	var snapshot func(*layout) *sessionLayout
-	snapshot = func(n *layout) *sessionLayout {
+	var snapshot func(*layout) *config.Layout
+	snapshot = func(n *layout) *config.Layout {
 		if n == nil {
 			return nil
 		}
 		if n.g == nil {
-			return &sessionLayout{Vertical: n.vertical, Percent: n.pct, First: snapshot(n.a), Second: snapshot(n.b)}
+			return &config.Layout{Vertical: n.vertical, Percent: n.pct, First: snapshot(n.a), Second: snapshot(n.b)}
 		}
 		g := n.g
-		s := &sessionLayout{Active: tabPath(g.active), ActivePreview: isMarkdownTab(g.active), Preview: g.preview, Focused: g == a.focus}
+		s := &config.Layout{Active: tabPath(g.active), ActivePreview: isMarkdownTab(g.active), Preview: g.preview, Focused: g == a.focus}
 		if isDiffTab(g.active) {
 			s.Active = ""
 		}
@@ -77,7 +37,7 @@ func (a *App) captureSession() {
 				continue
 			}
 			path := tabPath(key)
-			tab := sessionTab{Path: path, MarkdownPreview: !isMarkdownTab(key) && g.markdownPreview[path], PreviewTab: isMarkdownTab(key)}
+			tab := config.Tab{Path: path, MarkdownPreview: !isMarkdownTab(key) && g.markdownPreview[path], PreviewTab: isMarkdownTab(key)}
 			if d := a.docs[path]; d != nil && d.untitled {
 				tab.Untitled, tab.Name = true, d.name
 			}
@@ -92,9 +52,9 @@ func (a *App) captureSession() {
 		return s
 	}
 	if a.cfg.Workspaces == nil {
-		a.cfg.Workspaces = make(map[string]workspaceSession)
+		a.cfg.Workspaces = make(map[string]config.Workspace)
 	}
-	a.cfg.Workspaces[a.root] = workspaceSession{Layout: snapshot(a.layout), SidebarHidden: a.sidebarOff, Navigator: a.navigator, WindowWidth: a.windowWidth, WindowHeight: a.windowHeight}
+	a.cfg.Workspaces[a.root] = config.Workspace{Layout: snapshot(a.layout), SidebarHidden: a.sidebarOff, Navigator: a.navigator, WindowWidth: a.windowWidth, WindowHeight: a.windowHeight}
 }
 
 func (a *App) restoreSession() {
@@ -109,8 +69,8 @@ func (a *App) restoreSession() {
 		a.navigator = s.Navigator
 	}
 	var focused *group
-	var restore func(*sessionLayout, *layout, int) *layout
-	restore = func(saved *sessionLayout, parent *layout, depth int) *layout {
+	var restore func(*config.Layout, *layout, int) *layout
+	restore = func(saved *config.Layout, parent *layout, depth int) *layout {
 		if saved == nil || depth > 32 {
 			return nil
 		}

@@ -26,7 +26,7 @@ func (c *symbolClient) WorkspaceSymbols(ctx context.Context, query string) ([]ls
 func TestWorkspaceSymbolShortcutAndNavigation(t *testing.T) {
 	root := writeTree(t, map[string]string{"a.go": "package a\nfunc Thing() {}\n"})
 	h := newHarness(t, root)
-	h.a.cfg.trust(root)
+	h.a.cfg.Trust(root)
 	h.a.lsp.Stop()
 	h.a.tsLSP.Stop()
 	h.a.tsLSP = nil

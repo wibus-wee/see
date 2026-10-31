@@ -295,7 +295,7 @@ func (a *App) rankQuick() {
 		q.results = search.Fuzzy(names, strings.TrimSpace(q.query[1:]), len(names))
 	} else if strings.HasPrefix(q.query, "#") {
 		q.results = nil
-		if a.root != "" && a.cfg.trusted(a.root) && strings.TrimSpace(q.query[1:]) != "" {
+		if a.root != "" && a.cfg.IsTrusted(a.root) && strings.TrimSpace(q.query[1:]) != "" {
 			a.searchSymbols(strings.TrimSpace(q.query[1:]))
 		}
 	} else {

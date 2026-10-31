@@ -184,7 +184,7 @@ func (a *App) renamed(old, dst string) {
 			if d.buf.Modified() {
 				a.cacheRecovery(d)
 			}
-			if m := a.serverFor(next); m != nil && a.cfg.trusted(a.root) {
+			if m := a.serverFor(next); m != nil && a.cfg.IsTrusted(a.root) {
 				go a.openLanguageDocument(m, a.wsCtx, d, d.uri, d.buf.Snapshot())
 			}
 		}

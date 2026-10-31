@@ -15,6 +15,7 @@ import (
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 
+	"see/internal/config"
 	"see/internal/lsp"
 
 	"see/internal/langserver"
@@ -73,7 +74,7 @@ type harness struct {
 func newHarness(t *testing.T, root string) *harness {
 	t.Helper()
 	h := &harness{t: t, q: make(chan func(), 1024), fc: &fakeClient{enc: lsp.UTF16}, host: &fakeHost{}}
-	h.a = newApp(&config{})
+	h.a = newApp(&config.Config{})
 	h.a.host = h.host
 	h.a.post = func(fn func()) { h.q <- fn }
 	h.a.logf = testLogf(t)
@@ -413,7 +414,7 @@ const bGo = "package b\n\n// 名字 is 🎉.\nfunc 名字() {}\n"
 func goWorkspace(t *testing.T) (string, *harness) {
 	root := writeTree(t, map[string]string{"go.mod": "module example.com/w\n", "a.go": aGo, "b/b.go": bGo})
 	h := newHarness(t, root)
-	h.a.cfg.trust(h.a.root)
+	h.a.cfg.Trust(h.a.root)
 	return h.a.root, h
 }
 
@@ -566,7 +567,7 @@ func TestNoDefinitionAndNoGopls(t *testing.T) {
 
 	root2 := writeTree(t, map[string]string{"m.go": "package m\n"})
 	h2 := newHarness(t, root2)
-	h2.a.cfg.trust(h2.a.root)
+	h2.a.cfg.Trust(h2.a.root)
 	h2.fc.startErr = errNoGopls
 	m := h2.open("m.go")
 	h2.ed(m).OnDefinition(0)
@@ -595,7 +596,7 @@ func TestTrustIsAskedFirst(t *testing.T) {
 	}
 	h.click("Trust Folder")
 	h.settle(func() bool { return !h.a.finding && h.a.lspState == langserver.Ready })
-	if !h.a.cfg.trusted(h.a.root) || len(h.fc.calls()) == 0 {
+	if !h.a.cfg.IsTrusted(h.a.root) || len(h.fc.calls()) == 0 {
 		t.Error("not trusted after Trust Folder")
 	}
 	// Not for files other than Go.
@@ -696,24 +697,6 @@ func TestDirectoryErrorRetry(t *testing.T) {
 	h.settle(func() bool { return h.a.dirs[locked].loaded })
 	if !h.tt.HasText("x.go") {
 		t.Errorf("texts %q", h.tt.Texts())
-	}
-}
-
-func TestConfigRoundTrip(t *testing.T) {
-	p := filepath.Join(t.TempDir(), "sub", "config.json")
-	c := loadConfig(p)
-	c.LastWorkspace = "/w"
-	c.trust("/w")
-	if err := c.save(); err != nil {
-		t.Fatal(err)
-	}
-	c2 := loadConfig(p)
-	if c2.LastWorkspace != "/w" || !c2.trusted("/w") {
-		t.Errorf("%+v", c2)
-	}
-	os.WriteFile(p, []byte("{broken"), 0o600)
-	if c3 := loadConfig(p); c3.LastWorkspace != "" || c3.path != p {
-		t.Errorf("broken: %+v", c3)
 	}
 }
 

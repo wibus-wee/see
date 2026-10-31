@@ -22,7 +22,7 @@ func (c *diagnosticClient) Diagnostics(ctx context.Context, uri string) ([]lsp.D
 func TestOpenDocumentRequestsDiagnostics(t *testing.T) {
 	root := writeTree(t, map[string]string{"a.ts": "😀 Missing = 1"})
 	h := newHarness(t, root)
-	h.a.cfg.trust(root)
+	h.a.cfg.Trust(root)
 	h.a.tsLSP.Stop()
 	client := &diagnosticClient{&fakeClient{enc: lsp.UTF16}}
 	m := newTypeScriptServer(root, func(context.Context, string, func(error)) (langserver.Client, error) { return client, nil }, nil, h.a.diagnosticsHandler(h.a.gen), nil)

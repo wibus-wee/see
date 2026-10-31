@@ -88,7 +88,7 @@ func (a *App) settingsChanged() {
 
 // applyEditorPrefs gives an editor the settings of the Editor pane.
 func (a *App) applyEditorPrefs(st *editor.State) {
-	st.Font = ui.Font{Family: a.cfg.FontFamily, Size: float32(a.cfg.fontSize())}
+	st.Font = ui.Font{Family: a.cfg.FontFamily, Size: float32(a.cfg.EditorFontSize())}
 	st.SoftWrap = a.cfg.SoftWrap
 	st.LineNumbers = editor.LineNumbers(min(max(a.cfg.LineNumbers, 0), 2))
 }
@@ -105,7 +105,7 @@ func (a *App) applyEditorPrefsAll() {
 }
 
 func (a *App) applyDiffPrefs(diff *editor.DiffState) {
-	diff.Font = ui.Font{Family: a.cfg.FontFamily, Size: float32(a.cfg.fontSize())}
+	diff.Font = ui.Font{Family: a.cfg.FontFamily, Size: float32(a.cfg.EditorFontSize())}
 	diff.Wrap = a.cfg.SoftWrap
 	diff.NoLineNumbers = a.cfg.LineNumbers == int(editor.LineNumbersOff)
 }
@@ -380,7 +380,7 @@ func (a *App) generalPane(c *ui.Context) {
 		n := len(a.cfg.Recent)
 		labeled(c, fmt.Sprintf("%d recent folder%s", n, plural(n)), "Shown on the welcome window.")
 		if ui.Button(c, "Clear Recents").Disabled(n == 0).Clicked() {
-			a.cfg.clearRecent()
+			a.cfg.ClearRecent()
 			a.settingsChanged()
 		}
 	})
@@ -392,8 +392,8 @@ func (a *App) initFontValues() {
 		return
 	}
 	s.fontValuesSet = true
-	s.fontSize = a.cfg.fontSize()
-	s.termFontSize = a.cfg.termFontSize()
+	s.fontSize = a.cfg.EditorFontSize()
+	s.termFontSize = a.cfg.TerminalFontSize()
 	s.termWeight = float64(a.cfg.TermFontWeight)
 	if s.termWeight < 100 || s.termWeight > 900 {
 		s.termWeight = 400

@@ -3,6 +3,7 @@ package app
 import (
 	"os"
 	"path/filepath"
+	"see/internal/config"
 	"testing"
 
 	"github.com/egoist/mygo/ui"
@@ -12,7 +13,7 @@ import (
 func TestNewFileShortcut(t *testing.T) {
 	root := writeTree(t, map[string]string{"existing.txt": "keep"})
 	h := newHarness(t, root)
-	h.a.cfg.path = filepath.Join(t.TempDir(), "config.json")
+	h.a.cfg.SetPath(filepath.Join(t.TempDir(), "config.json"))
 	path := filepath.Join(root, "new.txt")
 	called := false
 	h.host.newFile = func(dir string) (string, error) { called = true; return path, nil }
@@ -31,7 +32,7 @@ func TestNewFileShortcut(t *testing.T) {
 	h.settle(func() bool { b, _ := os.ReadFile(cachePath); return string(b) == "draft text" })
 	h.a.saveConfig()
 	h.a.closeWorkspace()
-	h.a.cfg = loadConfig(h.a.cfg.path)
+	h.a.cfg = config.Load(h.a.cfg.Path())
 	h.a.openWorkspace(root)
 	h.settle(func() bool { return h.a.docs[cachePath] != nil && h.a.docs[cachePath].buf != nil })
 	d = h.a.docs[cachePath]

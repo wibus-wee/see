@@ -3,6 +3,7 @@ package app
 import (
 	"os"
 	"path/filepath"
+	"see/internal/config"
 	"testing"
 
 	"github.com/egoist/mygo/ui"
@@ -62,7 +63,7 @@ func BenchmarkHexViewFrame(b *testing.B) {
 		size int64
 	}{{"1MiB", 1 << 20}, {"8GiB", 8 << 30}} {
 		b.Run(tc.name, func(b *testing.B) {
-			a := newApp(&config{})
+			a := newApp(&config.Config{})
 			a.post = func(func()) {}
 			d := &doc{path: "/benchmark.bin", size: tc.size, hex: &hexState{pages: map[int64]*hexPage{0: {data: make([]byte, hexview.PageBytes)}}, pending: map[int64]bool{}}}
 			g := &group{}

@@ -81,7 +81,7 @@ func (a *App) showHover(st *editor.State, cmd bool, r hoverResult) {
 // It does not query servers in an untrusted workspace.
 func (a *App) hoverAt(d *doc, st *editor.State, r editor.HoverRequest) {
 	m := a.serverFor(d.path)
-	if m == nil || d.buf == nil || !a.cfg.trusted(a.root) {
+	if m == nil || d.buf == nil || !a.cfg.IsTrusted(a.root) {
 		return
 	}
 	if s, _ := m.Status(); s == langserver.Failed {

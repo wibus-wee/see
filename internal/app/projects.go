@@ -25,7 +25,7 @@ func (a *App) fileMenu(run func(func())) *mygo.MenuItem {
 	if len(recent) > 0 {
 		recent = append(recent, mygo.Separator())
 	}
-	recent = append(recent, &mygo.MenuItem{Label: "Clear Menu", Disabled: len(a.cfg.Recent) == 0, Click: do(a.cfg.clearRecent)})
+	recent = append(recent, &mygo.MenuItem{Label: "Clear Menu", Disabled: len(a.cfg.Recent) == 0, Click: do(a.cfg.ClearRecent)})
 
 	closeKey := "Ctrl+Shift+W"
 	if runtime.GOOS == "darwin" {

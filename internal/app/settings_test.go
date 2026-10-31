@@ -4,6 +4,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"see/internal/config"
 	"testing"
 
 	"github.com/egoist/mygo/ui"
@@ -54,13 +55,13 @@ func TestSettingsPanes(t *testing.T) {
 		t.Errorf("filtered: %q", st.Texts())
 	}
 	// Trusted folders can be taken back.
-	h.a.cfg.trust(h.a.root)
+	h.a.cfg.Trust(h.a.root)
 	h.a.settingsGo("intelligence")
 	st.Frame()
 	if err := st.Click("Remove trusted folder " + h.a.root); err != nil {
 		t.Fatal(err)
 	}
-	if h.a.cfg.trusted(h.a.root) {
+	if h.a.cfg.IsTrusted(h.a.root) {
 		t.Error("still trusted")
 	}
 }
@@ -71,7 +72,7 @@ func TestSettingsScreenshot(t *testing.T) {
 		t.Skip("set SEE_SHOT to a directory")
 	}
 	h := newHarness(t, writeTree(t, map[string]string{"a.go": ""}))
-	h.a.cfg.trust(h.a.root)
+	h.a.cfg.Trust(h.a.root)
 	st := ui.NewTester(h.a.settingsView, 760, 560)
 	shot := func(name string) {
 		st.Frame()
@@ -140,7 +141,7 @@ func TestFontPickerUpdatesEditor(t *testing.T) {
 }
 
 func TestTerminalFontPreferences(t *testing.T) {
-	a := &App{cfg: &config{TermFontFamily: "Example", TermFontWeight: 500, TermLineHeight: 20, TermThicken: true, TermNoLigatures: true}}
+	a := &App{cfg: &config.Config{TermFontFamily: "Example", TermFontWeight: 500, TermLineHeight: 20, TermThicken: true, TermNoLigatures: true}}
 	f := a.terminalFont()
 	if f.Family != "Example" || f.Weight != 500 || f.LineHeight != 1.2 || !f.Thicken || len(f.Features) != 2 {
 		t.Fatalf("terminal font: %+v", f)

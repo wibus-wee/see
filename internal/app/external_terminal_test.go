@@ -2,6 +2,7 @@ package app
 
 import (
 	"path/filepath"
+	"see/internal/config"
 	"slices"
 	"testing"
 
@@ -37,7 +38,7 @@ func TestExternalTerminalCommands(t *testing.T) {
 func TestExternalTerminalSettingAndShortcut(t *testing.T) {
 	h := newHarness(t, writeTree(t, map[string]string{"a.go": "package a\n"}))
 	h.open("a.go")
-	h.a.cfg.path = filepath.Join(t.TempDir(), "config.json")
+	h.a.cfg.SetPath(filepath.Join(t.TempDir(), "config.json"))
 	h.a.settings.pane = "terminal"
 	st := ui.NewTester(h.a.settingsView, 760, 560)
 	if err := st.Click("External Terminal App"); err != nil {
@@ -47,7 +48,7 @@ func TestExternalTerminalSettingAndShortcut(t *testing.T) {
 		t.Fatal(err)
 	}
 	st.Frame()
-	if got := loadConfig(h.a.cfg.path).ExternalTerminal; got != "Ghostty" {
+	if got := config.Load(h.a.cfg.Path()).ExternalTerminal; got != "Ghostty" {
 		t.Fatalf("saved terminal = %q", got)
 	}
 	if err := st.Click("External Terminal App"); err != nil {
@@ -61,7 +62,7 @@ func TestExternalTerminalSettingAndShortcut(t *testing.T) {
 	}
 	st.Type("/Applications/My Terminal.app")
 	st.Frame()
-	if got := loadConfig(h.a.cfg.path); got.ExternalTerminal != "Custom App" || got.ExternalTerminalPath != "/Applications/My Terminal.app" {
+	if got := config.Load(h.a.cfg.Path()); got.ExternalTerminal != "Custom App" || got.ExternalTerminalPath != "/Applications/My Terminal.app" {
 		t.Fatalf("saved custom app: %q, %q", got.ExternalTerminal, got.ExternalTerminalPath)
 	}
 	var found bool

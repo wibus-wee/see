@@ -50,7 +50,7 @@ func (a *App) quickOpenPanel(c *ui.Context) {
 				switch {
 				case !commandMode && a.root == "":
 					ui.Text(c, "Open a folder to search files, or type > to search commands.").TextColor(colors(c).muted).Padding(8)
-				case symbolMode && !a.cfg.trusted(a.root):
+				case symbolMode && !a.cfg.IsTrusted(a.root):
 					if ui.Button(c, "Trust folder to search symbols").Clicked() {
 						query := q.query
 						q.open = false

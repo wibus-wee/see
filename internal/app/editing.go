@@ -300,7 +300,7 @@ func (a *App) saveUntitled(d *doc, done func(bool)) {
 						}
 					}
 					if m := a.serverFor(path); m != nil {
-						if a.cfg.trusted(a.root) {
+						if a.cfg.IsTrusted(a.root) {
 							ctx, docURI, current := a.wsCtx, d.uri, d.buf.Snapshot()
 							go a.openLanguageDocument(m, ctx, d, docURI, current)
 						} else if !a.trustDismissed {

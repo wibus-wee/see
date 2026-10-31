@@ -300,7 +300,7 @@ func (a *App) openTermLink(p *termPane, link string) bool {
 func (a *App) editorsAndPanel(c *ui.Context, editors func()) {
 	tp := &a.term
 	if tp.pct <= 0 {
-		tp.pct = float32(a.cfg.panelPct())
+		tp.pct = float32(a.cfg.EditorPanelPct())
 	}
 	switch {
 	case !tp.open:
@@ -489,7 +489,7 @@ var (
 )
 
 func (a *App) terminalFont() terminal.Font {
-	f := terminal.Font{Family: a.cfg.TermFontFamily, Size: float32(a.cfg.termFontSize()), Weight: a.cfg.TermFontWeight, Thicken: a.cfg.TermThicken}
+	f := terminal.Font{Family: a.cfg.TermFontFamily, Size: float32(a.cfg.TerminalFontSize()), Weight: a.cfg.TermFontWeight, Thicken: a.cfg.TermThicken}
 	if a.cfg.TermFontFallback != "" {
 		if f.Family == "" {
 			f.Family = "monospace"

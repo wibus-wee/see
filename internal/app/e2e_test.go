@@ -34,7 +34,7 @@ func TestRealGopls(t *testing.T) {
 		h.a.post(func() { h.a.lspState, h.a.lspErr = s, err })
 	}})
 	defer h.a.lsp.StopWait(5e9)
-	h.a.cfg.trust(h.a.root)
+	h.a.cfg.Trust(h.a.root)
 
 	a := h.open("a.go")
 	off := strings.Index(a.buf.String(), "Größe名字()")
