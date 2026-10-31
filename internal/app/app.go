@@ -28,13 +28,14 @@ import (
 
 	"see/internal/langserver"
 	"see/internal/logs"
+	"see/internal/platform"
 )
 
 // App is the reader's state. It lives on the UI thread: background work
 // hands its results back through post, which runs them there.
 type App struct {
-	post         func(func()) // runs fn on the UI thread, then redraws
-	host         host         // the window and the desktop around it
+	post         platform.Scheduler // runs fn on the UI thread, then redraws
+	host         platform.Desktop   // the window and the desktop around it
 	windowWidth  int
 	windowHeight int
 	startLSP     func(logf func(string, ...any)) langserver.Starter
@@ -210,8 +211,8 @@ func newApp(cfg *config.Config) *App {
 		cfg:      cfg,
 		docs:     map[string]*doc{},
 		dirs:     map[string]*dirState{},
-		post:     func(fn func()) { fn() },
-		host:     noHost{},
+		post:     platform.SchedulerFunc(func(fn func()) { fn() }),
+		host:     platform.NoDesktop{},
 		startLSP: languages.StartGopls,
 		logf:     log.Printf,
 		treeRow:  -1,
@@ -256,10 +257,10 @@ func (a *App) activeEditor() *editor.State {
 
 // openFolderDialog asks for a folder, off the UI thread, and opens it.
 func (a *App) openFolderDialog() {
-	pick := a.host.pickFolder
+	pick := a.host.PickFolder
 	go func() {
 		p, err := pick()
-		a.post(func() {
+		a.post.Post(func() {
 			switch {
 			case err != nil:
 				a.note("Could not show the folder dialog: "+err.Error(), true)
@@ -301,7 +302,7 @@ func (a *App) openWorkspace(dir string) {
 		Root:  root,
 		Start: a.startLSP(a.serverLog("gopls")),
 		OnState: func(s langserver.State, err error) {
-			a.post(func() {
+			a.post.Post(func() {
 				if a.gen == gen {
 					a.lspState, a.lspErr = s, err
 					a.serverStateLog("gopls", s, err)
@@ -317,11 +318,11 @@ func (a *App) openWorkspace(dir string) {
 	a.startGit()
 	a.restoreSession()
 	a.windowWidth, a.windowHeight = config.WorkspaceSize(a.cfg.Workspaces[root])
-	a.host.setWorkspaceSize(a.windowWidth, a.windowHeight)
+	a.host.SetWorkspaceSize(a.windowWidth, a.windowHeight)
 	a.cfg.LastWorkspace = root
 	a.cfg.AddRecent(root)
 	a.saveConfig()
-	a.host.setTitle(filepath.Base(root))
+	a.host.SetTitle(filepath.Base(root))
 }
 
 // closeWorkspace forgets the workspace: its tabs, caches, searches, watch
@@ -368,7 +369,7 @@ func (a *App) closeWorkspace() {
 	a.hover = hoverState{}
 	a.find.reset()
 	a.quick = quickOpen{}
-	a.host.setTitle("See")
+	a.host.SetTitle("See")
 }
 
 // saveConfigSoon saves the settings once they stop changing for a
@@ -380,7 +381,7 @@ func (a *App) saveConfigSoon() {
 	if a.saveTimer != nil {
 		a.saveTimer.Stop()
 	}
-	a.saveTimer = time.AfterFunc(500*time.Millisecond, func() { a.post(a.saveConfig) })
+	a.saveTimer = time.AfterFunc(500*time.Millisecond, func() { a.post.Post(a.saveConfig) })
 }
 
 func (a *App) saveConfig() {
@@ -411,7 +412,7 @@ func (a *App) loadDir(dir string) {
 	seq, gen, ctx := d.seq, a.gen, a.wsCtx
 	go func() {
 		es, err := workspace.ReadDir(ctx, dir)
-		a.post(func() {
+		a.post.Post(func() {
 			if a.gen != gen || a.dirs[dir] != d || d.seq != seq {
 				return
 			}
@@ -643,7 +644,7 @@ func (a *App) loadDoc(d *doc) {
 			// A reload: skip files whose size and time are as they were,
 			// without reading them.
 			if fi, err := os.Stat(path); err == nil && (fileStamp{fi.Size(), fi.ModTime()}) == stamp {
-				a.post(func() {
+				a.post.Post(func() {
 					if a.gen == gen && a.docs[d.path] == d && d.seq == seq {
 						d.loading, d.gone, d.err = false, false, nil
 					}
@@ -679,7 +680,7 @@ func (a *App) loadDoc(d *doc) {
 		// Compare with what is shown here, off the UI thread, so the UI
 		// thread replaces the text only when it changed.
 		same := err == nil && f.Kind == workspace.Text && !needBuf && snapEquals(snap, f.Text)
-		a.post(func() {
+		a.post.Post(func() {
 			if a.gen != gen || a.docs[d.path] != d || d.seq != seq {
 				return
 			}
@@ -1017,7 +1018,7 @@ func (a *App) goToDefinition(g *group, d *doc, offset int) {
 		defer cancel()
 		locs, enc, err := definition(ctx, m, d.uri, snap, pos, line)
 		targets, skipped := targetsOf(locs)
-		a.post(func() {
+		a.post.Post(func() {
 			if a.gen != gen || a.navSeq != seq {
 				return // the user has moved on
 			}
@@ -1163,7 +1164,7 @@ func (a *App) resetTypeScriptServer() {
 	}
 	gen, epoch := a.gen, a.tsEpoch
 	a.tsLSP = languages.NewTypeScriptServer(a.root, languages.StartTypeScript(a.serverLog("tsrs")), func(s langserver.State, err error) {
-		a.post(func() {
+		a.post.Post(func() {
 			if a.gen == gen && a.tsEpoch == epoch {
 				a.tsState, a.tsErr = s, err
 				a.serverStateLog("tsrs", s, err)
@@ -1180,7 +1181,7 @@ func (a *App) openLanguageDocument(m *langserver.Server, ctx context.Context, d 
 	if err = m.Sync(ctx, client, docURI, snap); err != nil {
 		return
 	}
-	a.post(func() {
+	a.post.Post(func() {
 		if d.uri == docURI && a.docs[d.path] == d && a.serverFor(d.path) == m && d.buf != nil && d.buf.Version() != snap.Version() {
 			m.Changed(docURI, d.buf.Snapshot())
 		}
@@ -1277,7 +1278,7 @@ func (a *App) findUsagesAt(callers bool, anchor ui.Point, validAnchor bool) {
 			}
 		}
 		targets, skipped := targetsOf(locations)
-		a.post(func() {
+		a.post.Post(func() {
 			if a.gen != gen || a.navSeq != seq {
 				return
 			}
@@ -1352,7 +1353,7 @@ func (a *App) loadRelatedPreviews(ch *defChoices) {
 				t.preview = slices.Clone(lines[t.previewStart:min(len(lines), t.pos.Line+3)])
 			}
 		}
-		a.post(func() {
+		a.post.Post(func() {
 			if a.gen == gen && a.choices == ch {
 				ch.locs = targets
 				ch.buffers = buffers
@@ -1396,7 +1397,7 @@ func (a *App) selectRelated(ch *defChoices, index int) {
 }
 
 func (a *App) openProject(path string) {
-	if a.root != "" && a.host.openProjectWindow(path) {
+	if a.root != "" && a.host.OpenProjectWindow(path) {
 		return
 	}
 	a.openWorkspace(path)

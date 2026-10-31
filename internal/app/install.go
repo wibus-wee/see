@@ -47,7 +47,7 @@ func (a *App) removeManagedTypeScript(services ui.Services) {
 		} else {
 			err = os.RemoveAll(dest)
 		}
-		a.post(func() {
+		a.post.Post(func() {
 			a.serverJob = false
 			if a.gen == gen {
 				a.resetTypeScriptServer()

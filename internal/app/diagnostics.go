@@ -35,7 +35,7 @@ func (a *App) diagnosticsHandler(gen int) func(*langserver.Server, string, edito
 			start, end := offset(d.Range.Start), offset(d.Range.End)
 			out = append(out, editor.Diagnostic{Start: start, End: max(start, end), Severity: severity, Message: d.Message, Source: d.Source})
 		}
-		a.post(func() {
+		a.post.Post(func() {
 			if a.gen != gen || a.serverFor(path) != m {
 				return
 			}

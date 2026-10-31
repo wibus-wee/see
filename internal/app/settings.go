@@ -85,7 +85,7 @@ func (a *App) settingsGo(pane string) {
 // changed tells the main window that a setting changed what it shows.
 func (a *App) settingsChanged() {
 	a.saveConfig()
-	a.post(func() {})
+	a.post.Post(func() {})
 }
 
 // applyEditorPrefs gives an editor the settings of the Editor pane.
@@ -125,7 +125,7 @@ func (a *App) settingsView(c *ui.Context) {
 		c.Root().Background(ui.Transparent)
 	}
 	if c.Shortcut(ui.Cmd, ui.KeyW) {
-		a.host.closeSettings()
+		a.host.CloseSettings()
 	}
 	bar := c.TitleBar()
 	ui.Row(c).Fill().AlignItems(ui.Stretch).Children(func() {
@@ -367,7 +367,7 @@ func (a *App) generalPane(c *ui.Context) {
 			labeled(c, "Appearance", "Follows the system, or stays light or dark.")
 			if ui.Segmented(c, &s.appearance, "System", "Light", "Dark").Label("Appearance").Changed() {
 				a.chooseAppearance([]string{"", "light", "dark"}[s.appearance])
-				a.post(func() {})
+				a.post.Post(func() {})
 			}
 		},
 		func() {
@@ -678,13 +678,13 @@ func (a *App) terminalPane(c *ui.Context) {
 				delete(a.settings.terminalIcons, "Custom App")
 				a.settingsChanged()
 				if strings.HasSuffix(strings.ToLower(a.cfg.ExternalTerminalPath), ".app") {
-					a.host.loadTerminalIcon(a.cfg.ExternalTerminalPath)
+					a.host.LoadTerminalIcon(a.cfg.ExternalTerminalPath)
 				}
 			}).OnSubmit(func() {
-				a.host.loadTerminalIcon(a.cfg.ExternalTerminalPath)
+				a.host.LoadTerminalIcon(a.cfg.ExternalTerminalPath)
 			})
 			if ui.Button(c, "Choose…").Clicked() {
-				a.host.pickTerminalApp()
+				a.host.PickTerminalApp()
 			}
 		})
 	}

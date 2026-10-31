@@ -37,7 +37,7 @@ func (a *App) startWatch() {
 			a.logf("watch: too many entries, falling back to hints")
 			w, err = watchFiles(ctx, root, mygo.FileWatchOptions{Recursive: true, Ignore: ignore, HintsOnly: true})
 		}
-		a.post(func() {
+		a.post.Post(func() {
 			if a.gen == gen {
 				a.watching, a.watchErr = err == nil, err
 			}
@@ -53,7 +53,7 @@ func (a *App) startWatch() {
 					if errors.Is(err, io.EOF) {
 						err = errors.New("the folder was removed or moved")
 					}
-					a.post(func() {
+					a.post.Post(func() {
 						if a.gen == gen {
 							a.watching, a.watchErr = false, err
 						}
@@ -61,7 +61,7 @@ func (a *App) startWatch() {
 				}
 				return
 			}
-			a.post(func() {
+			a.post.Post(func() {
 				if a.gen == gen {
 					a.applyEvents(evs)
 				}

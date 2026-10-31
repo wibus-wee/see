@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/egoist/mygo/ui/editor"
+	"see/internal/platform"
 	"see/internal/workspace"
 )
 
@@ -65,7 +66,7 @@ func validDraftPath(path string) bool {
 
 func (a *App) cacheDraft(d *doc) {
 	cache, path, snap := d.cache, d.path, d.buf.Snapshot()
-	post := a.post
+	post := a.post.Post
 	go func() {
 		cache.mu.Lock()
 		defer cache.mu.Unlock()
@@ -158,7 +159,7 @@ func (a *App) guardDirty(docs []*doc, proceed func()) bool {
 		}},
 		{"Cancel", func() { a.confirm = nil }},
 	}
-	q, ask, post := a.confirm, a.host.confirmDirty, a.post
+	q, ask, post := a.confirm, a.host.ConfirmDirty, a.post.Post
 	go func() {
 		choice, err := ask(q.message)
 		post(func() {
@@ -166,7 +167,7 @@ func (a *App) guardDirty(docs []*doc, proceed func()) bool {
 				return
 			}
 			switch {
-			case errors.Is(err, errNoDialog):
+			case errors.Is(err, platform.ErrNoDialog):
 				q.inWindow = true
 			case err != nil:
 				a.note("Could not show the confirmation: "+err.Error(), true)
@@ -218,10 +219,10 @@ func (a *App) saveUntitled(d *doc, done func(bool)) {
 		return
 	}
 	d.saving = true
-	root, gen, pick := a.root, a.gen, a.host.pickNewFile
+	root, gen, pick := a.root, a.gen, a.host.PickNewFile
 	go func() {
 		path, err := pick(root)
-		a.post(func() {
+		a.post.Post(func() {
 			if a.gen != gen || a.docs[d.path] != d {
 				return
 			}
@@ -249,7 +250,7 @@ func (a *App) saveUntitled(d *doc, done func(bool)) {
 						err = e
 					}
 				}
-				a.post(func() {
+				a.post.Post(func() {
 					if a.gen != gen || a.docs[d.path] != d {
 						return
 					}

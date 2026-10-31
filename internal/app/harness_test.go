@@ -13,6 +13,7 @@ import (
 
 	"see/internal/config"
 	"see/internal/lsp"
+	"see/internal/platform"
 
 	"see/internal/langserver"
 )
@@ -71,7 +72,7 @@ func newHarness(t *testing.T, root string) *harness {
 	h := &harness{t: t, q: make(chan func(), 1024), fc: &fakeClient{enc: lsp.UTF16}, host: &fakeHost{}}
 	h.a = newApp(&config.Config{})
 	h.a.host = h.host
-	h.a.post = func(fn func()) { h.q <- fn }
+	h.a.post = platform.SchedulerFunc(func(fn func()) { h.q <- fn })
 	h.a.logf = testLogf(t)
 	h.a.startLSP = func(func(string, ...any)) langserver.Starter {
 		return func(ctx context.Context, root string, onExit func(error)) (langserver.Client, error) {
@@ -216,10 +217,10 @@ func serverOf(root string, c langserver.Client) *langserver.Server {
 	return langserver.New(langserver.Options{Name: "gopls", Root: root, Start: func(context.Context, string, func(error)) (langserver.Client, error) { return c, nil }})
 }
 
-// fakeHost is a host without a desktop, as noHost, but for what a test
+// fakeHost is a desktop without a window, as platform.NoDesktop, but for what a test
 // gives it to see what the app asks.
 type fakeHost struct {
-	noHost
+	platform.NoDesktop
 	newFile     func(root string) (string, error)
 	confirm     func(message string) (int, error)
 	trash       func(path string) error
@@ -231,58 +232,58 @@ type fakeHost struct {
 	fontPopover func(anchor ui.Rect, terminal bool)
 }
 
-func (f *fakeHost) pickNewFile(root string) (string, error) {
+func (f *fakeHost) PickNewFile(root string) (string, error) {
 	if f.newFile == nil {
-		return f.noHost.pickNewFile(root)
+		return f.NoDesktop.PickNewFile(root)
 	}
 	return f.newFile(root)
 }
 
-func (f *fakeHost) confirmDirty(message string) (int, error) {
+func (f *fakeHost) ConfirmDirty(message string) (int, error) {
 	if f.confirm == nil {
-		return f.noHost.confirmDirty(message)
+		return f.NoDesktop.ConfirmDirty(message)
 	}
 	return f.confirm(message)
 }
 
-func (f *fakeHost) trashItem(path string) error {
+func (f *fakeHost) TrashItem(path string) error {
 	if f.trash == nil {
-		return f.noHost.trashItem(path)
+		return f.NoDesktop.TrashItem(path)
 	}
 	return f.trash(path)
 }
 
-func (f *fakeHost) copyFiles(paths ...string) error {
+func (f *fakeHost) CopyFiles(paths ...string) error {
 	if f.copy == nil {
-		return f.noHost.copyFiles(paths...)
+		return f.NoDesktop.CopyFiles(paths...)
 	}
 	return f.copy(paths...)
 }
 
-func (f *fakeHost) copyImage(png []byte) error {
+func (f *fakeHost) CopyImage(png []byte) error {
 	if f.copyPNG == nil {
-		return f.noHost.copyImage(png)
+		return f.NoDesktop.CopyImage(png)
 	}
 	return f.copyPNG(png)
 }
 
-func (f *fakeHost) openProjectWindow(path string) bool {
+func (f *fakeHost) OpenProjectWindow(path string) bool {
 	return f.openProject != nil && f.openProject(path)
 }
 
-func (f *fakeHost) setWorkspaceSize(width, height int) {
+func (f *fakeHost) SetWorkspaceSize(width, height int) {
 	if f.resize != nil {
 		f.resize(width, height)
 	}
 }
 
-func (f *fakeHost) setAppearance(appearance string) {
+func (f *fakeHost) SetAppearance(appearance string) {
 	if f.appearance != nil {
 		f.appearance(appearance)
 	}
 }
 
-func (f *fakeHost) openFontPopover(anchor ui.Rect, terminal bool) {
+func (f *fakeHost) OpenFontPopover(anchor ui.Rect, terminal bool) {
 	if f.fontPopover != nil {
 		f.fontPopover(anchor, terminal)
 	}

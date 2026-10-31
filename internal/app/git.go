@@ -62,7 +62,7 @@ func (a *App) startGit() {
 			case <-ctx.Done():
 				return
 			case <-t.C:
-				a.post(func() {
+				a.post.Post(func() {
 					if a.gen == gen {
 						a.refreshGit()
 					}
@@ -88,7 +88,7 @@ func (a *App) refreshGit() {
 		if err == nil {
 			head = git.Head(ctx, r)
 		}
-		a.post(func() {
+		a.post.Post(func() {
 			if a.gen != gen {
 				return
 			}
@@ -153,7 +153,7 @@ func (a *App) loadGitBase(d *doc) {
 			base = nil
 		}
 		valid := trackedErr == nil && len(base) <= 4<<20 && utf8.Valid(base) && !strings.ContainsRune(string(base), 0)
-		a.post(func() {
+		a.post.Post(func() {
 			if a.gen != gen || a.docs[path] != d || d.gitBaseSeq != seq {
 				return
 			}
@@ -256,7 +256,7 @@ func (a *App) gitAction(args ...string) {
 	ctx, root, gen := a.wsCtx, a.git.root, a.gen
 	go func() {
 		_, err := git.Command(ctx, root, args...)
-		a.post(func() {
+		a.post.Post(func() {
 			if a.gen != gen {
 				return
 			}
@@ -307,7 +307,7 @@ func (a *App) discardGitChange(ch git.Change) {
 				return
 			}
 			a.git.busy = true
-			ctx, root, gen, trash := a.wsCtx, a.git.root, a.gen, a.host.trashItem
+			ctx, root, gen, trash := a.wsCtx, a.git.root, a.gen, a.host.TrashItem
 			go func() {
 				var err error
 				if ch.Index == '?' {
@@ -315,7 +315,7 @@ func (a *App) discardGitChange(ch git.Change) {
 				} else {
 					_, err = git.Command(ctx, root, "restore", "--worktree", "--", ch.Path)
 				}
-				a.post(func() {
+				a.post.Post(func() {
 					if a.gen != gen {
 						return
 					}
@@ -373,7 +373,7 @@ func (a *App) showGitDiffIn(ch git.Change, staged bool, target *group, placement
 			err = nil
 		}
 		patches, parseErr := editor.ParsePatch(string(out))
-		a.post(func() {
+		a.post.Post(func() {
 			if a.gen != gen || a.git.diffSeq != seq || a.layout.find(target) == nil {
 				return
 			}

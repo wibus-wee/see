@@ -22,7 +22,7 @@ func commands() []command {
 		{"New File", "Cmd+", "N", ui.Cmd, ui.KeyN, func(a *App) { a.newFile() }},
 		{"Command Palette", "Cmd+Shift+", "P", ui.Cmd | ui.Shift, ui.KeyP, func(a *App) { a.openPalette() }},
 		{"New Window", "Cmd+Shift+", "N", ui.Cmd | ui.Shift, ui.KeyN, func(a *App) {
-			a.host.openProjectWindow("")
+			a.host.OpenProjectWindow("")
 		}},
 		{"Open Folder", "Cmd+", "O", ui.Cmd, ui.KeyO, func(a *App) { a.openFolderDialog() }},
 		{"Open Quickly", "Cmd+Shift+", "O", ui.Cmd | ui.Shift, ui.KeyO, func(a *App) { a.openQuickly() }},
@@ -54,7 +54,7 @@ func commands() []command {
 		{"New Terminal", "Ctrl+Shift+", "`", ui.Ctrl | ui.Shift, ui.KeyBackquote, func(a *App) { a.newTerminalTab() }},
 		{"Open in External Terminal", "Cmd+Shift+", "C", ui.Cmd | ui.Shift, ui.KeyC, func(a *App) { a.openExternalTerminal() }},
 		{"Settings", "Cmd+", ",", ui.Cmd, ui.KeyComma, func(a *App) {
-			a.host.openSettings()
+			a.host.OpenSettings()
 		}},
 		{"Keep Preview Tab", "", "", 0, 0, func(a *App) {
 			if a.focus != nil {

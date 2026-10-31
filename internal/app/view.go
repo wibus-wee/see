@@ -74,7 +74,7 @@ func (a *App) view(c *ui.Context) {
 		// The main window hides without a folder (windows.sync); the
 		// welcome window shows instead.
 		if c.Shortcut(ui.Cmd|ui.Shift, ui.KeyN) {
-			a.host.openProjectWindow("")
+			a.host.OpenProjectWindow("")
 		} else if c.Shortcut(ui.Cmd, ui.KeyO) {
 			a.openFolderDialog()
 		}

@@ -38,7 +38,7 @@ func (a *App) requestTrash(path string) {
 				return
 			}
 			a.deleteConfirm = nil
-			gen, trash, post := a.gen, a.host.trashItem, a.post
+			gen, trash, post := a.gen, a.host.TrashItem, a.post.Post
 			go func() {
 				err := trash(path)
 				post(func() {
@@ -139,7 +139,7 @@ func (a *App) submitEntry(q *entryPrompt) {
 		q.err = "Enter a relative path within this folder."
 		return
 	}
-	path, gen, post := filepath.Join(q.dir, clean), a.gen, a.post
+	path, gen, post := filepath.Join(q.dir, clean), a.gen, a.post.Post
 	a.createEntry = nil
 	go func() {
 		var err error
@@ -196,7 +196,7 @@ func (a *App) openDropped(g *group, zone side, paths []string) {
 }
 
 func (a *App) copyInto(dir string, paths []string) {
-	gen, post := a.gen, a.post
+	gen, post := a.gen, a.post.Post
 	go func() {
 		var failures []string
 		for _, src := range paths {

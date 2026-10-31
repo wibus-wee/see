@@ -43,10 +43,11 @@ func TestRootHoldsOnlyTheEntryPoint(t *testing.T) {
 
 // TestOnlyAppImportsTheWindowAPI keeps the app's state in one package: the
 // packages under it may draw with mygo/ui, but a window, a menu, or the
-// app's own event loop belongs to internal/app.
+// app's own event loop belongs to internal/app, through the port in
+// internal/platform.
 func TestOnlyAppImportsTheWindowAPI(t *testing.T) {
 	for _, pkg := range internalPackages(t) {
-		if pkg == "see/internal/app" {
+		if pkg == "see/internal/app" || pkg == "see/internal/platform" {
 			continue
 		}
 		info, err := build.ImportDir(filepath.Join(root, filepath.FromSlash(strings.TrimPrefix(pkg, "see/"))), 0)

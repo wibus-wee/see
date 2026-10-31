@@ -140,7 +140,7 @@ func (a *App) projectMenu(x, y int) {
 			Type:    mygo.MenuItemCheckbox,
 			Checked: p == a.root,
 			Click: func(*mygo.MenuItem, *mygo.Window) {
-				a.post(func() { a.openRecent(p) })
+				a.post.Post(func() { a.openRecent(p) })
 			},
 		})
 	}
@@ -151,10 +151,10 @@ func (a *App) projectMenu(x, y int) {
 		Label:       "Open Folder…",
 		Accelerator: "CmdOrCtrl+O",
 		Click: func(*mygo.MenuItem, *mygo.Window) {
-			a.post(a.openFolderDialog)
+			a.post.Post(a.openFolderDialog)
 		},
 	})
-	a.host.popupMenu(x, y, items)
+	a.host.PopupMenu(x, y, items)
 }
 
 // projectLabel names a recent folder by its last part, and its parent's

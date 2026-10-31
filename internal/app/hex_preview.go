@@ -179,7 +179,7 @@ func (a *App) requestHexPage(d *doc, h *hexState, offset int64) {
 	path, size, gen, seq := d.path, d.size, a.gen, d.seq
 	go func() {
 		data, err := hexview.ReadPage(path, offset, size)
-		a.post(func() {
+		a.post.Post(func() {
 			if a.gen != gen || a.docs[path] != d || d.seq != seq || d.hex != h {
 				return
 			}
