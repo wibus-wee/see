@@ -154,7 +154,7 @@ git tag v0.1.0
 git push origin v0.1.0
 ```
 
-The [release workflow](./.github/workflows/release.yml) checks the tag, builds macOS, Windows, and Linux packages and signed updates for amd64 and arm64, and publishes a GitHub Release with generated notes after all builds succeed. Versions containing a hyphen are marked as prereleases and are not offered by the default update checks. Failed jobs can be rerun from Actions; a published release is never overwritten by a rerun. The workflow uses the repository's `GITHUB_TOKEN` and requires Actions to have permission to write repository contents.
+The [release workflow](./.github/workflows/release.yml) checks the tag, builds macOS, Windows, and Linux packages and signed updates for amd64 and arm64, and publishes a GitHub Release with generated notes after all builds succeed. The body starts with a link to each platform's installer, since the asset list below it also holds the delta files that installed copies use to update themselves. Versions containing a hyphen are marked as prereleases and are not offered by the default update checks. Failed jobs can be rerun from Actions; a published release is never overwritten by a rerun. The workflow uses the repository's `GITHUB_TOKEN` and requires Actions to have permission to write repository contents.
 
 The `MYGO_UPDATER_PRIVATE_KEY` Actions secret signs updates against the public key in `mygo.json`. Keep a secure backup of the private key: existing installations cannot accept updates signed by a different key. If `CHANGELOG.md` exists, MyGo uses its section for the release version as the update window's notes and requires that section for every release. GitHub's generated release notes are separate.
 
