@@ -70,7 +70,7 @@ func (a *App) showHover(st *editor.State, cmd bool, r hoverResult) {
 			return
 		}
 		a.hideLink()
-		st.TextBackgrounds = []editor.TextBackground{{Start: r.start, End: r.end, Color: a.colors().link}}
+		st.TextBackgrounds = []editor.TextBackground{{Start: r.start, End: r.end, Color: a.colors().Link}}
 		a.hover.link = st
 	}
 	st.ShowHover(r.start, r.end, "", func(c *ui.Context) { hoverContent(c, r.markdown, r.location) })
@@ -176,7 +176,7 @@ func (a *App) hideLink() {
 // popover colors and a subtle elevation.
 func (a *App) renderHover(c *ui.Context, panel ui.Element, h *editor.HoverCard) {
 	editor.DefaultHover(c, panel, h)
-	panel.Radius(8).MaxWidth(620).Background(colors(c).popover).Border(1, colors(c).popoverEdge).
+	panel.Radius(8).MaxWidth(620).Background(colors(c).Popover).Border(1, colors(c).PopoverEdge).
 		Shadow(0, 3, 12, 0, ui.RGBA(0, 0, 0, 0.14))
 }
 
@@ -186,12 +186,12 @@ func hoverContent(c *ui.Context, md string, location *hoverLocation) {
 			ui.Row(c).FillWidth().Gap(6).AlignItems(ui.Center).Tooltip(fmt.Sprintf("%s:%d", location.path, location.line)).Children(func() {
 				fileIcon(c, filepath.Base(location.path), 13)
 				ui.Row(c).Gap(0).Shrink(1).Children(func() {
-					ui.Text(c, filepath.Base(location.path)).FontSize(12).TextColor(colors(c).text).SingleLine().Shrink(1)
-					ui.Text(c, fmt.Sprintf(":%d", location.line)).FontSize(12).TextColor(colors(c).text).SingleLine().Shrink(0)
+					ui.Text(c, filepath.Base(location.path)).FontSize(12).TextColor(colors(c).Text).SingleLine().Shrink(1)
+					ui.Text(c, fmt.Sprintf(":%d", location.line)).FontSize(12).TextColor(colors(c).Text).SingleLine().Shrink(0)
 				})
 				parent := filepath.Base(filepath.Dir(location.path))
 				if parent != "." && parent != string(filepath.Separator) {
-					ui.Text(c, parent).FontSize(11).TextColor(colors(c).muted).SingleLine().Shrink(1)
+					ui.Text(c, parent).FontSize(11).TextColor(colors(c).Muted).SingleLine().Shrink(1)
 				}
 			})
 		}

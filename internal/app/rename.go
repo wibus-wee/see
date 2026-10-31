@@ -44,7 +44,7 @@ func (a *App) renameField(c *ui.Context, q *renamePrompt) {
 			a.renameEntry = nil
 		}
 		if q.err != "" {
-			ui.Text(c, q.err).TextColor(colors(c).err).FontSize(11).Wrap()
+			ui.Text(c, q.err).TextColor(colors(c).Err).FontSize(11).Wrap()
 		}
 	})
 }

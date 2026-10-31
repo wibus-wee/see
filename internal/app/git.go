@@ -236,7 +236,7 @@ func (a *App) showGitPeek(g *group, d *doc, st *editor.State, line int) {
 
 func (a *App) gitStatusColor(status byte) ui.Color {
 	if a.edTheme == nil {
-		return a.colors().muted
+		return a.colors().Muted
 	}
 	switch status {
 	case 'U', 'A':
@@ -407,7 +407,7 @@ func (a *App) gitNavigator(c *ui.Context) {
 		if a.git.err != "" {
 			msg = "No Git repository found, or Git is unavailable."
 		}
-		ui.Text(c, msg).TextColor(colors(c).muted).FontSize(12).Padding(12, 10).Tooltip(a.git.err)
+		ui.Text(c, msg).TextColor(colors(c).Muted).FontSize(12).Padding(12, 10).Tooltip(a.git.err)
 		return
 	}
 	staged, unstaged := 0, 0
@@ -431,7 +431,7 @@ func (a *App) gitNavigator(c *ui.Context) {
 	ui.Scroll(c).Grow(1).FillWidth().Children(func() {
 		ui.Column(c).FillWidth().Children(func() {
 			if len(a.git.changes) == 0 {
-				ui.Text(c, "No changes").FontSize(12).TextColor(colors(c).muted).Padding(10)
+				ui.Text(c, "No changes").FontSize(12).TextColor(colors(c).Muted).Padding(10)
 			}
 			if staged > 0 {
 				a.gitSection(c, "Staged Changes", staged)
@@ -455,8 +455,8 @@ func (a *App) gitNavigator(c *ui.Context) {
 
 func (a *App) gitSection(c *ui.Context, name string, count int) {
 	ui.Row(c).FillWidth().Padding(9, 16, 4, 16).Gap(6).AlignItems(ui.Center).Children(func() {
-		ui.Text(c, name).FontSize(11).Bold().TextColor(colors(c).muted)
-		ui.Text(c, fmt.Sprint(count)).FontSize(11).TextColor(colors(c).dim)
+		ui.Text(c, name).FontSize(11).Bold().TextColor(colors(c).Muted)
+		ui.Text(c, fmt.Sprint(count)).FontSize(11).TextColor(colors(c).Dim)
 	})
 }
 
@@ -468,9 +468,9 @@ func (a *App) gitRow(c *ui.Context, ch git.Change, staged bool) {
 	container := ui.Row(c.Key(fmt.Sprintf("%t:%s", staged, ch.Path))).FillWidth().Padding(1, 13).Gap(2).Radius(4).AlignItems(ui.Center)
 	hovered := container.Hovered()
 	if a.focus.active == diffTab(ch.Path, staged) {
-		container.Background(colors(c).selectedRow)
+		container.Background(colors(c).SelectedRow)
 	} else if hovered {
-		container.Background(colors(c).pill)
+		container.Background(colors(c).Pill)
 	}
 	container.Children(func() {
 		row := ui.ButtonBase(c).Label(label+" diff: "+ch.Path).Tooltip(ch.Path).Grow(1).Padding(4, 4).Radius(4)
@@ -481,7 +481,7 @@ func (a *App) gitRow(c *ui.Context, ch git.Change, staged bool) {
 				ui.Text(c, filepath.Base(ch.Path)).FontSize(12).SingleLine().Shrink(1)
 				dir := filepath.Dir(ch.Path)
 				if dir != "." {
-					ui.Text(c, filepath.ToSlash(dir)).FontSize(11).TextColor(colors(c).dim).SingleLine().Shrink(1)
+					ui.Text(c, filepath.ToSlash(dir)).FontSize(11).TextColor(colors(c).Dim).SingleLine().Shrink(1)
 				}
 			})
 		})

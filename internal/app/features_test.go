@@ -13,6 +13,7 @@ import (
 	"github.com/egoist/mygo/ui/editor"
 
 	"see/internal/lsp"
+	"see/internal/theme"
 	"see/internal/search"
 
 	"see/internal/langserver"
@@ -449,22 +450,22 @@ func TestAppearanceFollowsSystem(t *testing.T) {
 	d := h.open("a.go")
 	h.tt.SetDark(true)
 	h.tt.Frame()
-	if h.a.colors() != &darkPalette || h.a.theme.Background != darkPalette.editor {
+	if h.a.colors() != &theme.Dark || h.a.theme.Background != theme.Dark.Editor {
 		t.Fatalf("dark: editor %v", h.a.theme.Background)
 	}
 	darkTheme := h.ed(d).Theme
 	h.tt.SetDark(false)
 	h.tt.Frame()
-	if h.a.colors() != &lightPalette || h.a.theme.Background != lightPalette.editor {
+	if h.a.colors() != &theme.Light || h.a.theme.Background != theme.Light.Editor {
 		t.Errorf("light: editor %v", h.a.theme.Background)
 	}
-	if st := h.ed(d); st.Theme == darkTheme || st.Theme.Background != lightPalette.editor {
+	if st := h.ed(d); st.Theme == darkTheme || st.Theme.Background != theme.Light.Editor {
 		t.Error("the open editor kept the dark theme")
 	}
 	// A new editor takes the light one too.
 	os.WriteFile(filepath.Join(h.a.root, "b.go"), []byte("package b\n"), 0o644)
 	b := h.open("b.go")
-	if h.ed(b).Theme.Background != lightPalette.editor {
+	if h.ed(b).Theme.Background != theme.Light.Editor {
 		t.Error("a new editor is not light")
 	}
 	// Choosing an appearance is remembered, and asks the windows for it.

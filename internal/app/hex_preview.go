@@ -78,9 +78,9 @@ func (a *App) hexView(c *ui.Context, g *group, d *doc) {
 	hexWidth := float32(49) * charWidth
 	rowWidth := 32 + offsetWidth + hexWidth + 16*charWidth
 	ui.Column(c).Grow(1).FillWidth().Children(func() {
-		ui.Row(c).FillWidth().Padding(8, 14).Gap(7).AlignItems(ui.Center).Background(colors(c).toolbar).BorderWidth(0, 0, 1, 0).BorderColor(colors(c).hairline).Children(func() {
-			ui.Text(c, "HEX VIEW").FontSize(10).Bold().TextColor(colors(c).muted).Shrink(0)
-			ui.Box(c).Width(1).Height(18).Background(colors(c).separator).Shrink(0)
+		ui.Row(c).FillWidth().Padding(8, 14).Gap(7).AlignItems(ui.Center).Background(colors(c).Toolbar).BorderWidth(0, 0, 1, 0).BorderColor(colors(c).Hairline).Children(func() {
+			ui.Text(c, "HEX VIEW").FontSize(10).Bold().TextColor(colors(c).Muted).Shrink(0)
+			ui.Box(c).Width(1).Height(18).Background(colors(c).Separator).Shrink(0)
 			jump := ui.TextInput(c, &control.jump).Label("Hex offset").Placeholder("Offset").Width(105).Height(26).FontSize(12)
 			if jump.Submitted() {
 				a.jumpHex(control, state, d.size)
@@ -88,7 +88,7 @@ func (a *App) hexView(c *ui.Context, g *group, d *doc) {
 			if ui.Button(c, "Go").Height(26).Clicked() {
 				a.jumpHex(control, state, d.size)
 			}
-			ui.Box(c).Width(1).Height(18).Background(colors(c).separator).Shrink(0)
+			ui.Box(c).Width(1).Height(18).Background(colors(c).Separator).Shrink(0)
 			search := ui.TextInput(c, &control.query).Label("Find bytes").Placeholder("Find text or hex: 00 FF").Grow(1).MinWidth(80).Height(26).FontSize(12)
 			if search.Changed() && control.searching {
 				control.cancel()
@@ -110,22 +110,22 @@ func (a *App) hexView(c *ui.Context, g *group, d *doc) {
 				a.copyHex(d, control, services)
 			}
 		})
-		head := ui.Row(c).FillWidth().Clip().Height(30).AlignItems(ui.Center).Background(colors(c).tabBar).BorderWidth(0, 0, 1, 0).BorderColor(colors(c).hairline)
+		head := ui.Row(c).FillWidth().Clip().Height(30).AlignItems(ui.Center).Background(colors(c).TabBar).BorderWidth(0, 0, 1, 0).BorderColor(colors(c).Hairline)
 		head.Children(func() {
 			ui.Row(c).Width(rowWidth).Shrink(0).Padding(0, 16).AlignItems(ui.Center).Children(func() {
-				ui.Text(c, "OFFSET").Width(offsetWidth).Font("monospace").FontSize(10).TextColor(colors(c).muted).Shrink(0)
+				ui.Text(c, "OFFSET").Width(offsetWidth).Font("monospace").FontSize(10).TextColor(colors(c).Muted).Shrink(0)
 				for i := 0; i < hexview.RowBytes; i++ {
 					if i == 8 {
 						ui.Box(c).Width(charWidth).Shrink(0)
 					}
-					ui.Text(c, fmt.Sprintf("%02X", i)).Width(charWidth * 3).Font("monospace").FontSize(10).TextColor(colors(c).muted).Shrink(0)
+					ui.Text(c, fmt.Sprintf("%02X", i)).Width(charWidth * 3).Font("monospace").FontSize(10).TextColor(colors(c).Muted).Shrink(0)
 				}
-				ui.Text(c, "ASCII").Width(16 * charWidth).Font("monospace").FontSize(10).TextColor(colors(c).muted).Shrink(0)
+				ui.Text(c, "ASCII").Width(16 * charWidth).Font("monospace").FontSize(10).TextColor(colors(c).Muted).Shrink(0)
 			})
 		})
 		if h.err != nil {
 			ui.Row(c).Gap(8).Padding(12, 16).Children(func() {
-				ui.Text(c, "Could not read file bytes: "+h.err.Error()).FontSize(12).TextColor(colors(c).err)
+				ui.Text(c, "Could not read file bytes: "+h.err.Error()).FontSize(12).TextColor(colors(c).Err)
 				if ui.Button(c, "Retry").Clicked() {
 					d.hex = nil
 				}
@@ -152,16 +152,16 @@ func (a *App) hexView(c *ui.Context, g *group, d *doc) {
 			})
 			head.ScrollWith(list)
 		}
-		ui.Row(c).FillWidth().Padding(6, 16).Gap(12).AlignItems(ui.Center).Background(colors(c).tabBar).BorderWidth(1, 0, 0, 0).BorderColor(colors(c).hairline).Children(func() {
-			ui.Text(c, "READ ONLY").FontSize(10).Bold().TextColor(colors(c).muted)
-			ui.Text(c, size(d.size)).FontSize(11).TextColor(colors(c).muted)
+		ui.Row(c).FillWidth().Padding(6, 16).Gap(12).AlignItems(ui.Center).Background(colors(c).TabBar).BorderWidth(1, 0, 0, 0).BorderColor(colors(c).Hairline).Children(func() {
+			ui.Text(c, "READ ONLY").FontSize(10).Bold().TextColor(colors(c).Muted)
+			ui.Text(c, size(d.size)).FontSize(11).TextColor(colors(c).Muted)
 			if control.selected {
 				lo, hi := control.bounds()
-				ui.Text(c, fmt.Sprintf("0x%X – 0x%X  ·  %s", lo, hi-1, hexSelectionSize(hi-lo))).Font("monospace").FontSize(11).TextColor(colors(c).text)
+				ui.Text(c, fmt.Sprintf("0x%X – 0x%X  ·  %s", lo, hi-1, hexSelectionSize(hi-lo))).Font("monospace").FontSize(11).TextColor(colors(c).Text)
 			}
 			ui.Box(c).Grow(1)
 			if control.message != "" {
-				ui.Text(c, control.message).FontSize(11).TextColor(colors(c).muted).SingleLine().Shrink(1)
+				ui.Text(c, control.message).FontSize(11).TextColor(colors(c).Muted).SingleLine().Shrink(1)
 			}
 		})
 	})
@@ -206,7 +206,7 @@ func (a *App) requestHexPage(d *doc, h *hexState, offset int64) {
 
 func (a *App) hexRow(c *ui.Context, list *ui.ListState, s *hexControl, offset int64, data []byte, digits int, charWidth, offsetWidth float32) {
 	ui.Row(c).Padding(3, 16).AlignItems(ui.Center).Children(func() {
-		ui.Text(c, fmt.Sprintf("%0*X", digits, offset)).Width(offsetWidth).Font("monospace").FontSize(12).TextColor(colors(c).muted).SingleLine()
+		ui.Text(c, fmt.Sprintf("%0*X", digits, offset)).Width(offsetWidth).Font("monospace").FontSize(12).TextColor(colors(c).Muted).SingleLine()
 		for i := 0; i < hexview.RowBytes; i++ {
 			if i == 8 {
 				ui.Box(c).Width(charWidth).Shrink(0)

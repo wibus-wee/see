@@ -317,7 +317,7 @@ func (a *App) editorsAndPanel(c *ui.Context, editors func()) {
 
 func (a *App) terminalPanel(c *ui.Context) {
 	tp := &a.term
-	panel := ui.Row(c).Fill().AlignItems(ui.Stretch).Background(colors(c).editor).BorderWidth(1, 0, 0, 0).BorderColor(colors(c).hairline)
+	panel := ui.Row(c).Fill().AlignItems(ui.Stretch).Background(colors(c).Editor).BorderWidth(1, 0, 0, 0).BorderColor(colors(c).Hairline)
 	panel.Children(func() {
 		ui.Column(c).Grow(1).FillHeight().Children(func() {
 			switch {
@@ -328,7 +328,7 @@ func (a *App) terminalPanel(c *ui.Context) {
 			case tp.loading:
 				ui.Row(c).Grow(1).FillWidth().Center().Gap(8).Children(func() {
 					ui.Spinner(c)
-					ui.Text(c, "Loading the terminal…").TextColor(colors(c).muted)
+					ui.Text(c, "Loading the terminal…").TextColor(colors(c).Muted)
 				})
 			case tp.active != nil:
 				a.paneSplit(c, tp.active, tp.active.panes)
@@ -370,7 +370,7 @@ func (a *App) termPaneView(c *ui.Context, tab *termTab, p *termPane) {
 // its terminals, under a row of small buttons.
 func (a *App) termTabList(c *ui.Context) {
 	tp := &a.term
-	ui.Column(c).Width(168).Shrink(0).FillHeight().Background(colors(c).tabBar).BorderWidth(0, 0, 0, 1).BorderColor(colors(c).hairline).Children(func() {
+	ui.Column(c).Width(168).Shrink(0).FillHeight().Background(colors(c).TabBar).BorderWidth(0, 0, 0, 1).BorderColor(colors(c).Hairline).Children(func() {
 		ui.Row(c).FillWidth().Height(26).Padding(0, 4).Gap(0).AlignItems(ui.Center).Children(func() {
 			small := func(icon *ui.SVG, label, tip string) bool {
 				return iconButton(c, icon, label, tip, false).Padding(3).Clicked()
@@ -392,9 +392,9 @@ func (a *App) termTabList(c *ui.Context) {
 			compact := func(icon *ui.SVG, label, tip string) bool {
 				b := ui.ButtonBase(c).Label(label).Tooltip(tip).Size(22, 22).Radius(6).Shrink(0).KeepFocus().Center()
 				if b.Hovered() || b.Pressed() {
-					b.Background(colors(c).pill)
+					b.Background(colors(c).Pill)
 				}
-				b.Children(func() { symbolIcon(c, icon, 12, colors(c).muted) })
+				b.Children(func() { symbolIcon(c, icon, 12, colors(c).Muted) })
 				return b.Clicked()
 			}
 			if compact(maxIcon, maxTip, maxTip) {
@@ -408,10 +408,10 @@ func (a *App) termTabList(c *ui.Context) {
 			ui.Column(c).FillWidth().Padding(0, 4, 4, 4).Gap(1).Children(func() {
 				row := ui.Row(c.Key("output")).FillWidth().Height(24).Padding(0, 6).Gap(6).Radius(5).AlignItems(ui.Center)
 				if tp.output {
-					row.Background(colors(c).selectedRow)
+					row.Background(colors(c).SelectedRow)
 				}
 				row.OnClick(func() { tp.output = true; tp.focus = nil })
-				row.Children(func() { symbolIcon(c, icLines, 16, colors(c).muted); ui.Text(c, "Output").FontSize(12) })
+				row.Children(func() { symbolIcon(c, icLines, 16, colors(c).Muted); ui.Text(c, "Output").FontSize(12) })
 				for i, tab := range tp.tabs {
 					a.termTabRow(c, i, tab)
 				}
@@ -434,9 +434,9 @@ func (a *App) termPaneRow(c *ui.Context, i, j int, tab *termTab, p *termPane, ne
 	hovered := row.Hovered()
 	switch {
 	case active:
-		row.Background(colors(c).selectedRow)
+		row.Background(colors(c).SelectedRow)
 	case hovered:
-		row.Background(colors(c).pill)
+		row.Background(colors(c).Pill)
 	}
 	row.OnClick(func() {
 		tp.active = tab
@@ -452,20 +452,20 @@ func (a *App) termPaneRow(c *ui.Context, i, j int, tab *termTab, p *termPane, ne
 			} else if j == len(tab.panes)-1 {
 				branch = "└"
 			}
-			ui.Text(c, branch).FontSize(16).TextColor(colors(c).muted)
+			ui.Text(c, branch).FontSize(16).TextColor(colors(c).Muted)
 		}
-		symbolIcon(c, icPrompt, 16, colors(c).muted)
+		symbolIcon(c, icPrompt, 16, colors(c).Muted)
 		title := p.title
 		if title == "" {
 			title = shellName()
 		}
 		t := ui.Text(c, title).FontSize(12).SingleLine().Grow(1).Shrink(1)
 		if !active {
-			t.TextColor(colors(c).muted)
+			t.TextColor(colors(c).Muted)
 		}
 		if hovered {
 			split := ui.ButtonBase(c).Label(fmt.Sprintf("Split Terminal %d.%d", i+1, j+1)).Size(20, 20).Radius(3).Center().KeepFocus()
-			split.Children(func() { symbolIcon(c, icSplitH, 16, colors(c).muted) })
+			split.Children(func() { symbolIcon(c, icSplitH, 16, colors(c).Muted) })
 			split.OnClick(func() {
 				tp.active, tab.active = tab, p
 				tp.output = false
@@ -474,7 +474,7 @@ func (a *App) termPaneRow(c *ui.Context, i, j int, tab *termTab, p *termPane, ne
 		}
 		cl := ui.ButtonBase(c).Label(fmt.Sprintf("Close Terminal %d.%d", i+1, j+1)).Size(20, 20).Radius(3).Center().KeepFocus()
 		if hovered {
-			cl.Children(func() { symbolIcon(c, icTrash, 16, colors(c).muted) })
+			cl.Children(func() { symbolIcon(c, icTrash, 16, colors(c).Muted) })
 		}
 		cl.OnClick(func() { a.closePane(p) })
 	})

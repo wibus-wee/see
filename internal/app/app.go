@@ -1382,11 +1382,11 @@ func (a *App) selectRelated(ch *defChoices, index int) {
 	}
 	line := min(max(t.pos.Line, 0), buf.LineCount()-1)
 	col := lsp.ColumnFromLSP(buf.Line(line), t.pos.Character, ch.enc)
-	ch.previewEditor.LineBackgrounds = []editor.LineBackground{{First: line, Last: line, Color: a.colors().pill}}
+	ch.previewEditor.LineBackgrounds = []editor.LineBackground{{First: line, Last: line, Color: a.colors().Pill}}
 	ch.previewEditor.GoTo(editor.Pos{Line: line, Col: col})
 	if t.end.Line == t.pos.Line && t.end.Character > t.pos.Character {
 		end := lsp.ColumnFromLSP(buf.Line(line), t.end.Character, ch.enc)
-		ch.previewEditor.TextBackgrounds = []editor.TextBackground{{Start: buf.Offset(editor.Pos{Line: line, Col: col}), End: buf.Offset(editor.Pos{Line: line, Col: end}), Color: a.colors().match}}
+		ch.previewEditor.TextBackgrounds = []editor.TextBackground{{Start: buf.Offset(editor.Pos{Line: line, Col: col}), End: buf.Offset(editor.Pos{Line: line, Col: end}), Color: a.colors().Match}}
 	} else {
 		ch.previewEditor.TextBackgrounds = nil
 	}

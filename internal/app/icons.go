@@ -128,7 +128,7 @@ func kindOf(name string) fileKind {
 func fileIcon(c *ui.Context, name string, size float32) {
 	k := kindOf(name)
 	ui.Box(c).Size(size*0.84, size).Shrink(0).Children(func() {
-		ui.Icon(c, icPage).Size(size*0.84, size).TextColor(colors(c).page)
+		ui.Icon(c, icPage).Size(size*0.84, size).TextColor(colors(c).Page)
 		if k.glyph != "" {
 			fs := size * 0.46
 			if len(k.glyph) > 1 {
@@ -153,5 +153,5 @@ func folderGlyph(c *ui.Context, open bool, size float32) {
 	if open {
 		ic = icFolderOpen
 	}
-	symbolIcon(c, ic, size, colors(c).folder).Shrink(0)
+	symbolIcon(c, ic, size, colors(c).Folder).Shrink(0)
 }

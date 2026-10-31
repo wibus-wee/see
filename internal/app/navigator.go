@@ -32,9 +32,9 @@ func (a *App) navigatorPane(c *ui.Context, vibrant bool) {
 
 func sidebarColor(c *ui.Context, vibrant bool) ui.Color {
 	if vibrant {
-		return colors(c).sidebar.Alpha(0.78)
+		return colors(c).Sidebar.Alpha(0.78)
 	}
-	return colors(c).sidebar
+	return colors(c).Sidebar
 }
 
 // navigatorBar switches between the file and find navigators.
@@ -62,9 +62,9 @@ func (a *App) navigatorBar(c *ui.Context) {
 					seg.Material(glass.Glass{Interactive: true})
 				}
 				seg.Children(func() {
-					color := colors(c).muted
+					color := colors(c).Muted
 					if i == a.navigator {
-						color = colors(c).text
+						color = colors(c).Text
 					}
 					symbolIcon(c, s.icon, 14, color)
 				})
@@ -93,7 +93,7 @@ func (a *App) projectNavigatorContent(c *ui.Context) {
 		switch {
 		case a.quick.err != nil:
 			ui.Column(c).Grow(1).Padding(8, 12).Gap(6).Children(func() {
-				ui.Text(c, "Could not list the files: "+describeErr(a.quick.err)).TextColor(colors(c).err).FontSize(12)
+				ui.Text(c, "Could not list the files: "+describeErr(a.quick.err)).TextColor(colors(c).Err).FontSize(12)
 				if ui.Button(c, "Retry").Clicked() {
 					a.retryFiles()
 				}
@@ -101,11 +101,11 @@ func (a *App) projectNavigatorContent(c *ui.Context) {
 		case a.quick.files == nil:
 			ui.Row(c).Padding(8, 12).Gap(8).Children(func() {
 				ui.Spinner(c)
-				ui.Text(c, "Listing files…").TextColor(colors(c).muted)
+				ui.Text(c, "Listing files…").TextColor(colors(c).Muted)
 			})
 		case a.filter.matches == 0:
 			ui.Column(c).Grow(1).FillWidth().AlignItems(ui.Center).Justify(ui.Center).Children(func() {
-				ui.Text(c, "No Results").TextColor(colors(c).muted)
+				ui.Text(c, "No Results").TextColor(colors(c).Muted)
 			})
 		default:
 			a.fileTree(c, a.filter.roots)
@@ -116,12 +116,12 @@ func (a *App) projectNavigatorContent(c *ui.Context) {
 		case rootDir == nil || (!rootDir.loaded && rootDir.loading):
 			ui.Row(c).Padding(8, 12).Gap(8).Children(func() {
 				ui.Spinner(c)
-				ui.Text(c, "Loading…").TextColor(colors(c).muted)
+				ui.Text(c, "Loading…").TextColor(colors(c).Muted)
 			})
 		case !rootDir.loaded:
 			a.dirError(c, a.root, rootDir.err)
 		case len(rootDir.entries) == 0 && a.createEntry == nil:
-			ui.Text(c, "This folder is empty.").TextColor(colors(c).muted).Padding(8, 12)
+			ui.Text(c, "This folder is empty.").TextColor(colors(c).Muted).Padding(8, 12)
 		default:
 			a.fileTree(c, a.withEntryPrompt(a.root, entryPaths(rootDir)))
 		}
@@ -147,7 +147,7 @@ func (a *App) treeHeading(c *ui.Context) {
 			if a.quick.files == nil {
 				detail = "Filtering…"
 			}
-			ui.Text(c, detail).FontSize(11).TextColor(colors(c).dim).SingleLine().Shrink(1)
+			ui.Text(c, detail).FontSize(11).TextColor(colors(c).Dim).SingleLine().Shrink(1)
 		}
 		ui.Box(c).Grow(1)
 		if glyphButton(c, icAdd, "New File", "New File in Project", false, false).Clicked() {
@@ -171,12 +171,12 @@ func (a *App) treeHeading(c *ui.Context) {
 // as the actions beside a source list's title.
 func glyphButton(c *ui.Context, icon *ui.SVG, label, tip string, on, disabled bool) ui.Element {
 	b := ui.ButtonBase(c).Label(label).Tooltip(tip).Padding(3).Radius(4).Shrink(0).KeepFocus().Disabled(disabled)
-	color := colors(c).muted
+	color := colors(c).Muted
 	if on {
 		color = c.Theme().Accent
 	}
 	if !disabled && (b.Hovered() || b.Pressed()) {
-		b.Background(colors(c).pill)
+		b.Background(colors(c).Pill)
 	}
 	b.Children(func() { symbolIcon(c, icon, 13, color) })
 	return b
@@ -188,7 +188,7 @@ func (a *App) filterBar(c *ui.Context) {
 	ui.Row(c).Shrink(0).FillWidth().Padding(6, sidebarInset, 10, sidebarInset).Children(func() {
 		// A capsule filled with the label color, borderless, as macOS
 		// 27's search fields in a sidebar.
-		field := ui.SearchField(c, &a.filter.query).FillWidth().Height(28).Radius(14).Background(colors(c).pill).BorderWidth(0).
+		field := ui.SearchField(c, &a.filter.query).FillWidth().Height(28).Radius(14).Background(colors(c).Pill).BorderWidth(0).
 			Label("Filter Files").Bind(&a.filter.field)
 		if a.filter.focus {
 			a.filter.focus = false
@@ -292,7 +292,7 @@ func (a *App) treeItem(c *ui.Context, p string) {
 		}
 		return
 	case strings.HasSuffix(p, loadingSuffix):
-		ui.Text(c, "Loading…").TextColor(colors(c).muted).FontSize(12)
+		ui.Text(c, "Loading…").TextColor(colors(c).Muted).FontSize(12)
 		return
 	case strings.HasSuffix(p, errorSuffix):
 		dir := strings.TrimSuffix(p, errorSuffix)
@@ -301,7 +301,7 @@ func (a *App) treeItem(c *ui.Context, p string) {
 			msg += ": " + describeErr(d.err)
 		}
 		ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, msg).TextColor(colors(c).err).FontSize(12).SingleLine().Shrink(1)
+			ui.Text(c, msg).TextColor(colors(c).Err).FontSize(12).SingleLine().Shrink(1)
 			if ui.Button(c, "Retry").Padding(0, 6).Clicked() {
 				a.retryDir(dir)
 			}
@@ -333,11 +333,11 @@ func (a *App) treeItem(c *ui.Context, p string) {
 		}
 		t := ui.Text(c, name).SingleLine().Shrink(1)
 		if dim {
-			t.TextColor(colors(c).dim)
+			t.TextColor(colors(c).Dim)
 		}
 		if e.Link {
 			t.Italic()
-			symbolIcon(c, icLink, 11, colors(c).dim)
+			symbolIcon(c, icLink, 11, colors(c).Dim)
 		}
 		if d := a.docs[p]; d != nil && d.gone {
 			t.Strikethrough()
@@ -404,7 +404,7 @@ func (a *App) treeItem(c *ui.Context, p string) {
 		}
 		_, treeOver := ui.DragOver[*tabDrag](row)
 		if row.FileDragOver() || treeOver {
-			row.Background(colors(c).dropZone)
+			row.Background(colors(c).DropZone)
 		}
 		row.OnClick(func() {
 			for i := range a.tree.Rows() {
@@ -427,7 +427,7 @@ func (a *App) treeItem(c *ui.Context, p string) {
 
 func (a *App) dirError(c *ui.Context, dir string, err error) {
 	ui.Column(c).Padding(8, 12).Gap(6).Children(func() {
-		ui.Text(c, "Could not read this folder: "+describeErr(err)).TextColor(colors(c).err)
+		ui.Text(c, "Could not read this folder: "+describeErr(err)).TextColor(colors(c).Err)
 		if ui.Button(c, "Retry").Clicked() {
 			a.retryDir(dir)
 		}
@@ -488,12 +488,12 @@ func (a *App) findNavigator(c *ui.Context) {
 func (a *App) findSummary(c *ui.Context) {
 	f := &a.find
 	var msg string
-	color := colors(c).muted
+	color := colors(c).Muted
 	switch {
 	case f.err != nil && f.err == search.ErrNoRipgrep:
-		msg, color = "Finding needs ripgrep: "+search.InstallHint()+".", colors(c).err
+		msg, color = "Finding needs ripgrep: "+search.InstallHint()+".", colors(c).Err
 	case f.err != nil:
-		msg, color = f.err.Error(), colors(c).err
+		msg, color = f.err.Error(), colors(c).Err
 	case f.running && f.stats.Matches == 0:
 		msg = "Searching…"
 	case strings.TrimSpace(f.ran.Query) == "":
@@ -519,10 +519,10 @@ func (a *App) findRow(c *ui.Context, k findKey) {
 			fileIcon(c, filepath.Base(k.path), 14)
 			ui.Text(c, filepath.Base(k.path)).Bold().SingleLine().Shrink(0)
 			if dir := filepath.Dir(workspace.RelPath(a.root, k.path)); dir != "." {
-				ui.Text(c, dir).FontSize(11).TextColor(colors(c).dim).SingleLine().Shrink(1)
+				ui.Text(c, dir).FontSize(11).TextColor(colors(c).Dim).SingleLine().Shrink(1)
 			}
 			ui.Box(c).Grow(1)
-			ui.Text(c, fmt.Sprint(len(file.Matches))).FontSize(11).TextColor(colors(c).muted).Padding(0, 6).Radius(8).Background(colors(c).pill)
+			ui.Text(c, fmt.Sprint(len(file.Matches))).FontSize(11).TextColor(colors(c).Muted).Padding(0, 6).Radius(8).Background(colors(c).Pill)
 		})
 		return
 	}
@@ -537,12 +537,12 @@ func (a *App) findRow(c *ui.Context, k findKey) {
 		}
 		pre, post := m.Preview[:m.PreStart], m.Preview[m.PreEnd:]
 		trimmed := strings.TrimRight(pre, " \t")
-		ui.Text(c, trimmed).FontSize(12).TextColor(colors(c).muted).SingleLine().Shrink(1)
+		ui.Text(c, trimmed).FontSize(12).TextColor(colors(c).Muted).SingleLine().Shrink(1)
 		gap(len(pre) - len(trimmed))
-		ui.Text(c, m.Preview[m.PreStart:m.PreEnd]).FontSize(12).Bold().Background(colors(c).match).Radius(3).SingleLine().Shrink(0)
+		ui.Text(c, m.Preview[m.PreStart:m.PreEnd]).FontSize(12).Bold().Background(colors(c).Match).Radius(3).SingleLine().Shrink(0)
 		trimmed = strings.TrimLeft(post, " \t")
 		gap(len(post) - len(trimmed))
-		ui.Text(c, trimmed).FontSize(12).TextColor(colors(c).muted).SingleLine().Shrink(1)
+		ui.Text(c, trimmed).FontSize(12).TextColor(colors(c).Muted).SingleLine().Shrink(1)
 	})
 	row.Tooltip(fmt.Sprintf("Line %d", m.Line+1))
 	row.OnClick(func() {

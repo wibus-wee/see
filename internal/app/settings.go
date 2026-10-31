@@ -12,6 +12,7 @@ import (
 	"github.com/egoist/mygo/ui/editor"
 
 	"see/internal/search"
+	"see/internal/theme"
 	"see/internal/workspace"
 
 	"see/internal/langserver"
@@ -129,10 +130,10 @@ func (a *App) settingsView(c *ui.Context) {
 	ui.Row(c).Fill().AlignItems(ui.Stretch).Children(func() {
 		side := ui.Column(c).Width(240).Shrink(0).Padding(max(bar.Height, 40)+4, 10, 12, 10).Gap(1).DragWindow()
 		if !vibrant {
-			side.Background(colors(c).sidebar)
+			side.Background(colors(c).Sidebar)
 		}
 		side.Children(func() { a.settingsSidebar(c) })
-		content := ui.Column(c).Grow(1).Background(colors(c).settings).BorderWidth(0, 0, 0, 1).BorderColor(colors(c).hairline)
+		content := ui.Column(c).Grow(1).Background(colors(c).Settings).BorderWidth(0, 0, 0, 1).BorderColor(colors(c).Hairline)
 		content.Children(func() { a.settingsContent(c, bar) })
 	})
 }
@@ -147,8 +148,8 @@ func (a *App) settingsSidebar(c *ui.Context) {
 		sidebarRow(c, chosen, "See", func() { a.settingsGo("about") }).Padding(6, 6).Gap(8).Children(func() {
 			ui.Image(c, appIcon).Size(34, 34).Shrink(0)
 			ui.Column(c).Grow(1).Shrink(1).Gap(1).Children(func() {
-				ui.Text(c, "See").FontSize(13).Bold().SingleLine().TextColor(rowText(chosen, colors(c).text))
-				ui.Text(c, a.versionLabel()).FontSize(11).SingleLine().TextColor(rowText(chosen, colors(c).muted))
+				ui.Text(c, "See").FontSize(13).Bold().SingleLine().TextColor(rowText(chosen, colors(c).Text))
+				ui.Text(c, a.versionLabel()).FontSize(11).SingleLine().TextColor(rowText(chosen, colors(c).Muted))
 			})
 		})
 	}
@@ -168,13 +169,13 @@ func (a *App) settingsSidebar(c *ui.Context) {
 		chosen := s.pane == p.id
 		sidebarRow(c.Key(p.id), chosen, p.title, func() { a.settingsGo(p.id) }).Children(func() {
 			iconTile(c, p.icon, p.tile, 20)
-			ui.Text(c, p.title).FontSize(13).SingleLine().Shrink(1).TextColor(rowText(chosen, colors(c).text))
+			ui.Text(c, p.title).FontSize(13).SingleLine().Shrink(1).TextColor(rowText(chosen, colors(c).Text))
 		})
 	}
 	if shown == 0 {
 		ui.Column(c).FillWidth().Padding(24, 8).Gap(4).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, "No Results").Bold().TextColor(colors(c).muted)
-			ui.Text(c, "for “"+strings.TrimSpace(s.query)+"”").FontSize(11).TextColor(colors(c).dim).SingleLine()
+			ui.Text(c, "No Results").Bold().TextColor(colors(c).Muted)
+			ui.Text(c, "for “"+strings.TrimSpace(s.query)+"”").FontSize(11).TextColor(colors(c).Dim).SingleLine()
 		})
 	}
 	// Up and Down go from pane to pane, as in System Settings, unless
@@ -220,9 +221,9 @@ func sidebarRow(c *ui.Context, chosen bool, label string, fn func()) ui.Element 
 	case chosen:
 		row.Background(c.Theme().Accent).Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.12))
 	case row.Pressed():
-		row.Background(colors(c).pill.Mix(colors(c).text, 0.08))
+		row.Background(colors(c).Pill.Mix(colors(c).Text, 0.08))
 	case row.Hovered():
-		row.Background(colors(c).pill)
+		row.Background(colors(c).Pill)
 	}
 	row.OnClick(fn)
 	return row
@@ -233,7 +234,7 @@ func rowText(chosen bool, col ui.Color) ui.Color {
 	if !chosen {
 		return col
 	}
-	if col == darkPalette.muted || col == lightPalette.muted {
+	if col == theme.Dark.Muted || col == theme.Light.Muted {
 		return ui.RGBA(0xff, 0xff, 0xff, 0.78)
 	}
 	return ui.RGB(0xff, 0xff, 0xff)
@@ -272,7 +273,7 @@ func (a *App) settingsContent(c *ui.Context, bar ui.TitleBar) {
 				s.forward = append(s.forward, s.pane)
 				s.pane, s.back = s.back[len(s.back)-1], s.back[:len(s.back)-1]
 			}
-			ui.Box(c).Size(1, 16).Background(colors(c).separator)
+			ui.Box(c).Size(1, 16).Background(colors(c).Separator)
 			fwd := iconButtonWithState(c, icForward, "Forward", "Forward", false, len(s.forward) == 0, 13)
 			if fwd.Clicked() && len(s.forward) > 0 {
 				s.back = append(s.back, s.pane)
@@ -307,10 +308,10 @@ func (a *App) settingsContent(c *ui.Context, bar ui.TitleBar) {
 
 // card is a rounded group of settings; its rows are divided by lines.
 func card(c *ui.Context, rows ...func()) {
-	ui.Column(c).FillWidth().Radius(12).Background(colors(c).card).Padding(0, 14).Children(func() {
+	ui.Column(c).FillWidth().Radius(12).Background(colors(c).Card).Padding(0, 14).Children(func() {
 		for i, row := range rows {
 			if i > 0 {
-				ui.Box(c).Height(1).FillWidth().Background(colors(c).separator)
+				ui.Box(c).Height(1).FillWidth().Background(colors(c).Separator)
 			}
 			ui.Row(c.Key(i)).FillWidth().MinHeight(44).Padding(8, 0).Gap(12).AlignItems(ui.Center).Children(row)
 		}
@@ -328,7 +329,7 @@ func labeled(c *ui.Context, label, detail string) {
 	ui.Column(c).Grow(1).Shrink(1).Gap(2).Children(func() {
 		ui.Text(c, label)
 		if detail != "" {
-			ui.Text(c, detail).FontSize(12).TextColor(colors(c).muted)
+			ui.Text(c, detail).FontSize(12).TextColor(colors(c).Muted)
 		}
 	})
 }
@@ -336,11 +337,11 @@ func labeled(c *ui.Context, label, detail string) {
 // statusCard is a card with a tile, a name, a status, and an action, as
 // the server's at the top of the picture this follows.
 func statusCard(c *ui.Context, icon *ui.SVG, tile ui.Color, name, status string, action func()) {
-	ui.Row(c).FillWidth().Radius(12).Background(colors(c).card).Padding(12, 14).Gap(12).AlignItems(ui.Center).Children(func() {
+	ui.Row(c).FillWidth().Radius(12).Background(colors(c).Card).Padding(12, 14).Gap(12).AlignItems(ui.Center).Children(func() {
 		iconTile(c, icon, tile, 38)
 		ui.Column(c).Grow(1).Shrink(1).Gap(2).Children(func() {
 			ui.Text(c, name).Bold()
-			ui.Text(c, status).FontSize(12).TextColor(colors(c).muted)
+			ui.Text(c, status).FontSize(12).TextColor(colors(c).Muted)
 		})
 		if action != nil {
 			action()
@@ -411,7 +412,7 @@ func (a *App) editorPane(c *ui.Context) {
 		func() { a.fontPicker(c, false) },
 		func() {
 			labeled(c, "Font Size", "The editor's font size.")
-			ui.Text(c, fmt.Sprintf("%g pt", s.fontSize)).TextColor(colors(c).muted)
+			ui.Text(c, fmt.Sprintf("%g pt", s.fontSize)).TextColor(colors(c).Muted)
 			if ui.Stepper(c, &s.fontSize, 9, 28, 1).Label("Font Size").Changed() {
 				a.cfg.FontSize = s.fontSize
 				a.applyEditorPrefsAll()
@@ -438,16 +439,16 @@ func (a *App) editorPane(c *ui.Context) {
 
 func (a *App) intelligencePane(c *ui.Context) {
 	heading(c, "Language Servers")
-	ui.Text(c, "Power definition lookup and symbol help in trusted folders.").FontSize(12).TextColor(colors(c).muted).Padding(0, 4, 4, 4)
+	ui.Text(c, "Power definition lookup and symbol help in trusted folders.").FontSize(12).TextColor(colors(c).Muted).Padding(0, 4, 4, 4)
 	goPath, goErr := findGopls(a.root)
 	tsPath, tsErr := findTypeScriptServer(a.root)
-	ui.Column(c).FillWidth().Radius(12).Background(colors(c).card).Padding(0, 14).Children(func() {
+	ui.Column(c).FillWidth().Radius(12).Background(colors(c).Card).Padding(0, 14).Children(func() {
 		a.languageServerRow(c.Key("go"), "go", "Go", "gopls", goPath, goErr, a.lspState, a.lspErr, "go install golang.org/x/tools/gopls@latest", a.retryLSP)
-		ui.Box(c).Height(1).FillWidth().Background(colors(c).separator)
+		ui.Box(c).Height(1).FillWidth().Background(colors(c).Separator)
 		a.languageServerRow(c.Key("typescript"), "typescript", "TypeScript & JavaScript", "tsrs", tsPath, tsErr, a.tsState, a.tsErr, "", a.retryTypeScriptLSP)
 	})
 	heading(c, "Trusted Folders")
-	ui.Text(c, "Language servers can run project tools and download dependencies or toolchains in these folders.").FontSize(12).TextColor(colors(c).muted).Padding(0, 4, 4, 4)
+	ui.Text(c, "Language servers can run project tools and download dependencies or toolchains in these folders.").FontSize(12).TextColor(colors(c).Muted).Padding(0, 4, 4, 4)
 	if len(a.cfg.Trusted) == 0 {
 		card(c, func() {
 			labeled(c, "No trusted folders", "A folder is trusted the first time you allow a language server in it.")
@@ -469,10 +470,10 @@ func (a *App) intelligencePane(c *ui.Context) {
 }
 
 func (a *App) languageServerRow(c *ui.Context, id, language, server, path string, findErr error, state langserver.State, serverErr error, command string, retry func()) {
-	status, color := "Available", colors(c).muted
+	status, color := "Available", colors(c).Muted
 	switch {
 	case state == langserver.Failed:
-		status, color = "Unavailable", colors(c).err
+		status, color = "Unavailable", colors(c).Err
 	case state == langserver.Starting:
 		status = "Starting…"
 	case state == langserver.Ready:
@@ -492,20 +493,20 @@ func (a *App) languageServerRow(c *ui.Context, id, language, server, path string
 			ui.Column(c).Grow(1).Shrink(1).Gap(3).Children(func() {
 				ui.Text(c, language).Bold().SingleLine().Shrink(1)
 				ui.Row(c).FillWidth().Gap(6).AlignItems(ui.Center).Children(func() {
-					dot := colors(c).muted
+					dot := colors(c).Muted
 					if state == langserver.Ready {
 						dot = c.Theme().Accent
 					} else if state == langserver.Failed {
-						dot = colors(c).err
+						dot = colors(c).Err
 					}
 					ui.Box(c).Size(6, 6).Radius(3).Background(dot).Shrink(0)
 					ui.Text(c, status).FontSize(12).TextColor(color).SingleLine().Shrink(0)
-					ui.Text(c, "· "+detail).FontSize(12).TextColor(colors(c).muted).SingleLine().Shrink(1).Tooltip(detail)
+					ui.Text(c, "· "+detail).FontSize(12).TextColor(colors(c).Muted).SingleLine().Shrink(1).Tooltip(detail)
 				})
 			})
 			if id == "typescript" {
 				if a.serverJob {
-					ui.Text(c, "Working…").FontSize(12).TextColor(colors(c).muted)
+					ui.Text(c, "Working…").FontSize(12).TextColor(colors(c).Muted)
 				} else if managedTypeScriptExists() {
 					if state == langserver.Failed && ui.Button(c.Key("retry"), "Retry").Label("Retry "+server).Clicked() {
 						retry()
@@ -537,13 +538,13 @@ func (a *App) languageServerRow(c *ui.Context, id, language, server, path string
 			}
 		})
 		if id == "typescript" && a.serverJobErr != "" {
-			ui.Text(c, a.serverJobErr).FontSize(12).TextColor(colors(c).err)
+			ui.Text(c, a.serverJobErr).FontSize(12).TextColor(colors(c).Err)
 		}
 		if a.settings.serverInstall == id && findErr != nil && id != "typescript" {
 			ui.Column(c).FillWidth().Gap(6).Padding(2, 0, 2, 0).Children(func() {
-				ui.Text(c, "Run in Terminal, then reopen this folder or retry.").FontSize(12).TextColor(colors(c).muted)
+				ui.Text(c, "Run in Terminal, then reopen this folder or retry.").FontSize(12).TextColor(colors(c).Muted)
 				ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Center).Children(func() {
-					ui.Text(c, command).FontSize(12).TextColor(colors(c).text).Grow(1).Shrink(1)
+					ui.Text(c, command).FontSize(12).TextColor(colors(c).Text).Grow(1).Shrink(1)
 					services := c.Services()
 					ui.Button(c.Key("copy"), "Copy").Label("Copy " + language + " install command").OnClick(func() { services.WriteClipboard(command) })
 				})
@@ -580,7 +581,7 @@ func (a *App) shortcutsPane(c *ui.Context) {
 		fns = append(fns, func() {
 			labeled(c, r.what, "")
 			if r.key != "" {
-				ui.Text(c, keyLabel(r.mods, r.key)).TextColor(colors(c).muted).Padding(2, 8).Radius(6).Background(colors(c).pill)
+				ui.Text(c, keyLabel(r.mods, r.key)).TextColor(colors(c).Muted).Padding(2, 8).Radius(6).Background(colors(c).Pill)
 			}
 		})
 	}
@@ -591,8 +592,8 @@ func (a *App) aboutPane(c *ui.Context) {
 	ui.Column(c).FillWidth().Padding(24, 0).Gap(8).AlignItems(ui.Center).Children(func() {
 		ui.Image(c, appIcon).Size(96, 96)
 		ui.Text(c, "See").FontSize(20).Bold()
-		ui.Text(c, a.versionLabel()).TextColor(colors(c).muted)
-		ui.Text(c, "Fast, focused reading of source code, drawn natively.").FontSize(12).TextColor(colors(c).muted)
+		ui.Text(c, a.versionLabel()).TextColor(colors(c).Muted)
+		ui.Text(c, "Fast, focused reading of source code, drawn natively.").FontSize(12).TextColor(colors(c).Muted)
 	})
 	if a.root != "" {
 		card(c, func() { labeled(c, "Folder open", tildePath(a.root)) })
@@ -643,7 +644,7 @@ func (a *App) terminalPane(c *ui.Context) {
 		func() { a.fontPicker(c, true) },
 		func() {
 			labeled(c, "Font Size", "The terminal font size.")
-			ui.Text(c, fmt.Sprintf("%g pt", s.termFontSize)).TextColor(colors(c).muted)
+			ui.Text(c, fmt.Sprintf("%g pt", s.termFontSize)).TextColor(colors(c).Muted)
 			if ui.Stepper(c, &s.termFontSize, 9, 28, 1).Label("Terminal Font Size").Changed() {
 				a.cfg.TermFontSize = s.termFontSize
 				a.applyTerminalPrefs()
@@ -660,7 +661,7 @@ func (a *App) terminalPane(c *ui.Context) {
 		func() {
 			labeled(c, "Font Weight", "The weight of regular terminal text.")
 			weight := &s.termWeight
-			ui.Text(c, fmt.Sprintf("%g", *weight)).TextColor(colors(c).muted)
+			ui.Text(c, fmt.Sprintf("%g", *weight)).TextColor(colors(c).Muted)
 			if ui.Stepper(c, weight, 100, 900, 100).Label("Terminal Font Weight").Changed() {
 				a.cfg.TermFontWeight = int(*weight)
 				a.applyTerminalPrefs()
@@ -682,7 +683,7 @@ func (a *App) terminalPane(c *ui.Context) {
 		func() {
 			labeled(c, "Line Height", "Extra space between terminal rows.")
 			height := &s.termHeight
-			ui.Text(c, fmt.Sprintf("%g %%", *height)).TextColor(colors(c).muted)
+			ui.Text(c, fmt.Sprintf("%g %%", *height)).TextColor(colors(c).Muted)
 			if ui.Stepper(c, height, -20, 100, 5).Label("Terminal Line Height").Changed() {
 				a.cfg.TermLineHeight = *height
 				a.applyTerminalPrefs()
@@ -709,7 +710,7 @@ func (a *App) externalTerminalPicker(c *ui.Context) {
 		if icon := a.settings.terminalIcons[name]; icon != nil {
 			ui.Image(c, icon).Size(18, 18).Shrink(0)
 		} else {
-			symbolIcon(c, icPrompt, 18, colors(c).muted).Shrink(0)
+			symbolIcon(c, icPrompt, 18, colors(c).Muted).Shrink(0)
 		}
 		display := name
 		if name == "Custom App" && a.cfg.ExternalTerminalPath != "" {
@@ -719,7 +720,7 @@ func (a *App) externalTerminalPicker(c *ui.Context) {
 	}
 	sel.Trigger.Label("External Terminal App").Gap(8).Padding(6, 10).Radius(8).Background(t.Surface).Border(1, t.Border).AlignItems(ui.Center).Children(func() {
 		label(a.cfg.ExternalTerminal)
-		symbolIcon(c, icChevron, 10, colors(c).muted)
+		symbolIcon(c, icChevron, 10, colors(c).Muted)
 	})
 	sel.Trigger.OnChange(a.settingsChanged)
 	sel.Popup(func(panel ui.Element) {

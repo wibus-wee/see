@@ -23,7 +23,7 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 	}
 	g.tabSel = slices.Index(g.order, g.active)
 	tabs := ui.TabsBase(c, &g.tabSel, len(g.order))
-	tabs.List.Background(colors(c).tabBar).FillWidth().Height(30).AlignItems(ui.Stretch).BorderWidth(0, 0, 1, 0).BorderColor(colors(c).hairline).Label("Open files")
+	tabs.List.Background(colors(c).TabBar).FillWidth().Height(30).AlignItems(ui.Stretch).BorderWidth(0, 0, 1, 0).BorderColor(colors(c).Hairline).Label("Open files")
 	if v, ok := ui.Drop[*tabDrag](tabs.List); ok {
 		a.dropTab(v, g, sideNone, len(g.order))
 	}
@@ -41,7 +41,7 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 			}
 			active := p == g.active
 			tab := tabs.Tab(i).Grow(1).Basis(0).MaxWidth(260).MinWidth(90).Padding(0, 8).Gap(6).
-				AlignItems(ui.Center).Justify(ui.Center).BorderWidth(0, 1, 0, 0).BorderColor(colors(c).hairline)
+				AlignItems(ui.Center).Justify(ui.Center).BorderWidth(0, 1, 0, 0).BorderColor(colors(c).Hairline)
 			if tab.DoubleClicked() && g.preview == p {
 				g.preview = ""
 			}
@@ -57,9 +57,9 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 			hovered := tab.Hovered()
 			switch {
 			case active:
-				tab.Background(colors(c).tabActive)
+				tab.Background(colors(c).TabActive)
 			case hovered:
-				tab.Background(colors(c).tabHover)
+				tab.Background(colors(c).TabHover)
 			}
 			if d.untitled {
 				tab.Tooltip(d.name)
@@ -82,9 +82,9 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 				}
 				cl := ui.ButtonBase(c).Label("Close "+nameLabel).Size(16, 16).Radius(4).Center().KeepFocus()
 				if hovered || active {
-					cl.Children(func() { symbolIcon(c, icClose, 10, colors(c).muted) })
+					cl.Children(func() { symbolIcon(c, icClose, 10, colors(c).Muted) })
 					if cl.Hovered() {
-						cl.Background(colors(c).pill)
+						cl.Background(colors(c).Pill)
 					}
 				}
 				cl.OnClick(func() { a.closeTab(g, p) })
@@ -98,12 +98,12 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 				}
 				switch {
 				case d.gone:
-					name.Strikethrough().TextColor(colors(c).muted)
+					name.Strikethrough().TextColor(colors(c).Muted)
 				case !active:
-					name.TextColor(colors(c).muted)
+					name.TextColor(colors(c).Muted)
 				}
 				if count[d.name] > 1 {
-					ui.Text(c, filepath.Base(filepath.Dir(path))).FontSize(11).TextColor(colors(c).dim).SingleLine().Shrink(2)
+					ui.Text(c, filepath.Base(filepath.Dir(path))).FontSize(11).TextColor(colors(c).Dim).SingleLine().Shrink(2)
 				}
 				if d.loading {
 					ui.Spinner(c).FontSize(10)
@@ -122,18 +122,18 @@ func (a *App) diffJumpBar(c *ui.Context, g *group) {
 	if v == nil {
 		return
 	}
-	ui.Row(c).FillWidth().Height(26).Padding(0, 6).Gap(5).AlignItems(ui.Center).Background(colors(c).editor).
-		BorderWidth(0, 0, 1, 0).BorderColor(colors(c).separator).Children(func() {
+	ui.Row(c).FillWidth().Height(26).Padding(0, 6).Gap(5).AlignItems(ui.Center).Background(colors(c).Editor).
+		BorderWidth(0, 0, 1, 0).BorderColor(colors(c).Separator).Children(func() {
 		folderGlyph(c, false, 13)
-		ui.Text(c, filepath.Base(a.root)).FontSize(12).TextColor(colors(c).muted).SingleLine()
-		symbolIcon(c, icChevron, 9, colors(c).dim)
+		ui.Text(c, filepath.Base(a.root)).FontSize(12).TextColor(colors(c).Muted).SingleLine()
+		symbolIcon(c, icChevron, 9, colors(c).Dim)
 		fileIcon(c, filepath.Base(v.name), 12)
 		ui.Text(c, v.name).FontSize(12).SingleLine().Shrink(1)
 		label := "Working Tree"
 		if v.staged {
 			label = "Staged"
 		}
-		ui.Text(c, label).FontSize(12).TextColor(colors(c).muted).SingleLine()
+		ui.Text(c, label).FontSize(12).TextColor(colors(c).Muted).SingleLine()
 		ui.Box(c).Grow(1)
 		if len(g.order) == 1 && len(a.groups()) == 1 {
 			if glyphButton(c, icClose, "Close "+filepath.Base(v.name)+" ("+label+")", "Close Diff", false, false).Clicked() {
@@ -151,14 +151,14 @@ func (a *App) jumpBar(c *ui.Context, g *group) {
 	if p == "" {
 		return
 	}
-	ui.Row(c).FillWidth().Height(26).Padding(0, 6).Gap(2).AlignItems(ui.Center).Background(colors(c).editor).
-		BorderWidth(0, 0, 1, 0).BorderColor(colors(c).separator).Children(func() {
+	ui.Row(c).FillWidth().Height(26).Padding(0, 6).Gap(2).AlignItems(ui.Center).Background(colors(c).Editor).
+		BorderWidth(0, 0, 1, 0).BorderColor(colors(c).Separator).Children(func() {
 		g.relatedBounds = g.relatedHandle.Bounds(c)
 		related := ui.ButtonBase(c.Key("related-items")).Label("Related Items").Tooltip("Related Items").Size(22, 22).Radius(4).Center().Bind(&g.relatedHandle)
 		if related.Hovered() || related.Pressed() {
-			related.Background(colors(c).pill)
+			related.Background(colors(c).Pill)
 		}
-		related.Children(func() { symbolIcon(c, icRelated, 14, colors(c).muted) })
+		related.Children(func() { symbolIcon(c, icRelated, 14, colors(c).Muted) })
 		related.Menu(func(menu *ui.Menu) {
 			if menu.Item("Callers").Chosen() {
 				a.focus = g
@@ -175,11 +175,11 @@ func (a *App) jumpBar(c *ui.Context, g *group) {
 		}
 		folderGlyph(c, false, 13)
 		if outside {
-			ui.Text(c, tildePath(filepath.Dir(p))).FontSize(12).TextColor(colors(c).muted).SingleLine().Shrink(1)
+			ui.Text(c, tildePath(filepath.Dir(p))).FontSize(12).TextColor(colors(c).Muted).SingleLine().Shrink(1)
 		} else {
-			ui.Text(c, filepath.Base(a.root)).FontSize(12).TextColor(colors(c).muted).SingleLine()
+			ui.Text(c, filepath.Base(a.root)).FontSize(12).TextColor(colors(c).Muted).SingleLine()
 		}
-		symbolIcon(c, icChevron, 9, colors(c).dim)
+		symbolIcon(c, icChevron, 9, colors(c).Dim)
 		parts := strings.Split(workspace.RelPath(a.root, p), "/")
 		if d := a.docs[p]; d != nil && d.untitled {
 			parts = []string{d.name}
@@ -188,7 +188,7 @@ func (a *App) jumpBar(c *ui.Context, g *group) {
 		}
 		for i, part := range parts {
 			if i > 0 {
-				symbolIcon(c, icChevron, 9, colors(c).dim)
+				symbolIcon(c, icChevron, 9, colors(c).Dim)
 			}
 			last := i == len(parts)-1
 			crumb := ui.Row(c.Key(i)).Gap(4).AlignItems(ui.Center).Padding(1, 3).Radius(4)
@@ -200,7 +200,7 @@ func (a *App) jumpBar(c *ui.Context, g *group) {
 				}
 				t := ui.Text(c, part).FontSize(12).SingleLine()
 				if !last {
-					t.TextColor(colors(c).muted)
+					t.TextColor(colors(c).Muted)
 				} else {
 					if g.preview == p {
 						t.Italic()
@@ -216,7 +216,7 @@ func (a *App) jumpBar(c *ui.Context, g *group) {
 			if !last {
 				dir := filepath.Join(append([]string{a.root}, parts[:i+1]...)...)
 				if crumb.Hovered() {
-					crumb.Background(colors(c).pill)
+					crumb.Background(colors(c).Pill)
 				}
 				crumb.OnClick(func() {
 					a.sidebarOff, a.navigator = false, navFiles

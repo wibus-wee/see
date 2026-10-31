@@ -124,7 +124,7 @@ func (a *App) entryPanel(c *ui.Context) {
 			}
 		})
 		if q.err != "" {
-			ui.Text(c, q.err).TextColor(colors(c).err).FontSize(12).Wrap()
+			ui.Text(c, q.err).TextColor(colors(c).Err).FontSize(12).Wrap()
 		}
 	})
 }

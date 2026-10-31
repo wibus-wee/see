@@ -36,13 +36,13 @@ const welcomeWidth, welcomeHeight = 740, 440
 // welcomeIntro is the left side: the icon, the name, the version and what
 // to do.
 func (a *App) welcomeIntro(c *ui.Context) {
-	ui.Column(c).Grow(1).Shrink(1).FillHeight().Background(colors(c).welcomeLeft).Padding(16, 28, 18, 28).Children(func() {
+	ui.Column(c).Grow(1).Shrink(1).FillHeight().Background(colors(c).WelcomeLeft).Padding(16, 28, 18, 28).Children(func() {
 		ui.Box(c).Height(26) // under the window's buttons
 		ui.Column(c).Grow(1).FillWidth().AlignItems(ui.Center).Gap(6).Children(func() {
 			ui.Image(c, appIcon).Size(120, 120)
-			ui.Text(c, "See").FontSize(28).Bold().TextColor(colors(c).text).TextAlign(ui.Center)
+			ui.Text(c, "See").FontSize(28).Bold().TextColor(colors(c).Text).TextAlign(ui.Center)
 			if a.version != "" {
-				ui.Text(c, "Version "+a.version).FontSize(13).TextColor(colors(c).muted)
+				ui.Text(c, "Version "+a.version).FontSize(13).TextColor(colors(c).Muted)
 			}
 			ui.Box(c).Height(12)
 			ui.Column(c).Gap(2).Width(300).Children(func() {
@@ -52,11 +52,11 @@ func (a *App) welcomeIntro(c *ui.Context) {
 				}
 			})
 			if a.welcomeNote != "" {
-				ui.Text(c, a.welcomeNote).FontSize(12).TextColor(colors(c).err).MaxWidth(380).TextAlign(ui.Center).Padding(8, 0, 0, 0)
+				ui.Text(c, a.welcomeNote).FontSize(12).TextColor(colors(c).Err).MaxWidth(380).TextAlign(ui.Center).Padding(8, 0, 0, 0)
 			}
 		})
 		showWelcome := !a.cfg.ReopenLast
-		ui.Checkbox(c, &showWelcome, "Show this window when See launches").FontSize(12).TextColor(colors(c).muted).OnClick(func() {
+		ui.Checkbox(c, &showWelcome, "Show this window when See launches").FontSize(12).TextColor(colors(c).Muted).OnClick(func() {
 			a.cfg.ReopenLast = !showWelcome
 			a.saveConfig()
 		})
@@ -74,18 +74,18 @@ func (a *App) lastFolder() string {
 func (a *App) welcomeAction(c *ui.Context, icon *ui.SVG, title, detail, shortcut string, fn func()) {
 	row := ui.Row(c).FillWidth().Padding(6, 8).Gap(10).AlignItems(ui.Center).Radius(8).Cursor(ui.CursorPointer).Label(title)
 	if row.Hovered() {
-		row.Background(colors(c).welcomeHover)
+		row.Background(colors(c).WelcomeHover)
 	}
 	if shortcut != "" {
 		row.Tooltip(shortcut)
 	}
 	row.OnClick(fn).Children(func() {
-		ui.Box(c).Size(30, 30).Shrink(0).Radius(7).Background(colors(c).welcomeTile).Center().Children(func() {
-			symbolIcon(c, icon, 16, colors(c).text)
+		ui.Box(c).Size(30, 30).Shrink(0).Radius(7).Background(colors(c).WelcomeTile).Center().Children(func() {
+			symbolIcon(c, icon, 16, colors(c).Text)
 		})
 		ui.Column(c).Grow(1).Shrink(1).Gap(1).Children(func() {
-			ui.Text(c, title).FontSize(13).Bold().TextColor(colors(c).text).SingleLine()
-			ui.Text(c, detail).FontSize(11).TextColor(colors(c).muted).SingleLine()
+			ui.Text(c, title).FontSize(13).Bold().TextColor(colors(c).Text).SingleLine()
+			ui.Text(c, detail).FontSize(11).TextColor(colors(c).Muted).SingleLine()
 		})
 	})
 }
@@ -93,12 +93,12 @@ func (a *App) welcomeAction(c *ui.Context, icon *ui.SVG, title, detail, shortcut
 // welcomeRecent is the right side: the folders opened lately, newest
 // first.
 func (a *App) welcomeRecent(c *ui.Context) {
-	ui.Column(c).Width(280).Shrink(0).FillHeight().Background(colors(c).welcomeRight).
-		BorderWidth(0, 0, 0, 1).BorderColor(colors(c).separator).Padding(10, 8).Children(func() {
+	ui.Column(c).Width(280).Shrink(0).FillHeight().Background(colors(c).WelcomeRight).
+		BorderWidth(0, 0, 0, 1).BorderColor(colors(c).Separator).Padding(10, 8).Children(func() {
 		recent := a.cfg.Recent
 		if len(recent) == 0 {
 			ui.Column(c).Grow(1).FillWidth().Center().Children(func() {
-				ui.Text(c, "No Recent Folders").FontSize(13).TextColor(colors(c).dim)
+				ui.Text(c, "No Recent Folders").FontSize(13).TextColor(colors(c).Dim)
 			})
 			return
 		}
@@ -124,7 +124,7 @@ func (a *App) recentRow(c *ui.Context, p string, forget *string) {
 	case current:
 		row.Background(a.theme.Selection)
 	case row.Hovered():
-		row.Background(colors(c).welcomeHover)
+		row.Background(colors(c).WelcomeHover)
 	}
 	row.OnClick(func() { a.openRecent(p) })
 	row.ContextMenu(func(m *ui.Menu) {
@@ -140,10 +140,10 @@ func (a *App) recentRow(c *ui.Context, p string, forget *string) {
 		}
 	})
 	row.Children(func() {
-		symbolIcon(c, folderIcon, 22, colors(c).folder)
+		symbolIcon(c, folderIcon, 22, colors(c).Folder)
 		ui.Column(c).Grow(1).Shrink(1).Gap(1).Children(func() {
-			ui.Text(c, filepath.Base(p)).FontSize(13).Bold().TextColor(colors(c).text).SingleLine()
-			ui.Text(c, tildePath(filepath.Dir(p))).FontSize(11).TextColor(colors(c).muted).SingleLine()
+			ui.Text(c, filepath.Base(p)).FontSize(13).Bold().TextColor(colors(c).Text).SingleLine()
+			ui.Text(c, tildePath(filepath.Dir(p))).FontSize(11).TextColor(colors(c).Muted).SingleLine()
 		})
 	})
 }

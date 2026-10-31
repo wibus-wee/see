@@ -35,23 +35,23 @@ func (a *App) toolbar(c *ui.Context, sidebarProgress float32, vibrant bool) {
 		sidebarHeader := ui.Row(c).Width(width).MinWidth(bar.Left+44).Shrink(1).FillHeight().Padding(0, 0, 0, max(bar.Left, 8)+12).
 			AlignItems(ui.Center)
 		if !a.sidebarOff {
-			sidebarHeader.Background(sidebarColor(c, vibrant)).BorderWidth(0, 1, 0, 0).BorderColor(colors(c).separator)
+			sidebarHeader.Background(sidebarColor(c, vibrant)).BorderWidth(0, 1, 0, 0).BorderColor(colors(c).Separator)
 		} else {
-			sidebarHeader.Background(colors(c).toolbar).BorderWidth(0, 0, 1, 0).BorderColor(colors(c).hairline)
+			sidebarHeader.Background(colors(c).Toolbar).BorderWidth(0, 0, 1, 0).BorderColor(colors(c).Hairline)
 		}
 		sidebarHeader.Children(func() {
 			if glassToolbarButton(c, icSidebar, "Show Navigator", "Hide or Show the Navigator", !a.sidebarOff).Clicked() {
 				a.sidebarOff = !a.sidebarOff
 			}
 		})
-		ui.Row(c).Grow(1).Shrink(1).FillHeight().Padding(0, bar.Right+8, 0, 6).Gap(6).AlignItems(ui.Center).Background(colors(c).toolbar).
-			BorderWidth(0, 0, 1, 0).BorderColor(colors(c).hairline).Children(func() {
+		ui.Row(c).Grow(1).Shrink(1).FillHeight().Padding(0, bar.Right+8, 0, 6).Gap(6).AlignItems(ui.Center).Background(colors(c).Toolbar).
+			BorderWidth(0, 0, 1, 0).BorderColor(colors(c).Hairline).Children(func() {
 			ui.Row(c).Height(32).Radius(16).Padding(0, 3).AlignItems(ui.Center).Material(glass.Glass{}).Children(func() {
 				back := iconButtonWithState(c, icBack, "Go Back", "Go Back", false, len(a.hist.Back) == 0, 13)
 				if back.Clicked() {
 					a.goBack()
 				}
-				ui.Box(c).Size(1, 16).Background(colors(c).separator)
+				ui.Box(c).Size(1, 16).Background(colors(c).Separator)
 				fwd := iconButtonWithState(c, icForward, "Go Forward", "Go Forward", false, len(a.hist.Forward) == 0, 13)
 				if fwd.Clicked() {
 					a.goForward()
@@ -96,7 +96,7 @@ func (a *App) quickButton(c *ui.Context, centered bool, x, y float32) {
 	}
 	quick.Children(func() {
 		ui.Row(c).Gap(7).AlignItems(ui.Center).Children(func() {
-			symbolIcon(c, icSearch, 15, colors(c).text)
+			symbolIcon(c, icSearch, 15, colors(c).Text)
 			ui.Text(c, "Open Quickly").FontSize(12).SingleLine().Shrink(1)
 		})
 	})
@@ -112,7 +112,7 @@ func (a *App) projectTitle(c *ui.Context) {
 	b := ui.ButtonBase(c).Label("Switch Project").Tooltip(tildePath(a.root)).
 		Padding(0, 5, 0, 0).Radius(6).Shrink(1).Bind(&a.titleButton)
 	if b.Hovered() || b.Pressed() {
-		b.Background(colors(c).pill)
+		b.Background(colors(c).Pill)
 	}
 	b.OnClick(func() {
 		r := a.titleButton.Bounds(c)
@@ -121,7 +121,7 @@ func (a *App) projectTitle(c *ui.Context) {
 	b.Children(func() {
 		ui.Row(c).Gap(4).AlignItems(ui.Center).Children(func() {
 			ui.Text(c, filepath.Base(a.root)).Bold().SingleLine().Shrink(1)
-			symbolIcon(c, icChevron, 9, colors(c).dim).Shrink(0)
+			symbolIcon(c, icChevron, 9, colors(c).Dim).Shrink(0)
 		})
 	})
 }
@@ -215,53 +215,53 @@ func (a *App) activityView(c *ui.Context) {
 	pill.Children(func() {
 		// The dot tells the state at a glance, as Peek's toolbar does: the
 		// accent while work goes on, red when it went wrong.
-		dot := colors(c).muted
+		dot := colors(c).Muted
 		switch {
 		case a.finding, a.find.running, state == langserver.Starting:
 			dot = c.Theme().Accent
 		case a.noticeError, state == langserver.Failed, a.watchErr != nil:
-			dot = colors(c).err
+			dot = colors(c).Err
 		}
-		if dot != colors(c).muted {
+		if dot != colors(c).Muted {
 			ui.Box(c).Size(6, 6).Radius(3).Background(dot).Shrink(0)
 		}
 		switch {
 		case a.finding:
 			ui.Spinner(c).FontSize(11)
-			ui.Text(c, a.findingLabel).FontSize(12).TextColor(colors(c).muted).SingleLine()
+			ui.Text(c, a.findingLabel).FontSize(12).TextColor(colors(c).Muted).SingleLine()
 		case a.notice != "":
 			t := ui.Text(c, a.notice).FontSize(12).SingleLine().Shrink(1).Tooltip(a.notice)
 			if a.noticeError {
-				t.TextColor(colors(c).err)
+				t.TextColor(colors(c).Err)
 			}
 			if state == langserver.Failed && ui.Button(c, "Retry").Label("Retry "+name).Padding(0, 6).FontSize(11).Clicked() {
 				retry()
 			}
 		case a.find.running:
 			ui.Spinner(c).FontSize(11)
-			ui.Text(c, "Searching…").FontSize(12).TextColor(colors(c).muted)
+			ui.Text(c, "Searching…").FontSize(12).TextColor(colors(c).Muted)
 		case state == langserver.Starting:
 			ui.Spinner(c).FontSize(11)
-			ui.Text(c, "Starting "+name+"…").FontSize(12).TextColor(colors(c).muted)
+			ui.Text(c, "Starting "+name+"…").FontSize(12).TextColor(colors(c).Muted)
 		case state == langserver.Failed:
 			msg := name + " unavailable"
 			if serverErr != nil {
 				msg = name + ": " + shortErr(serverErr)
 			}
-			ui.Text(c, msg).FontSize(12).TextColor(colors(c).err).SingleLine().Shrink(1)
+			ui.Text(c, msg).FontSize(12).TextColor(colors(c).Err).SingleLine().Shrink(1)
 			if ui.Button(c, "Retry").Label("Retry "+name).Padding(0, 6).FontSize(11).Clicked() {
 				retry()
 			}
 		case a.watchErr != nil:
-			ui.Text(c, "Not watching for changes").FontSize(12).TextColor(colors(c).muted).Tooltip(a.watchErr.Error())
+			ui.Text(c, "Not watching for changes").FontSize(12).TextColor(colors(c).Muted).Tooltip(a.watchErr.Error())
 		case state == langserver.Ready:
-			ui.Text(c, "Ready · "+name).FontSize(12).TextColor(colors(c).muted)
+			ui.Text(c, "Ready · "+name).FontSize(12).TextColor(colors(c).Muted)
 		default:
 			if a.git.branch != "" {
-				symbolIcon(c, icGit, 12, colors(c).muted)
-				ui.Text(c, a.git.branch).FontSize(12).TextColor(colors(c).muted).SingleLine().Shrink(1).Tooltip("Git branch: " + a.git.branch)
+				symbolIcon(c, icGit, 12, colors(c).Muted)
+				ui.Text(c, a.git.branch).FontSize(12).TextColor(colors(c).Muted).SingleLine().Shrink(1).Tooltip("Git branch: " + a.git.branch)
 			} else {
-				ui.Text(c, "Ready").FontSize(12).TextColor(colors(c).muted)
+				ui.Text(c, "Ready").FontSize(12).TextColor(colors(c).Muted)
 			}
 		}
 	})

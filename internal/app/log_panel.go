@@ -75,15 +75,15 @@ func (a *App) logView(c *ui.Context) {
 		})
 		entries := a.logs.snapshot()
 		if len(entries) == 0 {
-			ui.Text(c, "No output yet.").TextColor(colors(c).muted).Padding(12)
+			ui.Text(c, "No output yet.").TextColor(colors(c).Muted).Padding(12)
 			return
 		}
 		ui.Scroll(c).Grow(1).FillWidth().Children(func() {
 			ui.Column(c).FillWidth().Padding(2, 12, 12, 12).Gap(3).Children(func() {
 				for i, e := range entries {
-					color := colors(c).muted
+					color := colors(c).Muted
 					if e.level >= slog.LevelError {
-						color = colors(c).err
+						color = colors(c).Err
 					}
 					ui.Text(c.Key(i), e.at.Format("15:04:05")+"  "+strings.ToUpper(e.level.String())+"  "+e.source+"  "+e.message).FontSize(12).TextColor(color)
 				}

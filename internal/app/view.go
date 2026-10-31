@@ -92,11 +92,11 @@ func (a *App) view(c *ui.Context) {
 		a.toolbar(c, progress, vibrant)
 		if a.confirm != nil && a.confirm.inWindow {
 			q := a.confirm
-			a.banner(c, colors(c).warnBg, q.message, q.actions)
+			a.banner(c, colors(c).WarnBg, q.message, q.actions)
 		}
 		if a.deleteConfirm != nil {
 			q := a.deleteConfirm
-			a.banner(c, colors(c).warnBg, q.message, q.actions)
+			a.banner(c, colors(c).WarnBg, q.message, q.actions)
 		}
 		ui.Row(c).Grow(1).FillWidth().AlignItems(ui.Stretch).Children(func() {
 			if progress == 0 {
@@ -215,21 +215,21 @@ func glassToolbarButton(c *ui.Context, icon *ui.SVG, label, tip string, on bool)
 	b.Children(func() {
 		face := ui.Box(c).Size(24, 24).Radius(12).Center()
 		if on {
-			face.Background(colors(c).selectedRow)
+			face.Background(colors(c).SelectedRow)
 		}
-		face.Children(func() { symbolIcon(c, icon, 16, colors(c).text) })
+		face.Children(func() { symbolIcon(c, icon, 16, colors(c).Text) })
 	})
 	return b
 }
 
 func iconButtonWithState(c *ui.Context, icon *ui.SVG, label, tip string, on, disabled bool, radius float32) ui.Element {
 	b := ui.ButtonBase(c).Label(label).Tooltip(tip).Padding(6).Radius(radius).Shrink(0).KeepFocus().Disabled(disabled)
-	color := colors(c).muted
+	color := colors(c).Muted
 	if on {
 		color = c.Theme().Accent
 	}
 	if !disabled && (b.Hovered() || b.Pressed()) {
-		b.Background(colors(c).pill)
+		b.Background(colors(c).Pill)
 	}
 	b.Children(func() { symbolIcon(c, icon, 16, color) })
 	return b

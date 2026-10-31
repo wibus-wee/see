@@ -61,7 +61,7 @@ func (a *App) imagePreview(c *ui.Context, g *group, d *doc) {
 		ui.Box(c).Grow(1).FillWidth().MinHeight(0).Center().Children(func() {
 			ui.Image(c, d.image).Fill().Fit(ui.ScaleDown).Label("Image preview")
 		})
-		ui.Text(c, fmt.Sprintf("%d × %d · %s", w, h, size(d.size))).FontSize(11).TextColor(colors(c).muted).SingleLine()
+		ui.Text(c, fmt.Sprintf("%d × %d · %s", w, h, size(d.size))).FontSize(11).TextColor(colors(c).Muted).SingleLine()
 	})
 }
 

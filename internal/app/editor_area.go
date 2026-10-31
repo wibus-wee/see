@@ -24,7 +24,7 @@ type tabDrag struct {
 }
 
 func (a *App) editorArea(c *ui.Context) {
-	ui.Column(c).Fill().Background(colors(c).editor).Children(func() {
+	ui.Column(c).Fill().Background(colors(c).Editor).Children(func() {
 		a.editorsAndPanel(c, func() {
 			ui.Column(c).Fill().Children(func() { a.layoutView(c, a.layout) })
 		})
@@ -84,9 +84,9 @@ func (a *App) groupView(c *ui.Context, g *group) {
 			line := st.Buffer.Line(pos.Line)
 			column := utf8.RuneCountInString(line[:min(pos.Col, len(line))]) + 1
 			ui.Row(c).FillWidth().Height(24).Padding(0, 10).AlignItems(ui.Center).
-				BorderWidth(1, 0, 0, 0).BorderColor(colors(c).separator).Background(colors(c).editor).Children(func() {
+				BorderWidth(1, 0, 0, 0).BorderColor(colors(c).Separator).Background(colors(c).Editor).Children(func() {
 				ui.Box(c).Grow(1)
-				ui.Text(c, fmt.Sprintf("Line %d  ·  Column %d", pos.Line+1, column)).FontSize(11).TextColor(colors(c).muted).SingleLine()
+				ui.Text(c, fmt.Sprintf("Line %d  ·  Column %d", pos.Line+1, column)).FontSize(11).TextColor(colors(c).Muted).SingleLine()
 			})
 		}
 	})
@@ -113,7 +113,7 @@ func (a *App) dropArea(c *ui.Context, g *group, content func()) {
 		content()
 		if over || fileOver {
 			b := area.LayoutBounds()
-			hl := ui.Box(c).Absolute().Background(colors(c).dropZone).Radius(6).Border(2, c.Theme().Accent).PassThrough()
+			hl := ui.Box(c).Absolute().Background(colors(c).DropZone).Radius(6).Border(2, c.Theme().Accent).PassThrough()
 			switch zone {
 			case sideLeft:
 				hl.Left(4).Top(4).Bottom(4).Width(b.W/2 - 8)
@@ -184,8 +184,8 @@ func (a *App) groupContent(c *ui.Context, g *group) {
 	d := a.docs[tabPath(g.active)]
 	if d == nil {
 		ui.Column(c).Grow(1).FillWidth().Center().Gap(6).Children(func() {
-			ui.Text(c, "No Editor").FontSize(20).TextColor(colors(c).dim)
-			ui.Text(c, "Choose a file in the navigator, or press "+keyLabel("Cmd+Shift+", "O")+" to open one quickly.").FontSize(12).TextColor(colors(c).dim)
+			ui.Text(c, "No Editor").FontSize(20).TextColor(colors(c).Dim)
+			ui.Text(c, "Choose a file in the navigator, or press "+keyLabel("Cmd+Shift+", "O")+" to open one quickly.").FontSize(12).TextColor(colors(c).Dim)
 		})
 		return
 	}
@@ -200,7 +200,7 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 	case d.loading && st == nil:
 		ui.Row(c).Grow(1).FillWidth().Center().Gap(8).Children(func() {
 			ui.Spinner(c)
-			ui.Text(c, "Loading "+d.name+"…").TextColor(colors(c).muted)
+			ui.Text(c, "Loading "+d.name+"…").TextColor(colors(c).Muted)
 		})
 	case g.hexPreview[d.path] || d.kind == workspace.Binary && d.image == nil:
 		a.hexView(c, g, d)
@@ -232,10 +232,10 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 			}
 		}
 		if d.conflict {
-			a.banner(c, colors(c).warnBg, "This file changed on disk. Your edits are preserved.", []action{{"Overwrite", func() { a.saveDoc(d, true) }}})
+			a.banner(c, colors(c).WarnBg, "This file changed on disk. Your edits are preserved.", []action{{"Overwrite", func() { a.saveDoc(d, true) }}})
 		}
 		if d.gone {
-			a.banner(c, colors(c).warnBg, "This file was deleted or moved on disk. The text below is how it was.", []action{
+			a.banner(c, colors(c).WarnBg, "This file was deleted or moved on disk. The text below is how it was.", []action{
 				{"Reload", func() { a.reloadDoc(d) }},
 				{"Close", func() { a.closeTab(g, g.active) }},
 			})
@@ -245,7 +245,7 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 			if d.lossy {
 				msg = "Bytes that are not UTF-8 show as �. This file is read-only to protect its encoding."
 			}
-			ui.Text(c, msg).FontSize(11).TextColor(colors(c).muted).Padding(3, 12).FillWidth().Background(colors(c).tabBar)
+			ui.Text(c, msg).FontSize(11).TextColor(colors(c).Muted).Padding(3, 12).FillWidth().Background(colors(c).TabBar)
 		}
 		if isMarkdownTab(g.active) || isMarkdown(d.path) && g.markdownPreview[d.path] {
 			a.markdownView(c, g, d)
@@ -484,29 +484,29 @@ func (a *App) relatedView(c *ui.Context, ch *defChoices) {
 				if ch.buffers != nil {
 					message = "Code preview unavailable"
 				}
-				ui.Text(c, message).FontSize(12).TextColor(colors(c).muted).Padding(12)
+				ui.Text(c, message).FontSize(12).TextColor(colors(c).Muted).Padding(12)
 			} else {
 				editor.View(c.Key("reference-code"), ch.previewEditor).Grow(1).FillWidth()
 			}
 		})
-		ui.Column(c).Grow(1).FillHeight().BorderWidth(0, 0, 0, 1).BorderColor(colors(c).separator).Children(func() {
+		ui.Column(c).Grow(1).FillHeight().BorderWidth(0, 0, 0, 1).BorderColor(colors(c).Separator).Children(func() {
 			ui.Scroll(c).Grow(1).FillWidth().Label("Navigation results").Children(func() {
 				ui.Column(c).FillWidth().Children(func() {
 					for _, path := range paths {
 						indices := groups[path]
 						file := ui.ButtonBase(c.Key(path)).FillWidth().Padding(5, 8).Gap(6).Label("Toggle " + ch.title + " in " + workspace.RelPath(a.root, path)).Tooltip(path)
 						if file.Hovered() {
-							file.Background(colors(c).pill)
+							file.Background(colors(c).Pill)
 						}
 						file.Children(func() {
 							arrow := "▾"
 							if ch.collapsed[path] {
 								arrow = "▸"
 							}
-							ui.Text(c, arrow).TextColor(colors(c).muted)
+							ui.Text(c, arrow).TextColor(colors(c).Muted)
 							ui.Text(c, filepath.Base(path)).FontSize(12).SingleLine().Shrink(1)
-							ui.Text(c, workspace.RelPath(a.root, filepath.Dir(path))).FontSize(11).TextColor(colors(c).muted).SingleLine().Grow(1).Shrink(1)
-							ui.Text(c, fmt.Sprint(len(indices))).FontSize(11).TextColor(colors(c).muted)
+							ui.Text(c, workspace.RelPath(a.root, filepath.Dir(path))).FontSize(11).TextColor(colors(c).Muted).SingleLine().Grow(1).Shrink(1)
+							ui.Text(c, fmt.Sprint(len(indices))).FontSize(11).TextColor(colors(c).Muted)
 						})
 						file.OnClick(func() { ch.collapsed[path] = !ch.collapsed[path] })
 						if ch.collapsed[path] {
@@ -524,9 +524,9 @@ func (a *App) relatedView(c *ui.Context, ch *defChoices) {
 							}
 							row := ui.ButtonBase(c.Key(i)).FillWidth().Padding(4, 8, 4, 25).Radius(4).Justify(ui.Start).Label(label).Tooltip("Select to preview; double-click to open")
 							if i == ch.selected {
-								row.Background(colors(c).selectedRow)
+								row.Background(colors(c).SelectedRow)
 							} else if row.Hovered() {
-								row.Background(colors(c).pill)
+								row.Background(colors(c).Pill)
 							}
 							row.Children(func() { ui.Text(c, text).FontSize(12).SingleLine().Shrink(1) })
 							if row.DoubleClicked() {
@@ -574,13 +574,13 @@ func (a *App) editorPeek(c *ui.Context, bounds ui.Rect, st *editor.State, line i
 	name, detail, _ := strings.Cut(title, " — ")
 	ui.Overlay(c, func() {
 		ui.Column(c).Absolute().Left(bounds.X+inset).Top(y).Width(max(200, bounds.W-2*inset)).Height(height).
-			Radius(12).Clip().Background(pal.popover).Border(1, pal.popoverEdge).
+			Radius(12).Clip().Background(pal.Popover).Border(1, pal.PopoverEdge).
 			Shadow(0, 1, 3, 0, near).Shadow(0, 12, 32, 0, far).Children(func() {
 			ui.Row(c).FillWidth().Height(header).Shrink(0).Padding(0, 8, 0, 14).Gap(6).AlignItems(ui.Center).
-				BorderWidth(0, 0, 1, 0).BorderColor(pal.separator).Children(func() {
+				BorderWidth(0, 0, 1, 0).BorderColor(pal.Separator).Children(func() {
 				ui.Text(c, name).FontSize(12).FontWeight(600).SingleLine().Shrink(1)
 				if detail != "" {
-					ui.Text(c, detail).FontSize(12).TextColor(pal.muted).SingleLine().Shrink(2)
+					ui.Text(c, detail).FontSize(12).TextColor(pal.Muted).SingleLine().Shrink(2)
 				}
 				ui.Box(c).Grow(1)
 				if glyphButton(c, icClose, closeLabel, "Close", false, false).Clicked() {
@@ -609,7 +609,7 @@ func (a *App) banner(c *ui.Context, bg ui.Color, msg string, actions []action) {
 func (a *App) message(c *ui.Context, title, detail, button string, fn func()) {
 	ui.Column(c).Grow(1).FillWidth().Center().Gap(8).Padding(24).Children(func() {
 		ui.Text(c, title).FontSize(16).Bold()
-		ui.Text(c, detail).TextColor(colors(c).muted).MaxWidth(520).TextAlign(ui.Center)
+		ui.Text(c, detail).TextColor(colors(c).Muted).MaxWidth(520).TextAlign(ui.Center)
 		if button != "" {
 			ui.Button(c, button).OnClick(fn)
 		}
@@ -617,7 +617,7 @@ func (a *App) message(c *ui.Context, title, detail, button string, fn func()) {
 }
 
 func (a *App) trustBanner(c *ui.Context) {
-	a.banner(c, colors(c).infoBg,
+	a.banner(c, colors(c).InfoBg,
 		"Go to Definition and symbol help run language servers in “"+filepath.Base(a.root)+"”. Servers may run project tools and download dependencies or toolchains. Reading works without them.",
 		[]action{{"Trust Folder", a.trust}, {"Not Now", func() { a.trustAsk, a.afterTrust = false, nil; a.trustDismissed = true }}})
 }
