@@ -21,13 +21,14 @@ import (
 // ErrNoGopls is returned when no gopls is installed.
 var ErrNoGopls = errors.New("gopls is not installed")
 
-// FindGopls finds gopls: $SEE_GOPLS, then PATH, then Go's bin
-// directories. A gopls inside the workspace is never used.
-func FindGopls(root string) (string, error) {
+// FindGopls finds gopls: $SEE_GOPLS, then the copies an installation added
+// (in the order given), then PATH, then Go's bin directories. A gopls inside the workspace is never used.
+func FindGopls(root string, installed ...string) (string, error) {
 	var candidates []string
 	if p := os.Getenv("SEE_GOPLS"); p != "" {
 		candidates = append(candidates, p)
 	}
+	candidates = append(candidates, installed...)
 	if p, err := exec.LookPath("gopls"); err == nil {
 		candidates = append(candidates, p)
 	}

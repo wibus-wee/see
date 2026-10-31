@@ -491,7 +491,7 @@ func (a *App) findSummary(c *ui.Context) {
 	color := colors(c).Muted
 	switch {
 	case f.err != nil && f.err == search.ErrNoRipgrep:
-		msg, color = "Finding needs ripgrep: "+search.InstallHint()+".", colors(c).Err
+		msg, color = "Finding needs ripgrep: install it in Settings, or "+search.InstallHint()+".", colors(c).Err
 	case f.err != nil:
 		msg, color = f.err.Error(), colors(c).Err
 	case f.running && f.stats.Matches == 0:

@@ -23,13 +23,14 @@ import (
 // ErrNoRipgrep is returned when ripgrep is not installed.
 var ErrNoRipgrep = errors.New("ripgrep (rg) is not installed")
 
-// FindRipgrep finds rg: $SEE_RG, then PATH. One inside the workspace is
-// never used.
-func FindRipgrep(root string) (string, error) {
+// FindRipgrep finds rg: $SEE_RG, then the candidates an installation added
+// (in the order given), then PATH. One inside the workspace is never used.
+func FindRipgrep(root string, installed ...string) (string, error) {
 	var candidates []string
 	if p := os.Getenv("SEE_RG"); p != "" {
 		candidates = append(candidates, p)
 	}
+	candidates = append(candidates, installed...)
 	if p, err := exec.LookPath("rg"); err == nil {
 		candidates = append(candidates, p)
 	}

@@ -78,6 +78,7 @@ type App struct {
 	tsErr          error
 	tsEpoch        uint64
 	serverJob      bool
+	serverJobName  string // the tool an installation or a removal is of
 	serverJobErr   string
 	lspState       langserver.State
 	lspErr         error

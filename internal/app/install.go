@@ -12,33 +12,25 @@ import (
 	"see/internal/languages"
 )
 
+// installManagedTypeScript installs tsrs into See's own data folder, as
+// any other tool: one job at a time, its error on the row that asked.
 func (a *App) installManagedTypeScript(services ui.Services) {
-	if a.serverJob {
-		return
-	}
-	a.serverJob, a.serverJobErr = true, ""
-	dest := languages.ManagedTypeScriptDir()
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-		defer cancel()
-		err := languages.InstallTypeScript(ctx, dest)
-		a.post(func() {
-			a.serverJob = false
-			if err != nil {
-				a.serverJobErr = err.Error()
-			} else {
-				a.retryTypeScriptLSP()
-			}
-			services.Invalidate()
-		})
-	}()
+	a.runInstallJob("typescript", services, func(ctx context.Context) error {
+		return languages.InstallTypeScript(ctx, languages.ManagedTypeScriptDir())
+	}, func() {
+		if a.serverJobErr == "" {
+			a.retryTypeScriptLSP()
+		}
+	})
 }
 
+// removeManagedTypeScript deletes See's installation, stopping the server
+// that runs from it first.
 func (a *App) removeManagedTypeScript(services ui.Services) {
 	if a.serverJob {
 		return
 	}
-	a.serverJob, a.serverJobErr = true, ""
+	a.serverJob, a.serverJobName, a.serverJobErr = true, "typescript", ""
 	old := a.tsLSP
 	a.tsEpoch++
 	a.tsLSP = nil
