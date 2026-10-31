@@ -62,14 +62,14 @@ func (a *App) newTerm(p *termPane) error {
 			true: terminal.CopyOnSelectClipboard,
 		}[a.cfg.TermCopyOnSelect],
 		OnTitle: func(title string) {
-			a.post(func() {
+			a.post.Post(func() {
 				if a.gen == gen {
 					p.title = title
 				}
 			})
 		},
 		OnExit: func(int) {
-			a.post(func() {
+			a.post.Post(func() {
 				if a.gen == gen {
 					a.closePane(p) // as VS Code closes a terminal whose shell ended
 				}
@@ -100,7 +100,7 @@ func (a *App) withTerminal(fn func()) {
 	gen := a.gen
 	go func() {
 		err := terminal.Load()
-		a.post(func() {
+		a.post.Post(func() {
 			tp.loading = false
 			if err != nil {
 				tp.loadErr = err

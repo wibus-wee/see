@@ -19,7 +19,7 @@ func (a *App) serverLog(source string) func(string, ...any) {
 		msg := fmt.Sprintf(format, args...)
 		a.logs.Add(slog.LevelInfo, source, msg)
 		log.Printf("%s: %s", source, msg)
-		a.post(func() {})
+		a.post.Post(func() {})
 	}
 }
 

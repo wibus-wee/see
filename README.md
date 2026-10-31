@@ -128,6 +128,7 @@ The root holds one file. `app.go` hands the process to `internal/app`, which own
 | `internal/logs` | The output log |
 | `internal/lsp` | The language server protocol: JSON-RPC, positions, documents |
 | `internal/nav` | The history that back and forward walk |
+| `internal/platform` | The desktop's port: the window, dialogs, menus, clipboard, and the UI thread |
 | `internal/search` | Workspace search and quick open |
 | `internal/shellpath` | The user's shell and the paths it sets |
 | `internal/theme` | The palettes, and the ui and editor themes built from them |
@@ -135,7 +136,7 @@ The root holds one file. `app.go` hands the process to `internal/app`, which own
 | `internal/uri` | File URIs |
 | `internal/workspace` | File discovery and classification |
 
-Two rules keep the tree acyclic and the packages testable, and `internal/arch` checks both: nothing imports `internal/app` except itself, and only `internal/app` imports MyGo's window API. The packages below it draw with `github.com/egoist/mygo/ui` and never touch a window.
+Two rules keep the tree acyclic and the packages testable, and `internal/arch` checks both: nothing imports `internal/app` except itself, and only `internal/app` and `internal/platform` import MyGo's window API. The packages below them draw with `github.com/egoist/mygo/ui` and never touch a window; `internal/platform` is the port where a window, a dialog, a menu, or the UI thread itself is named.
 
 The tests are the packages' own, beside the code. `internal/app` keeps a harness in `harness_test.go` and end-to-end flows in `e2e_test.go`: a folder opens, its file opens, an edit reaches the disk, and a file changed on disk is not overwritten. `go test ./...` needs no window.
 

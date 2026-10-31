@@ -74,7 +74,7 @@ func (a *App) openExternalTerminal() {
 			if detail == "" {
 				detail = err.Error()
 			}
-			a.post(func() {
+			a.post.Post(func() {
 				if a.gen == gen {
 					a.note("Could not open "+name+": "+detail, true)
 				}

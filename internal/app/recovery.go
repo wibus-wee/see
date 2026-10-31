@@ -54,7 +54,7 @@ func (a *App) cacheRecovery(d *doc) {
 	}
 	snap := d.buf.Snapshot()
 	record := recoveryRecord{Root: a.root, Path: d.path, Base: d.diskText, Text: snap.String(), BOM: d.bom}
-	post := a.post
+	post := a.post.Post
 	go func() {
 		cache.mu.Lock()
 		defer cache.mu.Unlock()

@@ -30,7 +30,7 @@ func TestRealGopls(t *testing.T) {
 	h.a.lsp = langserver.New(langserver.Options{
 		Name: "gopls", Root: h.a.root, Start: h.a.startLSP(testLogf(t)),
 		OnState: func(s langserver.State, err error) {
-			h.a.post(func() { h.a.lspState, h.a.lspErr = s, err })
+			h.a.post.Post(func() { h.a.lspState, h.a.lspErr = s, err })
 		},
 	})
 	defer h.a.lsp.StopWait(5e9)

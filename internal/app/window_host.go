@@ -29,7 +29,7 @@ func newWindowHost(a *App, win *mygo.Window) *windowHost {
 	return &windowHost{app: a, win: win, settingsWindow: &settingsWindow{a: a}}
 }
 
-func (h *windowHost) setTitle(title string) {
+func (h *windowHost) SetTitle(title string) {
 	h.win.SetTitle(title)
 	if !h.own {
 		return
@@ -46,7 +46,7 @@ func (h *windowHost) setTitle(title string) {
 	}
 }
 
-func (h *windowHost) setWorkspaceSize(width, height int) {
+func (h *windowHost) SetWorkspaceSize(width, height int) {
 	if h.own {
 		h.win.SetResizable(true)
 		h.win.SetMinimizable(true)
@@ -58,7 +58,7 @@ func (h *windowHost) setWorkspaceSize(width, height int) {
 
 // popupMenu opens a native menu: PopupAt waits for the menu to close, so
 // it runs off the UI thread, and its choices come back through post.
-func (h *windowHost) popupMenu(x, y int, items []*mygo.MenuItem) {
+func (h *windowHost) PopupMenu(x, y int, items []*mygo.MenuItem) {
 	go mygo.NewMenu(items).PopupAt(h.win, x, y)
 }
 
@@ -70,7 +70,7 @@ func (h *windowHost) dialogParent() *mygo.Window {
 	return h.win
 }
 
-func (h *windowHost) pickFolder() (string, error) {
+func (h *windowHost) PickFolder() (string, error) {
 	paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Parent: h.dialogParent(), Title: "Open Folder", Directory: true})
 	if err != nil || len(paths) == 0 {
 		return "", err
@@ -78,11 +78,11 @@ func (h *windowHost) pickFolder() (string, error) {
 	return paths[0], nil
 }
 
-func (h *windowHost) pickNewFile(root string) (string, error) {
+func (h *windowHost) PickNewFile(root string) (string, error) {
 	return mygo.Dialog.Save(mygo.SaveDialogOptions{Parent: h.win, Title: "New File", DefaultPath: root, ButtonLabel: "Create"})
 }
 
-func (h *windowHost) confirmDirty(message string) (int, error) {
+func (h *windowHost) ConfirmDirty(message string) (int, error) {
 	result, err := mygo.Dialog.Message(mygo.MessageOptions{
 		Parent: h.win, Type: mygo.MessageWarning, Title: "Unsaved Changes",
 		Message: message, Detail: "Do you want to save your changes?",
@@ -91,12 +91,12 @@ func (h *windowHost) confirmDirty(message string) (int, error) {
 	return result.Button, err
 }
 
-func (h *windowHost) trashItem(path string) error     { return mygo.Shell.TrashItem(path) }
-func (h *windowHost) copyFiles(paths ...string) error { return mygo.Clipboard.WriteFiles(paths...) }
-func (h *windowHost) copyImage(png []byte) error      { return mygo.Clipboard.WriteImage(png) }
-func (h *windowHost) setAppearance(appearance string) { mygo.Theme.SetSource(themeSource(appearance)) }
+func (h *windowHost) TrashItem(path string) error     { return mygo.Shell.TrashItem(path) }
+func (h *windowHost) CopyFiles(paths ...string) error { return mygo.Clipboard.WriteFiles(paths...) }
+func (h *windowHost) CopyImage(png []byte) error      { return mygo.Clipboard.WriteImage(png) }
+func (h *windowHost) SetAppearance(appearance string) { mygo.Theme.SetSource(themeSource(appearance)) }
 
-func (h *windowHost) openProjectWindow(path string) bool {
+func (h *windowHost) OpenProjectWindow(path string) bool {
 	if h.createProject == nil {
 		return false
 	}
@@ -104,7 +104,7 @@ func (h *windowHost) openProjectWindow(path string) bool {
 	return true
 }
 
-func (h *windowHost) refreshMenu() {
+func (h *windowHost) RefreshMenu() {
 	if h.setMenu != nil {
 		h.setMenu()
 	}
@@ -120,13 +120,13 @@ type settingsWindow struct {
 
 func (s *settingsWindow) shown() bool { return s.w != nil && !s.w.IsDestroyed() }
 
-func (s *settingsWindow) refreshSettings() {
+func (s *settingsWindow) RefreshSettings() {
 	if s.shown() {
 		s.w.Update(func() {})
 	}
 }
 
-func (s *settingsWindow) openSettings() {
+func (s *settingsWindow) OpenSettings() {
 	if s.shown() {
 		s.w.Focus()
 		return
@@ -175,17 +175,17 @@ func (s *settingsWindow) openSettings() {
 		}
 	}()
 	if p := a.cfg.ExternalTerminalPath; p != "" {
-		s.loadTerminalIcon(p)
+		s.LoadTerminalIcon(p)
 	}
 }
 
-func (s *settingsWindow) closeSettings() {
+func (s *settingsWindow) CloseSettings() {
 	if s.shown() {
 		s.w.Close()
 	}
 }
 
-func (s *settingsWindow) loadTerminalIcon(path string) {
+func (s *settingsWindow) LoadTerminalIcon(path string) {
 	if !s.shown() {
 		return
 	}
@@ -209,7 +209,7 @@ func (s *settingsWindow) loadTerminalIcon(path string) {
 	}()
 }
 
-func (s *settingsWindow) pickTerminalApp() {
+func (s *settingsWindow) PickTerminalApp() {
 	if !s.shown() {
 		return
 	}
@@ -222,7 +222,7 @@ func (s *settingsWindow) pickTerminalApp() {
 			}
 			if err != nil {
 				a.note("Could not choose terminal app: "+err.Error(), true)
-				a.post(func() {})
+				a.post.Post(func() {})
 				return
 			}
 			if len(paths) == 0 {
@@ -230,12 +230,12 @@ func (s *settingsWindow) pickTerminalApp() {
 			}
 			a.cfg.ExternalTerminalPath = paths[0]
 			a.settingsChanged()
-			s.loadTerminalIcon(paths[0])
+			s.LoadTerminalIcon(paths[0])
 		})
 	}()
 }
 
-func (s *settingsWindow) openFontPopover(anchor ui.Rect, terminal bool) {
+func (s *settingsWindow) OpenFontPopover(anchor ui.Rect, terminal bool) {
 	if !s.shown() {
 		return
 	}
@@ -258,11 +258,11 @@ func (s *settingsWindow) openFontPopover(anchor ui.Rect, terminal bool) {
 			s.fontPopover = nil
 			a.settings.fontOpen = false
 		}
-		s.refreshSettings()
+		s.RefreshSettings()
 	})
 }
 
-func (s *settingsWindow) closeFontPopover() {
+func (s *settingsWindow) CloseFontPopover() {
 	if s.fontPopover != nil && !s.fontPopover.IsDestroyed() {
 		s.fontPopover.Close()
 	}

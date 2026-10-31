@@ -66,7 +66,7 @@ func (a *App) imagePreview(c *ui.Context, g *group, d *doc) {
 }
 
 func (a *App) copyFile(path string) {
-	if err := a.host.copyFiles(path); err != nil {
+	if err := a.host.CopyFiles(path); err != nil {
 		a.note("Could not copy file: "+describeErr(err), true)
 	}
 }
@@ -74,9 +74,9 @@ func (a *App) copyFile(path string) {
 func (a *App) copyPreviewImage(path string) {
 	go func() {
 		bitmap, err := imagePNG(path)
-		a.post(func() {
+		a.post.Post(func() {
 			if err == nil {
-				err = a.host.copyImage(bitmap)
+				err = a.host.CopyImage(bitmap)
 			}
 			if err != nil {
 				a.note("Could not copy image: "+describeErr(err), true)

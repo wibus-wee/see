@@ -40,7 +40,7 @@ func (a *App) fontPicker(c *ui.Context, terminal bool) {
 	ui.Text(c, label).TextColor(colors(c).Muted).SingleLine().Shrink(1)
 	button := ui.Button(c, "Choose…").Label("Choose Font").Bind(&s.fontButton)
 	button.OnClick(func() {
-		a.host.openFontPopover(s.fontButton.Bounds(c), terminal)
+		a.host.OpenFontPopover(s.fontButton.Bounds(c), terminal)
 	})
 }
 
@@ -126,6 +126,6 @@ func (a *App) fontOption(c *ui.Context, family, label string, selected, terminal
 		}
 		a.settings.fontOpen = false
 		a.settingsChanged()
-		a.host.closeFontPopover()
+		a.host.CloseFontPopover()
 	})
 }

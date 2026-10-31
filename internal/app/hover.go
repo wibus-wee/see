@@ -140,7 +140,7 @@ func (a *App) hoverAt(d *doc, st *editor.State, r editor.HoverRequest) {
 				end = lineStart + lsp.ColumnFromLSP(line, rng.End.Character, enc)
 			}
 		}
-		a.post(func() {
+		a.post.Post(func() {
 			if a.gen != gen || a.hover.seq != seq || a.hover.epoch != epoch || a.docs[d.path] != d || d.buf == nil || d.buf.Version() != key.version {
 				return // the pointer has moved on
 			}

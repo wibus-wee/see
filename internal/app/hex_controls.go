@@ -88,7 +88,7 @@ func (a *App) findHex(d *doc, s *hexControl, list *ui.ListState) {
 	go func() {
 		defer cancel()
 		off, err := hexview.Find(ctx, path, size, start, pattern)
-		a.post(func() {
+		a.post.Post(func() {
 			if a.gen != gen || a.docs[path] != d || d.seq != version || s.seq != seq {
 				return
 			}
@@ -131,7 +131,7 @@ func (a *App) copyHex(d *doc, s *hexControl, services ui.Services) {
 			_, err = io.ReadFull(io.NewSectionReader(f, start, end-start), data)
 			f.Close()
 		}
-		a.post(func() {
+		a.post.Post(func() {
 			if a.gen != gen || a.docs[path] != d || d.seq != version {
 				return
 			}

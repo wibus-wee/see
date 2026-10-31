@@ -18,6 +18,7 @@ import (
 	"github.com/egoist/mygo/plugins/updater/native"
 	"github.com/egoist/mygo/ui"
 
+	"see/internal/platform"
 	"see/internal/shellpath"
 	"see/internal/workspace"
 )
@@ -136,7 +137,7 @@ func Main() {
 			})
 			p := &projectWindow{app: child, win: childWin}
 			projects = append(projects, p)
-			child.post = func(fn func()) { childWin.Update(fn) }
+			child.post = platform.SchedulerFunc(func(fn func()) { childWin.Update(fn) })
 			host := newWindowHost(child, childWin)
 			host.own, host.welcomeSized = true, path == ""
 			host.createProject = createProject
@@ -168,7 +169,7 @@ func Main() {
 						}
 						child.closeWorkspace()
 						projects = slices.DeleteFunc(projects, func(item *projectWindow) bool { return item == p })
-						child.host.closeSettings()
+						child.host.CloseSettings()
 						childWin.Destroy()
 						if active == p {
 							activate(primary)
@@ -192,13 +193,13 @@ func Main() {
 		host.createProject = createProject
 		a.host = host
 
-		a.post = func(fn func()) { win.Update(func() { fn(); wins.sync(nil) }) }
+		a.post = platform.SchedulerFunc(func(fn func()) { win.Update(func() { fn(); wins.sync(nil) }) })
 		if ready := shellpath.Ready(); ready != nil {
 			go func() {
 				<-ready
 				win.Update(func() {
 					for _, project := range projects {
-						project.app.host.refreshSettings()
+						project.app.host.RefreshSettings()
 					}
 				})
 			}()
@@ -340,7 +341,7 @@ func appMenu(a *App) *mygo.MenuItem {
 		{Role: mygo.RoleAbout},
 		updater.MenuItem(),
 		mygo.Separator(),
-		{Label: "Settings…", Accelerator: "CmdOrCtrl+,", Click: func(*mygo.MenuItem, *mygo.Window) { a.host.openSettings() }},
+		{Label: "Settings…", Accelerator: "CmdOrCtrl+,", Click: func(*mygo.MenuItem, *mygo.Window) { a.host.OpenSettings() }},
 		mygo.Separator(),
 		{Role: mygo.RoleServices},
 		mygo.Separator(),

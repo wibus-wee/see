@@ -105,11 +105,11 @@ func (a *App) welcomeView(c *ui.Context) {
 	c.SetTheme(a.theme)
 	switch {
 	case c.Shortcut(ui.Cmd|ui.Shift, ui.KeyN):
-		a.host.openProjectWindow("")
+		a.host.OpenProjectWindow("")
 	case c.Shortcut(ui.Cmd, ui.KeyO):
 		a.openFolderDialog()
 	case c.Shortcut(ui.Cmd, ui.KeyComma):
-		a.host.openSettings()
+		a.host.OpenSettings()
 	case a.root != "" && c.Shortcut(0, ui.KeyEscape):
 		a.showWelcome = false
 	}

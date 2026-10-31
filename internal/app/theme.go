@@ -50,6 +50,6 @@ func (a *App) applyAppearance(c *ui.Context) {
 func (a *App) chooseAppearance(s string) {
 	a.cfg.Appearance = s
 	a.saveConfig()
-	a.host.setAppearance(s)
-	a.host.refreshMenu() // its radio items show the choice
+	a.host.SetAppearance(s)
+	a.host.RefreshMenu() // its radio items show the choice
 }

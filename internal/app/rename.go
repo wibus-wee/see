@@ -77,7 +77,7 @@ func (a *App) submitRename(q *renamePrompt) {
 		} else if os.IsNotExist(err) {
 			err = os.Rename(q.path, dst)
 		}
-		a.post(func() {
+		a.post.Post(func() {
 			if a.gen != gen {
 				return
 			}

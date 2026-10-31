@@ -71,7 +71,7 @@ func (a *App) findSoon() {
 	if a.find.timer != nil {
 		a.find.timer.Stop()
 	}
-	a.find.timer = time.AfterFunc(250*time.Millisecond, func() { a.post(a.runFind) })
+	a.find.timer = time.AfterFunc(250*time.Millisecond, func() { a.post.Post(a.runFind) })
 }
 
 // runFind searches the workspace for the query, dropping the search on
@@ -120,7 +120,7 @@ func (a *App) runFind() {
 			if len(b) == 0 {
 				return
 			}
-			a.post(func() {
+			a.post.Post(func() {
 				if a.gen == gen && a.find.seq == seq {
 					a.addFindResults(b)
 				}
@@ -136,7 +136,7 @@ func (a *App) runFind() {
 			}
 		})
 		flush()
-		a.post(func() {
+		a.post.Post(func() {
 			if a.gen != gen || a.find.seq != seq {
 				return
 			}
@@ -256,7 +256,7 @@ func (a *App) ensureFiles() {
 	ctx := a.wsCtx
 	go func() {
 		files, truncated, err := search.ListFiles(ctx, rg, root, maxQuickFiles)
-		a.post(func() {
+		a.post.Post(func() {
 			if a.gen != gen {
 				return
 			}
@@ -364,7 +364,7 @@ func (a *App) searchSymbols(query string) {
 			}
 			if len(result.symbols) > 0 {
 				partial := append([]quickSymbol(nil), symbols...)
-				a.post(func() {
+				a.post.Post(func() {
 					if a.gen != gen || !q.open || q.query != ranked || q.ranked != ranked || q.gen != request {
 						return
 					}
@@ -373,7 +373,7 @@ func (a *App) searchSymbols(query string) {
 				})
 			}
 		}
-		a.post(func() {
+		a.post.Post(func() {
 			if a.gen != gen || !q.open || q.query != ranked || q.ranked != ranked || q.gen != request {
 				return
 			}

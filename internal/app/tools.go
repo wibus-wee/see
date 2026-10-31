@@ -394,7 +394,7 @@ func (a *App) runInstallJob(id string, services ui.Services, fn func(context.Con
 		ctx, cancel := context.WithTimeout(context.Background(), installTimeout)
 		defer cancel()
 		err := fn(ctx)
-		a.post(func() {
+		a.post.Post(func() {
 			// The name stays, so the row its error belongs to can show it.
 			a.serverJob = false
 			if err != nil {
@@ -422,7 +422,7 @@ func (a *App) removeManagedTool(id string, services ui.Services, dir string, don
 		} else {
 			err = os.RemoveAll(dir)
 		}
-		a.post(func() {
+		a.post.Post(func() {
 			a.serverJob = false
 			if err != nil {
 				a.serverJobErr = err.Error()
