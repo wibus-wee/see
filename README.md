@@ -2,27 +2,27 @@
 
 **See the code. Follow the idea.**
 
-See is a desktop app for exploring source code in a focused native interface. Open a folder, navigate its files, search across the workspace, and follow symbols to their definitions—all in a native interface built with [MyGo](https://github.com/egoist/mygo), without a web view.
+See is a desktop app for reading source code. Open a folder and you get its tree, tabs, search, symbols, diffs, and a terminal in one window — written in Go and built with [MyGo](https://github.com/egoist/mygo), drawn natively, with no web view in the stack.
 
 
 <img width="3146" height="2132" alt="CleanShot 2026-10-28 at 20 55 47@2x" src="https://github.com/user-attachments/assets/231c9a8b-96d5-4db0-9652-189ec76d6aa8" />
 
 
-## Features
+## Install
 
-- Open multiple project folders in separate windows, browse files in tabs, and arrange editors side by side or vertically.
-- Find text in a file or across a workspace, with case, whole-word, regular expression, and path filters.
-- Open files quickly by fuzzy name search and navigate backward and forward through your reading history.
-- Preview Markdown with native formatting, code blocks, tables, and local or remote images, or switch back to its source.
-- Inspect binary files as read-only hexadecimal bytes with offsets and printable ASCII, including files too large to open as text.
-- Explore Go, TypeScript, and JavaScript code with definitions, references, callers, diagnostics, and symbol hover information via language servers.
-- Use a built-in terminal with tabs and split panes, rooted in the open workspace.
-- Choose system, light, or dark appearance and adjust editor and terminal preferences.
-- Reopen recent folders and see changes made to files on disk.
+Download the latest build from [Releases](https://github.com/wibus-wee/see/releases/latest).
 
-Edit and save UTF-8 text in the source view. Unsaved changes are marked on tabs, and See asks before closing them. If a file changes on disk, See preserves your edits and asks before overwriting it. Files shown with replacement characters remain read-only. See caches unsaved text for open files so it can restore edits after an unexpected exit; if the disk version changed, it preserves the recovered edits and asks before overwriting. The integrated terminal runs your shell in the workspace.
+| Platform | Package |
+| --- | --- |
+| macOS | `.dmg` for Apple silicon and Intel |
+| Windows | `-setup-.exe` for x64 and arm64 |
+| Linux | `.deb` or `.tar.gz` for amd64 and arm64 |
 
-## Getting started
+The macOS builds are ad hoc signed and not notarized, so Gatekeeper may block them on other Macs. The Windows installers are unsigned and may trigger SmartScreen.
+
+Release builds check for updates in the background and offer to install them; use **See → Check for Updates…** to check manually. Development builds, and installations the current user cannot write to — including Debian package installations — cannot update themselves.
+
+### Build from source
 
 You'll need Go 1.27.3 or later and a graphical desktop environment. From the project directory, start the development app with live reload:
 
@@ -32,50 +32,78 @@ go tool mygo dev
 
 Choose **Open Folder** in the welcome window. For a quick run without live reload, use `go run .` or `go run . /path/to/project`.
 
-### Build
-
 Build a production app for the current platform:
 
 ```sh
 go tool mygo build
 ```
 
-Output goes to `build/`, as configured in [`mygo.json`](./mygo.json). On macOS, `build/darwin-<arch>/` contains `See.app` and a DMG; the default signature is ad hoc. Open the app or install it from the DMG. MyGo also packages the terminal's native library and application resources. The first build may download the terminal library.
+Output goes to `build/`, as configured in [`mygo.json`](./mygo.json). On macOS, `build/darwin-<arch>/` contains `See.app` and a DMG. MyGo also packages the terminal's native library and application resources; the first build may download that library.
 
 Use `go tool mygo build -platform darwin/universal` for a universal macOS build, or `go tool mygo build -h` for other targets and signing options. Creating a DMG and signing a macOS app require macOS. To compile a standalone executable for local use instead, run `go build -o see .` and start it with `./see /path/to/project`.
 
-Release builds check for updates in the background and offer to install them. Use **See → Check for Updates…** to check manually. Development builds and installations that the current user cannot write, including Debian package installations, cannot update themselves.
+### The `see` shell command
 
-Open the command palette with **Cmd+Shift+P** and choose **Shell Command: Install 'see' Command in PATH** to link the running executable at `~/.local/bin/see`. Add `~/.local/bin` to your `PATH` if needed. Use `see` or `see .` to open the current folder, `see /path/to/project` to open a folder, or `see /path/to/file` to open a file in its parent folder. The command returns immediately. Keep the app or executable at its installed location; the link points to it. Use a persistent build rather than `go run` before installing the command.
+Open the command palette with **Cmd+Shift+P** and choose **Shell Command: Install 'see' Command in PATH** to link the running executable at `~/.local/bin/see`; add `~/.local/bin` to your `PATH` if needed. The command returns immediately and the link points at the app or executable in place, so use a persistent build rather than `go run`.
 
-To remove the link, choose **Shell Command: Uninstall 'see' Command from PATH** in the command palette. It removes only a link pointing to the running executable.
+Use `see` or `see .` for the current folder, `see /path/to/project` to open a folder, or `see /path/to/file` to open a file in its parent folder. To remove the link, choose **Shell Command: Uninstall 'see' Command from PATH**; it removes only a link pointing to the running executable.
 
-Open another folder while a project is open to show it in a separate window. Use **File → New Window** or **Cmd+Shift+N** to start another window; closing a window checks that window for unsaved changes.
+## Features
 
-Click a file to open it as a preview; opening another file replaces that preview. Double-click the file, its tab, or its name in the path bar, or use **Keep Preview Tab** in the command palette, to keep it. Tabs appear when more than one file is open.
+- **Read** — open several folders in separate windows, keep files in tabs, and arrange editors side by side or one below another.
+- **Search** — find text in the current file or across the workspace, with case, whole-word, regular expression, and path filters.
+- **Jump** — reach files by fuzzy name, search workspace symbols, and step back and forward through your reading history.
+- **Understand** — definitions, references, callers, diagnostics, and hover help for Go, TypeScript, and JavaScript, through language servers.
+- **Review** — stage, unstage, commit, and discard changes, open a change as a diff tab, and see each file's status beside it in the navigator.
+- **Preview** — Markdown rendered natively, and any file as hexadecimal bytes when text is not an option.
+- **Run** — a terminal with tabs and split panes, rooted in the open workspace.
+- **Settle in** — system, light, or dark appearance, editor and terminal preferences, recent folders, and a notice when files change on disk.
+
+## Working with files
+
+### Windows, tabs, and previews
+
+Opening another folder while a project is open shows it in a separate window. Use **File → New Window** or **Cmd+Shift+N** to start one; closing a window checks that window for unsaved changes.
+
+Clicking a file opens it as a preview, and opening another file replaces that preview. Double-click the file, its tab, or its name in the path bar, or use **Keep Preview Tab** in the command palette, to keep it. Tabs appear once more than one file is open.
 
 Rename a file or folder from its context menu. On macOS, select an item in the file navigator and press Return to rename it; press Escape to cancel.
 
-Binary files open as a read-only hexadecimal view. Use **Show File Bytes** in the editor bar to inspect the bytes of any saved file, including files too large to open as text. The view reads the file on disk, so unsaved text edits are not shown there. Click a byte and Shift-click or use Shift with the arrow keys to select a range; **Copy Hex** copies up to 1 MiB. Enter a hexadecimal offset to jump, or search for text or a byte sequence prefixed with `hex:` (for example, `hex: 00 FF`).
+### Editing, saving, and recovery
 
-For a Markdown file, use the preview button in the editor bar or **Cmd+Shift+V** to open a separate preview tab. Drag that tab to an editor edge to view it beside the source. The preview uses the current buffer, including unsaved edits.
+Edit and save UTF-8 text in the source view. Unsaved changes are marked on tabs, and See asks before closing them. If a file changes on disk, See preserves your edits and asks before overwriting it. Files shown with replacement characters remain read-only.
 
-Images in their own paragraph can use Markdown image syntax or a standalone HTML `<img>` tag. Remote HTTP and HTTPS images are fetched when the preview opens; their host can see the request. Other HTML blocks display as source.
+See caches unsaved text for open files so it can restore edits after an unexpected exit. If the disk version changed in the meantime, it preserves the recovered edits and asks before overwriting.
 
-When running from source, the terminal's emulator library may be downloaded on first use.
+### Markdown preview
 
-### Optional tools
+For a Markdown file, use the preview button in the editor bar or **Cmd+Shift+V** to open a preview tab, and drag that tab to an editor edge to read it beside the source. The preview uses the current buffer, so unsaved edits show up in it.
 
-- **[ripgrep](https://github.com/BurntSushi/ripgrep)** (`rg`) enables workspace text search. Install it in **Settings → Search**: See downloads the release for your platform into its own data folder, checks it against the release's SHA-256, and uses it from there; remove it from the same page. You can instead set `SEE_RG` to an absolute path or make `rg` available on `PATH`. Quick Open can list files without it.
-- **[gopls](https://go.dev/gopls/)** enables Go definition lookup and symbol help. Install it in **Settings → Code Intelligence**: See builds it with the Go toolchain into its own data folder, so Go must be installed and on `PATH` first (installing Go alone does not bring gopls). You can instead set `SEE_GOPLS` to an absolute path, run `go install golang.org/x/tools/gopls@latest` yourself, or make `gopls` available on `PATH`; the app also looks in Go's bin directories.
+Images in their own paragraph can use Markdown image syntax or a standalone HTML `<img>` tag. Remote HTTP and HTTPS images are fetched when the preview opens, so their host can see the request. Other HTML blocks display as source.
 
-Tools See installs live in its application data folder (`~/Library/Application Support/See` on macOS), beside the language server below. They never write into the open workspace, and a copy See installed is used before one on `PATH`; remove it in Settings to use your own.
+### Binary files
 
-- **TypeScript / JavaScript:** Install **tsrs** in **Settings → Code Intelligence**. See installs it in its own data folder using Bun, or npm if Bun is unavailable; remove it from the same page. You can instead set `SEE_TYPESCRIPT_LANGUAGE_SERVER` to the absolute path of a tsrs executable. See also looks for `tsrs` on `PATH`. Running See’s installation requires Node.js or Bun. tsrs is a TypeScript 7 implementation under active development.
+Binary files open as a read-only hexadecimal view with offsets and printable ASCII, including files too large to open as text. Use **Show File Bytes** in the editor bar to inspect the bytes of any saved file; the view reads from disk, so unsaved edits are not shown there.
 
-The app asks you to trust a folder when you open a supported source file: servers can invoke project tools and download dependencies or toolchains. Reading files does not require trust. Server executables inside the open workspace are not used. Use **Show Output** in the command palette or select **Output** in the bottom panel to inspect server activity and errors. Output is kept in memory for the current session.
+Click a byte and Shift-click, or hold Shift with the arrow keys, to select a range. **Copy Hex** copies up to 1 MiB. Enter a hexadecimal offset to jump, or search for text or a byte sequence prefixed with `hex:` — for example, `hex: 00 FF`.
 
-Use **Related Items** in the editor jump bar, or **Find References** and **Find Callers** in the command palette, to navigate to locations. Callers uses the language server’s incoming call hierarchy; availability depends on server support.
+## Code intelligence
+
+Language support comes from external servers. See installs and manages the ones it knows about, and uses anything you already have:
+
+| Tool | Enables | Where it comes from |
+| --- | --- | --- |
+| [ripgrep](https://github.com/BurntSushi/ripgrep) (`rg`) | workspace text search | **Settings → Search**, `SEE_RG`, or `PATH` |
+| [gopls](https://go.dev/gopls/) | Go definitions and hover help | **Settings → Code Intelligence**, `SEE_GOPLS`, `PATH`, or Go's bin directories |
+| **tsrs** | TypeScript and JavaScript support | **Settings → Code Intelligence**, `SEE_TYPESCRIPT_LANGUAGE_SERVER`, or `PATH` |
+
+Tools you install from Settings live in See's application data folder (`~/Library/Application Support/See` on macOS) and are never written into the workspace. See downloads ripgrep's release for your platform and checks it against the published SHA-256, builds gopls with your Go toolchain — so Go must be installed and on `PATH` first — and installs tsrs with Bun, or npm if Bun is unavailable. A copy See installed is used before one on `PATH`; remove it in Settings to go back to your own. Quick Open lists files without ripgrep.
+
+tsrs is a TypeScript 7 implementation under active development, so expect it to move.
+
+The app asks you to trust a folder when you open a supported source file: a server can invoke project tools and download dependencies or toolchains. Reading files does not require trust, and server executables inside the open workspace are not used. Use **Show Output** in the command palette, or **Output** in the bottom panel, to inspect server activity and errors; output is kept in memory for the current session.
+
+Use **Related Items** in the editor jump bar, or **Find References** and **Find Callers** in the command palette, to move between locations. Callers uses the language server's incoming call hierarchy, so availability depends on the server.
 
 ## Keyboard shortcuts
 
@@ -113,32 +141,7 @@ Run the test suite with:
 go test ./...
 ```
 
-The root holds one file. `app.go` hands the process to `internal/app`, which owns the app's state and wires the packages below together; everything else is a package of its own, with its own tests:
-
-| Package | What it owns |
-| --- | --- |
-| `internal/app` | The app's state and the window: documents, editor groups, navigation, the panels, and the commands the interface offers |
-| `internal/assets` | The app's icon, embedded |
-| `internal/cli` | The command line: its arguments, and starting the app for a path |
-| `internal/config` | What the app remembers between runs, and the sessions it restores |
-| `internal/git` | Reading the repository's status and diffs |
-| `internal/hexview` | The bytes behind the hexadecimal view |
-| `internal/langserver` | A language server's process and lifecycle |
-| `internal/languages` | Finding and starting gopls and tsrs, and installing tsrs |
-| `internal/logs` | The output log |
-| `internal/lsp` | The language server protocol: JSON-RPC, positions, documents |
-| `internal/nav` | The history that back and forward walk |
-| `internal/platform` | The desktop's port: the window, dialogs, menus, clipboard, and the UI thread |
-| `internal/search` | Workspace search and quick open |
-| `internal/shellpath` | The user's shell and the paths it sets |
-| `internal/theme` | The palettes, and the ui and editor themes built from them |
-| `internal/treefilter` | The file tree's filter matching |
-| `internal/uri` | File URIs |
-| `internal/workspace` | File discovery and classification |
-
-Two rules keep the tree acyclic and the packages testable, and `internal/arch` checks both: nothing imports `internal/app` except itself, and only `internal/app` and `internal/platform` import MyGo's window API. The packages below them draw with `github.com/egoist/mygo/ui` and never touch a window; `internal/platform` is the port where a window, a dialog, a menu, or the UI thread itself is named.
-
-The tests are the packages' own, beside the code. `internal/app` keeps a harness in `harness_test.go` and end-to-end flows in `e2e_test.go`: a folder opens, its file opens, an edit reaches the disk, and a file changed on disk is not overwritten. `go test ./...` needs no window.
+The application UI and workspace orchestration live in the root package. `internal/workspace` handles file discovery and classification, `internal/search` implements search and Quick Open, `internal/git` reads repository state and diffs, and `internal/lsp`, `internal/uri`, and `internal/nav` support code navigation.
 
 Settings and recent folders are stored in `See/config.json` under the operating system's user configuration directory.
 
