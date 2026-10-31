@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"see/internal/languages"
 	"strings"
 	"testing"
 
@@ -29,7 +30,7 @@ func TestRealGopls(t *testing.T) {
 		"b/b.go": "package b\n\n// Größe名字 is 🎉.\nvar _ = \"😀\"; func Größe名字() {}\n",
 	})
 	h := newHarness(t, root)
-	h.a.startLSP = startGopls // the real one, found through SEE_GOPLS
+	h.a.startLSP = languages.StartGopls // the real one, found through SEE_GOPLS
 	h.a.lsp = langserver.New(langserver.Options{Name: "gopls", Root: h.a.root, Start: h.a.startLSP(testLogf(t)), OnState: func(s langserver.State, err error) {
 		h.a.post(func() { h.a.lspState, h.a.lspErr = s, err })
 	}})

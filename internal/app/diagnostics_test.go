@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"see/internal/languages"
 	"strings"
 	"testing"
 	"time"
@@ -25,7 +26,7 @@ func TestOpenDocumentRequestsDiagnostics(t *testing.T) {
 	h.a.cfg.Trust(root)
 	h.a.tsLSP.Stop()
 	client := &diagnosticClient{&fakeClient{enc: lsp.UTF16}}
-	m := newTypeScriptServer(root, func(context.Context, string, func(error)) (langserver.Client, error) { return client, nil }, nil, h.a.diagnosticsHandler(h.a.gen), nil)
+	m := languages.NewTypeScriptServer(root, func(context.Context, string, func(error)) (langserver.Client, error) { return client, nil }, nil, h.a.diagnosticsHandler(h.a.gen), nil)
 	h.a.tsLSP = m
 	defer m.StopWait(time.Second)
 	d := h.open("a.ts")

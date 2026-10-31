@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"see/internal/languages"
 	"strings"
 	"testing"
 	"time"
@@ -25,13 +26,13 @@ func TestInstallTypeScriptServerUsesPrivateDirectory(t *testing.T) {
 	}
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 	dest := filepath.Join(t.TempDir(), "typescript")
-	if err := installTypeScriptServer(context.Background(), dest); err != nil {
+	if err := languages.InstallTypeScript(context.Background(), dest); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(dest, "node_modules", "tsrs", "bin", "tsrs")); err != nil {
 		t.Fatal(err)
 	}
-	if err := installTypeScriptServer(context.Background(), dest); err == nil {
+	if err := languages.InstallTypeScript(context.Background(), dest); err == nil {
 		t.Fatal("overwrote existing installation")
 	}
 }
@@ -59,14 +60,14 @@ func TestInstallingFromSettingsKeepsServer(t *testing.T) {
 	for range 5 {
 		st.Frame()
 	}
-	if !managedTypeScriptInstalled() {
+	if !languages.ManagedTypeScriptInstalled() {
 		t.Fatal("server was removed after installation")
 	}
 	if !st.HasText("Remove managed TypeScript server") {
 		t.Fatalf("missing installed state: %v", st.Texts())
 	}
 	time.Sleep(50 * time.Millisecond)
-	if !managedTypeScriptInstalled() {
+	if !languages.ManagedTypeScriptInstalled() {
 		t.Fatal("server was removed after settings rebuilt")
 	}
 }
@@ -81,7 +82,7 @@ func TestInstallTypeScriptServerCleansFailedStage(t *testing.T) {
 	}
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 	parent := t.TempDir()
-	if err := installTypeScriptServer(context.Background(), filepath.Join(parent, "typescript")); err == nil || !strings.Contains(err.Error(), "broken") {
+	if err := languages.InstallTypeScript(context.Background(), filepath.Join(parent, "typescript")); err == nil || !strings.Contains(err.Error(), "broken") {
 		t.Fatalf("error = %v", err)
 	}
 	entries, err := os.ReadDir(parent)
@@ -103,7 +104,7 @@ func TestManagedTypeScriptPersistsAcrossAppInstances(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
-	if err := installTypeScriptServer(context.Background(), managedTypeScriptDir()); err != nil {
+	if err := languages.InstallTypeScript(context.Background(), languages.ManagedTypeScriptDir()); err != nil {
 		t.Fatal(err)
 	}
 	root := t.TempDir()
@@ -111,7 +112,7 @@ func TestManagedTypeScriptPersistsAcrossAppInstances(t *testing.T) {
 	first.a.closeWorkspace()
 	second := newHarness(t, root)
 	defer second.a.closeWorkspace()
-	if got, err := findTypeScriptServer(root); err != nil || got != managedTypeScriptEntry() {
+	if got, err := languages.FindTypeScript(root); err != nil || got != languages.ManagedTypeScriptEntry() {
 		t.Fatalf("after reopening: path %q, error %v", got, err)
 	}
 }
@@ -130,7 +131,7 @@ func TestInstallWaitsForShellPath(t *testing.T) {
 	t.Cleanup(shellpath.Override(ready))
 	result := make(chan error, 1)
 	dest := filepath.Join(t.TempDir(), "tsrs")
-	go func() { result <- installTypeScriptServer(context.Background(), dest) }()
+	go func() { result <- languages.InstallTypeScript(context.Background(), dest) }()
 	select {
 	case err := <-result:
 		t.Fatalf("installation did not wait: %v", err)

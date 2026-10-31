@@ -5,6 +5,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"see/internal/languages"
 	"slices"
 	"strings"
 	"sync"
@@ -568,7 +569,7 @@ func TestNoDefinitionAndNoGopls(t *testing.T) {
 	root2 := writeTree(t, map[string]string{"m.go": "package m\n"})
 	h2 := newHarness(t, root2)
 	h2.a.cfg.Trust(h2.a.root)
-	h2.fc.startErr = errNoGopls
+	h2.fc.startErr = languages.ErrNoGopls
 	m := h2.open("m.go")
 	h2.ed(m).OnDefinition(0)
 	h2.settle(func() bool { return !h2.a.finding && h2.a.lspState == langserver.Failed })

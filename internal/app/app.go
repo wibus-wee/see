@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"see/internal/languages"
 	"slices"
 	"strings"
 	"sync"
@@ -210,7 +211,7 @@ func newApp(cfg *config.Config) *App {
 		dirs:     map[string]*dirState{},
 		post:     func(fn func()) { fn() },
 		host:     noHost{},
-		startLSP: startGopls,
+		startLSP: languages.StartGopls,
 		logf:     log.Printf,
 		treeRow:  -1,
 		sidebarW: 260,
@@ -1071,9 +1072,9 @@ func (a *App) definitionFound(g *group, from nav.Entry, targets []target, enc st
 // lspFailure reports why a language server request failed.
 func (a *App) lspFailure(err error) {
 	switch {
-	case errors.Is(err, errNoGopls):
+	case errors.Is(err, languages.ErrNoGopls):
 		a.note("Go to Definition needs gopls: install it with “go install golang.org/x/tools/gopls@latest”, then Retry.", true)
-	case errors.Is(err, errNoTypeScriptServer):
+	case errors.Is(err, languages.ErrNoTypeScriptServer):
 		a.note("Install the TypeScript language server in Settings, then retry.", true)
 	case errors.Is(err, context.DeadlineExceeded):
 		a.note("The language server took too long to answer. It may still be loading the workspace; try again.", true)
@@ -1136,7 +1137,7 @@ func (a *App) serverFor(path string) *langserver.Server {
 	if strings.EqualFold(filepath.Ext(path), ".go") {
 		return a.lsp
 	}
-	if typeScriptLanguage(path) != "" {
+	if languages.TypeScriptLanguage(path) != "" {
 		return a.tsLSP
 	}
 	return nil
@@ -1160,7 +1161,7 @@ func (a *App) resetTypeScriptServer() {
 		return
 	}
 	gen, epoch := a.gen, a.tsEpoch
-	a.tsLSP = newTypeScriptServer(a.root, startTypeScriptServer(a.serverLog("tsrs")), func(s langserver.State, err error) {
+	a.tsLSP = languages.NewTypeScriptServer(a.root, languages.StartTypeScript(a.serverLog("tsrs")), func(s langserver.State, err error) {
 		a.post(func() {
 			if a.gen == gen && a.tsEpoch == epoch {
 				a.tsState, a.tsErr = s, err

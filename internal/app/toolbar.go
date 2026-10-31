@@ -2,6 +2,7 @@ package app
 
 import (
 	"path/filepath"
+	"see/internal/languages"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/plugins/glass"
@@ -207,7 +208,7 @@ func (a *App) modeSwitch(c *ui.Context) {
 func (a *App) activityView(c *ui.Context) {
 	state, serverErr, name := a.lspState, a.lspErr, "gopls"
 	retry := a.retryLSP
-	if a.focus != nil && typeScriptLanguage(a.activePath()) != "" {
+	if a.focus != nil && languages.TypeScriptLanguage(a.activePath()) != "" {
 		state, serverErr, name = a.tsState, a.tsErr, "tsrs"
 		retry = a.retryTypeScriptLSP
 	}

@@ -1,4 +1,4 @@
-package app
+package languages
 
 import (
 	"context"
@@ -14,15 +14,16 @@ import (
 	"see/internal/langserver"
 	"see/internal/lsp"
 	"see/internal/shellpath"
+	"see/internal/uri"
 	"see/internal/workspace"
 )
 
-// errNoGopls is returned when no gopls is installed.
-var errNoGopls = errors.New("gopls is not installed")
+// ErrNoGopls is returned when no gopls is installed.
+var ErrNoGopls = errors.New("gopls is not installed")
 
-// findGopls finds gopls: $SEE_GOPLS, then PATH, then Go's bin
+// FindGopls finds gopls: $SEE_GOPLS, then PATH, then Go's bin
 // directories. A gopls inside the workspace is never used.
-func findGopls(root string) (string, error) {
+func FindGopls(root string) (string, error) {
 	var candidates []string
 	if p := os.Getenv("SEE_GOPLS"); p != "" {
 		candidates = append(candidates, p)
@@ -56,22 +57,22 @@ func findGopls(root string) (string, error) {
 			return p, nil
 		}
 	}
-	return "", errNoGopls
+	return "", ErrNoGopls
 }
 
-// startGopls is the langserver.Starter of the real gopls.
-func startGopls(logf func(string, ...any)) langserver.Starter {
+// StartGopls is the langserver.Starter of the real gopls.
+func StartGopls(logf func(string, ...any)) langserver.Starter {
 	return func(ctx context.Context, root string, onExit func(error)) (langserver.Client, error) {
 		if err := shellpath.Wait(ctx); err != nil {
 			return nil, err
 		}
-		path, err := findGopls(root)
+		path, err := FindGopls(root)
 		if err != nil {
 			return nil, err
 		}
 		c, err := lsp.Start(ctx, path, nil, lsp.Options{
 			RootPath: root,
-			RootURI:  uriOf(root),
+			RootURI:  uri.FromPath(root),
 			Name:     filepath.Base(root),
 			Logf:     logf,
 			OnExit:   onExit,
@@ -83,32 +84,32 @@ func startGopls(logf func(string, ...any)) langserver.Starter {
 	}
 }
 
-var errNoTypeScriptServer = errors.New("tsrs is not installed")
+var ErrNoTypeScriptServer = errors.New("tsrs is not installed")
 
-// newTypeScriptServer returns the manager of tsrs for root. When tsrs was
+// NewTypeScriptServer returns the manager of tsrs for root. When tsrs was
 // missing, it starts once tsrs is found, as another window or process may
 // have installed it since.
-func newTypeScriptServer(root string, start langserver.Starter, onState func(langserver.State, error),
+func NewTypeScriptServer(root string, start langserver.Starter, onState func(langserver.State, error),
 	onDiagnostics func(*langserver.Server, string, editor.Snapshot, []lsp.Diagnostic, string), logf func(string, ...any)) *langserver.Server {
 	return langserver.New(langserver.Options{
 		Name:          "tsrs",
 		Root:          root,
 		Start:         start,
-		Language:      typeScriptLanguage,
+		Language:      TypeScriptLanguage,
 		OnState:       onState,
 		OnDiagnostics: onDiagnostics,
 		Logf:          logf,
 		Recover: func(err error) bool {
-			if !errors.Is(err, errNoTypeScriptServer) {
+			if !errors.Is(err, ErrNoTypeScriptServer) {
 				return false
 			}
-			_, findErr := findTypeScriptServer(root)
+			_, findErr := FindTypeScript(root)
 			return findErr == nil
 		},
 	})
 }
 
-func typeScriptLanguage(path string) string {
+func TypeScriptLanguage(path string) string {
 	switch strings.ToLower(filepath.Ext(path)) {
 	case ".ts":
 		return "typescript"
@@ -122,45 +123,45 @@ func typeScriptLanguage(path string) string {
 	return ""
 }
 
-func findTypeScriptServer(root string) (string, error) {
+func FindTypeScript(root string) (string, error) {
 	p := os.Getenv("SEE_TYPESCRIPT_LANGUAGE_SERVER")
-	if p == "" && managedTypeScriptInstalled() {
-		p = managedTypeScriptEntry()
+	if p == "" && ManagedTypeScriptInstalled() {
+		p = ManagedTypeScriptEntry()
 	}
 	if p == "" {
 		p, _ = exec.LookPath("tsrs")
 	}
 	if !filepath.IsAbs(p) {
-		return "", errNoTypeScriptServer
+		return "", ErrNoTypeScriptServer
 	}
 	resolved, err := filepath.EvalSymlinks(p)
 	if err != nil {
-		return "", errNoTypeScriptServer
+		return "", ErrNoTypeScriptServer
 	}
 	realRoot := root
 	if r, err := filepath.EvalSymlinks(root); err == nil {
 		realRoot = r
 	}
 	if root != "" && (workspace.Within(root, p) || workspace.Within(realRoot, resolved)) {
-		return "", errNoTypeScriptServer
+		return "", ErrNoTypeScriptServer
 	}
 	if fi, err := os.Stat(resolved); err != nil || !fi.Mode().IsRegular() {
-		return "", errNoTypeScriptServer
+		return "", ErrNoTypeScriptServer
 	}
 	return p, nil
 }
 
-func startTypeScriptServer(logf func(string, ...any)) langserver.Starter {
+func StartTypeScript(logf func(string, ...any)) langserver.Starter {
 	return func(ctx context.Context, root string, onExit func(error)) (langserver.Client, error) {
 		if err := shellpath.Wait(ctx); err != nil {
 			return nil, err
 		}
-		path, err := findTypeScriptServer(root)
+		path, err := FindTypeScript(root)
 		if err != nil {
 			return nil, err
 		}
 		args := []string{"--lsp", "-stdio"}
-		if path == managedTypeScriptEntry() {
+		if path == ManagedTypeScriptEntry() {
 			runtimePath, err := exec.LookPath("node")
 			if err != nil {
 				runtimePath, err = exec.LookPath("bun")
@@ -171,6 +172,6 @@ func startTypeScriptServer(logf func(string, ...any)) langserver.Starter {
 			args = append([]string{path}, args...)
 			path = runtimePath
 		}
-		return lsp.Start(ctx, path, args, lsp.Options{RootPath: root, RootURI: uriOf(root), Name: filepath.Base(root), Logf: logf, OnExit: onExit})
+		return lsp.Start(ctx, path, args, lsp.Options{RootPath: root, RootURI: uri.FromPath(root), Name: filepath.Base(root), Logf: logf, OnExit: onExit})
 	}
 }

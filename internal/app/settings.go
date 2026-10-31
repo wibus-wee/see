@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"path/filepath"
+	"see/internal/languages"
 	"slices"
 	"strings"
 	"time"
@@ -440,8 +441,8 @@ func (a *App) editorPane(c *ui.Context) {
 func (a *App) intelligencePane(c *ui.Context) {
 	heading(c, "Language Servers")
 	ui.Text(c, "Power definition lookup and symbol help in trusted folders.").FontSize(12).TextColor(colors(c).Muted).Padding(0, 4, 4, 4)
-	goPath, goErr := findGopls(a.root)
-	tsPath, tsErr := findTypeScriptServer(a.root)
+	goPath, goErr := languages.FindGopls(a.root)
+	tsPath, tsErr := languages.FindTypeScript(a.root)
 	ui.Column(c).FillWidth().Radius(12).Background(colors(c).Card).Padding(0, 14).Children(func() {
 		a.languageServerRow(c.Key("go"), "go", "Go", "gopls", goPath, goErr, a.lspState, a.lspErr, "go install golang.org/x/tools/gopls@latest", a.retryLSP)
 		ui.Box(c).Height(1).FillWidth().Background(colors(c).Separator)
@@ -507,7 +508,7 @@ func (a *App) languageServerRow(c *ui.Context, id, language, server, path string
 			if id == "typescript" {
 				if a.serverJob {
 					ui.Text(c, "Working…").FontSize(12).TextColor(colors(c).Muted)
-				} else if managedTypeScriptExists() {
+				} else if languages.ManagedTypeScriptExists() {
 					if state == langserver.Failed && ui.Button(c.Key("retry"), "Retry").Label("Retry "+server).Clicked() {
 						retry()
 					}

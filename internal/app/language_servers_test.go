@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"see/internal/languages"
 	"testing"
 	"time"
 
@@ -32,7 +33,7 @@ func TestTypeScriptDefinitionRoutesToOwnServer(t *testing.T) {
 		return []lsp.Location{{URI: uriOf(target)}}, nil
 	}
 	h.a.tsLSP.Stop()
-	h.a.tsLSP = newTypeScriptServer(root, func(context.Context, string, func(error)) (langserver.Client, error) { return fc, nil }, nil, nil, nil)
+	h.a.tsLSP = languages.NewTypeScriptServer(root, func(context.Context, string, func(error)) (langserver.Client, error) { return fc, nil }, nil, nil, nil)
 	defer h.a.tsLSP.StopWait(time.Second)
 	d := h.open("a.tsx")
 	h.a.goToDefinition(h.a.focus, d, at(d, "thing"))
@@ -57,7 +58,7 @@ func TestTypeScriptServerRejectsWorkspaceExecutable(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("SEE_TYPESCRIPT_LANGUAGE_SERVER", server)
-	if _, err := findTypeScriptServer(root); err == nil {
+	if _, err := languages.FindTypeScript(root); err == nil {
 		t.Fatal("accepted a workspace executable")
 	}
 	external := filepath.Join(t.TempDir(), "server-link")
@@ -65,7 +66,7 @@ func TestTypeScriptServerRejectsWorkspaceExecutable(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("SEE_TYPESCRIPT_LANGUAGE_SERVER", external)
-	if _, err := findTypeScriptServer(root); err == nil {
+	if _, err := languages.FindTypeScript(root); err == nil {
 		t.Fatal("accepted a symlink into workspace")
 	}
 }
@@ -76,15 +77,15 @@ func TestTypeScriptServerRetriesAfterAnotherProcessInstallsIt(t *testing.T) {
 	t.Setenv("SEE_TYPESCRIPT_LANGUAGE_SERVER", server)
 	client := &fakeClient{enc: lsp.UTF16}
 	attempts := 0
-	m := newTypeScriptServer(root, func(context.Context, string, func(error)) (langserver.Client, error) {
+	m := languages.NewTypeScriptServer(root, func(context.Context, string, func(error)) (langserver.Client, error) {
 		attempts++
-		if _, err := findTypeScriptServer(root); err != nil {
+		if _, err := languages.FindTypeScript(root); err != nil {
 			return nil, err
 		}
 		return client, nil
 	}, nil, nil, nil)
 	defer m.StopWait(time.Second)
-	if _, err := m.Get(context.Background()); err != errNoTypeScriptServer {
+	if _, err := m.Get(context.Background()); err != languages.ErrNoTypeScriptServer {
 		t.Fatalf("initial error: %v", err)
 	}
 	if err := os.WriteFile(server, []byte("server"), 0755); err != nil {
@@ -105,12 +106,12 @@ func TestTypeScriptMissingServerRetryIsBounded(t *testing.T) {
 	}
 	t.Setenv("SEE_TYPESCRIPT_LANGUAGE_SERVER", server)
 	attempts := 0
-	m := newTypeScriptServer(t.TempDir(), func(context.Context, string, func(error)) (langserver.Client, error) {
+	m := languages.NewTypeScriptServer(t.TempDir(), func(context.Context, string, func(error)) (langserver.Client, error) {
 		attempts++
-		return nil, errNoTypeScriptServer
+		return nil, languages.ErrNoTypeScriptServer
 	}, nil, nil, nil)
 	defer m.StopWait(time.Second)
-	if _, err := m.Get(context.Background()); err != errNoTypeScriptServer {
+	if _, err := m.Get(context.Background()); err != languages.ErrNoTypeScriptServer {
 		t.Fatalf("error: %v", err)
 	}
 	if attempts != 2 {

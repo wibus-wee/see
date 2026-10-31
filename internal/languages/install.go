@@ -1,4 +1,4 @@
-package app
+package languages
 
 import (
 	"context"
@@ -7,16 +7,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"time"
+	"strings"
 
-	"github.com/egoist/mygo/ui"
-
-	"see/internal/langserver"
 	"see/internal/shellpath"
 )
 
-// managedTypeScriptDir contains only See's TypeScript server installation.
-func managedTypeScriptDir() string {
+// ManagedTypeScriptDir contains only See's TypeScript server installation.
+func ManagedTypeScriptDir() string {
 	dir, err := os.UserConfigDir()
 	if err != nil {
 		return ""
@@ -24,16 +21,16 @@ func managedTypeScriptDir() string {
 	return filepath.Join(dir, "See", "language-servers", "tsrs")
 }
 
-func managedTypeScriptEntry() string {
-	dir := managedTypeScriptDir()
+func ManagedTypeScriptEntry() string {
+	dir := ManagedTypeScriptDir()
 	if dir == "" {
 		return ""
 	}
 	return filepath.Join(dir, "node_modules", "tsrs", "bin", "tsrs")
 }
 
-func managedTypeScriptExists() bool {
-	dir := managedTypeScriptDir()
+func ManagedTypeScriptExists() bool {
+	dir := ManagedTypeScriptDir()
 	if dir == "" {
 		return false
 	}
@@ -41,8 +38,8 @@ func managedTypeScriptExists() bool {
 	return err == nil
 }
 
-func managedTypeScriptInstalled() bool {
-	p := managedTypeScriptEntry()
+func ManagedTypeScriptInstalled() bool {
+	p := ManagedTypeScriptEntry()
 	if p == "" {
 		return false
 	}
@@ -50,8 +47,8 @@ func managedTypeScriptInstalled() bool {
 	return err == nil && fi.Mode().IsRegular()
 }
 
-// installTypeScriptServer stages the packages before exposing an installation.
-func installTypeScriptServer(ctx context.Context, dest string) error {
+// InstallTypeScript stages the packages before exposing an installation.
+func InstallTypeScript(ctx context.Context, dest string) error {
 	if err := shellpath.Wait(ctx); err != nil {
 		return err
 	}
@@ -89,7 +86,7 @@ func installTypeScriptServer(ctx context.Context, dest string) error {
 	cmd.Dir = stage
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("installation failed: %s", shortErr(errors.New(string(output))))
+		return fmt.Errorf("installation failed: %s", shortOutput(string(output)))
 	}
 	if _, err := os.Stat(filepath.Join(stage, "node_modules", "tsrs", "bin", "tsrs")); err != nil {
 		return errors.New("installation did not contain the language server")
@@ -98,58 +95,11 @@ func installTypeScriptServer(ctx context.Context, dest string) error {
 	return os.Rename(stage, dest)
 }
 
-func (a *App) installManagedTypeScript(services ui.Services) {
-	if a.serverJob {
-		return
+// shortOutput is the last of a command's output, as an error says it.
+func shortOutput(s string) string {
+	s = strings.TrimSpace(s)
+	if len(s) > 80 {
+		s = s[:77] + "…"
 	}
-	a.serverJob, a.serverJobErr = true, ""
-	dest := managedTypeScriptDir()
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-		defer cancel()
-		err := installTypeScriptServer(ctx, dest)
-		a.post(func() {
-			a.serverJob = false
-			if err != nil {
-				a.serverJobErr = err.Error()
-			} else {
-				a.retryTypeScriptLSP()
-			}
-			services.Invalidate()
-		})
-	}()
-}
-
-func (a *App) removeManagedTypeScript(services ui.Services) {
-	if a.serverJob {
-		return
-	}
-	a.serverJob, a.serverJobErr = true, ""
-	old := a.tsLSP
-	a.tsEpoch++
-	a.tsLSP = nil
-	a.tsState, a.tsErr = langserver.Off, nil
-	gen := a.gen
-	dest := managedTypeScriptDir()
-	go func() {
-		if old != nil {
-			old.StopWait(2 * time.Second)
-		}
-		var err error
-		if dest == "" {
-			err = errors.New("cannot locate the application data folder")
-		} else {
-			err = os.RemoveAll(dest)
-		}
-		a.post(func() {
-			a.serverJob = false
-			if a.gen == gen {
-				a.resetTypeScriptServer()
-			}
-			if err != nil {
-				a.serverJobErr = err.Error()
-			}
-			services.Invalidate()
-		})
-	}()
+	return s
 }
