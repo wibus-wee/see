@@ -113,7 +113,31 @@ Run the test suite with:
 go test ./...
 ```
 
-The application UI and workspace orchestration live in the root package. `internal/workspace` handles file discovery and classification, `internal/search` implements search and quick open, and `internal/lsp`, `internal/uri`, and `internal/nav` support code navigation.
+The root holds one file. `app.go` hands the process to `internal/app`, which owns the app's state and wires the packages below together; everything else is a package of its own, with its own tests:
+
+| Package | What it owns |
+| --- | --- |
+| `internal/app` | The app's state and the window: documents, editor groups, navigation, the panels, and the commands the interface offers |
+| `internal/assets` | The app's icon, embedded |
+| `internal/cli` | The command line: its arguments, and starting the app for a path |
+| `internal/config` | What the app remembers between runs, and the sessions it restores |
+| `internal/git` | Reading the repository's status and diffs |
+| `internal/hexview` | The bytes behind the hexadecimal view |
+| `internal/langserver` | A language server's process and lifecycle |
+| `internal/languages` | Finding and starting gopls and tsrs, and installing tsrs |
+| `internal/logs` | The output log |
+| `internal/lsp` | The language server protocol: JSON-RPC, positions, documents |
+| `internal/nav` | The history that back and forward walk |
+| `internal/search` | Workspace search and quick open |
+| `internal/shellpath` | The user's shell and the paths it sets |
+| `internal/theme` | The palettes, and the ui and editor themes built from them |
+| `internal/treefilter` | The file tree's filter matching |
+| `internal/uri` | File URIs |
+| `internal/workspace` | File discovery and classification |
+
+Two rules keep the tree acyclic and the packages testable, and `internal/arch` checks both: nothing imports `internal/app` except itself, and only `internal/app` imports MyGo's window API. The packages below it draw with `github.com/egoist/mygo/ui` and never touch a window.
+
+The tests are the packages' own, beside the code. `internal/app` keeps a harness in `harness_test.go` and end-to-end flows in `e2e_test.go`: a folder opens, its file opens, an edit reaches the disk, and a file changed on disk is not overwritten. `go test ./...` needs no window.
 
 Settings and recent folders are stored in `See/config.json` under the operating system's user configuration directory.
 
