@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"image/png"
 	"os"
 	"path/filepath"
 	"slices"
@@ -11,7 +10,6 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
-	"github.com/egoist/mygo/ui/editor"
 
 	"see/internal/config"
 	"see/internal/lsp"
@@ -120,14 +118,6 @@ func (h *harness) treeHas(p string) bool {
 	return false
 }
 
-// ed is the focused group's editor of d, nil until d loads.
-func (h *harness) ed(d *doc) *editor.State {
-	if d == nil {
-		return nil
-	}
-	return h.a.focus.eds[d.path]
-}
-
 // settle runs queued results until cond holds, then draws a frame.
 func (h *harness) settle(cond func() bool) {
 	h.t.Helper()
@@ -142,13 +132,6 @@ func (h *harness) settle(cond func() bool) {
 		}
 	}
 	h.tt.Frame()
-}
-
-func (h *harness) click(s string) {
-	h.t.Helper()
-	if err := h.tt.Click(s); err != nil {
-		h.t.Fatalf("click %q: %v\ntexts: %q", s, err, h.tt.Texts())
-	}
 }
 
 // open opens a file as from the tree and waits for it to load.
@@ -231,24 +214,6 @@ func writeTree(t *testing.T, files map[string]string) string {
 
 func serverOf(root string, c langserver.Client) *langserver.Server {
 	return langserver.New(langserver.Options{Name: "gopls", Root: root, Start: func(context.Context, string, func(error)) (langserver.Client, error) { return c, nil }})
-}
-
-// shot draws the window into name in the directory $SEE_SHOT names, for a
-// look; without one it does nothing.
-func (h *harness) shot(name string) {
-	dir := os.Getenv("SEE_SHOT")
-	if dir == "" {
-		return
-	}
-	h.tt.Frame()
-	f, err := os.Create(filepath.Join(dir, name))
-	if err != nil {
-		h.t.Fatal(err)
-	}
-	defer f.Close()
-	if err := png.Encode(f, h.tt.Image()); err != nil {
-		h.t.Fatal(err)
-	}
 }
 
 // fakeHost is a host without a desktop, as noHost, but for what a test
