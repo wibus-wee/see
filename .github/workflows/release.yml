@@ -93,6 +93,7 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with:
           pattern: release-*
@@ -112,4 +113,16 @@ jobs:
           mapfile -d '' files < <(find artifacts -type f -print0)
           test "${#files[@]}" -gt 0
           gh release upload "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" "${files[@]}" --clobber
+      # The asset list mixes installers with deltas, so the body carries the
+      # links to the installers themselves, above the generated notes.
+      - name: Write the download links into the body
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          .github/release-body.sh "$GITHUB_REF_NAME" "$GITHUB_REPOSITORY" > "$RUNNER_TEMP/body.md"
+          gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --notes-file "$RUNNER_TEMP/body.md"
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
           gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false
