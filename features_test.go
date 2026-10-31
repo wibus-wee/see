@@ -281,7 +281,7 @@ func TestFindWithoutRipgrep(t *testing.T) {
 	h.a.find.opts.Query = "x"
 	h.a.runFind()
 	h.tt.Frame()
-	if !h.tt.HasText("Finding needs ripgrep: " + search.InstallHint() + ".") {
+	if !h.tt.HasText("Finding needs ripgrep: install it in Settings, or " + search.InstallHint() + ".") {
 		t.Errorf("texts %q", h.tt.Texts())
 	}
 }

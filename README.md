@@ -66,8 +66,10 @@ When running from source, the terminal's emulator library may be downloaded on f
 
 ### Optional tools
 
-- **[ripgrep](https://github.com/BurntSushi/ripgrep)** (`rg`) enables workspace text search. Set `SEE_RG` to an absolute path or make `rg` available on `PATH`. Quick Open can list files without it.
-- **[gopls](https://go.dev/gopls/)** enables Go definition lookup and symbol help. Install it with `go install golang.org/x/tools/gopls@latest`, or set `SEE_GOPLS` to its absolute path. The app also looks on `PATH` and in Go's bin directories.
+- **[ripgrep](https://github.com/BurntSushi/ripgrep)** (`rg`) enables workspace text search. Install it in **Settings → Search**: See downloads the release for your platform into its own data folder, checks it against the release's SHA-256, and uses it from there; remove it from the same page. You can instead set `SEE_RG` to an absolute path or make `rg` available on `PATH`. Quick Open can list files without it.
+- **[gopls](https://go.dev/gopls/)** enables Go definition lookup and symbol help. Install it in **Settings → Code Intelligence**: See builds it with the Go toolchain into its own data folder, so Go must be installed and on `PATH` first (installing Go alone does not bring gopls). You can instead set `SEE_GOPLS` to an absolute path, run `go install golang.org/x/tools/gopls@latest` yourself, or make `gopls` available on `PATH`; the app also looks in Go's bin directories.
+
+Tools See installs live in its application data folder (`~/Library/Application Support/See` on macOS), beside the language server below. They never write into the open workspace, and a copy See installed is used before one on `PATH`; remove it in Settings to use your own.
 
 - **TypeScript / JavaScript:** Install **tsrs** in **Settings → Code Intelligence**. See installs it in its own data folder using Bun, or npm if Bun is unavailable; remove it from the same page. You can instead set `SEE_TYPESCRIPT_LANGUAGE_SERVER` to the absolute path of a tsrs executable. See also looks for `tsrs` on `PATH`. Running See’s installation requires Node.js or Bun. tsrs is a TypeScript 7 implementation under active development.
 

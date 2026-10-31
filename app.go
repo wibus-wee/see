@@ -75,6 +75,7 @@ type app struct {
 	tsErr          error
 	tsEpoch        uint64
 	serverJob      bool
+	serverJobName  string // the tool an installation or a removal is of
 	serverJobErr   string
 	lspState       langserver.State
 	lspErr         error
@@ -1070,7 +1071,7 @@ func (a *app) definitionFound(g *group, from nav.Entry, targets []target, enc st
 func (a *app) lspFailure(err error) {
 	switch {
 	case errors.Is(err, errNoGopls):
-		a.note("Go to Definition needs gopls: install it with “go install golang.org/x/tools/gopls@latest”, then Retry.", true)
+		a.note("Go to Definition needs gopls: install it in Settings, or with “"+goplsInstallCommand()+"”, then Retry.", true)
 	case errors.Is(err, errNoTypeScriptServer):
 		a.note("Install the TypeScript language server in Settings, then retry.", true)
 	case errors.Is(err, context.DeadlineExceeded):

@@ -442,9 +442,20 @@ func (a *app) intelligencePane(c *ui.Context) {
 	goPath, goErr := findGopls(a.root)
 	tsPath, tsErr := findTypeScriptServer(a.root)
 	ui.Column(c).FillWidth().Radius(12).Background(colors(c).card).Padding(0, 14).Children(func() {
-		a.languageServerRow(c.Key("go"), "go", "Go", "gopls", goPath, goErr, a.lspState, a.lspErr, "go install golang.org/x/tools/gopls@latest", a.retryLSP)
+		a.toolRow(c.Key("go"), toolRow{
+			id: "gopls", language: "Go", server: "gopls",
+			path: goPath, findErr: goErr, state: a.lspState, serverErr: a.lspErr, retry: a.retryLSP,
+			managed: managedGoplsExists(), install: a.installManagedGopls, remove: a.removeManagedGopls,
+			installLabel: "Install gopls", removeLabel: "Remove managed gopls", hint: goplsInstallCommand(),
+		})
 		ui.Box(c).Height(1).FillWidth().Background(colors(c).separator)
-		a.languageServerRow(c.Key("typescript"), "typescript", "TypeScript & JavaScript", "tsrs", tsPath, tsErr, a.tsState, a.tsErr, "", a.retryTypeScriptLSP)
+		a.toolRow(c.Key("typescript"), toolRow{
+			id: "typescript", language: "TypeScript & JavaScript", server: "tsrs",
+			path: tsPath, findErr: tsErr, state: a.tsState, serverErr: a.tsErr, retry: a.retryTypeScriptLSP,
+			managed: managedTypeScriptExists(), install: a.installManagedTypeScript, remove: a.removeManagedTypeScript,
+			installLabel: "Install TypeScript & JavaScript", removeLabel: "Remove managed TypeScript server",
+			hint: "npm install -g tsrs@0.20.1-ts7.1.0-beta",
+		})
 	})
 	heading(c, "Trusted Folders")
 	ui.Text(c, "Language servers can run project tools and download dependencies or toolchains in these folders.").FontSize(12).TextColor(colors(c).muted).Padding(0, 4, 4, 4)
@@ -468,34 +479,51 @@ func (a *app) intelligencePane(c *ui.Context) {
 	card(c, rows...)
 }
 
-func (a *app) languageServerRow(c *ui.Context, id, language, server, path string, findErr error, state langserver.State, serverErr error, command string, retry func()) {
+// toolRow is a tool in Settings: a language server, or ripgrep, with See's
+// own installation of it.
+type toolRow struct {
+	id, language, server string // "gopls", "Go", "gopls"
+	path                 string
+	findErr              error
+	state                langserver.State
+	serverErr            error
+	retry                func()
+	managed              bool              // See's copy is there, even if it cannot run
+	install              func(ui.Services) // installs See's copy
+	remove               func(ui.Services) // removes See's copy
+	installLabel         string            // what its Install button says, and is found by
+	removeLabel          string            // what its Remove button is found by
+	hint                 string            // how to install it without See
+}
+
+func (a *app) toolRow(c *ui.Context, r toolRow) {
 	status, color := "Available", colors(c).muted
 	switch {
-	case state == langserver.Failed:
+	case r.state == langserver.Failed:
 		status, color = "Unavailable", colors(c).err
-	case state == langserver.Starting:
+	case r.state == langserver.Starting:
 		status = "Starting…"
-	case state == langserver.Ready:
+	case r.state == langserver.Ready:
 		status = "Running"
-	case findErr != nil:
+	case r.findErr != nil:
 		status = "Not installed"
 	}
-	detail := server
-	if path != "" {
-		detail += " · " + tildePath(path)
+	detail := r.server
+	if r.path != "" {
+		detail += " · " + tildePath(r.path)
 	}
-	if state == langserver.Failed && serverErr != nil {
-		detail = server + " · " + shortErr(serverErr)
+	if r.state == langserver.Failed && r.serverErr != nil {
+		detail = r.server + " · " + shortErr(r.serverErr)
 	}
 	ui.Column(c).FillWidth().Padding(12, 0).Gap(10).Children(func() {
 		ui.Row(c).FillWidth().Gap(12).AlignItems(ui.Center).Children(func() {
 			ui.Column(c).Grow(1).Shrink(1).Gap(3).Children(func() {
-				ui.Text(c, language).Bold().SingleLine().Shrink(1)
+				ui.Text(c, r.language).Bold().SingleLine().Shrink(1)
 				ui.Row(c).FillWidth().Gap(6).AlignItems(ui.Center).Children(func() {
 					dot := colors(c).muted
-					if state == langserver.Ready {
+					if r.state == langserver.Ready {
 						dot = c.Theme().Accent
-					} else if state == langserver.Failed {
+					} else if r.state == langserver.Failed {
 						dot = colors(c).err
 					}
 					ui.Box(c).Size(6, 6).Radius(3).Background(dot).Shrink(0)
@@ -503,62 +531,84 @@ func (a *app) languageServerRow(c *ui.Context, id, language, server, path string
 					ui.Text(c, "· "+detail).FontSize(12).TextColor(colors(c).muted).SingleLine().Shrink(1).Tooltip(detail)
 				})
 			})
-			if id == "typescript" {
-				if a.serverJob {
-					ui.Text(c, "Working…").FontSize(12).TextColor(colors(c).muted)
-				} else if managedTypeScriptExists() {
-					if state == langserver.Failed && ui.Button(c.Key("retry"), "Retry").Label("Retry "+server).Clicked() {
-						retry()
-					}
-					services := c.Services()
-					ui.Button(c.Key("remove"), "Remove").Label("Remove managed TypeScript server").OnClick(func() { a.removeManagedTypeScript(services) })
-				} else if findErr != nil {
-					services := c.Services()
-					ui.Button(c.Key("install"), "Install").Label("Install " + language).OnClick(func() { a.installManagedTypeScript(services) })
-				} else if state == langserver.Failed && ui.Button(c.Key("retry"), "Retry").Label("Retry "+server).Clicked() {
-					retry()
-				}
-			} else if findErr != nil {
-				label := "Install…"
-				if a.settings.serverInstall == id {
-					label = "Done"
-				}
-				if ui.Button(c.Key("install"), label).Label("Install " + language).Clicked() {
-					if a.settings.serverInstall == id {
-						a.settings.serverInstall = ""
-					} else {
-						a.settings.serverInstall = id
-					}
-				}
-			} else if state == langserver.Failed {
-				if ui.Button(c.Key("retry"), "Retry").Label("Retry " + server).Clicked() {
-					retry()
+			a.toolButtons(c, r)
+		})
+		a.toolNote(c, r)
+	})
+}
+
+// toolButtons are the buttons at the end of a tool's row: that a job is
+// running, or Install when the tool was not found, or Remove when See
+// installed it.
+func (a *app) toolButtons(c *ui.Context, r toolRow) {
+	if a.serverJob && a.serverJobName == r.id {
+		ui.Text(c, "Working…").FontSize(12).TextColor(colors(c).muted)
+		return
+	}
+	services := c.Services()
+	retry := func() {
+		if r.state == langserver.Failed && ui.Button(c.Key("retry"), "Retry").Label("Retry "+r.server).Clicked() {
+			r.retry()
+		}
+	}
+	switch {
+	case r.managed:
+		retry()
+		ui.Button(c.Key("remove"), "Remove").Label(r.removeLabel).OnClick(func() { r.remove(services) })
+	case r.findErr != nil:
+		ui.Button(c.Key("install"), "Install").Label(r.installLabel).OnClick(func() { r.install(services) })
+		if r.hint != "" {
+			label := "Other ways"
+			if a.settings.serverInstall == r.id {
+				label = "Done"
+			}
+			if ui.Button(c.Key("ways"), label).Label("Other ways to install " + r.server).Clicked() {
+				if a.settings.serverInstall == r.id {
+					a.settings.serverInstall = ""
+				} else {
+					a.settings.serverInstall = r.id
 				}
 			}
+		}
+	default:
+		retry()
+	}
+}
+
+// toolNote shows why an installation failed, and how to install the tool
+// without See.
+func (a *app) toolNote(c *ui.Context, r toolRow) {
+	if a.serverJobName == r.id && a.serverJobErr != "" {
+		ui.Text(c, a.serverJobErr).FontSize(12).TextColor(colors(c).err)
+	}
+	if a.settings.serverInstall != r.id || r.findErr == nil || r.managed || r.hint == "" {
+		return
+	}
+	ui.Column(c).FillWidth().Gap(6).Padding(2, 0, 2, 0).Children(func() {
+		ui.Text(c, "Or install it yourself, then retry.").FontSize(12).TextColor(colors(c).muted)
+		ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Center).Children(func() {
+			ui.Text(c, r.hint).FontSize(12).TextColor(colors(c).text).Grow(1).Shrink(1)
+			services := c.Services()
+			ui.Button(c.Key("copy"), "Copy").Label("Copy " + r.server + " install command").OnClick(func() { services.WriteClipboard(r.hint) })
 		})
-		if id == "typescript" && a.serverJobErr != "" {
-			ui.Text(c, a.serverJobErr).FontSize(12).TextColor(colors(c).err)
-		}
-		if a.settings.serverInstall == id && findErr != nil && id != "typescript" {
-			ui.Column(c).FillWidth().Gap(6).Padding(2, 0, 2, 0).Children(func() {
-				ui.Text(c, "Run in Terminal, then reopen this folder or retry.").FontSize(12).TextColor(colors(c).muted)
-				ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Center).Children(func() {
-					ui.Text(c, command).FontSize(12).TextColor(colors(c).text).Grow(1).Shrink(1)
-					services := c.Services()
-					ui.Button(c.Key("copy"), "Copy").Label("Copy " + language + " install command").OnClick(func() { services.WriteClipboard(command) })
-				})
-			})
-		}
 	})
 }
 
 func (a *app) searchPane(c *ui.Context) {
-	rg, err := search.FindRipgrep(a.root)
+	rg, err := findRipgrep(a.root)
 	status := "Finds text in the workspace · " + tildePath(rg)
 	if err != nil {
-		status = "Not installed: " + search.InstallHint()
+		status = "Not installed: Open Quickly lists files without it"
 	}
-	statusCard(c, icSearch, ui.RGB(0xff, 0x95, 0x00), "ripgrep", status, nil)
+	r := toolRow{
+		id: "ripgrep", language: "ripgrep", server: "ripgrep",
+		path: rg, findErr: err, state: langserver.Off,
+		managed: managedRipgrepExists(), install: a.installManagedRipgrep, remove: a.removeManagedRipgrep,
+		installLabel: "Install ripgrep", removeLabel: "Remove managed ripgrep",
+		hint: search.InstallHint(),
+	}
+	statusCard(c, icSearch, ui.RGB(0xff, 0x95, 0x00), "ripgrep", status, func() { a.toolButtons(c, r) })
+	a.toolNote(c, r)
 	heading(c, "What is searched")
 	card(c,
 		func() {
