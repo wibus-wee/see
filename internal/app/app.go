@@ -26,6 +26,7 @@ import (
 	"see/internal/workspace"
 
 	"see/internal/langserver"
+	"see/internal/logs"
 )
 
 // App is the reader's state. It lives on the UI thread: background work
@@ -87,7 +88,7 @@ type App struct {
 
 	hover         hoverState
 	term          termPanel
-	logs          logStore
+	logs          logs.Store
 	settings      settingsState
 	find          findState
 	quick         quickOpen
@@ -219,7 +220,7 @@ func newApp(cfg *config.Config) *App {
 	}
 	a.logf = func(format string, args ...any) {
 		message := fmt.Sprintf(format, args...)
-		a.logs.add(slog.LevelInfo, "app", message)
+		a.logs.Add(slog.LevelInfo, "app", message)
 		log.Print(message)
 	}
 	a.tree.List.Selected = &a.treeRow

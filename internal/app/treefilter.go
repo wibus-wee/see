@@ -1,14 +1,12 @@
 package app
 
 import (
-	"cmp"
-	"path/filepath"
 	"slices"
 	"strings"
 
 	"github.com/egoist/mygo/ui"
 
-	"see/internal/workspace"
+	"see/internal/treefilter"
 )
 
 // treeFilter is the file tree's filter, as Xcode's navigator filter: the
@@ -57,7 +55,7 @@ func (a *App) syncFilter() {
 		return
 	}
 	f.forQuery = q
-	f.tree, f.roots, f.matches = buildFilterTree(a.root, a.quick.files, q)
+	f.tree, f.roots, f.matches = treefilter.BuildTree(a.root, a.quick.files, q)
 	if !f.saved {
 		f.saved = true
 		f.savedOpen = slices.Collect(a.tree.Open.All())
@@ -72,61 +70,4 @@ func (a *App) syncFilter() {
 	if a.treeRow >= a.tree.Rows() {
 		a.treeRow = -1
 	}
-}
-
-// buildFilterTree builds the tree of the files whose relative paths hold
-// every word of query, with the folders they are in. Paths are absolute,
-// as the tree keeps them.
-func buildFilterTree(root string, files []string, query string) (map[string][]string, []string, int) {
-	words := strings.Fields(strings.ToLower(query))
-	tree := map[string][]string{}
-	seen := map[string]bool{}
-	matches := 0
-	for _, rel := range files {
-		p := filepath.Join(root, filepath.FromSlash(rel))
-		if !workspace.Within(root, p) || !holdsWords(workspace.RelPath(root, p), words) {
-			continue
-		}
-		matches++
-		for p != root {
-			parent := filepath.Dir(p)
-			if !seen[p] {
-				seen[p] = true
-				tree[parent] = append(tree[parent], p)
-			}
-			if !workspace.Within(root, parent) {
-				break
-			}
-			p = parent
-		}
-	}
-	for _, entries := range tree {
-		sortEntries(tree, entries)
-	}
-	return tree, tree[root], matches
-}
-
-// holdsWords reports whether path holds every word, ignoring case.
-func holdsWords(path string, words []string) bool {
-	path = strings.ToLower(filepath.ToSlash(path))
-	for _, w := range words {
-		if !strings.Contains(path, w) {
-			return false
-		}
-	}
-	return true
-}
-
-// sortEntries puts a folder's directories before its files, each by name
-// ignoring case, as the navigator shows them.
-func sortEntries(tree map[string][]string, entries []string) {
-	slices.SortFunc(entries, func(a, b string) int {
-		if da, db := tree[a] != nil, tree[b] != nil; da != db {
-			if da {
-				return -1
-			}
-			return 1
-		}
-		return cmp.Compare(strings.ToLower(filepath.Base(a)), strings.ToLower(filepath.Base(b)))
-	})
 }

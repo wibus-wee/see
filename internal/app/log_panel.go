@@ -5,50 +5,25 @@ import (
 	"log"
 	"log/slog"
 	"strings"
-	"sync"
-	"time"
 
 	"github.com/egoist/mygo/ui"
 
 	"see/internal/langserver"
+	"see/internal/theme"
 )
 
-type logEntry struct {
-	at              time.Time
-	level           slog.Level
-	source, message string
-}
-type logStore struct {
-	mu      sync.Mutex
-	entries []logEntry
-}
-
-func (s *logStore) add(level slog.Level, source, message string) {
-	if len(message) > 8192 {
-		message = message[:8192] + "…"
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.entries = append(s.entries, logEntry{time.Now(), level, source, message})
-	if len(s.entries) > 1000 {
-		s.entries = append([]logEntry(nil), s.entries[len(s.entries)-1000:]...)
-	}
-}
-func (s *logStore) snapshot() []logEntry {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return append([]logEntry(nil), s.entries...)
-}
-func (s *logStore) clear() { s.mu.Lock(); defer s.mu.Unlock(); s.entries = nil }
-
+// serverLog is a logger for a language server: it keeps the line in the
+// app's output log and draws the window again.
 func (a *App) serverLog(source string) func(string, ...any) {
 	return func(format string, args ...any) {
 		msg := fmt.Sprintf(format, args...)
-		a.logs.add(slog.LevelInfo, source, msg)
+		a.logs.Add(slog.LevelInfo, source, msg)
 		log.Printf("%s: %s", source, msg)
 		a.post(func() {})
 	}
 }
+
+// serverStateLog notes a language server's state in the output log.
 func (a *App) serverStateLog(source string, state langserver.State, err error) {
 	msg := ""
 	level := slog.LevelInfo
@@ -62,30 +37,32 @@ func (a *App) serverStateLog(source string, state langserver.State, err error) {
 		msg = fmt.Sprintf("Failed: %v", err)
 	}
 	if msg != "" {
-		a.logs.add(level, source, msg)
+		a.logs.Add(level, source, msg)
 	}
 }
+
+// logView draws the output panel.
 func (a *App) logView(c *ui.Context) {
 	ui.Column(c).Fill().Children(func() {
 		ui.Row(c).FillWidth().Padding(6, 12).AlignItems(ui.Center).Children(func() {
 			ui.Text(c, "Output").Bold().Grow(1)
 			if ui.Button(c, "Clear").Label("Clear Output").Clicked() {
-				a.logs.clear()
+				a.logs.Clear()
 			}
 		})
-		entries := a.logs.snapshot()
+		entries := a.logs.Snapshot()
 		if len(entries) == 0 {
-			ui.Text(c, "No output yet.").TextColor(colors(c).Muted).Padding(12)
+			ui.Text(c, "No output yet.").TextColor(theme.Of(c).Muted).Padding(12)
 			return
 		}
 		ui.Scroll(c).Grow(1).FillWidth().Children(func() {
 			ui.Column(c).FillWidth().Padding(2, 12, 12, 12).Gap(3).Children(func() {
 				for i, e := range entries {
-					color := colors(c).Muted
-					if e.level >= slog.LevelError {
-						color = colors(c).Err
+					color := theme.Of(c).Muted
+					if e.Level >= slog.LevelError {
+						color = theme.Of(c).Err
 					}
-					ui.Text(c.Key(i), e.at.Format("15:04:05")+"  "+strings.ToUpper(e.level.String())+"  "+e.source+"  "+e.message).FontSize(12).TextColor(color)
+					ui.Text(c.Key(i), e.At.Format("15:04:05")+"  "+strings.ToUpper(e.Level.String())+"  "+e.Source+"  "+e.Message).FontSize(12).TextColor(color)
 				}
 			})
 		})

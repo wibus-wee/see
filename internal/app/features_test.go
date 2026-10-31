@@ -13,8 +13,8 @@ import (
 	"github.com/egoist/mygo/ui/editor"
 
 	"see/internal/lsp"
-	"see/internal/theme"
 	"see/internal/search"
+	"see/internal/theme"
 
 	"see/internal/langserver"
 )

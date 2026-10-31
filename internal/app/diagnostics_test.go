@@ -69,7 +69,7 @@ func TestOutputContainsServerFailure(t *testing.T) {
 	if err := st.Click("Clear Output"); err != nil {
 		t.Fatal(err)
 	}
-	if len(h.a.logs.snapshot()) != 0 {
+	if len(h.a.logs.Snapshot()) != 0 {
 		t.Fatal("output not cleared")
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"runtime"
+	"see/internal/cli"
 	"see/internal/config"
 	"slices"
 	"time"
@@ -22,8 +23,8 @@ import (
 )
 
 func Main() {
-	if isCLIInvocation(os.Args[0]) && (len(os.Args) < 2 || os.Args[1] != cliOpenArg) {
-		if err := runCLI(os.Args[1:], os.Stderr); err != nil {
+	if cli.Invocation(os.Args[0]) && (len(os.Args) < 2 || os.Args[1] != cli.OpenArg) {
+		if err := cli.Run(os.Args[1:], os.Stderr); err != nil {
 			fmt.Fprintln(os.Stderr, "see:", err)
 			os.Exit(1)
 		}
@@ -276,7 +277,7 @@ func Main() {
 		a.showWelcome = true // until a folder opens
 		defer wins.sync(nil)
 		switch {
-		case len(os.Args) > 2 && os.Args[1] == cliOpenArg:
+		case len(os.Args) > 2 && os.Args[1] == cli.OpenArg:
 			a.openCLIPath(os.Args[2])
 		case len(os.Args) > 1:
 			a.openCLIPath(os.Args[1])
