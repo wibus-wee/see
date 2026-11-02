@@ -28,6 +28,7 @@ type Config struct {
 	FontSize             float64              `json:"editorFontSize,omitempty"`    // 13 when 0
 	LineNumbers          int                  `json:"editorLineNumbers,omitempty"` // 0 on, 1 relative, 2 off
 	SoftWrap             bool                 `json:"editorSoftWrap,omitempty"`
+	DiffUnified          bool                 `json:"diffUnified,omitempty"`      // diffs inline rather than side by side
 	PanelPct             float64              `json:"panelPercent,omitempty"`     // the editors' share over the bottom panel
 	TermFontSize         float64              `json:"terminalFontSize,omitempty"` // 12 when 0
 	TermCopyOnSelect     bool                 `json:"terminalCopyOnSelect,omitempty"`

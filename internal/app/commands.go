@@ -36,6 +36,9 @@ func commands() []command {
 			a.sidebarOff, a.navigator, a.git.mode = false, navGit, gitModeHistory
 			a.refreshGit()
 		}},
+		{"Toggle Inline Diff", "", "", 0, 0, func(a *App) { a.toggleDiffLayout() }},
+		{"Next Change", "", "", 0, 0, func(a *App) { a.goToChange(1) }},
+		{"Previous Change", "", "", 0, 0, func(a *App) { a.goToChange(-1) }},
 		{"Git: Fetch", "", "", 0, 0, func(a *App) { a.gitFetch() }},
 		{"Git: Pull", "", "", 0, 0, func(a *App) { a.gitPull() }},
 		{"Git: Push", "", "", 0, 0, func(a *App) { a.gitPush() }},

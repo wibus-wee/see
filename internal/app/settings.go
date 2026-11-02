@@ -113,6 +113,47 @@ func (a *App) applyDiffPrefs(diff *editor.DiffState) {
 	diff.Font = ui.Font{Family: a.cfg.FontFamily, Size: float32(a.cfg.EditorFontSize())}
 	diff.Wrap = a.cfg.SoftWrap
 	diff.NoLineNumbers = a.cfg.LineNumbers == int(editor.LineNumbersOff)
+	diff.Layout = editor.DiffSplit
+	if a.cfg.DiffUnified {
+		diff.Layout = editor.DiffUnified
+	}
+}
+
+// toggleDiffLayout shows every diff inline, or side by side again, and
+// keeps the choice for the next ones.
+func (a *App) toggleDiffLayout() {
+	a.cfg.DiffUnified = !a.cfg.DiffUnified
+	for _, g := range a.groups() {
+		for _, v := range g.diffs {
+			if v.state != nil {
+				a.applyDiffPrefs(v.state)
+			}
+		}
+	}
+	a.saveConfig()
+}
+
+// goToChange moves the active diff's caret to the next change, or the
+// previous one with dir -1, as Xcode's and Peek's Next and Previous
+// Change; it wraps around.
+func (a *App) goToChange(dir int) {
+	v := a.focus.diffs[a.focus.active]
+	if v == nil || v.state == nil {
+		return
+	}
+	n := len(v.state.Hunks())
+	if n == 0 {
+		return
+	}
+	// i is the hunk the caret is in, else the last one before it.
+	i, inside := v.state.CurrentHunk()
+	switch {
+	case dir > 0:
+		i++
+	case inside:
+		i--
+	}
+	v.state.GoToHunk((i%n + n) % n)
 }
 
 // settingsView is the settings window's view.

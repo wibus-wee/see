@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/egoist/mygo/ui"
@@ -292,5 +293,38 @@ func TestGitTabsSurviveARestart(t *testing.T) {
 	}
 	if v := next.a.focus.diffs[want[1]]; v.commit.commit.Subject != "Add B on the side" || len(v.commit.details.Files) != 1 {
 		t.Fatalf("commit %+v", v.commit)
+	}
+}
+
+// A diff shows side by side or inline, as chosen, for every diff and the
+// next ones; Next and Previous Change step through its changes, around.
+func TestDiffLayoutAndChanges(t *testing.T) {
+	text := "a\nb\nc\nd\ne\nf\ng\nh\ni\nj\nk\nl\n"
+	root := gitRepo(t, map[string]string{"a.txt": text})
+	writeFile(t, root, "a.txt", strings.Replace(strings.Replace(text, "b\n", "B\n", 1), "k\n", "K\n", 1))
+	h := newHarness(t, root)
+	h.readGit()
+	h.a.showGitDiff(h.a.git.changes[0], false)
+	h.settle(func() bool { return isDiffTab(h.a.focus.active) })
+	v := h.a.focus.diffs[h.a.focus.active]
+	if v.state.Layout != editor.DiffSplit {
+		t.Fatal("a diff starts side by side")
+	}
+	if err := h.tt.Click("Show Changes Inline"); err != nil {
+		t.Fatal(err)
+	}
+	h.tt.Frame()
+	if v.state.Layout != editor.DiffUnified || !h.a.cfg.DiffUnified {
+		t.Fatal("the button did not show the diff inline")
+	}
+	if n := len(v.state.Hunks()); n != 2 {
+		t.Fatalf("%d hunks", n)
+	}
+	v.state.GoToHunk(0)
+	for _, step := range []struct{ dir, want int }{{1, 1}, {1, 0}, {-1, 1}, {-1, 0}} {
+		h.a.goToChange(step.dir)
+		if i, _ := v.state.CurrentHunk(); i != step.want {
+			t.Fatalf("after %+d: hunk %d, want %d", step.dir, i, step.want)
+		}
 	}
 }

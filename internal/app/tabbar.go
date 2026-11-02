@@ -141,6 +141,23 @@ func (a *App) diffJumpBar(c *ui.Context, g *group) {
 			ui.Text(c, label).FontSize(12).TextColor(colors(c).Muted).SingleLine()
 		}
 		ui.Box(c).Grow(1)
+		if v.state != nil {
+			if glyphButton(c, icChangeUp, "Previous Change", "Previous Change", false, len(v.state.Hunks()) == 0).Clicked() {
+				a.focus = g
+				a.goToChange(-1)
+			}
+			if glyphButton(c, icChangeDown, "Next Change", "Next Change", false, len(v.state.Hunks()) == 0).Clicked() {
+				a.focus = g
+				a.goToChange(1)
+			}
+			icon, tip := icDiffInline, "Show Changes Inline"
+			if a.cfg.DiffUnified {
+				icon, tip = icDiffSplit, "Show Changes Side by Side"
+			}
+			if glyphButton(c, icon, tip, tip, false, false).Clicked() {
+				a.toggleDiffLayout()
+			}
+		}
 		if len(g.order) == 1 && len(a.groups()) == 1 {
 			if glyphButton(c, icClose, "Close "+filepath.Base(v.name)+" ("+v.label()+")", "Close Diff", false, false).Clicked() {
 				a.closeTab(g, g.active)
