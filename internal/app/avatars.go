@@ -85,10 +85,10 @@ func (a *App) commitAvatars(c *ui.Context, cm git.Commit, size float32) {
 		a.personAvatar(c, cm.Author, cm.Email, size)
 		if len(cm.CoAuthors) > 0 {
 			co := cm.CoAuthors[0]
-			small := size * 0.53
+			small := size * 0.6
 			ring := small + 3
 			ui.Box(c).Size(ring, ring).Radius(ring / 2).Center().Background(colors(c).Sidebar).
-				Absolute().Right(-4).Bottom(-4).Children(func() {
+				Absolute().Right(-3).Bottom(-3).Children(func() {
 				a.personAvatar(c, co.Name, co.Email, small)
 			})
 		}
@@ -99,7 +99,7 @@ func (a *App) commitAvatars(c *ui.Context, cm git.Commit, size float32) {
 // name with their part where they are not the author, and under it detail.
 func (a *App) personLine(c *ui.Context, p git.Person, role, detail string) {
 	ui.Row(c).FillWidth().Gap(10).AlignItems(ui.Center).Children(func() {
-		a.personAvatar(c, p.Name, p.Email, 28)
+		a.personAvatar(c, p.Name, p.Email, 24)
 		ui.Column(c).Grow(1).Shrink(1).Children(func() {
 			ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
 				ui.Text(c, p.Name).FontSize(13).Bold().SingleLine()

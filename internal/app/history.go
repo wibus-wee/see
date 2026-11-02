@@ -211,7 +211,7 @@ func (a *App) uncommittedRow(c *ui.Context, n int) {
 			p.StrokePath(&dot, 1.5, orange)
 		})
 		ui.Box(c).Size(avatarSize, avatarSize).Shrink(0).Radius(avatarSize / 2).Center().Background(orange.Alpha(0.16)).Children(func() {
-			symbolIcon(c, icPage, 14, orange)
+			symbolIcon(c, icPage, 11, orange)
 		})
 		ui.Column(c).Grow(1).Shrink(1).Gap(1).Children(func() {
 			ui.Text(c, "Uncommitted Changes").FontSize(12).Bold().SingleLine()
@@ -223,9 +223,9 @@ func (a *App) uncommittedRow(c *ui.Context, n int) {
 // The graph's geometry: rows of one height, so that the lanes of one row
 // meet those of the next.
 const (
-	historyRowHeight = 46
+	historyRowHeight = 40
 	historyGap       = 8
-	avatarSize       = 30
+	avatarSize       = 22
 	graphLane        = 12
 	graphPad         = 8
 	graphMaxLanes    = 8
