@@ -103,38 +103,66 @@ func (a *App) loadHistory(reset bool) {
 	}()
 }
 
-// gitModeBar switches the Git navigator between the changes and the
-// history, as Xcode's source control navigator does its tabs.
-func (a *App) gitModeBar(c *ui.Context) {
-	ui.Row(c).FillWidth().Padding(0, 10, 6, 10).Children(func() {
-		if ui.Segmented(c, &a.git.mode, "Changes", "History").Label("Git Navigator").Changed() && a.git.mode == gitModeHistory {
+// gitHeading is the Git navigator's title line, as the project
+// navigator's: its two scopes as words, the chosen one in the text's
+// color, as Xcode's source control navigator, and the actions on the
+// repository at its end.
+func (a *App) gitHeading(c *ui.Context) {
+	ui.Row(c).FillWidth().Padding(4, 12, 4, sidebarInset+2).Gap(2).AlignItems(ui.Center).Children(func() {
+		for mode, label := range []string{"Changes", "History"} {
+			a.scopeTab(c, mode, label)
+		}
+		ui.Box(c).Grow(1)
+		if a.git.syncing != "" || a.git.history.loading && a.git.mode == gitModeHistory {
+			ui.Spinner(c).FontSize(10).Tooltip(a.git.syncing)
+		}
+		if a.git.mode == gitModeHistory {
+			h := &a.git.history
+			tip := "Show Every Branch"
+			if h.all {
+				tip = "Show Only " + a.git.branch
+			}
+			if glyphButton(c, icBranches, "All Branches", tip, h.all, false).Clicked() {
+				h.all, h.stale = !h.all, true
+				a.syncHistory()
+			}
+		}
+		a.syncButtons(c)
+		tip := "Refresh Status"
+		if a.hasRemote() {
+			tip = "Fetch and Refresh Status"
+		}
+		if glyphButton(c, icRefresh, "Refresh", tip, false, a.git.busy).Clicked() {
+			a.fetchAndRefresh()
+		}
+	})
+}
+
+// scopeTab is one of the Git navigator's scopes.
+func (a *App) scopeTab(c *ui.Context, mode int, label string) {
+	chosen := a.git.mode == mode
+	b := ui.ButtonBase(c.Key(label)).Label(label).Padding(2, 6).Radius(5).KeepFocus()
+	if b.Hovered() && !chosen {
+		b.Background(colors(c).Pill)
+	}
+	b.OnClick(func() {
+		a.git.mode = mode
+		if mode == gitModeHistory {
 			a.syncHistory()
 		}
 	})
-	a.syncBar(c)
+	b.Children(func() {
+		t := ui.Text(c, label).FontSize(12).Bold().SingleLine()
+		if !chosen {
+			t.TextColor(colors(c).Dim)
+		}
+	})
 }
 
 // historyNavigator is the history in the navigator.
 func (a *App) historyNavigator(c *ui.Context) {
 	h := &a.git.history
 	a.syncHistory()
-	ui.Row(c).FillWidth().Padding(0, 10, 4, 14).Gap(6).AlignItems(ui.Center).Children(func() {
-		all := h.all
-		if ui.Checkbox(c, &all, "All Branches").FontSize(12).TextColor(colors(c).Muted).Changed() {
-			h.all = all
-			h.stale = true
-			a.syncHistory()
-		}
-		ui.Box(c).Grow(1)
-		if h.loading {
-			ui.Spinner(c).FontSize(10)
-		}
-		if glyphButton(c, icRefresh, "Refresh History", "Refresh History", false, h.loading).Clicked() {
-			h.stale = true
-			a.refreshGit()
-			a.syncHistory()
-		}
-	})
 	if n := len(a.git.changes); n > 0 {
 		a.uncommittedRow(c, n)
 	}
@@ -149,14 +177,14 @@ func (a *App) historyNavigator(c *ui.Context) {
 	case len(h.commits) == 0 && a.git.head == "":
 		ui.Text(c, "No Commits").FontSize(12).TextColor(colors(c).Muted).Padding(10, 14)
 	default:
-		ui.List(c, &h.list, len(h.commits), func(i int) { a.historyRow(c, i) }).Grow(1).FillWidth().Label("History")
+		ui.List(c, &h.list, len(h.commits), func(i int) { a.historyRow(c, i) }).Grow(1).FillWidth().Padding(0, sidebarInset).Label("History")
 	}
 }
 
 // uncommittedRow stands for the working tree's changes over the history,
 // as Peek's; it goes to them.
 func (a *App) uncommittedRow(c *ui.Context, n int) {
-	row := ui.Row(c).FillWidth().Height(historyRowHeight).Padding(0, 10, 0, 6).Gap(6).AlignItems(ui.Center).Radius(6).
+	row := ui.Row(c).FillWidth().Height(historyRowHeight).Margin(0, sidebarInset).Padding(0, 8, 0, 0).Gap(6).AlignItems(ui.Center).Radius(6).
 		Cursor(ui.CursorPointer).Label("Uncommitted Changes")
 	if row.Hovered() {
 		row.Background(colors(c).Pill)
@@ -206,7 +234,7 @@ func (a *App) historyRow(c *ui.Context, i int) {
 	}
 	cm := h.commits[i]
 	open := a.focus.active == commitTab(cm.Hash)
-	row := ui.Row(c.Key(cm.Hash)).FillWidth().Height(historyRowHeight).Padding(0, 10, 0, 6).Gap(6).AlignItems(ui.Center).Radius(6).
+	row := ui.Row(c.Key(cm.Hash)).FillWidth().Height(historyRowHeight).Padding(0, 8, 0, 0).Gap(6).AlignItems(ui.Center).Radius(6).
 		Label(cm.Subject).Tooltip(cm.Short + " " + cm.Subject)
 	// A light selection, for the graph to show through.
 	text, sub := colors(c).Text, colors(c).Muted

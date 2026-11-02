@@ -13,9 +13,8 @@ import (
 // branch is from the one it tracks, as Peek counts incoming commits.
 
 var (
-	icPull  = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v14M6 12l6 6 6-6"/></svg>`))
-	icPush  = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V6M6 12l6-6 6 6"/></svg>`))
-	icFetch = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18a4.5 4.5 0 0 1-.6-9A6 6 0 0 1 18 8.5a4 4 0 0 1-.5 9.5"/><path d="M12 11v9M9 17l3 3 3-3"/></svg>`))
+	icPull = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v14M6 12l6 6 6-6"/></svg>`))
+	icPush = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V6M6 12l6-6 6 6"/></svg>`))
 )
 
 // syncGit runs a command that talks to a remote, one at a time, saying
@@ -73,47 +72,68 @@ func (a *App) gitPush() {
 	}
 }
 
-// syncBar is the Git navigator's line about the remote: the branch
-// tracked and how far apart, with Fetch, Pull and Push.
-func (a *App) syncBar(c *ui.Context) {
-	ui.Row(c).FillWidth().Padding(0, 10, 6, 14).Gap(4).AlignItems(ui.Center).Children(func() {
-		switch {
-		case a.git.syncing != "":
-			ui.Spinner(c).FontSize(10)
-			ui.Text(c, a.git.syncing).FontSize(11).TextColor(colors(c).Muted).SingleLine()
-		case a.git.upstream != "":
-			ui.Text(c, a.git.upstream).FontSize(11).TextColor(colors(c).Muted).SingleLine().Shrink(1).
-				Tooltip(a.git.branch + " tracks " + a.git.upstream)
-			if s := aheadBehind(a.git.ahead, a.git.behind); s != "" {
-				ui.Text(c, s).FontSize(11).TextColor(colors(c).Text).SingleLine().Shrink(0)
-			} else {
-				ui.Text(c, "Up to date").FontSize(11).TextColor(colors(c).Dim).SingleLine().Shrink(1)
-			}
-		case len(a.git.remotes) > 0:
-			ui.Text(c, "Not on a remote yet").FontSize(11).TextColor(colors(c).Dim).SingleLine().Shrink(1)
-		default:
-			ui.Text(c, "No remote").FontSize(11).TextColor(colors(c).Dim).SingleLine().Shrink(1)
-		}
-		ui.Box(c).Grow(1)
-		noRemote := len(a.git.remotes) == 0 && a.git.upstream == ""
-		if glyphButton(c, icFetch, "Fetch", "Fetch from every remote", false, a.git.busy || noRemote).Clicked() {
-			a.gitFetch()
-		}
-		pull := "Pull"
-		if a.git.behind > 0 {
-			pull = fmt.Sprintf("Pull %d incoming %s", a.git.behind, "commit"+plural(a.git.behind))
-		}
-		if glyphButton(c, icPull, "Pull", pull, a.git.behind > 0, a.git.busy || a.git.upstream == "").Clicked() {
-			a.gitPull()
-		}
-		push := "Push"
-		if a.git.ahead > 0 {
-			push = fmt.Sprintf("Push %d %s", a.git.ahead, "commit"+plural(a.git.ahead))
-		}
-		if glyphButton(c, icPush, "Push", push, a.git.ahead > 0, a.git.busy || noRemote).Clicked() {
-			a.gitPush()
-		}
+// syncButtons are Pull and Push, in the Git navigator's title line;
+// they take the accent, and their count, when there are commits to bring
+// or send. Fetch is the refresh button's, as Xcode's Fetch and Refresh
+// Status.
+func (a *App) syncButtons(c *ui.Context) {
+	if !a.hasRemote() {
+		return
+	}
+	tracks := ""
+	if a.git.upstream != "" {
+		tracks = " (" + a.git.upstream + ")"
+	}
+	pull := "Pull" + tracks
+	if a.git.behind > 0 {
+		pull = fmt.Sprintf("Pull %d incoming commit%s%s", a.git.behind, plural(a.git.behind), tracks)
+	}
+	if countButton(c, icPull, "Pull", pull, a.git.behind, a.git.busy || a.git.upstream == "").Clicked() {
+		a.gitPull()
+	}
+	push := "Push" + tracks
+	switch {
+	case a.git.ahead > 0:
+		push = fmt.Sprintf("Push %d commit%s%s", a.git.ahead, plural(a.git.ahead), tracks)
+	case a.git.upstream == "":
+		push = "Push " + a.git.branch + " to " + a.git.remotes[0]
+	}
+	if countButton(c, icPush, "Push", push, a.git.ahead, a.git.busy).Clicked() {
+		a.gitPush()
+	}
+}
+
+func (a *App) hasRemote() bool { return len(a.git.remotes) > 0 || a.git.upstream != "" }
+
+// fetchAndRefresh reads the repository again, after fetching from its
+// remotes when it has any.
+func (a *App) fetchAndRefresh() {
+	a.git.history.stale = true
+	if a.hasRemote() {
+		a.gitFetch()
+		return
+	}
+	a.refreshGit()
+}
+
+// countButton is a glyph button with a count beside its glyph, in the
+// accent, while there is one.
+func countButton(c *ui.Context, icon *ui.SVG, label, tip string, n int, disabled bool) ui.Element {
+	if n == 0 {
+		return glyphButton(c, icon, label, tip, false, disabled)
+	}
+	b := ui.ButtonBase(c.Key(label)).Label(label).Tooltip(tip).Padding(3, 4, 3, 3).Radius(4).Shrink(0).KeepFocus().Disabled(disabled)
+	if !disabled && (b.Hovered() || b.Pressed()) {
+		b.Background(colors(c).Pill)
+	}
+	accent := c.Theme().Accent
+	b.Children(func() {
+		ui.Row(c).Gap(1).AlignItems(ui.Center).Children(func() {
+			symbolIcon(c, icon, 14, accent)
+			ui.Text(c, fmt.Sprint(n)).FontSize(10).Bold().TextColor(accent)
+		})
 	})
+	return b
 }
 
 // aheadBehind is ↑ahead ↓behind, leaving out a zero.

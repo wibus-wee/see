@@ -458,7 +458,7 @@ func (a *App) gitNavigator(c *ui.Context) {
 		ui.Text(c, msg).TextColor(colors(c).Muted).FontSize(12).Padding(12, 10).Tooltip(a.git.err)
 		return
 	}
-	a.gitModeBar(c)
+	a.gitHeading(c)
 	if a.git.mode == gitModeHistory {
 		a.historyNavigator(c)
 		return
@@ -472,15 +472,6 @@ func (a *App) gitNavigator(c *ui.Context) {
 			unstaged++
 		}
 	}
-	ui.Column(c).FillWidth().Padding(10, 10, 10, 10).Gap(6).Children(func() {
-		ui.Row(c).FillWidth().Gap(5).AlignItems(ui.Center).Children(func() {
-			ui.TextInput(c, &a.git.message).Placeholder("Commit message").Label("Commit message").Grow(1)
-			if glyphButton(c, icRefresh, "Refresh Git", "Refresh Git status", false, false).Clicked() {
-				a.refreshGit()
-			}
-		})
-		ui.PrimaryButton(c, "Commit").FillWidth().Disabled(a.git.busy || staged == 0 || strings.TrimSpace(a.git.message) == "").OnClick(func() { a.gitAction("commit", "-m", a.git.message) })
-	})
 	ui.Scroll(c).Grow(1).FillWidth().Children(func() {
 		ui.Column(c).FillWidth().Children(func() {
 			if len(a.git.changes) == 0 {
@@ -504,6 +495,7 @@ func (a *App) gitNavigator(c *ui.Context) {
 			}
 		})
 	})
+	a.commitBar(c, staged)
 }
 
 func (a *App) gitSection(c *ui.Context, name string, count int) {
@@ -593,5 +585,39 @@ func (a *App) lineCounts(c *ui.Context, path string, staged bool) {
 		if f.Deleted > 0 {
 			ui.Text(c, fmt.Sprintf("−%d", f.Deleted)).FontSize(10).TextColor(a.gitStatusColor('D')).SingleLine()
 		}
+	})
+}
+
+// commitBar is the field at the bottom of the Git navigator, as the
+// project navigator's filter: a commit message, Return commits what is
+// staged, and its button at the end does the same.
+func (a *App) commitBar(c *ui.Context, staged int) {
+	can := !a.git.busy && staged > 0 && strings.TrimSpace(a.git.message) != ""
+	commit := func() {
+		if can {
+			a.gitAction("commit", "-m", a.git.message)
+		}
+	}
+	placeholder := "Commit Message"
+	if staged == 0 {
+		placeholder = "Stage changes to commit"
+	}
+	ui.Row(c).Shrink(0).FillWidth().Padding(6, sidebarInset, 10, sidebarInset).Children(func() {
+		ui.Row(c).FillWidth().Height(28).Radius(14).Background(colors(c).Pill).Padding(0, 3, 0, 12).Gap(4).AlignItems(ui.Center).Children(func() {
+			in := ui.TextInput(c, &a.git.message).Placeholder(placeholder).Label("Commit message").
+				FontSize(12).Grow(1).Background(ui.Transparent).BorderWidth(0).Padding(0)
+			if in.Submitted() {
+				commit()
+			}
+			tip := "Commit " + fmt.Sprint(staged) + " staged change" + plural(staged)
+			b := ui.ButtonBase(c).Label("Commit").Tooltip(tip).Size(22, 22).Radius(11).Center().Disabled(!can).KeepFocus()
+			color := colors(c).Dim
+			if can {
+				b.Background(c.Theme().Accent)
+				color = ui.RGB(0xff, 0xff, 0xff)
+			}
+			b.Children(func() { symbolIcon(c, icCommitArrow, 12, color) })
+			b.OnClick(commit)
+		})
 	})
 }
