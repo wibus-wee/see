@@ -253,9 +253,9 @@ func (a *App) ensureFiles() {
 	q.listing = true
 	gen, root := a.gen, a.root
 	rg, _ := findRipgrep(root) // "" lists by walking
-	ctx := a.wsCtx
+	ctx, ignored := a.wsCtx, a.ignored
 	go func() {
-		files, truncated, err := search.ListFiles(ctx, rg, root, maxQuickFiles)
+		files, truncated, err := search.ListFiles(ctx, rg, root, maxQuickFiles, ignored.Dir)
 		a.post.Post(func() {
 			if a.gen != gen {
 				return

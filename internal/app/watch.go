@@ -4,10 +4,13 @@ import (
 	"context"
 	"errors"
 	"io"
+	"path"
 	"path/filepath"
+	"strings"
 
 	"github.com/egoist/mygo"
 
+	"see/internal/git"
 	"see/internal/workspace"
 )
 
@@ -30,8 +33,20 @@ func (a *App) startWatch() {
 		return
 	}
 	root, ctx, gen := a.root, a.wsCtx, a.gen
-	ignore := func(rel string, isDir bool) bool { return isDir && workspace.IgnoredRel(rel) }
 	go func() {
+		// What git ignores is left out first, as build output, so that a
+		// large project stays within what a watch can follow file by file.
+		// Single files git ignores are still watched, as an .env open in
+		// a tab.
+		ignored := readIgnored(ctx, root)
+		a.post.Post(func() {
+			if a.gen == gen {
+				a.ignored = ignored
+			}
+		})
+		ignore := func(rel string, isDir bool) bool {
+			return isDir && (workspace.IgnoredRel(rel) || ignored.Dir(rel))
+		}
 		w, err := watchFiles(ctx, root, mygo.FileWatchOptions{Recursive: true, Ignore: ignore})
 		if errors.Is(err, mygo.ErrWatchLimit) {
 			a.logf("watch: too many entries, falling back to hints")
@@ -79,6 +94,9 @@ func (a *App) applyEvents(evs []mygo.FileEvent) {
 	}
 	dirs := map[string]bool{}
 	for _, ev := range evs {
+		if path.Base(ev.Path) == ".gitignore" || path.Base(ev.Path) == "exclude" && strings.Contains(ev.Path, ".git/info") {
+			a.rereadIgnored()
+		}
 		p := filepath.Join(a.root, filepath.FromSlash(ev.Path))
 		switch ev.Op {
 		case mygo.FileHint:
@@ -141,4 +159,36 @@ func (a *App) removed(p string) {
 			delete(a.dirs, dir)
 		}
 	}
+}
+
+// readIgnored is what git ignores in root, nothing outside a repository;
+// tests leave git out of their watches.
+var readIgnored = func(ctx context.Context, root string) *git.Ignored {
+	ig, _ := git.ReadIgnored(ctx, root)
+	return ig
+}
+
+// rereadIgnored reads what git ignores again after a .gitignore changed,
+// for the tree; the watch keeps what it was started with until the
+// workspace opens again.
+func (a *App) rereadIgnored() {
+	root, ctx, gen := a.root, a.wsCtx, a.gen
+	go func() {
+		ig := readIgnored(ctx, root)
+		a.post.Post(func() {
+			if a.gen == gen {
+				a.ignored = ig
+			}
+		})
+	}()
+}
+
+// gitIgnores reports whether git ignores p, a path of the workspace,
+// which the tree dims, as VS Code does.
+func (a *App) gitIgnores(p string) bool {
+	if a.ignored == nil || !workspace.Within(a.root, p) || p == a.root {
+		return false
+	}
+	rel, err := filepath.Rel(a.root, p)
+	return err == nil && a.ignored.Has(filepath.ToSlash(rel))
 }

@@ -272,10 +272,11 @@ func preview(line int, text string, start, end int) Match {
 // ListFiles lists the files under root for quick open, relative to it
 // and separated by slashes: with `rg --files` when rg is given, which
 // leaves out what .gitignore does, else by walking the tree. It stops
-// at limit files.
-func ListFiles(ctx context.Context, rg, root string, limit int) ([]string, bool, error) {
+// at limit files. The walk also leaves out the folders skipDir names,
+// by their slash-separated path relative to root, when it is given.
+func ListFiles(ctx context.Context, rg, root string, limit int, skipDir func(rel string) bool) ([]string, bool, error) {
 	if rg == "" {
-		return walkFiles(ctx, root, limit)
+		return walkFiles(ctx, root, limit, skipDir)
 	}
 	args := append([]string{"--files", "--no-config"}, ignoreGlobs()...)
 	cmd := exec.CommandContext(ctx, rg, args...)
@@ -308,7 +309,7 @@ func ListFiles(ctx context.Context, rg, root string, limit int) ([]string, bool,
 }
 
 // walkFiles lists files without ripgrep.
-func walkFiles(ctx context.Context, root string, limit int) ([]string, bool, error) {
+func walkFiles(ctx context.Context, root string, limit int, skipDir func(rel string) bool) ([]string, bool, error) {
 	var files []string
 	truncated := false
 	err := filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
@@ -323,6 +324,9 @@ func walkFiles(ctx context.Context, root string, limit int) ([]string, bool, err
 		}
 		if d.IsDir() {
 			if p != root && workspace.Ignored(d.Name()) {
+				return filepath.SkipDir
+			}
+			if rel, err := filepath.Rel(root, p); p != root && err == nil && skipDir != nil && skipDir(filepath.ToSlash(rel)) {
 				return filepath.SkipDir
 			}
 			return nil

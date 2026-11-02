@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 
@@ -326,5 +327,44 @@ func TestDiffLayoutAndChanges(t *testing.T) {
 		if i, _ := v.state.CurrentHunk(); i != step.want {
 			t.Fatalf("after %+d: hunk %d, want %d", step.dir, i, step.want)
 		}
+	}
+}
+
+type idleWatcher struct{}
+
+func (idleWatcher) Next(ctx context.Context) ([]mygo.FileEvent, error) {
+	<-ctx.Done()
+	return nil, ctx.Err()
+}
+func (idleWatcher) Close() error { return nil }
+
+// What git ignores stays out of the watch, folders whole, so that a big
+// project's build output does not exhaust it; the tree dims it.
+func TestWatchLeavesOutWhatGitIgnores(t *testing.T) {
+	root := gitRepo(t, map[string]string{".gitignore": "out/\n*.log\n", "a.go": "package a\n"})
+	writeFile(t, root, "x.log", "")
+	if err := os.MkdirAll(filepath.Join(root, "out", "deep"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	opts := make(chan mygo.FileWatchOptions, 1)
+	old := watchFiles
+	t.Cleanup(func() { watchFiles = old })
+	watchFiles = func(ctx context.Context, root string, o mygo.FileWatchOptions) (fileWatcher, error) {
+		opts <- o
+		return idleWatcher{}, nil
+	}
+	h := newHarness(t, root)
+	o := <-opts
+	for rel, want := range map[string]bool{"out": true, "out/deep": true, "node_modules": true, "src": false} {
+		if got := o.Ignore(rel, true); got != want {
+			t.Errorf("Ignore(%q, dir) = %v, want %v", rel, got, want)
+		}
+	}
+	if o.Ignore("x.log", false) {
+		t.Error("the watch leaves out a single ignored file, which may be open")
+	}
+	h.settle(func() bool { return h.a.ignored != nil })
+	if !h.a.gitIgnores(filepath.Join(root, "x.log")) || !h.a.gitIgnores(filepath.Join(root, "out")) || h.a.gitIgnores(filepath.Join(root, "a.go")) {
+		t.Fatal("the tree dims the wrong entries")
 	}
 }

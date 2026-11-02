@@ -319,7 +319,7 @@ func (a *App) treeItem(c *ui.Context, p string) {
 	if name == "" {
 		name = filepath.Base(p)
 	}
-	dim := (e.Dir && workspace.Ignored(name)) || strings.HasPrefix(name, ".")
+	dim := (e.Dir && workspace.Ignored(name)) || strings.HasPrefix(name, ".") || a.gitIgnores(p)
 	// Extend the hit area into the outline's row padding and the
 	// sidebar's inset, to the sidebar's edge as AppKit's rows, keeping
 	// the disclosure arrow as a separate target.

@@ -21,6 +21,7 @@ import (
 	"github.com/egoist/mygo/ui/markdown"
 
 	"see/internal/config"
+	"see/internal/git"
 	"see/internal/lsp"
 	"see/internal/nav"
 	"see/internal/uri"
@@ -55,6 +56,7 @@ type App struct {
 	filter   treeFilter
 	watchErr error
 	watching bool
+	ignored  *git.Ignored // what git ignores in the workspace, dimmed in the tree and not watched
 	git      gitState
 
 	// Documents, by path, and the editor groups showing them.
@@ -368,6 +370,7 @@ func (a *App) closeWorkspace() {
 	a.lspState, a.lspErr = langserver.Off, nil
 	a.watchErr, a.watching = nil, false
 	a.git = gitState{}
+	a.ignored = nil
 	a.notice = ""
 	a.hover = hoverState{}
 	a.find.reset()

@@ -120,18 +120,18 @@ func TestListFiles(t *testing.T) {
 		"docs/MainPage.md": "", "node_modules/m/main.js": "",
 	})
 	want := []string{"docs/MainPage.md", "internal/app/main_test.go", "internal/app/model.go", "main.go"}
-	walked, _, err := ListFiles(context.Background(), "", root, 100)
+	walked, _, err := ListFiles(context.Background(), "", root, 100, nil)
 	slices.Sort(walked)
 	if err != nil || !slices.Equal(walked, want) {
 		t.Errorf("walk: %v %v", walked, err)
 	}
 	if rg, err := FindRipgrep(""); err == nil {
-		files, _, err := ListFiles(context.Background(), rg, root, 100)
+		files, _, err := ListFiles(context.Background(), rg, root, 100, nil)
 		slices.Sort(files)
 		if err != nil || !slices.Equal(files, want) {
 			t.Errorf("rg: %v %v", files, err)
 		}
-		files, truncated, _ := ListFiles(context.Background(), rg, root, 2)
+		files, truncated, _ := ListFiles(context.Background(), rg, root, 2, nil)
 		if !truncated || len(files) != 2 {
 			t.Errorf("limit: %v %v", files, truncated)
 		}
@@ -159,5 +159,21 @@ func TestFuzzy(t *testing.T) {
 	}
 	if len(Fuzzy(files, "", 2)) != 2 {
 		t.Error("empty query lists")
+	}
+}
+
+func TestListFilesWalkSkipsFolders(t *testing.T) {
+	root := t.TempDir()
+	for _, p := range []string{"a.go", "out/b.go", "src/out/c.go"} {
+		if err := os.MkdirAll(filepath.Join(root, filepath.Dir(p)), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(root, p), nil, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	files, _, err := ListFiles(context.Background(), "", root, 100, func(rel string) bool { return rel == "out" })
+	if err != nil || !slices.Equal(files, []string{"a.go", "src/out/c.go"}) {
+		t.Fatalf("%q %v", files, err)
 	}
 }
