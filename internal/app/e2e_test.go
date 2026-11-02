@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/egoist/mygo/ui"
 )
 
 // The end-to-end tests drive the app as a reader does: a folder opens, its
@@ -111,5 +113,23 @@ func TestUnsavedChangesHoldTheQuit(t *testing.T) {
 	// not restore the file.
 	if got := d.buf.String(); got != "package a\n\nvar X = 1\n" {
 		t.Fatalf("discard restored %q", got)
+	}
+}
+
+// ⌘W closes the tab, and once no tab is left, the window, as Xcode's.
+func TestCloseTabThenWindow(t *testing.T) {
+	root := writeTree(t, map[string]string{"a.go": "package a\n"})
+	h := newHarness(t, root)
+	h.open("a.go")
+	h.tt.Frame()
+	h.tt.Key(ui.Cmd, ui.KeyW)
+	h.tt.Frame()
+	if h.a.focus.active != "" || h.host.closed != 0 {
+		t.Fatalf("after one ⌘W: active %q, window closed %d times", h.a.focus.active, h.host.closed)
+	}
+	h.tt.Key(ui.Cmd, ui.KeyW)
+	h.tt.Frame()
+	if h.host.closed != 1 {
+		t.Fatalf("⌘W with no tab closed the window %d times, want 1", h.host.closed)
 	}
 }

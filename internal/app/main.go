@@ -93,7 +93,13 @@ func Main() {
 			DisableMaximize: true,
 			TitleBarStyle:   mygo.TitleBarHiddenInset,
 			Hidden:          true,
-			Content:         ui.View(func(c *ui.Context) { a.welcomeView(c); wins.sync(welcome) }),
+			Content: ui.View(func(c *ui.Context) {
+				if c.Shortcut(ui.Cmd, ui.KeyW) {
+					welcome.Close() // as its close button
+				}
+				a.welcomeView(c)
+				wins.sync(welcome)
+			}),
 		})
 		wins.main, wins.welcome = win, welcome
 		primary := &projectWindow{app: a, win: win}

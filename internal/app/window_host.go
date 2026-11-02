@@ -104,6 +104,8 @@ func (h *windowHost) OpenProjectWindow(path string) bool {
 	return true
 }
 
+func (h *windowHost) CloseWindow() { h.win.Close() }
+
 func (h *windowHost) RefreshMenu() {
 	if h.setMenu != nil {
 		h.setMenu()

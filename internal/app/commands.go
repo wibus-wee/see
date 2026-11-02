@@ -43,8 +43,11 @@ func commands() []command {
 		{"Save", "Cmd+", "S", ui.Cmd, ui.KeyS, func(a *App) { a.saveActive() }},
 		{"Save All", "Cmd+Shift+", "S", ui.Cmd | ui.Shift, ui.KeyS, func(a *App) { a.saveAll() }},
 		{"Close Tab", "Cmd+", "W", ui.Cmd, ui.KeyW, func(a *App) {
+			// As Xcode: the tab, and the window once no tab is left.
 			if p := a.focus.active; p != "" {
 				a.closeDoc(p)
+			} else {
+				a.host.CloseWindow()
 			}
 		}},
 		{"Add Editor on Right", "Cmd+", "D", ui.Cmd, ui.KeyD, func(a *App) { a.splitActive(sideRight) }},

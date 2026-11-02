@@ -77,6 +77,8 @@ func (a *App) view(c *ui.Context) {
 			a.host.OpenProjectWindow("")
 		} else if c.Shortcut(ui.Cmd, ui.KeyO) {
 			a.openFolderDialog()
+		} else if c.Shortcut(ui.Cmd, ui.KeyW) {
+			a.host.CloseWindow()
 		}
 		a.welcomeWindow(c)
 		return

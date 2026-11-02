@@ -50,6 +50,9 @@ type Desktop interface {
 	// OpenProjectWindow opens path in a window of its own, "" an empty one,
 	// and reports whether it could.
 	OpenProjectWindow(path string) bool
+	// CloseWindow closes the window, as its close button: ⌘W with no tab
+	// left to close.
+	CloseWindow()
 	RefreshMenu() // builds the menu bar again
 	SetAppearance(appearance string)
 
@@ -80,6 +83,7 @@ func (NoDesktop) TrashItem(string) error               { return ErrNoDialog }
 func (NoDesktop) CopyFiles(...string) error            { return ErrNoDialog }
 func (NoDesktop) CopyImage([]byte) error               { return ErrNoDialog }
 func (NoDesktop) OpenProjectWindow(string) bool        { return false }
+func (NoDesktop) CloseWindow()                         {}
 func (NoDesktop) RefreshMenu()                         {}
 func (NoDesktop) SetAppearance(string)                 {}
 func (NoDesktop) OpenSettings()                        {}

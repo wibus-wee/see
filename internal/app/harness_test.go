@@ -230,7 +230,10 @@ type fakeHost struct {
 	resize      func(width, height int)
 	appearance  func(string)
 	fontPopover func(anchor ui.Rect, terminal bool)
+	closed      int // CloseWindow calls
 }
+
+func (f *fakeHost) CloseWindow() { f.closed++ }
 
 func (f *fakeHost) PickNewFile(root string) (string, error) {
 	if f.newFile == nil {
