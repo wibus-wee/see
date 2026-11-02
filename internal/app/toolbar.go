@@ -63,7 +63,10 @@ func (a *App) toolbar(c *ui.Context, sidebarProgress float32, vibrant bool) {
 				project.MaxWidth(projectWidth)
 			}
 			project.Children(func() {
-				a.projectTitle(c)
+				ui.Row(c).Gap(4).AlignItems(ui.Center).Shrink(1).Children(func() {
+					a.projectTitle(c)
+					a.branchButton(c)
+				})
 				a.activityView(c)
 			})
 			ui.Box(c).Grow(1)
@@ -258,12 +261,7 @@ func (a *App) activityView(c *ui.Context) {
 		case state == langserver.Ready:
 			ui.Text(c, "Ready · "+name).FontSize(12).TextColor(colors(c).Muted)
 		default:
-			if a.git.branch != "" {
-				symbolIcon(c, icGit, 12, colors(c).Muted)
-				ui.Text(c, a.git.branch).FontSize(12).TextColor(colors(c).Muted).SingleLine().Shrink(1).Tooltip("Git branch: " + a.git.branch)
-			} else {
-				ui.Text(c, "Ready").FontSize(12).TextColor(colors(c).Muted)
-			}
+			ui.Text(c, "Ready").FontSize(12).TextColor(colors(c).Muted)
 		}
 	})
 }

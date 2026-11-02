@@ -106,6 +106,7 @@ type App struct {
 	sidebarOff       bool
 	titleButton      ui.Handle // the toolbar's project name, over which its menu shows
 	titleOpen        bool
+	branchHandle     ui.Handle // the toolbar's branch, under which the branch picker shows
 	welcomeNote      string
 	showWelcome      bool   // the welcome window over an open workspace
 	version          string // the app's, shown on the welcome window

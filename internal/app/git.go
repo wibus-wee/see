@@ -23,6 +23,7 @@ type gitState struct {
 	loading, pending, busy bool
 	diffSeq                uint64
 	peek                   *gitPeek
+	picker                 branchPicker
 }
 
 type gitPeek struct {

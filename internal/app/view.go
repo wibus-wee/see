@@ -117,6 +117,9 @@ func (a *App) view(c *ui.Context) {
 	if a.quick.open {
 		a.quickOpenPanel(c)
 	}
+	if a.git.picker.open {
+		a.branchPickerPanel(c)
+	}
 }
 
 // shortcuts handles the app's keys wherever the focus is.
