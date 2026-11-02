@@ -111,6 +111,7 @@ func (a *App) gitModeBar(c *ui.Context) {
 			a.syncHistory()
 		}
 	})
+	a.syncBar(c)
 }
 
 // historyNavigator is the history in the navigator.
@@ -174,11 +175,7 @@ func (a *App) uncommittedRow(c *ui.Context, n int) {
 		})
 		ui.Column(c).Grow(1).Shrink(1).Children(func() {
 			ui.Text(c, "Uncommitted Changes").FontSize(12).Italic().SingleLine()
-			files := "files"
-			if n == 1 {
-				files = "file"
-			}
-			ui.Text(c, fmt.Sprintf("%d %s", n, files)).FontSize(11).TextColor(colors(c).Muted).SingleLine()
+			ui.Text(c, fmt.Sprintf("%d file%s", n, plural(n))).FontSize(11).TextColor(colors(c).Muted).SingleLine()
 		})
 	})
 }
@@ -479,12 +476,8 @@ func (a *App) commitFiles(c *ui.Context, g *group, v *commitView) {
 		added += max(f.Added, 0)
 		deleted += max(f.Deleted, 0)
 	}
-	noun := "files"
-	if len(files) == 1 {
-		noun = "file"
-	}
 	ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-		ui.Text(c, fmt.Sprintf("%d %s changed", len(files), noun)).FontSize(13).Bold()
+		ui.Text(c, fmt.Sprintf("%d file%s changed", len(files), plural(len(files)))).FontSize(13).Bold()
 		ui.Text(c, fmt.Sprintf("+%d", added)).FontSize(12).TextColor(a.gitStatusColor('A'))
 		ui.Text(c, fmt.Sprintf("−%d", deleted)).FontSize(12).TextColor(a.gitStatusColor('D'))
 	})

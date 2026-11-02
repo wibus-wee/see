@@ -25,7 +25,15 @@ type gitState struct {
 	peek                   *gitPeek
 	picker                 branchPicker
 	mode                   int // gitModeChanges or gitModeHistory
-	history                gitHistory
+	// upstream is the branch HEAD's tracks, and ahead and behind how
+	// far apart they are; remotes are the repository's, origin first.
+	upstream      string
+	ahead, behind int
+	remotes       []string
+	web           string // the web page of the repository, or ""
+	webRoot       string // the repository web was read for
+	syncing       string // what talks to the remote now: Fetching, Pulling, Pushing
+	history       gitHistory
 }
 
 type gitPeek struct {
@@ -98,12 +106,27 @@ func (a *App) refreshGit() {
 		return
 	}
 	a.git.loading = true
-	ctx, root, gen := a.wsCtx, a.root, a.gen
+	ctx, root, gen, webRoot := a.wsCtx, a.root, a.gen, a.git.webRoot
 	go func() {
 		r, b, changes, err := git.Read(ctx, root)
-		var head string
+		var (
+			head, upstream, web string
+			ahead, behind       int
+			remotes             []string
+		)
 		if err == nil {
 			head = git.Head(ctx, r)
+			upstream, ahead, behind = git.Tracking(ctx, r)
+			if r != webRoot {
+				remotes = git.Remotes(ctx, r)
+				remote := "origin"
+				if up, _, ok := strings.Cut(upstream, "/"); ok {
+					remote = up
+				} else if len(remotes) > 0 {
+					remote = remotes[0]
+				}
+				web = git.RemoteWebURL(ctx, r, remote)
+			}
 		}
 		a.post.Post(func() {
 			if a.gen != gen {
@@ -111,6 +134,10 @@ func (a *App) refreshGit() {
 			}
 			a.git.loading = false
 			a.git.root, a.git.branch, a.git.changes, a.git.head = r, b, changes, head
+			a.git.upstream, a.git.ahead, a.git.behind = upstream, ahead, behind
+			if err == nil && r != webRoot {
+				a.git.web, a.git.remotes, a.git.webRoot = web, remotes, r
+			}
 			a.git.decor = git.Decorations(r, changes)
 			for _, d := range a.docs {
 				if d.buf != nil {

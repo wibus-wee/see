@@ -148,3 +148,46 @@ func TestHistoryOpensACommitAndItsFile(t *testing.T) {
 		t.Fatalf("tabs %q", h.a.focus.order)
 	}
 }
+
+// Push makes the branch track a new remote branch; Fetch counts what
+// came in, and Pull brings it.
+func TestPushFetchPull(t *testing.T) {
+	root := gitRepo(t, map[string]string{"a.go": "package a\n"})
+	bare := t.TempDir()
+	gitRun(t, bare, "init", "-q", "--bare")
+	gitRun(t, root, "remote", "add", "origin", bare)
+	h := newHarness(t, root)
+	h.readGit()
+	idle := func() bool { return !h.a.git.busy && !h.a.git.loading }
+
+	h.a.gitPush()
+	h.settle(idle)
+	h.readGit()
+	if h.a.git.upstream != "origin/main" {
+		t.Fatalf("upstream %q after the first push, notice %q", h.a.git.upstream, h.a.notice)
+	}
+
+	// Someone else pushes a commit.
+	other := t.TempDir()
+	gitRun(t, other, "clone", "-q", "-b", "main", bare, ".")
+	writeFile(t, other, "b.go", "package a\n")
+	gitRun(t, other, "add", ".")
+	gitRun(t, other, "commit", "-qm", "theirs")
+	gitRun(t, other, "push", "-q", "origin", "HEAD:main")
+
+	h.a.gitFetch()
+	h.settle(idle)
+	h.readGit()
+	if h.a.git.behind != 1 {
+		t.Fatalf("behind %d after fetching, notice %q", h.a.git.behind, h.a.notice)
+	}
+	h.a.gitPull()
+	h.settle(idle)
+	h.readGit()
+	if h.a.git.behind != 0 {
+		t.Fatalf("behind %d after pulling, notice %q", h.a.git.behind, h.a.notice)
+	}
+	if _, err := os.Stat(filepath.Join(root, "b.go")); err != nil {
+		t.Fatal("the pull brought no b.go")
+	}
+}

@@ -36,6 +36,9 @@ func commands() []command {
 			a.sidebarOff, a.navigator, a.git.mode = false, navGit, gitModeHistory
 			a.refreshGit()
 		}},
+		{"Git: Fetch", "", "", 0, 0, func(a *App) { a.gitFetch() }},
+		{"Git: Pull", "", "", 0, 0, func(a *App) { a.gitPull() }},
+		{"Git: Push", "", "", 0, 0, func(a *App) { a.gitPush() }},
 		{"Git: Switch Branch…", "", "", 0, 0, func(a *App) { a.openBranchPicker(a.git.picker.anchor) }},
 		{"Filter Files", "Alt+Cmd+", "J", ui.Alt | ui.Cmd, ui.KeyJ, func(a *App) {
 			a.sidebarOff, a.navigator, a.filter.focus = false, navFiles, true

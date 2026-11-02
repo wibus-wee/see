@@ -206,6 +206,9 @@ func (a *App) branchButton(c *ui.Context) {
 		ui.Row(c).Gap(4).AlignItems(ui.Center).Children(func() {
 			symbolIcon(c, icGit, 11, colors(c).Muted).Shrink(0)
 			ui.Text(c, a.git.branch).FontSize(11).TextColor(colors(c).Muted).SingleLine().Shrink(1)
+			if s := aheadBehind(a.git.ahead, a.git.behind); s != "" {
+				ui.Text(c, s).FontSize(10).TextColor(colors(c).Dim).SingleLine().Shrink(0)
+			}
 			symbolIcon(c, icChevron, 8, colors(c).Dim).Shrink(0)
 		})
 	})
