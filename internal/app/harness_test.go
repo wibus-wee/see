@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"net/http"
 	"os"
 	"path/filepath"
 	"slices"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"see/internal/avatar"
 	"see/internal/config"
 	"see/internal/lsp"
 	"see/internal/platform"
@@ -18,7 +20,10 @@ import (
 	"see/internal/langserver"
 )
 
-func init() { watchFiles = nil } // tests feed file events themselves
+func init() {
+	watchFiles = nil // tests feed file events themselves
+	avatarFetch = func(context.Context, *http.Client, string, []string) ([]byte, error) { return nil, avatar.ErrNone }
+}
 
 func TestMain(m *testing.M) {
 	dir, err := os.MkdirTemp("", "see-test-home-")

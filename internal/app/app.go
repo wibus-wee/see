@@ -106,8 +106,9 @@ type App struct {
 	sidebarOff       bool
 	titleButton      ui.Handle // the toolbar's project name, over which its menu shows
 	titleOpen        bool
-	services         ui.Services // the window's clipboard and browser, for menus built without a context
-	branchHandle     ui.Handle   // the toolbar's branch, under which the branch picker shows
+	avatars          map[string]*avatarEntry // authors' pictures, by email
+	services         ui.Services             // the window's clipboard and browser, for menus built without a context
+	branchHandle     ui.Handle               // the toolbar's branch, under which the branch picker shows
 	welcomeNote      string
 	showWelcome      bool   // the welcome window over an open workspace
 	version          string // the app's, shown on the welcome window

@@ -9,6 +9,7 @@ import (
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 
+	"see/internal/avatar"
 	"see/internal/git"
 )
 
@@ -272,6 +273,7 @@ func (a *App) historyRow(c *ui.Context, i int) {
 						refBadge(c, ref, ref == a.git.branch)
 					}
 				}
+				a.personAvatar(c, cm.Author, cm.Email, 7)
 				ui.Text(c, cm.Author+" · "+relativeTime(cm.Date, time.Now())).FontSize(11).TextColor(sub).SingleLine().Shrink(1)
 			})
 		})
@@ -436,7 +438,7 @@ func (a *App) commitContent(c *ui.Context, g *group, v *commitView) {
 		ui.Column(c).FillWidth().Padding(20, 24).Gap(14).Children(func() {
 			ui.Text(c, cm.Subject).FontSize(18).Bold().Selectable()
 			ui.Row(c).FillWidth().Gap(10).AlignItems(ui.Center).Children(func() {
-				ui.Avatar(c, cm.Author, nil).FontSize(14).Shrink(0)
+				a.personAvatar(c, cm.Author, cm.Email, 14)
 				ui.Column(c).Grow(1).Shrink(1).Children(func() {
 					ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
 						ui.Text(c, cm.Author).FontSize(13).Bold().SingleLine()
@@ -449,6 +451,17 @@ func (a *App) commitContent(c *ui.Context, g *group, v *commitView) {
 					ui.Text(c, when).FontSize(12).TextColor(colors(c).Muted).SingleLine()
 				})
 			})
+			if co := avatar.CoAuthors(d.Body); len(co) > 0 {
+				ui.Row(c).FillWidth().Gap(6).AlignItems(ui.Center).Wrap().Children(func() {
+					ui.Text(c, "with").FontSize(12).TextColor(colors(c).Muted)
+					for _, p := range co {
+						ui.Row(c.Key(p.Email)).Gap(4).AlignItems(ui.Center).Children(func() {
+							a.personAvatar(c, p.Name, p.Email, 9)
+							ui.Text(c, p.Name).FontSize(12).SingleLine()
+						})
+					}
+				})
+			}
 			ui.Row(c).FillWidth().Gap(6).AlignItems(ui.Center).Wrap().Children(func() {
 				ui.Text(c, cm.Hash).FontSize(12).TextColor(colors(c).Muted).Selectable()
 				if glyphButton(c, icCopy, "Copy Commit Hash", "Copy Commit Hash", false, false).Clicked() {
