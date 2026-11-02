@@ -424,8 +424,14 @@ func (a *App) splitActive(s side) {
 	}
 	ng.addTab(path, 0)
 	if isDiffTab(path) {
-		if v := g.diffs[path]; v != nil {
-			ng.diffs = map[string]*gitDiffTab{path: a.newGitDiffTab(v.patch, v.name, v.staged)}
+		if v := g.diffs[path]; v != nil && v.commit != nil {
+			cv := *v.commit
+			cv.scroll = ui.ScrollState{}
+			ng.diffs = map[string]*gitDiffTab{path: {name: v.name, rev: v.rev, commit: &cv}}
+		} else if v != nil {
+			nv := a.newGitDiffTab(v.patch, v.name, v.staged)
+			nv.rev = v.rev
+			ng.diffs = map[string]*gitDiffTab{path: nv}
 		}
 		a.activateIn(ng, path)
 		return

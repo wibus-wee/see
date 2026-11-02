@@ -2,6 +2,8 @@ package app
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/egoist/mygo/ui"
@@ -77,5 +79,72 @@ func TestBranchPickerSwitchesAndCreates(t *testing.T) {
 	h.readGit()
 	if h.a.git.branch != "topic/new" {
 		t.Fatalf("on %q after creating, notice %q", h.a.git.branch, h.a.notice)
+	}
+}
+
+// gitRun runs git in root as a test's committer.
+func gitRun(t *testing.T, root string, args ...string) {
+	t.Helper()
+	args = append([]string{"-c", "user.name=See", "-c", "user.email=see@example.com", "-c", "commit.gpgsign=false"}, args...)
+	if _, err := git.Command(context.Background(), root, args...); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// historyRepo has a branch merged into main, and a change not committed.
+func historyRepo(t *testing.T) string {
+	root := gitRepo(t, map[string]string{"a.go": "package a\n"})
+	gitRun(t, root, "switch", "-qc", "side")
+	writeFile(t, root, "b.go", "package a\n\nfunc B() {}\n")
+	gitRun(t, root, "add", ".")
+	gitRun(t, root, "commit", "-qm", "Add B on the side")
+	gitRun(t, root, "switch", "-q", "main")
+	writeFile(t, root, "a.go", "package a\n\nfunc A() {}\n")
+	gitRun(t, root, "commit", "-qam", "Add A")
+	gitRun(t, root, "merge", "-q", "--no-ff", "-m", "Merge side", "side")
+	writeFile(t, root, "a.go", "package a\n\nfunc A() { return }\n")
+	return root
+}
+
+func writeFile(t *testing.T, root, name, text string) {
+	t.Helper()
+	if err := os.WriteFile(filepath.Join(root, name), []byte(text), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// The Git navigator's history lists the commits under the uncommitted
+// changes; a commit opens with its files, and a file of it as a diff.
+func TestHistoryOpensACommitAndItsFile(t *testing.T) {
+	h := newHarness(t, historyRepo(t))
+	h.readGit()
+	h.a.navigator, h.a.git.mode = navGit, gitModeHistory
+	h.tt.Frame()
+	h.settle(func() bool { return !h.a.git.history.loading })
+	for _, s := range []string{"Uncommitted Changes", "Merge side", "Add B on the side", "Add A", "first"} {
+		if !h.tt.HasText(s) {
+			t.Fatalf("the history shows no %q: %q", s, h.tt.Texts())
+		}
+	}
+	if err := h.tt.Click("Add B on the side"); err != nil {
+		t.Fatal(err)
+	}
+	h.settle(func() bool {
+		v := h.a.focus.diffs[h.a.focus.active]
+		return v != nil && v.commit != nil && !v.commit.loading
+	})
+	if !h.tt.HasText("1 file changed") {
+		t.Fatalf("the commit shows %q", h.tt.Texts())
+	}
+	if err := h.tt.Click("b.go"); err != nil {
+		t.Fatal(err)
+	}
+	h.settle(func() bool { v := h.a.focus.diffs[h.a.focus.active]; return v != nil && v.state != nil })
+	if v := h.a.focus.diffs[h.a.focus.active]; v.name != "b.go" || v.rev == "" {
+		t.Fatalf("diff tab %+v", v)
+	}
+	// The commit's tab stays beside its file's.
+	if len(h.a.focus.order) != 2 {
+		t.Fatalf("tabs %q", h.a.focus.order)
 	}
 }

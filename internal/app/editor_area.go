@@ -174,7 +174,10 @@ func (a *App) dropTab(v *tabDrag, g *group, s side, at int) {
 }
 
 func (a *App) groupContent(c *ui.Context, g *group) {
-	if v := g.diffs[g.active]; v != nil {
+	if v := g.diffs[g.active]; v != nil && v.commit != nil {
+		a.commitContent(c, g, v.commit)
+		return
+	} else if v != nil {
 		view := editor.DiffView(c, v.state).Grow(1).FillWidth()
 		if view.FocusWithin() {
 			a.focus = g

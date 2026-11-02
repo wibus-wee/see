@@ -101,6 +101,9 @@ func (a *App) applyEditorPrefsAll() {
 			a.applyEditorPrefs(st)
 		}
 		for _, v := range g.diffs {
+			if v.state == nil {
+				continue
+			}
 			a.applyDiffPrefs(v.state)
 		}
 	}

@@ -32,6 +32,9 @@ func (a *App) applyAppearance(c *ui.Context) {
 	a.theme, a.edTheme = theme.New(base, c.Preferences().TextScale)
 	for _, g := range a.groups() {
 		for _, v := range g.diffs {
+			if v.state == nil {
+				continue
+			}
 			v.state.Theme = a.edTheme
 		}
 	}

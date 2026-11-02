@@ -24,6 +24,8 @@ type gitState struct {
 	diffSeq                uint64
 	peek                   *gitPeek
 	picker                 branchPicker
+	mode                   int // gitModeChanges or gitModeHistory
+	history                gitHistory
 }
 
 type gitPeek struct {
@@ -35,10 +37,24 @@ type gitPeek struct {
 }
 
 type gitDiffTab struct {
-	state  *editor.DiffState
+	state  *editor.DiffState // nil for a commit
 	patch  editor.FilePatch
 	name   string
 	staged bool
+	rev    string      // the commit's short hash, for a file of a commit
+	commit *commitView // a commit, which shows in place of a diff
+}
+
+// label tells what a diff compares: the commit, the index or the
+// working tree.
+func (v *gitDiffTab) label() string {
+	switch {
+	case v.rev != "":
+		return v.rev
+	case v.staged:
+		return "Staged"
+	}
+	return "Working Tree"
 }
 
 func (a *App) newGitDiffTab(p editor.FilePatch, name string, staged bool) *gitDiffTab {
@@ -409,6 +425,11 @@ func (a *App) gitNavigator(c *ui.Context) {
 			msg = "No Git repository found, or Git is unavailable."
 		}
 		ui.Text(c, msg).TextColor(colors(c).Muted).FontSize(12).Padding(12, 10).Tooltip(a.git.err)
+		return
+	}
+	a.gitModeBar(c)
+	if a.git.mode == gitModeHistory {
+		a.historyNavigator(c)
 		return
 	}
 	staged, unstaged := 0, 0

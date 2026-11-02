@@ -73,12 +73,8 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 				if isMarkdownTab(p) {
 					nameLabel += " Preview"
 				}
-				if diff != nil {
-					if diff.staged {
-						nameLabel += " (Staged)"
-					} else {
-						nameLabel += " (Working Tree)"
-					}
+				if diff != nil && diff.commit == nil {
+					nameLabel += " (" + diff.label() + ")"
 				}
 				cl := ui.ButtonBase(c).Label("Close "+nameLabel).Size(16, 16).Radius(4).Center().KeepFocus()
 				if hovered || active {
@@ -88,7 +84,11 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 					}
 				}
 				cl.OnClick(func() { a.closeTab(g, p) })
-				fileIcon(c, d.name, 13)
+				if diff != nil && diff.commit != nil {
+					symbolIcon(c, icGit, 13, colors(c).Muted)
+				} else {
+					fileIcon(c, d.name, 13)
+				}
 				if d.buf != nil && d.buf.Modified() {
 					ui.Text(c, "●").FontSize(10).TextColor(c.Theme().Accent)
 				}
@@ -127,16 +127,22 @@ func (a *App) diffJumpBar(c *ui.Context, g *group) {
 		folderGlyph(c, false, 13)
 		ui.Text(c, filepath.Base(a.root)).FontSize(12).TextColor(colors(c).Muted).SingleLine()
 		symbolIcon(c, icChevron, 9, colors(c).Dim)
-		fileIcon(c, filepath.Base(v.name), 12)
-		ui.Text(c, v.name).FontSize(12).SingleLine().Shrink(1)
-		label := "Working Tree"
-		if v.staged {
-			label = "Staged"
+		label := v.label()
+		if v.commit != nil {
+			symbolIcon(c, icGit, 12, colors(c).Muted)
+			ui.Text(c, v.rev).FontSize(12).SingleLine()
+			ui.Text(c, v.name).FontSize(12).TextColor(colors(c).Muted).SingleLine().Shrink(1)
+			label = ""
+		} else {
+			fileIcon(c, filepath.Base(v.name), 12)
+			ui.Text(c, v.name).FontSize(12).SingleLine().Shrink(1)
 		}
-		ui.Text(c, label).FontSize(12).TextColor(colors(c).Muted).SingleLine()
+		if label != "" {
+			ui.Text(c, label).FontSize(12).TextColor(colors(c).Muted).SingleLine()
+		}
 		ui.Box(c).Grow(1)
 		if len(g.order) == 1 && len(a.groups()) == 1 {
-			if glyphButton(c, icClose, "Close "+filepath.Base(v.name)+" ("+label+")", "Close Diff", false, false).Clicked() {
+			if glyphButton(c, icClose, "Close "+filepath.Base(v.name)+" ("+v.label()+")", "Close Diff", false, false).Clicked() {
 				a.closeTab(g, g.active)
 			}
 		}
