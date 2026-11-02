@@ -46,7 +46,7 @@ Use `go tool mygo build -platform darwin/universal` for a universal macOS build,
 
 Open the command palette with **Cmd+Shift+P** and choose **Shell Command: Install 'see' Command in PATH** to link the running executable at `~/.local/bin/see`; add `~/.local/bin` to your `PATH` if needed. The command returns immediately and the link points at the app or executable in place, so use a persistent build rather than `go run`.
 
-Use `see` or `see .` for the current folder, `see /path/to/project` to open a folder, or `see /path/to/file` to open a file in its parent folder. To remove the link, choose **Shell Command: Uninstall 'see' Command from PATH**; it removes only a link pointing to the running executable.
+Use `see` or `see .` for the current folder, `see /path/to/project` to open a folder, or `see /path/to/file` to open a file in its parent folder. When See is already running, `see` hands the path to it rather than starting another copy: a folder that is open comes forward, a file opens in the window whose folder holds it, and anything else opens in a window of its own. To remove the link, choose **Shell Command: Uninstall 'see' Command from PATH**; it removes only a link pointing to the running executable.
 
 ## Features
 
@@ -54,7 +54,10 @@ Use `see` or `see .` for the current folder, `see /path/to/project` to open a fo
 - **Search** — find text in the current file or across the workspace, with case, whole-word, regular expression, and path filters.
 - **Jump** — reach files by fuzzy name, search workspace symbols, and step back and forward through your reading history.
 - **Understand** — definitions, references, callers, diagnostics, and hover help for Go, TypeScript, and JavaScript, through language servers.
-- **Review** — stage, unstage, commit, and discard changes, open a change as a diff tab, and see each file's status beside it in the navigator.
+- **Review** — stage, unstage, commit, and discard changes, open a change as a diff tab, and see each file's status and line counts beside it in the navigator.
+- **History** — browse the branch's commits, or every branch's, as a graph; open a commit to read its message and files, and a file as a diff.
+- **Branch and sync** — switch or create branches from the branch name in the toolbar, and fetch, pull and push, with incoming and outgoing commits counted.
+- **Link** — copy a reference to the selected lines, or their link on GitHub, GitLab and similar hosts.
 - **Preview** — Markdown rendered natively, and any file as hexadecimal bytes when text is not an option.
 - **Run** — a terminal with tabs and split panes, rooted in the open workspace.
 - **Settle in** — system, light, or dark appearance, editor and terminal preferences, recent folders, and a notice when files change on disk.
@@ -126,7 +129,7 @@ These are the macOS shortcuts; on other platforms, use Ctrl in place of Cmd. The
 | Navigate back / forward | Ctrl+- / Ctrl+Shift+- |
 | Add editor right / below | Cmd+D / Cmd+Shift+D |
 | Switch tabs | Cmd+1–8, Cmd+9 for the last tab, Ctrl+Tab / Ctrl+Shift+Tab |
-| Close tab | Cmd+W |
+| Close tab (the window, once no tab is left) | Cmd+W |
 | Toggle terminal | Cmd+Shift+Y or Ctrl+` |
 | New terminal | Ctrl+Shift+` |
 | Settings | Cmd+, |
