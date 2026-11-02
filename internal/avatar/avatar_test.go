@@ -54,10 +54,3 @@ func TestFetchFallsBackAndCaches(t *testing.T) {
 		t.Fatalf("none again: %v after %d requests", err, hits)
 	}
 }
-
-func TestCoAuthors(t *testing.T) {
-	got := CoAuthors("fix: x\n\nCo-Authored-By: Claude Opus <noreply@anthropic.com>\nco-authored-by: Ada <ada@x.org>\nCo-authored-by: Ada <ADA@x.org>\n")
-	if len(got) != 2 || got[0].Name != "Claude Opus" || got[1].Email != "ada@x.org" {
-		t.Fatalf("%+v", got)
-	}
-}

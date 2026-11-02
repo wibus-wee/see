@@ -9,7 +9,6 @@ import (
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 
-	"see/internal/avatar"
 	"see/internal/git"
 )
 
@@ -27,17 +26,18 @@ const (
 const historyPage = 200
 
 type gitHistory struct {
-	commits []git.Commit
-	lanes   []string // the lanes the commits read leave for the next page
-	lanesW  int      // the most lanes a row has, for the graph's width
-	all     bool     // every branch, not only HEAD's
-	head    string   // HEAD when the history was read
-	loading bool
-	done    bool // no commits are left to read
-	stale   bool // to be read again
-	err     string
-	seq     uint64
-	list    ui.ListState
+	commits  []git.Commit
+	lanes    []string // the lanes the commits read leave for the next page
+	lanesW   int      // the most lanes a row has, for the graph's width
+	all      bool     // every branch, not only HEAD's
+	head     string   // HEAD when the history was read
+	loading  bool
+	done     bool // no commits are left to read
+	stale    bool // to be read again
+	err      string
+	seq      uint64
+	list     ui.ListState
+	unpushed map[string]bool // HEAD's commits the branch it tracks has not
 }
 
 // commitView is a commit open in an editor.
@@ -83,6 +83,10 @@ func (a *App) loadHistory(reset bool) {
 	go func() {
 		commits, err := git.Log(ctx, root, all, skip, historyPage)
 		lanes = git.Graph(commits, lanes)
+		var unpushed map[string]bool
+		if reset {
+			unpushed = git.Unpushed(ctx, root)
+		}
 		a.post.Post(func() {
 			if a.gen != gen || h.seq != seq {
 				return
@@ -93,7 +97,7 @@ func (a *App) loadHistory(reset bool) {
 				return
 			}
 			if reset {
-				h.commits, h.lanesW = nil, 0
+				h.commits, h.lanesW, h.unpushed = nil, 0, unpushed
 			}
 			h.commits = append(h.commits, commits...)
 			h.lanes, h.head, h.done = lanes, head, len(commits) < historyPage
@@ -183,27 +187,34 @@ func (a *App) historyNavigator(c *ui.Context) {
 }
 
 // uncommittedRow stands for the working tree's changes over the history,
-// as Peek's; it goes to them.
+// as Peek's: an orange disc in place of an avatar; it leads to them.
 func (a *App) uncommittedRow(c *ui.Context, n int) {
-	row := ui.Row(c).FillWidth().Height(historyRowHeight).Margin(0, sidebarInset).Padding(0, 8, 0, 0).Gap(6).AlignItems(ui.Center).Radius(6).
+	row := ui.Row(c).FillWidth().Height(historyRowHeight).Margin(0, sidebarInset).Padding(0, 8, 0, 0).Gap(historyGap).AlignItems(ui.Center).Radius(6).
 		Cursor(ui.CursorPointer).Label("Uncommitted Changes")
 	if row.Hovered() {
 		row.Background(colors(c).Pill)
 	}
 	row.OnClick(func() { a.git.mode = gitModeChanges })
+	orange := a.gitStatusColor('M')
+	if a.edTheme != nil {
+		orange = ui.RGB(0xff, 0x9f, 0x0a)
+	}
 	row.Children(func() {
-		color := a.gitStatusColor('M')
-		ui.Box(c).Size(graphX(0)+graphLane, historyRowHeight).Shrink(0).Draw(func(p *ui.Painter, r ui.Rect) {
+		lanes := min(max(a.git.history.lanesW, 1), graphMaxLanes)
+		ui.Box(c).Size(graphX(lanes-1)+graphLane, historyRowHeight).Shrink(0).Draw(func(p *ui.Painter, r ui.Rect) {
 			x, y := r.X+graphX(0), r.Y+r.H/2
 			var path ui.Path
 			path.MoveTo(x, y+4).LineTo(x, r.Y+r.H).Dash(0, 2, 2)
-			p.StrokePath(&path, 1.5, color)
+			p.StrokePath(&path, 1.5, orange)
 			var dot ui.Path
 			dot.Circle(x, y, 4)
-			p.StrokePath(&dot, 1.5, color)
+			p.StrokePath(&dot, 1.5, orange)
 		})
-		ui.Column(c).Grow(1).Shrink(1).Children(func() {
-			ui.Text(c, "Uncommitted Changes").FontSize(12).Italic().SingleLine()
+		ui.Box(c).Size(avatarSize, avatarSize).Shrink(0).Radius(avatarSize / 2).Center().Background(orange.Alpha(0.16)).Children(func() {
+			symbolIcon(c, icPage, 14, orange)
+		})
+		ui.Column(c).Grow(1).Shrink(1).Gap(1).Children(func() {
+			ui.Text(c, "Uncommitted Changes").FontSize(12).Bold().SingleLine()
 			ui.Text(c, fmt.Sprintf("%d file%s", n, plural(n))).FontSize(11).TextColor(colors(c).Muted).SingleLine()
 		})
 	})
@@ -212,7 +223,9 @@ func (a *App) uncommittedRow(c *ui.Context, n int) {
 // The graph's geometry: rows of one height, so that the lanes of one row
 // meet those of the next.
 const (
-	historyRowHeight = 40
+	historyRowHeight = 46
+	historyGap       = 8
+	avatarSize       = 30
 	graphLane        = 12
 	graphPad         = 8
 	graphMaxLanes    = 8
@@ -228,6 +241,10 @@ var laneColors = []ui.Color{
 
 func laneColor(i int) ui.Color { return laneColors[i%len(laneColors)] }
 
+// historyRow is a commit, as Peek's: after its lanes of the graph, its
+// author's avatar with the first co-author's over its corner, its
+// subject, and under it the branches and tags at it, when and who; an
+// arrow up marks a commit not pushed yet, as Xcode's.
 func (a *App) historyRow(c *ui.Context, i int) {
 	h := &a.git.history
 	if i == len(h.commits)-1 && !h.done && !h.loading {
@@ -235,10 +252,14 @@ func (a *App) historyRow(c *ui.Context, i int) {
 	}
 	cm := h.commits[i]
 	open := a.focus.active == commitTab(cm.Hash)
-	row := ui.Row(c.Key(cm.Hash)).FillWidth().Height(historyRowHeight).Padding(0, 8, 0, 0).Gap(6).AlignItems(ui.Center).Radius(6).
-		Label(cm.Subject).Tooltip(cm.Short + " " + cm.Subject)
+	unpushed := h.unpushed[cm.Hash]
+	tip := cm.Short + " " + cm.Subject
+	if unpushed {
+		tip += "\n\nNot pushed yet"
+	}
+	row := ui.Row(c.Key(cm.Hash)).FillWidth().Height(historyRowHeight).Padding(0, 8, 0, 0).Gap(historyGap).AlignItems(ui.Center).Radius(6).
+		Label(cm.Subject).Tooltip(tip)
 	// A light selection, for the graph to show through.
-	text, sub := colors(c).Text, colors(c).Muted
 	switch {
 	case open:
 		row.Background(c.Theme().Accent.Alpha(0.2))
@@ -265,19 +286,61 @@ func (a *App) historyRow(c *ui.Context, i int) {
 		ui.Box(c).Size(graphX(lanes-1)+graphLane, historyRowHeight).Shrink(0).Draw(func(p *ui.Painter, r ui.Rect) {
 			drawGraphRow(p, r, cm)
 		})
+		a.commitAvatars(c, cm, avatarSize)
 		ui.Column(c).Grow(1).Shrink(1).Gap(1).Children(func() {
-			ui.Text(c, cm.Subject).FontSize(12).TextColor(text).SingleLine()
-			ui.Row(c).Gap(4).AlignItems(ui.Center).Children(func() {
-				for _, ref := range cm.Refs {
-					if ref != "HEAD" {
-						refBadge(c, ref, ref == a.git.branch)
-					}
+			ui.Row(c).FillWidth().Gap(4).AlignItems(ui.Center).Children(func() {
+				ui.Text(c, cm.Subject).FontSize(12).Bold().SingleLine().Shrink(1)
+				if unpushed {
+					ui.Text(c, "↑").FontSize(11).Bold().TextColor(c.Theme().Accent).Shrink(0)
 				}
-				a.personAvatar(c, cm.Author, cm.Email, 7)
-				ui.Text(c, cm.Author+" · "+relativeTime(cm.Date, time.Now())).FontSize(11).TextColor(sub).SingleLine().Shrink(1)
 			})
+			ui.Text(c, a.commitByline(cm)).FontSize(11).TextColor(colors(c).Muted).SingleLine()
 		})
 	})
+}
+
+// commitByline is the line under a commit's subject: the branches and
+// tags at it but the one checked out, when, and who.
+func (a *App) commitByline(cm git.Commit) string {
+	var parts []string
+	for _, ref := range cm.Refs {
+		if ref != "HEAD" && ref != a.git.branch {
+			parts = append(parts, ref)
+		}
+	}
+	return strings.Join(append(parts, shortDate(cm.Date, time.Now()), authors(cm)), " · ")
+}
+
+// authors names who made a commit, as Peek: the author, and one
+// co-author by name or more by their number.
+func authors(cm git.Commit) string {
+	switch len(cm.CoAuthors) {
+	case 0:
+		return cm.Author
+	case 1:
+		return cm.Author + " and " + cm.CoAuthors[0].Name
+	}
+	n := len(cm.CoAuthors)
+	return fmt.Sprintf("%s and %d other%s", cm.Author, n, plural(n))
+}
+
+// shortDate is when, as short as a list has room for, as Peek's and
+// Finder's: the time today, Yesterday, the weekday this week, else the
+// date.
+func shortDate(t, now time.Time) string {
+	y, m, d := now.Date()
+	today := time.Date(y, m, d, 0, 0, 0, 0, now.Location())
+	switch {
+	case !t.Before(today):
+		return t.Format("15:04")
+	case !t.Before(today.AddDate(0, 0, -1)):
+		return "Yesterday"
+	case !t.Before(today.AddDate(0, 0, -6)):
+		return t.Format("Monday")
+	case t.Year() == now.Year():
+		return t.Format("Jan 2")
+	}
+	return t.Format("2006/1/2")
 }
 
 // refBadge is a branch or tag pointing at a commit.
@@ -437,31 +500,16 @@ func (a *App) commitContent(c *ui.Context, g *group, v *commitView) {
 	ui.Scroll(c.Key(cm.Hash)).Grow(1).FillWidth().TrackScroll(&v.scroll).Children(func() {
 		ui.Column(c).FillWidth().Padding(20, 24).Gap(14).Children(func() {
 			ui.Text(c, cm.Subject).FontSize(18).Bold().Selectable()
-			ui.Row(c).FillWidth().Gap(10).AlignItems(ui.Center).Children(func() {
-				a.personAvatar(c, cm.Author, cm.Email, 14)
-				ui.Column(c).Grow(1).Shrink(1).Children(func() {
-					ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
-						ui.Text(c, cm.Author).FontSize(13).Bold().SingleLine()
-						ui.Text(c, cm.Email).FontSize(12).TextColor(colors(c).Muted).SingleLine().Shrink(1)
-					})
-					when := cm.Date.Format("Monday, January 2, 2006 at 15:04")
-					if d.Committer != "" && d.Committer != cm.Author {
-						when += " · committed by " + d.Committer
-					}
-					ui.Text(c, when).FontSize(12).TextColor(colors(c).Muted).SingleLine()
-				})
-			})
-			if co := avatar.CoAuthors(d.Body); len(co) > 0 {
-				ui.Row(c).FillWidth().Gap(6).AlignItems(ui.Center).Wrap().Children(func() {
-					ui.Text(c, "with").FontSize(12).TextColor(colors(c).Muted)
-					for _, p := range co {
-						ui.Row(c.Key(p.Email)).Gap(4).AlignItems(ui.Center).Children(func() {
-							a.personAvatar(c, p.Name, p.Email, 9)
-							ui.Text(c, p.Name).FontSize(12).SingleLine()
-						})
-					}
-				})
+			when := cm.Date.Format("Monday, January 2, 2006 at 15:04")
+			if d.Committer != "" && d.Committer != cm.Author {
+				when += " · committed by " + d.Committer
 			}
+			ui.Column(c).FillWidth().Gap(8).Children(func() {
+				a.personLine(c, git.Person{Name: cm.Author, Email: cm.Email}, "", when)
+				for _, p := range cm.CoAuthors {
+					a.personLine(c.Key(p.Email), p, "Co-author", p.Email)
+				}
+			})
 			ui.Row(c).FillWidth().Gap(6).AlignItems(ui.Center).Wrap().Children(func() {
 				ui.Text(c, cm.Hash).FontSize(12).TextColor(colors(c).Muted).Selectable()
 				if glyphButton(c, icCopy, "Copy Commit Hash", "Copy Commit Hash", false, false).Clicked() {
@@ -502,7 +550,7 @@ func (a *App) commitContent(c *ui.Context, g *group, v *commitView) {
 					}
 				})
 			}
-			if body := strings.TrimSpace(strings.TrimPrefix(d.Body, cm.Subject)); body != "" {
+			if body := messageBody(d.Body, cm.Subject); body != "" {
 				ui.Text(c, body).FontSize(13).Selectable().FillWidth()
 			}
 			ui.Box(c).Height(1).FillWidth().Background(colors(c).Separator)
@@ -601,4 +649,16 @@ func (a *App) historyCommit(hash string) (git.Commit, bool) {
 		}
 	}
 	return git.Commit{}, false
+}
+
+// messageBody is a commit message without its subject, nor the
+// Co-authored-by trailers its people show above.
+func messageBody(message, subject string) string {
+	var keep []string
+	for line := range strings.SplitSeq(strings.TrimPrefix(message, subject), "\n") {
+		if !strings.HasPrefix(strings.ToLower(strings.TrimSpace(line)), "co-authored-by:") {
+			keep = append(keep, line)
+		}
+	}
+	return strings.TrimSpace(strings.Join(keep, "\n"))
 }

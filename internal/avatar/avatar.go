@@ -18,9 +18,6 @@ import (
 	"time"
 )
 
-// Person is an author or co-author of a commit.
-type Person struct{ Name, Email string }
-
 var noreply = regexp.MustCompile(`^(?:(\d+)\+)?([^@]+)@users\.noreply\.github\.com$`)
 
 // URLs are where to look for the picture of email, in order: GitHub's
@@ -127,21 +124,4 @@ func CacheDir() string {
 		return ""
 	}
 	return filepath.Join(dir, "See", "avatars")
-}
-
-var trailer = regexp.MustCompile(`(?im)^co-authored-by:\s*(.+?)\s*<([^>]+)>\s*$`)
-
-// CoAuthors are the people a commit message's Co-authored-by trailers
-// name, each once.
-func CoAuthors(message string) []Person {
-	var out []Person
-	seen := map[string]bool{}
-	for _, m := range trailer.FindAllStringSubmatch(message, -1) {
-		email := strings.ToLower(m[2])
-		if !seen[email] {
-			seen[email] = true
-			out = append(out, Person{Name: m[1], Email: m[2]})
-		}
-	}
-	return out
 }

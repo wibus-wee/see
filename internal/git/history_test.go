@@ -155,3 +155,16 @@ func TestParseNumstatRename(t *testing.T) {
 		t.Fatalf("%+v", files)
 	}
 }
+
+func TestCoAuthorsFromTheLog(t *testing.T) {
+	root, run := newRepo(t)
+	run("commit", "-q", "--allow-empty", "-m", "pair\n\nCo-authored-by: Ada <ada@x.org>\nCo-Authored-By: Bob <bob@x.org>\nco-authored-by: Ada again <ADA@x.org>\nCo-authored-by: See <see@example.com>")
+	commits, err := Log(context.Background(), root, false, 0, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := commits[0].CoAuthors
+	if len(got) != 2 || got[0] != (Person{"Ada", "ada@x.org"}) || got[1] != (Person{"Bob", "bob@x.org"}) {
+		t.Fatalf("co-authors %+v, subject %q", got, commits[0].Subject)
+	}
+}

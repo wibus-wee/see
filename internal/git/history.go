@@ -109,10 +109,18 @@ type Commit struct {
 	Date           time.Time
 	Refs           []string // branch and tag names pointing at it, HEAD's first
 	Subject        string
+	CoAuthors      []Person // from its Co-authored-by trailers, each once
 	Lane           int      // the column of its dot
 	Before, After  []string // the lanes' commits above and below its dot, "" for none
 	MergeFromLanes []int    // the lanes that end in it, besides its own
 }
+
+// logFormat is the log line Log and ReadCommit read: the fields of a
+// commit after a record separator, its co-authors last, apart.
+const logFormat = "--format=%x1e%H%x00%h%x00%P%x00%an%x00%ae%x00%at%x00%D%x00%s%x00%(trailers:key=Co-authored-by,valueonly,separator=%x1f)"
+
+// Person is an author or a co-author of a commit.
+type Person struct{ Name, Email string }
 
 // emptyTree is git's tree with nothing in it, the parent a first commit
 // is compared with.
@@ -123,7 +131,7 @@ const emptyTree = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 // with the lanes of the graph laid out.
 func Log(ctx context.Context, root string, all bool, skip, n int) ([]Commit, error) {
 	args := []string{"log", "--topo-order", "--decorate=short", "--no-color",
-		"--format=%x1e%H%x00%h%x00%P%x00%an%x00%ae%x00%at%x00%D%x00%s",
+		logFormat,
 		"--skip=" + strconv.Itoa(skip), "-n", strconv.Itoa(n)}
 	if all {
 		args = append(args, "--branches", "--remotes", "--tags", "HEAD")
@@ -140,7 +148,7 @@ func Log(ctx context.Context, root string, all bool, skip, n int) ([]Commit, err
 // ReadCommit reads one commit's log line, without the graph.
 func ReadCommit(ctx context.Context, root, hash string) (Commit, error) {
 	out, err := Command(ctx, root, "log", "-1", "--decorate=short", "--no-color",
-		"--format=%x1e%H%x00%h%x00%P%x00%an%x00%ae%x00%at%x00%D%x00%s", hash, "--")
+		logFormat, hash, "--")
 	if err != nil {
 		return Commit{}, err
 	}
@@ -177,9 +185,36 @@ func ParseLog(out []byte) []Commit {
 				c.Refs = append(c.Refs, strings.TrimPrefix(ref, "tag: "))
 			}
 		}
+		if len(f) > 8 {
+			c.CoAuthors = ParseCoAuthors(strings.Split(strings.TrimSpace(f[8]), "\x1f"), c.Email)
+		}
 		commits = append(commits, c)
 	}
 	return commits
+}
+
+// ParseCoAuthors parses Co-authored-by trailers' values, as
+// "Name <email>", each address once and the author's not at all.
+func ParseCoAuthors(values []string, author string) []Person {
+	var out []Person
+	seen := map[string]bool{strings.ToLower(author): true}
+	for _, v := range values {
+		v = strings.TrimSpace(v)
+		lt, gt := strings.LastIndex(v, "<"), strings.LastIndex(v, ">")
+		if lt < 0 || gt < lt {
+			continue
+		}
+		p := Person{Name: strings.TrimSpace(v[:lt]), Email: strings.TrimSpace(v[lt+1 : gt])}
+		if p.Email == "" || seen[strings.ToLower(p.Email)] {
+			continue
+		}
+		if p.Name == "" {
+			p.Name = p.Email
+		}
+		seen[strings.ToLower(p.Email)] = true
+		out = append(out, p)
+	}
+	return out
 }
 
 // Graph lays out the lanes of commits, newest first and each before its
@@ -227,6 +262,20 @@ func Graph(commits []Commit, lanes []string) []string {
 		c.After = slices.Clone(lanes)
 	}
 	return lanes
+}
+
+// Unpushed are the commits of HEAD the branch it tracks does not have,
+// nil without one.
+func Unpushed(ctx context.Context, root string) map[string]bool {
+	out, err := Command(ctx, root, "rev-list", "@{upstream}..HEAD")
+	if err != nil {
+		return nil
+	}
+	m := map[string]bool{}
+	for _, h := range strings.Fields(string(out)) {
+		m[h] = true
+	}
+	return m
 }
 
 // FileStat is a file a commit changed, with the lines added and deleted,
