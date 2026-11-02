@@ -57,3 +57,22 @@ func TestInvocationRecognizesTheCommand(t *testing.T) {
 		}
 	}
 }
+
+func TestOpenPath(t *testing.T) {
+	wd := t.TempDir()
+	for _, tc := range []struct {
+		args []string
+		want string
+		ok   bool
+	}{
+		{[]string{OpenArg, "/x/y"}, "/x/y", true},
+		{[]string{"rel"}, filepath.Join(wd, "rel"), true},
+		{[]string{"-psn_0_1"}, "", false},
+		{nil, "", false},
+	} {
+		got, ok := OpenPath(tc.args, wd)
+		if got != tc.want || ok != tc.ok {
+			t.Errorf("OpenPath(%q) = %q, %v; want %q, %v", tc.args, got, ok, tc.want, tc.ok)
+		}
+	}
+}

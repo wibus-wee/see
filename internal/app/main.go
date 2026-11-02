@@ -31,6 +31,12 @@ func Main() {
 		}
 		return
 	}
+	mygo.App.SetName("See")
+	// One See at a time, as Xcode: `see` and a second launch hand their
+	// folder to the app that runs, which opens it (OnSecondInstance).
+	if !mygo.App.RequestSingleInstanceLock() {
+		return
+	}
 	shellpath.Start()
 	mygo.Use(native.Plugin)
 	cfg := config.Load(config.Path())
@@ -44,6 +50,7 @@ func Main() {
 		active        *projectWindow
 		varSetMenu    func()
 		createProject func(string)
+		openProject   func(string) *projectWindow
 	)
 	mygo.App.OnBeforeQuit(func(e *mygo.QuitEvent) {
 		if !quitApproved {
@@ -60,7 +67,6 @@ func Main() {
 	})
 	// Light, dark, or the system's, from the start.
 	mygo.Theme.SetSource(themeSource(cfg.Appearance))
-	mygo.App.SetName("See")
 	mygo.App.WhenReady(func() {
 		a.version = mygo.App.Version()
 		win = mygo.NewWindow(mygo.WindowOptions{
@@ -113,7 +119,8 @@ func Main() {
 		}
 		win.OnFocus(func() { activate(primary) })
 		welcome.OnFocus(func() { activate(primary) })
-		createProject = func(path string) {
+		createProject = func(path string) { openProject(path) }
+		openProject = func(path string) *projectWindow {
 			a.showWelcome = false
 			wins.sync(nil)
 			if path != "" {
@@ -122,7 +129,7 @@ func Main() {
 						if p.app.root == root {
 							p.win.Show()
 							p.win.Focus()
-							return
+							return p
 						}
 					}
 				}
@@ -193,6 +200,7 @@ func Main() {
 			}
 			childWin.Show()
 			childWin.Focus()
+			return p
 		}
 		host := newWindowHost(a, win)
 		host.wins, host.welcome = wins, welcome
@@ -254,6 +262,37 @@ func Main() {
 				})
 			}
 		})
+		// `see` while See runs: the path goes to the window that has it
+		// open, else to the first window while it has no folder, else to
+		// a window of its own.
+		mygo.App.OnSecondInstance(func(args []string, wd string) {
+			path, ok := cli.OpenPath(args, wd)
+			if !ok {
+				win.Update(wins.reopen)
+				return
+			}
+			win.Update(func() {
+				if p := projectHolding(projects, path); p != nil {
+					p.app.revealCLIPath(path)
+					wins.sync(nil)
+					p.win.Show()
+					p.win.Focus()
+					p.win.Update(func() {}) // draws the file
+					return
+				}
+				if a.root == "" {
+					a.openCLIPath(path)
+					wins.sync(nil)
+					win.Focus()
+					return
+				}
+				dir, file := cli.Split(path)
+				if p := openProject(dir); file != "" {
+					p.app.revealCLIPath(file)
+					p.win.Update(func() {})
+				}
+			})
+		})
 		mygo.App.OnActivate(func(visible bool) {
 			if !visible {
 				win.Update(wins.reopen)
@@ -283,11 +322,10 @@ func Main() {
 		// last folder when the user asked for it at launch.
 		a.showWelcome = true // until a folder opens
 		defer wins.sync(nil)
+		cliPath, fromCLI := cli.OpenPath(os.Args[1:], "")
 		switch {
-		case len(os.Args) > 2 && os.Args[1] == cli.OpenArg:
-			a.openCLIPath(os.Args[2])
-		case len(os.Args) > 1:
-			a.openCLIPath(os.Args[1])
+		case fromCLI:
+			a.openCLIPath(cliPath)
 		case cfg.LastWorkspace != "" && cfg.ReopenLast:
 			if _, err := os.Stat(cfg.LastWorkspace); err != nil {
 				a.welcomeNote = "The last folder, " + cfg.LastWorkspace + ", is no longer there."
@@ -314,6 +352,22 @@ func Main() {
 	if err := mygo.App.Run(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+// projectHolding is the open window whose folder holds path, the
+// innermost when folders nest.
+func projectHolding(projects []*projectWindow, path string) *projectWindow {
+	var best *projectWindow
+	for _, p := range projects {
+		root := p.app.root
+		if root == "" || (p.win != nil && p.win.IsDestroyed()) || !workspace.Within(root, path) {
+			continue
+		}
+		if best == nil || len(root) > len(best.app.root) {
+			best = p
+		}
+	}
+	return best
 }
 
 func themeSource(s string) mygo.ThemeSource {

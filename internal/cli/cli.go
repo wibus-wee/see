@@ -76,3 +76,36 @@ func Invocation(arg0 string) bool {
 	name := filepath.Base(arg0)
 	return name == "see" || strings.EqualFold(name, "see.exe")
 }
+
+// OpenPath is the path an app process is asked to open by its arguments:
+// after OpenArg, as `see` starts it, or alone, as a file manager or a
+// shell does. A relative path is taken from wd, the current directory
+// when wd is "".
+func OpenPath(args []string, wd string) (string, bool) {
+	var path string
+	switch {
+	case len(args) > 1 && args[0] == OpenArg:
+		path = args[1]
+	case len(args) > 0 && !strings.HasPrefix(args[0], "-"):
+		path = args[0]
+	default:
+		return "", false
+	}
+	if wd != "" && !filepath.IsAbs(path) {
+		path = filepath.Join(wd, path)
+	}
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return "", false
+	}
+	return abs, true
+}
+
+// Split is the folder to open for path, and the file in it to show, ""
+// when path is a folder itself or is not there.
+func Split(path string) (dir, file string) {
+	if fi, err := os.Stat(path); err == nil && !fi.IsDir() {
+		return filepath.Dir(path), path
+	}
+	return path, ""
+}

@@ -29,3 +29,12 @@ func (a *App) openCLIPath(path string) {
 		a.openFile(path, nil)
 	}
 }
+
+// revealCLIPath brings what `see` named forward in a window that has its
+// folder open: a file opens in a tab, the folder itself only shows.
+func (a *App) revealCLIPath(path string) {
+	a.showWelcome = false
+	if fi, err := os.Stat(path); err == nil && !fi.IsDir() {
+		a.openFile(path, nil)
+	}
+}
