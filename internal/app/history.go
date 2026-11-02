@@ -433,7 +433,7 @@ func indexOf(s []string, v string) int {
 func (a *App) commitContent(c *ui.Context, g *group, v *commitView) {
 	cm, d := v.commit, v.details
 	ui.Scroll(c.Key(cm.Hash)).Grow(1).FillWidth().TrackScroll(&v.scroll).Children(func() {
-		ui.Column(c).FillWidth().MaxWidth(900).Padding(20, 24).Gap(14).Children(func() {
+		ui.Column(c).FillWidth().Padding(20, 24).Gap(14).Children(func() {
 			ui.Text(c, cm.Subject).FontSize(18).Bold().Selectable()
 			ui.Row(c).FillWidth().Gap(10).AlignItems(ui.Center).Children(func() {
 				ui.Avatar(c, cm.Author, nil).FontSize(14).Shrink(0)
