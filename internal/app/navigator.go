@@ -70,6 +70,9 @@ func (a *App) navigatorBar(c *ui.Context) {
 				})
 			}
 		})
+		if parts.Track.Changed() && a.navigator == navGit {
+			a.refreshGit() // with the line counts the Git navigator shows
+		}
 	})
 }
 

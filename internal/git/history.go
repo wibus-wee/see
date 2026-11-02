@@ -299,3 +299,21 @@ func CommitFileDiff(ctx context.Context, root, hash string, f FileStat) ([]byte,
 	}
 	return Command(ctx, root, args...)
 }
+
+// LineCounts are the lines added and deleted of each changed file, by
+// its path: those staged, and those of the working tree not staged.
+// Untracked files have none.
+func LineCounts(ctx context.Context, root string) (staged, unstaged map[string]FileStat) {
+	read := func(args ...string) map[string]FileStat {
+		out, err := Command(ctx, root, append([]string{"diff", "--numstat", "-z", "-M", "--no-color", "--no-ext-diff"}, args...)...)
+		if err != nil {
+			return nil
+		}
+		m := map[string]FileStat{}
+		for _, f := range ParseNumstat(out) {
+			m[f.Path] = f
+		}
+		return m
+	}
+	return read("--cached"), read()
+}

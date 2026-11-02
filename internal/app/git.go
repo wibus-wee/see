@@ -33,7 +33,10 @@ type gitState struct {
 	web           string // the web page of the repository, or ""
 	webRoot       string // the repository web was read for
 	syncing       string // what talks to the remote now: Fetching, Pulling, Pushing
-	history       gitHistory
+	// counts are the lines each change adds and deletes, staged and not,
+	// read while the Git navigator shows.
+	counts  [2]map[string]git.FileStat
+	history gitHistory
 }
 
 type gitPeek struct {
@@ -107,16 +110,21 @@ func (a *App) refreshGit() {
 	}
 	a.git.loading = true
 	ctx, root, gen, webRoot := a.wsCtx, a.root, a.gen, a.git.webRoot
+	counting := a.navigator == navGit && !a.sidebarOff
 	go func() {
 		r, b, changes, err := git.Read(ctx, root)
 		var (
 			head, upstream, web string
 			ahead, behind       int
 			remotes             []string
+			counts              [2]map[string]git.FileStat
 		)
 		if err == nil {
 			head = git.Head(ctx, r)
 			upstream, ahead, behind = git.Tracking(ctx, r)
+			if counting && len(changes) > 0 {
+				counts[0], counts[1] = git.LineCounts(ctx, r)
+			}
 			if r != webRoot {
 				remotes = git.Remotes(ctx, r)
 				remote := "origin"
@@ -135,6 +143,9 @@ func (a *App) refreshGit() {
 			a.git.loading = false
 			a.git.root, a.git.branch, a.git.changes, a.git.head = r, b, changes, head
 			a.git.upstream, a.git.ahead, a.git.behind = upstream, ahead, behind
+			if counting || len(changes) == 0 {
+				a.git.counts = counts
+			}
 			if err == nil && r != webRoot {
 				a.git.web, a.git.remotes, a.git.webRoot = web, remotes, r
 			}
@@ -558,6 +569,29 @@ func (a *App) gitRow(c *ui.Context, ch git.Change, staged bool) {
 		if status == '?' {
 			status = 'U'
 		}
+		if !hovered {
+			a.lineCounts(c, ch.Path, staged)
+		}
 		ui.Text(c, string(status)).FontSize(11).TextColor(a.gitStatusColor(status)).Padding(0, 4)
+	})
+}
+
+// lineCounts shows the lines a change adds and deletes, as Peek's list.
+func (a *App) lineCounts(c *ui.Context, path string, staged bool) {
+	m := a.git.counts[1]
+	if staged {
+		m = a.git.counts[0]
+	}
+	f, ok := m[path]
+	if !ok || f.Added < 0 {
+		return
+	}
+	ui.Row(c).Gap(4).Shrink(0).Children(func() {
+		if f.Added > 0 {
+			ui.Text(c, fmt.Sprintf("+%d", f.Added)).FontSize(10).TextColor(a.gitStatusColor('A')).SingleLine()
+		}
+		if f.Deleted > 0 {
+			ui.Text(c, fmt.Sprintf("−%d", f.Deleted)).FontSize(10).TextColor(a.gitStatusColor('D')).SingleLine()
+		}
 	})
 }
