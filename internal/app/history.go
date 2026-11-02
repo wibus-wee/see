@@ -354,7 +354,7 @@ func (a *App) openCommit(cm git.Commit) {
 		return
 	}
 	v := &commitView{commit: cm, loading: true}
-	g.diffs[key] = &gitDiffTab{name: cm.Subject, rev: cm.Short, commit: v}
+	g.diffs[key] = &gitDiffTab{name: cm.Subject, rev: cm.Short, hash: cm.Hash, commit: v}
 	// One commit at a time takes the preview tab, as files do.
 	if old := g.preview; old != "" && old != key && strings.HasPrefix(old, diffTabPrefix+"commit:") {
 		a.closeTab(g, old)
@@ -403,7 +403,7 @@ func (a *App) openCommitFile(g *group, cm git.Commit, f git.FileStat) {
 				return
 			}
 			v := a.newGitDiffTab(patches[0], f.Path, false)
-			v.rev = cm.Short
+			v.rev, v.hash, v.oldPath = cm.Short, cm.Hash, f.OldPath
 			if g.diffs == nil {
 				g.diffs = map[string]*gitDiffTab{}
 			}

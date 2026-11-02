@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -35,8 +36,11 @@ type gitState struct {
 	syncing       string // what talks to the remote now: Fetching, Pulling, Pushing
 	// counts are the lines each change adds and deletes, staged and not,
 	// read while the Git navigator shows.
-	counts  [2]map[string]git.FileStat
-	history gitHistory
+	counts [2]map[string]git.FileStat
+	// pendingTabs are the Git tabs of the last session, read once the
+	// repository is known.
+	pendingTabs []pendingTab
+	history     gitHistory
 }
 
 type gitPeek struct {
@@ -54,6 +58,13 @@ type gitDiffTab struct {
 	staged bool
 	rev    string      // the commit's short hash, for a file of a commit
 	commit *commitView // a commit, which shows in place of a diff
+	// What the tab shows, to read it again in the next session: the
+	// commit's full hash, a renamed file's old path, and whether the
+	// change is of a file git does not track.
+	hash      string
+	oldPath   string
+	untracked bool
+	pending   bool // restored, and waiting to be read
 }
 
 // label tells what a diff compares: the commit, the index or the
@@ -158,6 +169,9 @@ func (a *App) refreshGit() {
 			a.git.err = ""
 			if err != nil {
 				a.git.err = err.Error()
+			}
+			if len(a.git.pendingTabs) > 0 {
+				a.loadPendingTabs(err == nil)
 			}
 			if a.git.pending {
 				a.git.pending = false
@@ -407,19 +421,7 @@ func (a *App) showGitDiffIn(ch git.Change, staged bool, target *group, placement
 	a.git.diffSeq++
 	seq, gen, root, ctx := a.git.diffSeq, a.gen, a.git.root, a.wsCtx
 	go func() {
-		args := []string{"diff", "--no-ext-diff", "--no-color", "--unified=2147483647"}
-		if staged {
-			args = append(args, "--cached")
-		}
-		if ch.Index == '?' {
-			args = []string{"diff", "--no-index", "--no-ext-diff", "--no-color", "--unified=2147483647", "--", "/dev/null", filepath.Join(root, ch.Path)}
-		} else {
-			args = append(args, "--", ch.Path)
-		}
-		out, err := git.Command(ctx, root, args...)
-		if ch.Index == '?' && len(out) > 0 {
-			err = nil
-		}
+		out, err := changeDiff(ctx, root, ch.Path, staged, ch.Index == '?')
 		patches, parseErr := editor.ParsePatch(string(out))
 		a.post.Post(func() {
 			if a.gen != gen || a.git.diffSeq != seq || a.layout.find(target) == nil {
@@ -434,6 +436,7 @@ func (a *App) showGitDiffIn(ch git.Change, staged bool, target *group, placement
 				return
 			}
 			v := a.newGitDiffTab(patches[0], ch.Path, staged)
+			v.untracked = ch.Index == '?'
 			key := diffTab(ch.Path, staged)
 			if placement != sideNone {
 				target = a.splitBeside(target, placement)
@@ -620,4 +623,21 @@ func (a *App) commitBar(c *ui.Context, staged int) {
 			b.OnClick(commit)
 		})
 	})
+}
+
+// changeDiff is the whole patch of a change of the working tree, or of
+// the index with staged; an untracked file's is against nothing.
+func changeDiff(ctx context.Context, root, path string, staged, untracked bool) ([]byte, error) {
+	if untracked {
+		out, err := git.Command(ctx, root, "diff", "--no-index", "--no-ext-diff", "--no-color", "--unified=2147483647", "--", "/dev/null", filepath.Join(root, path))
+		if len(out) > 0 {
+			err = nil // --no-index fails when there is a difference
+		}
+		return out, err
+	}
+	args := []string{"diff", "--no-ext-diff", "--no-color", "--unified=2147483647"}
+	if staged {
+		args = append(args, "--cached")
+	}
+	return git.Command(ctx, root, append(args, "--", path)...)
 }

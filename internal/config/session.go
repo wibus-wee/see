@@ -24,7 +24,8 @@ func WorkspaceSize(s Workspace) (int, int) {
 const DefaultWindowWidth, DefaultWindowHeight = 1280, 820
 
 type Layout struct {
-	Tabs          []Tab   `json:"tabs,omitempty"`
+	Tabs []Tab `json:"tabs,omitempty"`
+	// Active is the active tab's path, or a Git tab's key in the app.
 	Active        string  `json:"active,omitempty"`
 	ActivePreview bool    `json:"activePreview,omitempty"`
 	Preview       string  `json:"preview,omitempty"`
@@ -43,4 +44,19 @@ type Tab struct {
 	Column          int    `json:"column,omitempty"`
 	MarkdownPreview bool   `json:"markdownPreview,omitempty"`
 	PreviewTab      bool   `json:"previewTab,omitempty"`
+	// Diff is set for a tab of Git's, which Path is not a file of: a
+	// change's diff, a commit, or the diff of a file of one.
+	Diff *DiffTab `json:"diff,omitempty"`
+}
+
+// DiffTab is a tab of Git's, read again from the repository when the
+// workspace opens: a change of the working tree or the index (Path,
+// Staged, Untracked), a commit (Commit), or a file of one (Commit and
+// Path, OldPath when renamed). Paths are the repository's, with slashes.
+type DiffTab struct {
+	Path      string `json:"path,omitempty"`
+	OldPath   string `json:"oldPath,omitempty"`
+	Staged    bool   `json:"staged,omitempty"`
+	Untracked bool   `json:"untracked,omitempty"`
+	Commit    string `json:"commit,omitempty"`
 }

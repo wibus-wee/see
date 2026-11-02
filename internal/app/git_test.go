@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/egoist/mygo/ui"
@@ -228,5 +229,68 @@ func TestDiffRevealsItsFile(t *testing.T) {
 	h.settle(func() bool { return isDiffTab(h.a.focus.active) })
 	if want := filepath.Join(root, "pkg", "a.go"); h.a.reveal != want || !h.a.tree.Open.Has(filepath.Join(root, "pkg")) {
 		t.Fatalf("reveal %q, want %q", h.a.reveal, want)
+	}
+}
+
+// A change's diff, a commit and a file of it come back in the next
+// session, the active one active; a change that is gone closes.
+func TestGitTabsSurviveARestart(t *testing.T) {
+	root := historyRepo(t) // a.go is changed
+	writeFile(t, root, "gone.go", "package a\n")
+	h := newHarness(t, root)
+	h.readGit()
+	ch := func(path string) git.Change {
+		for _, c := range h.a.git.changes {
+			if c.Path == path {
+				return c
+			}
+		}
+		t.Fatalf("no change of %s", path)
+		return git.Change{}
+	}
+	h.a.showGitDiff(ch("a.go"), false)
+	h.settle(func() bool { return h.a.focus.has(diffTab("a.go", false)) })
+	h.a.showGitDiff(ch("gone.go"), false)
+	h.settle(func() bool { return h.a.focus.has(diffTab("gone.go", false)) })
+	h.a.git.mode = gitModeHistory
+	h.a.loadHistory(true)
+	h.settle(func() bool { return !h.a.git.history.loading })
+	var side git.Commit
+	for _, c := range h.a.git.history.commits {
+		if c.Subject == "Add B on the side" {
+			side = c
+		}
+	}
+	h.a.openCommit(side)
+	h.settle(func() bool { v := h.a.focus.diffs[commitTab(side.Hash)]; return v != nil && !v.commit.loading })
+	h.a.openCommitFile(h.a.focus, side, git.FileStat{Path: "b.go"})
+	h.settle(func() bool { return h.a.focus.active == commitFileTab(side.Hash, "b.go") })
+	h.a.captureSession()
+	if err := os.Remove(filepath.Join(root, "gone.go")); err != nil {
+		t.Fatal(err)
+	}
+
+	next := newHarness(t, "")
+	next.a.cfg = h.a.cfg
+	next.a.openWorkspace(root)
+	next.settle(func() bool { d := next.a.dirs[root]; return d != nil && d.loaded })
+	next.readGit()
+	next.settle(func() bool {
+		for _, v := range next.a.focus.diffs {
+			if v.pending {
+				return false
+			}
+		}
+		return true
+	})
+	want := []string{diffTab("a.go", false), commitTab(side.Hash), commitFileTab(side.Hash, "b.go")}
+	if !slices.Equal(next.a.focus.order, want) {
+		t.Fatalf("tabs %q, want %q", next.a.focus.order, want)
+	}
+	if next.a.focus.active != want[2] || next.a.focus.diffs[want[2]].state == nil {
+		t.Fatalf("active %q", next.a.focus.active)
+	}
+	if v := next.a.focus.diffs[want[1]]; v.commit.commit.Subject != "Add B on the side" || len(v.commit.details.Files) != 1 {
+		t.Fatalf("commit %+v", v.commit)
 	}
 }

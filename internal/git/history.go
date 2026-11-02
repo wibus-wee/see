@@ -137,6 +137,19 @@ func Log(ctx context.Context, root string, all bool, skip, n int) ([]Commit, err
 	return ParseLog(out), nil
 }
 
+// ReadCommit reads one commit's log line, without the graph.
+func ReadCommit(ctx context.Context, root, hash string) (Commit, error) {
+	out, err := Command(ctx, root, "log", "-1", "--decorate=short", "--no-color",
+		"--format=%x1e%H%x00%h%x00%P%x00%an%x00%ae%x00%at%x00%D%x00%s", hash, "--")
+	if err != nil {
+		return Commit{}, err
+	}
+	if cs := ParseLog(out); len(cs) == 1 {
+		return cs[0], nil
+	}
+	return Commit{}, errors.New("no commit " + hash)
+}
+
 // ParseLog parses Log's output, without the graph.
 func ParseLog(out []byte) []Commit {
 	var commits []Commit

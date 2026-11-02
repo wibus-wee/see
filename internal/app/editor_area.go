@@ -177,6 +177,12 @@ func (a *App) groupContent(c *ui.Context, g *group) {
 	if v := g.diffs[g.active]; v != nil && v.commit != nil {
 		a.commitContent(c, g, v.commit)
 		return
+	} else if v != nil && v.state == nil {
+		ui.Row(c).Grow(1).FillWidth().Center().Gap(8).Children(func() {
+			ui.Spinner(c)
+			ui.Text(c, "Reading "+v.name+"…").TextColor(colors(c).Muted)
+		})
+		return
 	} else if v != nil {
 		view := editor.DiffView(c, v.state).Grow(1).FillWidth()
 		if view.FocusWithin() {

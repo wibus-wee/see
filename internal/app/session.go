@@ -1,11 +1,15 @@
 package app
 
 import (
+	"errors"
 	"path/filepath"
-	"see/internal/config"
 	"slices"
+	"strings"
 
 	"github.com/egoist/mygo/ui/editor"
+
+	"see/internal/config"
+	"see/internal/git"
 )
 
 func (a *App) resizedWorkspace(width, height int) {
@@ -30,10 +34,13 @@ func (a *App) captureSession() {
 		g := n.g
 		s := &config.Layout{Active: tabPath(g.active), ActivePreview: isMarkdownTab(g.active), Preview: g.preview, Focused: g == a.focus}
 		if isDiffTab(g.active) {
-			s.Active = ""
+			s.Active = g.active
 		}
 		for _, key := range g.order {
 			if isDiffTab(key) {
+				if spec := diffTabSpec(g.diffs[key]); spec != nil {
+					s.Tabs = append(s.Tabs, config.Tab{Diff: spec})
+				}
 				continue
 			}
 			path := tabPath(key)
@@ -88,6 +95,10 @@ func (a *App) restoreSession() {
 		g := a.newGroup()
 		n := &layout{g: g, parent: parent}
 		for _, tab := range saved.Tabs {
+			if tab.Diff != nil {
+				a.restoreDiffTab(g, *tab.Diff)
+				continue
+			}
 			key := tab.Path
 			if tab.PreviewTab {
 				key = markdownTab(tab.Path)
@@ -152,8 +163,159 @@ func (a *App) restoreSession() {
 			focused = a.groups()[0]
 		}
 		a.focus = focused
-		if focused.active != "" {
-			a.revealInTree(tabPath(focused.active))
+		if p := a.tabFile(focused, focused.active); p != "" {
+			a.revealInTree(p)
+		}
+	}
+}
+
+// diffTabSpec is what of a Git tab the session keeps, nil for one it
+// cannot read again.
+func diffTabSpec(v *gitDiffTab) *config.DiffTab {
+	switch {
+	case v == nil:
+		return nil
+	case v.commit != nil || v.rev != "":
+		if v.hash == "" {
+			return nil
+		}
+		spec := &config.DiffTab{Commit: v.hash}
+		if v.commit == nil {
+			spec.Path, spec.OldPath = v.name, v.oldPath
+		}
+		return spec
+	}
+	return &config.DiffTab{Path: v.name, Staged: v.staged, Untracked: v.untracked}
+}
+
+// restoreDiffTab puts a Git tab of the last session in g, empty until
+// the repository is read (loadPendingTabs).
+func (a *App) restoreDiffTab(g *group, spec config.DiffTab) {
+	if spec.Commit != "" && !isHash(spec.Commit) || spec.Path != "" && !relGitPath(spec.Path) || spec.OldPath != "" && !relGitPath(spec.OldPath) {
+		return
+	}
+	var key string
+	v := &gitDiffTab{name: spec.Path, staged: spec.Staged, untracked: spec.Untracked, hash: spec.Commit, oldPath: spec.OldPath, pending: true}
+	switch {
+	case spec.Commit != "" && spec.Path == "":
+		key = commitTab(spec.Commit)
+		v.rev, v.name = spec.Commit[:7], "Commit "+spec.Commit[:7]
+		v.commit = &commitView{commit: git.Commit{Hash: spec.Commit, Short: v.rev, Subject: v.name}, loading: true}
+	case spec.Commit != "":
+		key, v.rev = commitFileTab(spec.Commit, spec.Path), spec.Commit[:7]
+	case spec.Path != "":
+		key = diffTab(spec.Path, spec.Staged)
+	default:
+		return
+	}
+	if g.has(key) {
+		return
+	}
+	if g.diffs == nil {
+		g.diffs = map[string]*gitDiffTab{}
+	}
+	g.diffs[key] = v
+	g.addTab(key, len(g.order))
+	a.git.pendingTabs = append(a.git.pendingTabs, pendingTab{key: key, v: v})
+}
+
+func isHash(s string) bool {
+	if len(s) < 7 || len(s) > 64 {
+		return false
+	}
+	for _, r := range s {
+		if !strings.ContainsRune("0123456789abcdef", r) {
+			return false
+		}
+	}
+	return true
+}
+
+// relGitPath reports whether p is a path in a repository, as git writes
+// one: relative, with slashes, and not out of it.
+func relGitPath(p string) bool {
+	return p != "" && !strings.HasPrefix(p, "/") && !filepath.IsAbs(p) && !slices.Contains(strings.Split(p, "/"), "..")
+}
+
+// pendingTab is a Git tab of the last session waiting to be read.
+type pendingTab struct {
+	key string
+	v   *gitDiffTab
+}
+
+// loadPendingTabs reads the Git tabs of the last session once the
+// repository is known. A change that is no longer there, or a commit no
+// longer in the repository, closes its tab quietly; without a
+// repository, they all close.
+func (a *App) loadPendingTabs(repo bool) {
+	pending := a.git.pendingTabs
+	a.git.pendingTabs = nil
+	for _, p := range pending {
+		if !repo {
+			a.dropPendingTab(p, "no Git repository")
+			continue
+		}
+		v := p.v
+		gen, ctx, root := a.gen, a.wsCtx, a.git.root
+		go func() {
+			var (
+				cm      git.Commit
+				details git.CommitDetails
+				out     []byte
+				err     error
+			)
+			switch {
+			case v.commit != nil:
+				if cm, err = git.ReadCommit(ctx, root, v.hash); err == nil {
+					details, err = git.Show(ctx, root, v.hash)
+				}
+			case v.hash != "":
+				out, err = git.CommitFileDiff(ctx, root, v.hash, git.FileStat{Path: v.name, OldPath: v.oldPath})
+			default:
+				out, err = changeDiff(ctx, root, v.name, v.staged, v.untracked)
+			}
+			var patches []editor.FilePatch
+			if err == nil && v.commit == nil {
+				patches, err = editor.ParsePatch(string(out))
+				if err == nil && (len(patches) == 0 || patches[0].Binary) {
+					err = errors.New("no text diff")
+				}
+			}
+			a.post.Post(func() {
+				if a.gen != gen {
+					return
+				}
+				if err != nil {
+					a.dropPendingTab(p, gitErrLine(err))
+					return
+				}
+				v.pending = false
+				if v.commit != nil {
+					v.name = cm.Subject
+					v.commit.commit, v.commit.details, v.commit.loading = cm, details, false
+				} else {
+					nv := a.newGitDiffTab(patches[0], v.name, v.staged)
+					v.state, v.patch = nv.state, nv.patch
+				}
+				for _, g := range a.groups() {
+					if g == a.focus && g.diffs[p.key] == v && g.active == p.key {
+						if f := a.tabFile(g, p.key); f != "" {
+							a.revealInTree(f)
+						}
+					}
+				}
+			})
+		}()
+	}
+}
+
+// dropPendingTab closes a Git tab of the last session that cannot be
+// read again.
+func (a *App) dropPendingTab(p pendingTab, why string) {
+	a.logf("session: dropping %q: %s", strings.TrimPrefix(p.key, diffTabPrefix), why)
+	for _, g := range a.groups() {
+		if g.diffs[p.key] == p.v {
+			a.closeTab(g, p.key)
 		}
 	}
 }
