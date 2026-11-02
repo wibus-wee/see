@@ -215,3 +215,18 @@ func TestCodeLinks(t *testing.T) {
 		t.Fatalf("reference %q", got)
 	}
 }
+
+// A change's diff chooses its file in the tree, as the file's own tab
+// does, for when the project navigator shows again.
+func TestDiffRevealsItsFile(t *testing.T) {
+	root := gitRepo(t, map[string]string{"pkg/a.go": "package a\n"})
+	writeFile(t, root, "pkg/a.go", "package a\n\nfunc A() {}\n")
+	h := newHarness(t, root)
+	h.readGit()
+	ch := h.a.git.changes[0]
+	h.a.showGitDiff(ch, false)
+	h.settle(func() bool { return isDiffTab(h.a.focus.active) })
+	if want := filepath.Join(root, "pkg", "a.go"); h.a.reveal != want || !h.a.tree.Open.Has(filepath.Join(root, "pkg")) {
+		t.Fatalf("reveal %q, want %q", h.a.reveal, want)
+	}
+}

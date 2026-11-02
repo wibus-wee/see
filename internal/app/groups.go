@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/egoist/mygo/ui/editor"
 
 	"see/internal/lsp"
+	"see/internal/workspace"
 )
 
 // group is an editor area with tabs of its own, as Xcode's editors
@@ -60,7 +62,24 @@ func isDiffTab(tab string) bool      { return strings.HasPrefix(tab, diffTabPref
 func diffTab(path string, staged bool) string {
 	return fmt.Sprintf("%s%t:%s", diffTabPrefix, staged, path)
 }
-func tabPath(tab string) string               { return strings.TrimPrefix(tab, markdownTabPrefix) }
+func tabPath(tab string) string { return strings.TrimPrefix(tab, markdownTabPrefix) }
+
+// tabFile is the file of the workspace a tab of g shows, which the tree
+// chooses: a diff's too, of the working tree, the index or a commit; ""
+// for a commit's own tab.
+func (a *App) tabFile(g *group, tab string) string {
+	if tab == "" {
+		return ""
+	}
+	if !isDiffTab(tab) {
+		return tabPath(tab)
+	}
+	v := g.diffs[tab]
+	if v == nil || v.commit != nil || a.git.root == "" {
+		return ""
+	}
+	return workspace.DocPath(a.root, a.realRoot, filepath.Join(a.git.root, filepath.FromSlash(v.name)))
+}
 func (g *group) hasDocument(path string) bool { return g.has(path) || g.has(markdownTab(path)) }
 
 // side is where a new group goes beside another.
@@ -190,8 +209,8 @@ func (a *App) activateIn(g *group, path string) {
 	g.active = path
 	g.mru = slices.DeleteFunc(g.mru, func(p string) bool { return p == path })
 	g.mru = append(g.mru, path)
-	if !isDiffTab(path) {
-		a.revealInTree(tabPath(path))
+	if p := a.tabFile(g, path); p != "" {
+		a.revealInTree(p)
 	}
 	a.saveConfigSoon()
 }
@@ -244,8 +263,8 @@ func (a *App) closeTab(g *group, path string) {
 	if len(g.order) == 0 && len(a.groups()) > 1 {
 		a.removeGroup(g)
 	}
-	if a.focus == g && g.active != "" && !isDiffTab(g.active) {
-		a.revealInTree(tabPath(g.active))
+	if p := a.tabFile(g, g.active); a.focus == g && p != "" {
+		a.revealInTree(p)
 	}
 	a.saveConfigSoon()
 }
