@@ -72,7 +72,11 @@ func TestManagedTypeScriptPaths(t *testing.T) {
 	if managed == "" {
 		t.Fatal("no managed folder")
 	}
-	if want := filepath.Join(dir, "See", "language-servers", "tsrs"); managed != want {
+	configDir := dir
+	if runtime.GOOS == "darwin" {
+		configDir = filepath.Join(dir, "Library", "Application Support")
+	}
+	if want := filepath.Join(configDir, "See", "language-servers", "tsrs"); managed != want {
 		t.Fatalf("ManagedTypeScriptDir = %q, want %q", managed, want)
 	}
 	if entry := ManagedTypeScriptEntry(); entry != filepath.Join(managed, "node_modules", "tsrs", "bin", "tsrs") {
