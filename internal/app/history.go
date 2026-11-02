@@ -224,6 +224,12 @@ func (a *App) historyRow(c *ui.Context, i int) {
 		if m.Item("Copy Subject").Chosen() {
 			c.Services().WriteClipboard(cm.Subject)
 		}
+		if link := a.commitLink(cm.Hash); link != "" {
+			m.Separator()
+			if m.Item("Open on " + hostName(a.git.web)).Chosen() {
+				c.Services().OpenURL(link)
+			}
+		}
 	})
 	row.Children(func() {
 		lanes := min(max(h.lanesW, 1), graphMaxLanes)
@@ -424,6 +430,13 @@ func (a *App) commitContent(c *ui.Context, g *group, v *commitView) {
 				for _, ref := range cm.Refs {
 					if ref != "HEAD" {
 						refBadge(c, ref, ref == a.git.branch)
+					}
+				}
+				if link := a.commitLink(cm.Hash); link != "" {
+					ui.Box(c).Grow(1)
+					host := hostName(a.git.web)
+					if ui.Button(c, "Open on "+host).FontSize(12).Tooltip(link).Clicked() {
+						c.Services().OpenURL(link)
 					}
 				}
 			})

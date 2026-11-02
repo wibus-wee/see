@@ -106,7 +106,8 @@ type App struct {
 	sidebarOff       bool
 	titleButton      ui.Handle // the toolbar's project name, over which its menu shows
 	titleOpen        bool
-	branchHandle     ui.Handle // the toolbar's branch, under which the branch picker shows
+	services         ui.Services // the window's clipboard and browser, for menus built without a context
+	branchHandle     ui.Handle   // the toolbar's branch, under which the branch picker shows
 	welcomeNote      string
 	showWelcome      bool   // the welcome window over an open workspace
 	version          string // the app's, shown on the welcome window
@@ -849,6 +850,7 @@ func (a *App) newEditor(g *group, d *doc) *editor.State {
 			a.focus = g
 			a.findUsagesAt(true, g.pointerAnchor, g.pointerInEditor)
 		}
+		a.linkItems(menu, d, st)
 	}
 	st.OnHover = func(r editor.HoverRequest) { a.hoverAt(d, st, r) }
 	st.RenderHover = a.renderHover

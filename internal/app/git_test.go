@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/egoist/mygo/ui/editor"
 
 	"see/internal/git"
 )
@@ -189,5 +190,28 @@ func TestPushFetchPull(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(root, "b.go")); err != nil {
 		t.Fatal("the pull brought no b.go")
+	}
+}
+
+// The editor's links name the lines selected: a reference from the
+// workspace's root, and their page on the host at HEAD.
+func TestCodeLinks(t *testing.T) {
+	root := gitRepo(t, map[string]string{"pkg/a b.go": "package a\n\nfunc A() {}\n\nfunc B() {}\n"})
+	gitRun(t, root, "remote", "add", "origin", "git@github.com:o/r.git")
+	h := newHarness(t, root)
+	h.readGit()
+	d := h.open("pkg/a b.go")
+	st := h.a.focus.eds[d.path]
+	st.Select(d.buf.Offset(editor.Pos{Line: 2}), d.buf.Offset(editor.Pos{Line: 4}))
+	if got := h.a.codeReference(d, st); got != "pkg/a b.go:3-4" {
+		t.Fatalf("reference %q", got)
+	}
+	want := "https://github.com/o/r/blob/" + h.a.git.head + "/pkg/a%20b.go#L3-L4"
+	if got := h.a.webLink(d, st); got != want {
+		t.Fatalf("link %q, want %q", got, want)
+	}
+	st.Select(d.buf.Offset(editor.Pos{Line: 2, Col: 3}), d.buf.Offset(editor.Pos{Line: 2, Col: 3}))
+	if got := h.a.codeReference(d, st); got != "pkg/a b.go:3" {
+		t.Fatalf("reference %q", got)
 	}
 }

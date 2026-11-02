@@ -61,6 +61,7 @@ func (a *App) view(c *ui.Context) {
 	}
 	a.applyAppearance(c)
 	c.SetTheme(a.theme)
+	a.services = c.Services()
 	vibrant := c.Vibrancy()
 	if vibrant {
 		c.Root().Background(ui.Transparent)

@@ -234,17 +234,10 @@ func (a *App) gitBaseKey(d *doc) string {
 	if root == "" || a.git.head == "" || d.untitled {
 		return ""
 	}
-	gitPath := d.path
-	if !workspace.Within(root, gitPath) && a.realRoot != "" && workspace.Within(a.root, gitPath) {
-		if sub, err := filepath.Rel(a.root, gitPath); err == nil {
-			gitPath = filepath.Join(a.realRoot, sub)
-		}
-	}
-	rel, err := filepath.Rel(root, gitPath)
-	if err != nil || !workspace.Within(root, gitPath) {
+	rel, ok := a.gitRelPath(d.path)
+	if !ok {
 		return ""
 	}
-	rel = filepath.ToSlash(rel)
 	status := "  "
 	for _, ch := range a.git.changes {
 		if ch.Path == rel || ch.OldPath == rel {
