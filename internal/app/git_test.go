@@ -117,12 +117,45 @@ func writeFile(t *testing.T, root, name, text string) {
 	}
 }
 
+// The Git navigator shows the changes over the history, not one or the
+// other; each folds away on its own, and the uncommitted changes stand
+// over the history while theirs are folded.
+func TestGitNavigatorShowsChangesOverHistory(t *testing.T) {
+	h := newHarness(t, historyRepo(t)) // a.go is changed
+	h.readGit()
+	h.a.navigator = navGit
+	h.tt.Frame()
+	h.settle(func() bool { return !h.a.git.history.loading })
+	for _, s := range []string{"Changes", "History", "a.go", "Add A"} {
+		if !h.tt.HasText(s) {
+			t.Fatalf("the navigator shows no %q: %q", s, h.tt.Texts())
+		}
+	}
+	if h.tt.HasText("Uncommitted Changes") {
+		t.Fatal("the uncommitted changes stand over the history beside their own section")
+	}
+	if err := h.tt.Click("Changes"); err != nil {
+		t.Fatal(err)
+	}
+	h.tt.Frame()
+	if !h.a.git.changesClosed || h.tt.HasText("a.go") || !h.tt.HasText("Uncommitted Changes") || !h.tt.HasText("Add A") {
+		t.Fatalf("folded changes: %q", h.tt.Texts())
+	}
+	if err := h.tt.Click("History"); err != nil {
+		t.Fatal(err)
+	}
+	h.tt.Frame()
+	if !h.a.git.historyClosed || h.tt.HasText("Add A") {
+		t.Fatalf("folded history: %q", h.tt.Texts())
+	}
+}
+
 // The Git navigator's history lists the commits under the uncommitted
 // changes; a commit opens with its files, and a file of it as a diff.
 func TestHistoryOpensACommitAndItsFile(t *testing.T) {
 	h := newHarness(t, historyRepo(t))
 	h.readGit()
-	h.a.navigator, h.a.git.mode = navGit, gitModeHistory
+	h.a.navigator, h.a.git.changesClosed = navGit, true
 	h.tt.Frame()
 	h.settle(func() bool { return !h.a.git.history.loading })
 	for _, s := range []string{"Uncommitted Changes", "Merge side", "Add B on the side", "Add A", "first"} {
@@ -254,7 +287,6 @@ func TestGitTabsSurviveARestart(t *testing.T) {
 	h.settle(func() bool { return h.a.focus.has(diffTab("a.go", false)) })
 	h.a.showGitDiff(ch("gone.go"), false)
 	h.settle(func() bool { return h.a.focus.has(diffTab("gone.go", false)) })
-	h.a.git.mode = gitModeHistory
 	h.a.loadHistory(true)
 	h.settle(func() bool { return !h.a.git.history.loading })
 	var side git.Commit

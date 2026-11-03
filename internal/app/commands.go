@@ -33,7 +33,7 @@ func commands() []command {
 		}},
 		{"Show Git", "", "", 0, 0, func(a *App) { a.sidebarOff, a.navigator = false, navGit; a.refreshGit() }},
 		{"Git: Show History", "", "", 0, 0, func(a *App) {
-			a.sidebarOff, a.navigator, a.git.mode = false, navGit, gitModeHistory
+			a.sidebarOff, a.navigator, a.git.historyClosed = false, navGit, false
 			a.refreshGit()
 		}},
 		{"Toggle Inline Diff", "", "", 0, 0, func(a *App) { a.toggleDiffLayout() }},

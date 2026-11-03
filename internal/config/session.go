@@ -6,6 +6,11 @@ type Workspace struct {
 	Layout        *Layout `json:"layout,omitempty"`
 	SidebarHidden bool    `json:"sidebarHidden,omitempty"`
 	Navigator     int     `json:"navigator,omitempty"`
+	// ChangesClosed and HistoryClosed are the Git navigator's sections
+	// folded away.
+	ChangesClosed bool    `json:"changesClosed,omitempty"`
+	HistoryClosed bool    `json:"historyClosed,omitempty"`
+	GitSplit      float32 `json:"gitSplit,omitempty"` // the changes' share of the Git navigator, as a percentage
 	WindowWidth   int     `json:"windowWidth,omitempty"`
 	WindowHeight  int     `json:"windowHeight,omitempty"`
 }

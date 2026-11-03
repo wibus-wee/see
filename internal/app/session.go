@@ -61,7 +61,7 @@ func (a *App) captureSession() {
 	if a.cfg.Workspaces == nil {
 		a.cfg.Workspaces = make(map[string]config.Workspace)
 	}
-	a.cfg.Workspaces[a.root] = config.Workspace{Layout: snapshot(a.layout), SidebarHidden: a.sidebarOff, Navigator: a.navigator, WindowWidth: a.windowWidth, WindowHeight: a.windowHeight}
+	a.cfg.Workspaces[a.root] = config.Workspace{Layout: snapshot(a.layout), SidebarHidden: a.sidebarOff, Navigator: a.navigator, ChangesClosed: a.git.changesClosed, HistoryClosed: a.git.historyClosed, GitSplit: a.git.split, WindowWidth: a.windowWidth, WindowHeight: a.windowHeight}
 }
 
 func (a *App) restoreSession() {
@@ -75,6 +75,7 @@ func (a *App) restoreSession() {
 	if s.Navigator >= navFiles && s.Navigator <= navGit {
 		a.navigator = s.Navigator
 	}
+	a.git.changesClosed, a.git.historyClosed, a.git.split = s.ChangesClosed, s.HistoryClosed, s.GitSplit
 	var focused *group
 	var restore func(*config.Layout, *layout, int) *layout
 	restore = func(saved *config.Layout, parent *layout, depth int) *layout {

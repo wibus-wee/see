@@ -17,11 +17,6 @@ import (
 // uncommitted changes on top; a commit opens in an editor with its
 // message and files, and a file of it opens as a diff.
 
-const (
-	gitModeChanges = iota
-	gitModeHistory
-)
-
 // historyPage is how many commits are read at a time.
 const historyPage = 200
 
@@ -108,29 +103,12 @@ func (a *App) loadHistory(reset bool) {
 	}()
 }
 
-// gitHeading is the Git navigator's title line, as the project
-// navigator's: its two scopes as words, the chosen one in the text's
-// color, as Xcode's source control navigator, and the actions on the
-// repository at its end.
-func (a *App) gitHeading(c *ui.Context) {
-	ui.Row(c).FillWidth().Padding(4, 12, 4, sidebarInset+2).Gap(2).AlignItems(ui.Center).Children(func() {
-		for mode, label := range []string{"Changes", "History"} {
-			a.scopeTab(c, mode, label)
-		}
-		ui.Box(c).Grow(1)
-		if a.git.syncing != "" || a.git.history.loading && a.git.mode == gitModeHistory {
+// gitChangesHeader is the head of the Git navigator's changes: their
+// number, and the actions on the repository at its end.
+func (a *App) gitChangesHeader(c *ui.Context) {
+	a.gitSectionHeader(c, "Changes", len(a.git.changes), &a.git.changesClosed, func() {
+		if a.git.syncing != "" {
 			ui.Spinner(c).FontSize(10).Tooltip(a.git.syncing)
-		}
-		if a.git.mode == gitModeHistory {
-			h := &a.git.history
-			tip := "Show Every Branch"
-			if h.all {
-				tip = "Show Only " + a.git.branch
-			}
-			if glyphButton(c, icBranches, "All Branches", tip, h.all, false).Clicked() {
-				h.all, h.stale = !h.all, true
-				a.syncHistory()
-			}
 		}
 		a.syncButtons(c)
 		tip := "Refresh Status"
@@ -143,23 +121,58 @@ func (a *App) gitHeading(c *ui.Context) {
 	})
 }
 
-// scopeTab is one of the Git navigator's scopes.
-func (a *App) scopeTab(c *ui.Context, mode int, label string) {
-	chosen := a.git.mode == mode
-	b := ui.ButtonBase(c.Key(label)).Label(label).Padding(2, 6).Radius(5).KeepFocus()
-	if b.Hovered() && !chosen {
-		b.Background(colors(c).Pill)
-	}
-	b.OnClick(func() {
-		a.git.mode = mode
-		if mode == gitModeHistory {
+// gitHistoryHeader is the head of the Git navigator's history, with
+// the choice of every branch or HEAD's at its end.
+func (a *App) gitHistoryHeader(c *ui.Context) {
+	h := &a.git.history
+	a.gitSectionHeader(c, "History", -1, &a.git.historyClosed, func() {
+		if h.loading {
+			ui.Spinner(c).FontSize(10)
+		}
+		tip := "Show Every Branch"
+		if h.all {
+			tip = "Show Only " + a.git.branch
+		}
+		if glyphButton(c, icBranches, "All Branches", tip, h.all, false).Clicked() {
+			h.all, h.stale = !h.all, true
 			a.syncHistory()
 		}
 	})
-	b.Children(func() {
-		t := ui.Text(c, label).FontSize(12).Bold().SingleLine()
-		if !chosen {
-			t.TextColor(colors(c).Dim)
+}
+
+// gitSectionHeader is the head of a section of the Git navigator, as
+// VS Code's views': an arrow and its title, which a click folds and
+// unfolds, a count when not negative, and actions while it is open.
+func (a *App) gitSectionHeader(c *ui.Context, title string, count int, closed *bool, actions func()) {
+	ui.Row(c.Key(title)).Shrink(0).FillWidth().Height(28).Padding(0, 12, 0, sidebarInset).Gap(2).AlignItems(ui.Center).Children(func() {
+		tip := "Hide " + title
+		if *closed {
+			tip = "Show " + title
+		}
+		b := ui.ButtonBase(c).Label(title).Tooltip(tip).Padding(2, 6, 2, 2).Radius(5).Gap(4).AlignItems(ui.Center).KeepFocus()
+		if b.Hovered() {
+			b.Background(colors(c).Pill)
+		}
+		b.OnClick(func() {
+			*closed = !*closed
+			if closed == &a.git.historyClosed && !*closed {
+				a.syncHistory()
+			}
+		})
+		turn := float32(90)
+		if *closed {
+			turn = 0
+		}
+		b.Children(func() {
+			symbolIcon(c, icChevron, 9, colors(c).Dim).Rotate(turn)
+			ui.Text(c, title).FontSize(12).Bold().SingleLine()
+			if count > 0 {
+				ui.Text(c, fmt.Sprint(count)).FontSize(11).TextColor(colors(c).Dim).SingleLine()
+			}
+		})
+		ui.Box(c).Grow(1)
+		if !*closed {
+			actions()
 		}
 	})
 }
@@ -168,7 +181,7 @@ func (a *App) scopeTab(c *ui.Context, mode int, label string) {
 func (a *App) historyNavigator(c *ui.Context) {
 	h := &a.git.history
 	a.syncHistory()
-	if n := len(a.git.changes); n > 0 {
+	if n := len(a.git.changes); n > 0 && a.git.changesClosed {
 		a.uncommittedRow(c, n)
 	}
 	switch {
@@ -186,15 +199,16 @@ func (a *App) historyNavigator(c *ui.Context) {
 	}
 }
 
-// uncommittedRow stands for the working tree's changes over the history,
-// as Peek's: an orange disc in place of an avatar; it leads to them.
+// uncommittedRow stands for the working tree's changes over the history
+// while their section is folded, as Peek's: an orange disc in place of
+// an avatar; it unfolds them.
 func (a *App) uncommittedRow(c *ui.Context, n int) {
 	row := ui.Row(c).FillWidth().Height(historyRowHeight).Margin(0, sidebarInset).Padding(0, 8, 0, 0).Gap(historyGap).AlignItems(ui.Center).Radius(6).
 		Cursor(ui.CursorPointer).Label("Uncommitted Changes")
 	if row.Hovered() {
 		row.Background(colors(c).Pill)
 	}
-	row.OnClick(func() { a.git.mode = gitModeChanges })
+	row.OnClick(func() { a.git.changesClosed = false })
 	orange := a.gitStatusColor('M')
 	if a.edTheme != nil {
 		orange = ui.RGB(0xff, 0x9f, 0x0a)

@@ -25,7 +25,10 @@ type gitState struct {
 	diffSeq                uint64
 	peek                   *gitPeek
 	picker                 branchPicker
-	mode                   int // gitModeChanges or gitModeHistory
+	// changesClosed and historyClosed are the navigator's sections
+	// folded away, as VS Code's views; both show by default.
+	changesClosed, historyClosed bool
+	split                        float32 // the changes' share of the height while both show, as a percentage
 	// upstream is the branch HEAD's tracks, and ahead and behind how
 	// far apart they are; remotes are the repository's, origin first.
 	upstream      string
@@ -461,11 +464,6 @@ func (a *App) gitNavigator(c *ui.Context) {
 		ui.Text(c, msg).TextColor(colors(c).Muted).FontSize(12).Padding(12, 10).Tooltip(a.git.err)
 		return
 	}
-	a.gitHeading(c)
-	if a.git.mode == gitModeHistory {
-		a.historyNavigator(c)
-		return
-	}
 	staged, unstaged := 0, 0
 	for _, ch := range a.git.changes {
 		if ch.Index != ' ' && ch.Index != '?' {
@@ -475,30 +473,61 @@ func (a *App) gitNavigator(c *ui.Context) {
 			unstaged++
 		}
 	}
-	ui.Scroll(c).Grow(1).FillWidth().Children(func() {
-		ui.Column(c).FillWidth().Children(func() {
-			if len(a.git.changes) == 0 {
-				ui.Text(c, "No changes").FontSize(12).TextColor(colors(c).Muted).Padding(10)
-			}
-			if staged > 0 {
-				a.gitSection(c, "Staged Changes", staged)
-			}
-			for _, ch := range a.git.changes {
-				if ch.Index != ' ' && ch.Index != '?' {
-					a.gitRow(c, ch, true)
+	// The changes over the history, each a section that folds, as VS
+	// Code's views; while both show, a divider between them sets how
+	// much of the navigator each takes.
+	changes := func() {
+		a.gitChangesHeader(c)
+		if a.git.changesClosed {
+			return
+		}
+		a.commitBar(c, staged)
+		ui.Scroll(c).Grow(1).FillWidth().Children(func() {
+			ui.Column(c).FillWidth().Padding(0, 0, 6, 0).Children(func() {
+				if len(a.git.changes) == 0 {
+					ui.Text(c, "No changes").FontSize(12).TextColor(colors(c).Muted).Padding(4, 16, 8, 16)
 				}
-			}
-			if unstaged > 0 {
-				a.gitSection(c, "Changes", unstaged)
-			}
-			for _, ch := range a.git.changes {
-				if ch.Work != ' ' || ch.Index == '?' {
-					a.gitRow(c, ch, false)
+				if staged > 0 {
+					a.gitSection(c, "Staged Changes", staged)
 				}
-			}
+				for _, ch := range a.git.changes {
+					if ch.Index != ' ' && ch.Index != '?' {
+						a.gitRow(c, ch, true)
+					}
+				}
+				if unstaged > 0 && staged > 0 {
+					a.gitSection(c, "Changes", unstaged)
+				}
+				for _, ch := range a.git.changes {
+					if ch.Work != ' ' || ch.Index == '?' {
+						a.gitRow(c, ch, false)
+					}
+				}
+			})
 		})
-	})
-	a.commitBar(c, staged)
+	}
+	history := func() {
+		a.gitHistoryHeader(c)
+		if !a.git.historyClosed {
+			a.historyNavigator(c)
+		}
+	}
+	switch {
+	case !a.git.changesClosed && !a.git.historyClosed:
+		if a.git.split <= 0 {
+			a.git.split = 40
+		}
+		ui.SplitVerticalPercent(c, &a.git.split,
+			func() { ui.Column(c).Fill().Children(changes) },
+			func() { ui.Column(c).Fill().Children(history) }).Grow(1).FillWidth()
+	case a.git.historyClosed:
+		// The history's head at the navigator's foot, under the changes.
+		ui.Column(c).Grow(1).FillWidth().Children(changes)
+		history()
+	default:
+		changes()
+		ui.Column(c).Grow(1).FillWidth().Children(history)
+	}
 }
 
 func (a *App) gitSection(c *ui.Context, name string, count int) {
@@ -591,7 +620,7 @@ func (a *App) lineCounts(c *ui.Context, path string, staged bool) {
 	})
 }
 
-// commitBar is the field at the bottom of the Git navigator, as the
+// commitBar is the field over the Git navigator's changes, as the
 // project navigator's filter: a commit message, Return commits what is
 // staged, and its button at the end does the same.
 func (a *App) commitBar(c *ui.Context, staged int) {
@@ -605,7 +634,7 @@ func (a *App) commitBar(c *ui.Context, staged int) {
 	if staged == 0 {
 		placeholder = "Stage changes to commit"
 	}
-	ui.Row(c).Shrink(0).FillWidth().Padding(6, sidebarInset, 10, sidebarInset).Children(func() {
+	ui.Row(c).Shrink(0).FillWidth().Padding(2, sidebarInset, 6, sidebarInset).Children(func() {
 		ui.Row(c).FillWidth().Height(28).Radius(14).Background(colors(c).Pill).Padding(0, 3, 0, 12).Gap(4).AlignItems(ui.Center).Children(func() {
 			in := ui.TextInput(c, &a.git.message).Placeholder(placeholder).Label("Commit message").
 				FontSize(12).Grow(1).Background(ui.Transparent).BorderWidth(0).Padding(0)
