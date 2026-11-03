@@ -21,7 +21,7 @@ type Palette struct {
 	Separator, Hairline                                   ui.Color
 	Text, Muted, Dim, Err                                 ui.Color
 	WarnBg, InfoBg, Pill                                  ui.Color
-	Page, Folder, Link, Match                             ui.Color
+	Folder, Link, Match                                   ui.Color
 	Popover, PopoverEdge, DropZone                        ui.Color
 	WelcomeLeft, WelcomeRight, WelcomeTile, WelcomeHover  ui.Color
 	Settings, Card, SelectedRow                           ui.Color
@@ -45,7 +45,6 @@ var (
 		WarnBg:       ui.RGB(0x3a, 0x30, 0x12),
 		InfoBg:       ui.RGB(0x13, 0x2f, 0x4f),
 		Pill:         ui.RGBA(0xff, 0xff, 0xff, 0.07),
-		Page:         ui.RGB(0xdc, 0xdc, 0xe0),
 		Folder:       ui.RGB(0x5a, 0xb0, 0xf7),
 		Link:         ui.RGBA(0x0a, 0x84, 0xff, 0.28),
 		Match:        ui.RGBA(0xff, 0xd6, 0x0a, 0.30),
@@ -77,7 +76,6 @@ var (
 		WarnBg:       ui.RGB(0xff, 0xf4, 0xd4),
 		InfoBg:       ui.RGB(0xe3, 0xee, 0xfc),
 		Pill:         ui.RGBA(0, 0, 0, 0.05),
-		Page:         ui.RGB(0xd2, 0xd2, 0xd8),
 		Folder:       ui.RGB(0x2f, 0x8c, 0xe8),
 		Link:         ui.RGBA(0x00, 0x7a, 0xff, 0.16),
 		Match:        ui.RGBA(0xff, 0xcc, 0x00, 0.45),

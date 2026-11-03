@@ -9,7 +9,7 @@ import (
 )
 
 func TestSystemSymbolsLoad(t *testing.T) {
-	icons := []*ui.SVG{icAdd, icFolder, icFolderOpen, icFolderClosed, icNewFolder, folderIcon, openIcon, reopenIcon,
+	icons := []*ui.SVG{icAdd, icFolder, icNewFolder, folderIcon, openIcon, reopenIcon,
 		icSearch, icSidebar, icSplitH, icSplitV, icBack, icForward, icClose, icMinus,
 		icRefresh, icGit, icCollapse, icMarkdown, icRelated, icChevron, icPanel,
 		icHammer, icGear, icLines, icSparkle, icCommand, icPlus, icTrash,
