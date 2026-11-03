@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/plugins/glass"
@@ -37,12 +38,17 @@ func sidebarColor(c *ui.Context, vibrant bool) ui.Color {
 	return colors(c).Sidebar
 }
 
+// thumbSpring moves the navigator bar's thumb: quick, with a little
+// bounce at the end.
+var thumbSpring = ui.Animation{Spring: ui.SpringOptions{Duration: 260 * time.Millisecond, Bounce: 0.2}}
+
 // navigatorBar switches between the file and find navigators.
 func (a *App) navigatorBar(c *ui.Context) {
 	t := c.Theme()
 	ui.Row(c).FillWidth().Padding(0, 10, 10, 10).Children(func() {
+		const segW, segGap = 38, 2
 		parts := ui.SegmentedBase(c, &a.navigator, 3)
-		parts.Track.FillWidth().Height(30).Padding(3).Gap(2).Radius(15).Background(t.Text.Alpha(0.06)).Label("Navigator")
+		parts.Track.FillWidth().Height(30).Padding(3).Gap(segGap).Radius(15).Background(t.Text.Alpha(0.06)).Label("Navigator")
 		if c.Preferences().HighContrast {
 			parts.Track.Border(1, t.Border)
 		}
@@ -54,13 +60,16 @@ func (a *App) navigatorBar(c *ui.Context) {
 			{icSearch, "Show the Find Navigator"},
 			{icGit, "Show the Git Navigator"},
 		}
+		// The chosen segment's glass slides to it, as a segmented control's
+		// thumb does: in the flow, first, so that it paints under the
+		// segments, taking no room, and moved along from there.
+		at := parts.Track.AnimateTo("thumb", float32(a.navigator), thumbSpring)
 		parts.Track.Children(func() {
+			ui.Box(c).Width(segW).Height(24).Radius(12).Shrink(0).MarginEnd(-(segW + segGap)).Start(at * (segW + segGap)).
+				Material(glass.Glass{Interactive: true}).PassThrough()
 			for i, s := range segments {
 				i, s := i, s
-				seg := parts.Segment(i).Width(38).Height(24).Radius(12).Label(s.label)
-				if i == a.navigator {
-					seg.Material(glass.Glass{Interactive: true})
-				}
+				seg := parts.Segment(i).Width(segW).Height(24).Radius(12).Label(s.label)
 				seg.Children(func() {
 					color := colors(c).Muted
 					if i == a.navigator {
