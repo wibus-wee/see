@@ -57,10 +57,57 @@ func (a *App) newTerm(p *termPane) error {
 	var t *terminal.Terminal
 	t, err := terminal.New(terminal.Options{
 		Dir:  a.root,
+		Command: func() []string {
+			if a.cfg.TermShell == "" {
+				return nil
+			}
+			return []string{a.cfg.TermShell}
+		}(),
 		Font: a.terminalFont(),
+		Cursor: func() terminal.CursorStyle {
+			switch a.cfg.TermCursor {
+			case "bar":
+				return terminal.CursorBar
+			case "underline":
+				return terminal.CursorUnderline
+			}
+			return terminal.CursorBlock
+		}(),
+		NoBlink: a.cfg.TermCursorNoBlink,
+		OptionAsAlt: a.cfg.TermOptionAsAlt,
 		CopyOnSelect: map[bool]terminal.CopyOnSelect{
 			true: terminal.CopyOnSelectClipboard,
 		}[a.cfg.TermCopyOnSelect],
+		RightClick: func() terminal.RightClickAction {
+			switch a.cfg.TermRightClick {
+			case "paste":
+				return terminal.RightClickPaste
+			case "copyOrPaste":
+				return terminal.RightClickCopyOrPaste
+			}
+			return terminal.RightClickContextMenu
+		}(),
+		ClipboardRead: func() terminal.ClipboardAccess {
+			switch a.cfg.TermClipboard {
+			case "allow":
+				return terminal.ClipboardAllow
+			case "deny":
+				return terminal.ClipboardDeny
+			}
+			return terminal.ClipboardAsk
+		}(),
+		Scrollback: func() int {
+			v := a.cfg.TermScrollback
+			if v == 0 {
+				v = 4
+			}
+			if v < 0 {
+				return -1
+			}
+			return v << 20
+		}(),
+		Env: a.cfg.TermEnv,
+		MinimumContrast: float32(a.cfg.TermMinContrast),
 		OnTitle: func(title string) {
 			a.post.Post(func() {
 				if a.gen == gen {
@@ -500,7 +547,10 @@ func (a *App) terminalFont() terminal.Font {
 		f.LineHeight = float32(1 + a.cfg.TermLineHeight/100)
 	}
 	if a.cfg.TermNoLigatures {
-		f.Features = []string{"-liga", "-calt"}
+		f.Features = append([]string{"-liga", "-calt"}, f.Features...)
+	}
+	if len(a.cfg.TermFontFeatures) > 0 {
+		f.Features = append(slices.Clone(a.cfg.TermFontFeatures), f.Features...)
 	}
 	return f
 }
@@ -516,6 +566,7 @@ func (a *App) applyTerminalPrefs() {
 			if p.term != nil {
 				p.term.SetFont(a.terminalFont())
 				p.term.SetCopyOnSelect(cos)
+				p.term.SetMinimumContrast(float32(a.cfg.TermMinContrast))
 			}
 		}
 	}

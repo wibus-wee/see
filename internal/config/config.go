@@ -15,6 +15,8 @@ type Config struct {
 	ReopenLast           bool                 `json:"reopenLastWorkspace,omitempty"` // else the welcome window shows at launch
 	SidebarWidth         float32              `json:"sidebarWidth,omitempty"`
 	Appearance           string               `json:"appearance,omitempty"` // "light", "dark", or "" for the system's
+	Language             string               `json:"language,omitempty"`   // "system", or a language tag
+	Vibrancy             bool                 `json:"vibrancy,omitempty"`   // the window's material under the wash
 	Trusted              []string             `json:"trustedWorkspaces,omitempty"`
 	FontFamily           string               `json:"editorFontFamily,omitempty"`
 	TermFontFallback     string               `json:"terminalFontFallback,omitempty"`
@@ -25,10 +27,41 @@ type Config struct {
 	TermLineHeight       float64              `json:"terminalLineHeight,omitempty"`
 	TermThicken          bool                 `json:"terminalFontSmoothing,omitempty"`
 	TermNoLigatures      bool                 `json:"terminalNoLigatures,omitempty"`
+	TermFontFeatures     []string             `json:"terminalFontFeatures,omitempty"`
+	TermCursor           string               `json:"terminalCursor,omitempty"`     // "block", "bar", "underline"
+	TermCursorNoBlink   bool                 `json:"terminalCursorNoBlink,omitempty"`
+	TermOptionAsAlt      bool                 `json:"terminalOptionAsAlt,omitempty"`
+	TermRightClick       string               `json:"terminalRightClick,omitempty"` // "menu", "paste", "copyOrPaste"
+	TermClipboard        string               `json:"terminalClipboard,omitempty"`  // "ask", "allow", "deny"
+	TermScrollPrecision  float64              `json:"terminalScrollPrecision,omitempty"`
+	TermScrollDiscrete   float64              `json:"terminalScrollDiscrete,omitempty"`
+	TermMinContrast      float64              `json:"terminalMinContrast,omitempty"`
+	TermDimUnfocused     bool                 `json:"terminalDimUnfocused,omitempty"`
+	TermScrollback       int                  `json:"terminalScrollback,omitempty"`
+	TermEnv              []string             `json:"terminalEnv,omitempty"`
+	TermShell            string               `json:"terminalShell,omitempty"`
+	EditorFontWeight     int                  `json:"editorFontWeight,omitempty"`
+	EditorLineHeight     float64              `json:"editorLineHeight,omitempty"`
+	EditorNoLigatures   bool                 `json:"editorNoLigatures,omitempty"`
+	EditorFontFeatures   []string             `json:"editorFontFeatures,omitempty"`
+	EditorThicken        bool                 `json:"editorFontThicken,omitempty"`
 	FontSize             float64              `json:"editorFontSize,omitempty"`    // 13 when 0
 	LineNumbers          int                  `json:"editorLineNumbers,omitempty"` // 0 on, 1 relative, 2 off
 	SoftWrap             bool                 `json:"editorSoftWrap,omitempty"`
 	DiffUnified          bool                 `json:"diffUnified,omitempty"`      // diffs inline rather than side by side
+	DiffLayout           string               `json:"diffLayout,omitempty"`       // "auto", "unified", "split"
+	GitStatus            bool                 `json:"gitStatus,omitempty"`
+	ConfirmClose         bool                 `json:"confirmClose,omitempty"`
+	KeepAwake            string               `json:"keepAwake,omitempty"`
+	AppIcon              string               `json:"appIcon,omitempty"`
+	NotifyWaiting        bool                 `json:"notifyWaiting,omitempty"`
+	NotifyDone           bool                 `json:"notifyDone,omitempty"`
+	NotifyFailed         bool                 `json:"notifyFailed,omitempty"`
+	NotifySound          bool                 `json:"notifySound,omitempty"`
+	DockBadge            bool                 `json:"dockBadge,omitempty"`
+	BounceDock           bool                 `json:"bounceDock,omitempty"`
+	RemoteControl        bool                 `json:"remoteControl,omitempty"`
+	Shortcuts            map[string]string    `json:"shortcuts,omitempty"`
 	PanelPct             float64              `json:"panelPercent,omitempty"`     // the editors' share over the bottom panel
 	TermFontSize         float64              `json:"terminalFontSize,omitempty"` // 12 when 0
 	TermCopyOnSelect     bool                 `json:"terminalCopyOnSelect,omitempty"`

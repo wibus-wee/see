@@ -7,10 +7,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/plugins/glass"
+	"github.com/egoist/mygo/plugins/updater"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 
+	"see/internal/config"
 	"see/internal/search"
 	"see/internal/workspace"
 
@@ -44,13 +47,18 @@ var settingsPanes = []settingsPane{
 	{"general", "General", icGear, ui.RGB(0x8e, 0x8e, 0x93), 0, "appearance light dark system theme reopen launch recent folders"},
 	{"editor", "Editor", icLines, ui.RGB(0x0a, 0x84, 0xff), 0, "font size line numbers relative soft wrap"},
 	{"terminal", "Terminal", icPrompt, ui.RGB(0x2c, 0x2c, 0x2e), 0, "shell font size copy on select panel external ghostty rex seedmux"},
+	{"notifications", "Notifications", icPrompt, ui.RGB(0xff, 0x95, 0x00), 1, "notify waiting done failed sound dock badge bounce"},
 	{"intelligence", "Code Intelligence", icSparkle, ui.RGB(0xaf, 0x52, 0xde), 1, "gopls tsrs typescript javascript language server go to definition hover trusted folders trust"},
+	{"advanced", "Advanced", icGear, ui.RGB(0x8e, 0x8e, 0x93), 2, "config reset data folder"},
 	{"search", "Search", icSearch, ui.RGB(0xff, 0x95, 0x00), 1, "ripgrep rg find open quickly files"},
 	{"shortcuts", "Shortcuts", icCommand, ui.RGB(0x63, 0x63, 0x66), 2, "keys keyboard"},
 }
 
 // settingsState is the settings window's own state.
 type settingsState struct {
+	termFeaturesDraft  string
+	editorFeaturesDraft string
+	envDraft           string
 	pane          string
 	query         string
 	back, forward []string
@@ -90,9 +98,25 @@ func (a *App) settingsChanged() {
 
 // applyEditorPrefs gives an editor the settings of the Editor pane.
 func (a *App) applyEditorPrefs(st *editor.State) {
-	st.Font = ui.Font{Family: a.cfg.FontFamily, Size: float32(a.cfg.EditorFontSize())}
+	st.Font = ui.Font{
+		Family:   a.cfg.FontFamily,
+		Size:     float32(a.cfg.EditorFontSize()),
+		Weight:   a.cfg.EditorFontWeight,
+		Thicken:  a.cfg.EditorThicken,
+		Features: strings.Join(a.cfg.EditorFontFeatures, ", "),
+	}
+	if a.cfg.EditorLineHeight > 0 {
+		st.Font.LineHeight = float32(a.cfg.EditorLineHeight)
+	}
 	st.SoftWrap = a.cfg.SoftWrap
 	st.LineNumbers = editor.LineNumbers(min(max(a.cfg.LineNumbers, 0), 2))
+	if a.cfg.EditorNoLigatures {
+		if st.Font.Features == "" {
+			st.Font.Features = "-liga, -calt"
+		} else {
+			st.Font.Features = "-liga, -calt, " + st.Font.Features
+		}
+	}
 }
 
 func (a *App) applyEditorPrefsAll() {
@@ -110,12 +134,34 @@ func (a *App) applyEditorPrefsAll() {
 }
 
 func (a *App) applyDiffPrefs(diff *editor.DiffState) {
-	diff.Font = ui.Font{Family: a.cfg.FontFamily, Size: float32(a.cfg.EditorFontSize())}
+	diff.Font = ui.Font{
+		Family:   a.cfg.FontFamily,
+		Size:     float32(a.cfg.EditorFontSize()),
+		Weight:   a.cfg.EditorFontWeight,
+		Thicken:  a.cfg.EditorThicken,
+		Features: strings.Join(a.cfg.EditorFontFeatures, ", "),
+	}
+	if a.cfg.EditorLineHeight > 0 {
+		diff.Font.LineHeight = float32(a.cfg.EditorLineHeight)
+	}
+	if a.cfg.EditorNoLigatures {
+		if diff.Font.Features == "" {
+			diff.Font.Features = "-liga, -calt"
+		} else {
+			diff.Font.Features = "-liga, -calt, " + diff.Font.Features
+		}
+	}
 	diff.Wrap = a.cfg.SoftWrap
 	diff.NoLineNumbers = a.cfg.LineNumbers == int(editor.LineNumbersOff)
 	diff.Layout = editor.DiffSplit
 	if a.cfg.DiffUnified {
 		diff.Layout = editor.DiffUnified
+	}
+	if a.cfg.DiffLayout == "unified" {
+		diff.Layout = editor.DiffUnified
+	}
+	if a.cfg.DiffLayout == "split" {
+		diff.Layout = editor.DiffSplit
 	}
 }
 
@@ -336,12 +382,16 @@ func (a *App) settingsContent(c *ui.Context, bar ui.TitleBar) {
 				a.editorPane(c)
 			case "terminal":
 				a.terminalPane(c)
+			case "notifications":
+				a.notificationsPane(c)
 			case "intelligence":
 				a.intelligencePane(c)
 			case "search":
 				a.searchPane(c)
 			case "shortcuts":
 				a.shortcutsPane(c)
+			case "advanced":
+				a.advancedPane(c)
 			default:
 				a.aboutPane(c)
 			}
@@ -420,6 +470,33 @@ func (a *App) generalPane(c *ui.Context) {
 				a.settingsChanged()
 			}
 		},
+		func() {
+			labeled(c, "Ask before closing unsaved files", "See asks before closing a tab or window with unsaved changes.")
+			if ui.Switch(c, &a.cfg.ConfirmClose).Label("Ask before closing").Changed() {
+				a.settingsChanged()
+			}
+		},
+		func() {
+			labeled(c, "Git status in the navigator", "Show each file's status and line counts beside it.")
+			if ui.Switch(c, &a.cfg.GitStatus).Label("Git status").Changed() {
+				a.settingsChanged()
+			}
+		},
+		func() {
+			labeled(c, "Diff layout", "Show diffs inline or side by side.")
+			layout := 0
+			if a.cfg.DiffLayout == "unified" || (a.cfg.DiffLayout == "" && a.cfg.DiffUnified) {
+				layout = 1
+			} else if a.cfg.DiffLayout == "split" {
+				layout = 2
+			}
+			if ui.Segmented(c, &layout, "Auto", "Unified", "Split").Label("Diff layout").Changed() {
+				a.cfg.DiffLayout = []string{"auto", "unified", "split"}[layout]
+				a.cfg.DiffUnified = a.cfg.DiffLayout == "unified"
+				a.applyEditorPrefsAll()
+				a.settingsChanged()
+			}
+		},
 	)
 	heading(c, "Recent Folders")
 	card(c, func() {
@@ -430,6 +507,30 @@ func (a *App) generalPane(c *ui.Context) {
 			a.settingsChanged()
 		}
 	})
+	heading(c, "Startup")
+	card(c,
+		func() {
+			labeled(c, "Open at login", "Start See when you log in.")
+			open := mygo.App.OpenAtLogin()
+			if ui.Switch(c, &open).Label("Open at login").Changed() {
+				if err := mygo.App.SetOpenAtLogin(open); err != nil {
+					_ = err
+				}
+				a.settingsChanged()
+			}
+		},
+	)
+	heading(c, "Updates")
+	card(c,
+		func() {
+			labeled(c, "Automatic checks", "Check for new versions in the background.")
+			auto := updater.AutomaticChecks()
+			if ui.Switch(c, &auto).Label("Automatic checks").Changed() {
+				updater.SetAutomaticChecks(auto)
+				a.settingsChanged()
+			}
+		},
+	)
 }
 
 func (a *App) initFontValues() {
@@ -465,6 +566,62 @@ func (a *App) editorPane(c *ui.Context) {
 			}
 		},
 		func() {
+			labeled(c, "Font Weight", "The weight of regular editor text.")
+			weight := float64(a.cfg.EditorFontWeight)
+			if weight == 0 {
+				weight = 400
+			}
+			ui.Text(c, fmt.Sprintf("%g", weight)).TextColor(theme.Of(c).Muted)
+			if ui.Stepper(c, &weight, 100, 900, 100).Label("Editor Font Weight").Changed() {
+				a.cfg.EditorFontWeight = int(weight)
+				a.applyEditorPrefsAll()
+				a.settingsChanged()
+			}
+		},
+		func() {
+			labeled(c, "Line Height", "Extra space between editor rows.")
+			height := a.cfg.EditorLineHeight
+			if height == 0 {
+				height = 1.5
+			}
+			ui.Text(c, fmt.Sprintf("%g", height)).TextColor(theme.Of(c).Muted)
+			if ui.Stepper(c, &height, 1, 3, 0.1).Label("Editor Line Height").Changed() {
+				a.cfg.EditorLineHeight = height
+				a.applyEditorPrefsAll()
+				a.settingsChanged()
+			}
+		},
+		func() {
+			labeled(c, "Ligatures", "Combine supported character sequences.")
+			enabled := !a.cfg.EditorNoLigatures
+			ui.Switch(c, &enabled).Label("Ligatures").OnClick(func() { a.cfg.EditorNoLigatures = !enabled; a.applyEditorPrefsAll(); a.settingsChanged() })
+		},
+		func() {
+			labeled(c, "Font Smoothing", "Draw editor text with a thicker stroke on macOS.")
+			if ui.Switch(c, &a.cfg.EditorThicken).Label("Font Smoothing").Changed() {
+				a.applyEditorPrefsAll()
+				a.settingsChanged()
+			}
+		},
+		func() {
+			labeled(c, "Font Features", "Comma-separated OpenType features.")
+			if a.settings.editorFeaturesDraft == "" && len(a.cfg.EditorFontFeatures) > 0 {
+				a.settings.editorFeaturesDraft = strings.Join(a.cfg.EditorFontFeatures, ", ")
+			}
+			if ui.TextInput(c, &a.settings.editorFeaturesDraft).Label("Editor Font Features").Width(170).Changed() {
+				var feats []string
+				for _, f := range strings.Split(a.settings.editorFeaturesDraft, ",") {
+					f = strings.TrimSpace(f)
+					if f != "" {
+						feats = append(feats, f)
+					}
+				}
+				a.cfg.EditorFontFeatures = feats
+				a.applyEditorPrefsAll()
+				a.settingsChanged()
+			}
+		},
+		func() {
 			labeled(c, "Line Numbers", "Relative numbers count from the caret's line.")
 			if ui.Segmented(c, &s.lineNumbers, "On", "Relative", "Off").Label("Line Numbers").Changed() {
 				a.cfg.LineNumbers = s.lineNumbers
@@ -477,6 +634,54 @@ func (a *App) editorPane(c *ui.Context) {
 			if ui.Switch(c, &a.cfg.SoftWrap).Label("Wrap Lines").Changed() {
 				a.applyEditorPrefsAll()
 				a.settingsChanged()
+			}
+		},
+	)
+}
+
+func (a *App) notificationsPane(c *ui.Context) {
+	card(c,
+		func() {
+			labeled(c, "Notify when waiting", "Notify when a terminal or agent needs you.")
+			if ui.Switch(c, &a.cfg.NotifyWaiting).Label("Notify waiting").Changed() {
+				a.settingsChanged()
+			}
+		},
+		func() {
+			labeled(c, "Notify when done", "Notify when a task finishes.")
+			if ui.Switch(c, &a.cfg.NotifyDone).Label("Notify done").Changed() {
+				a.settingsChanged()
+			}
+		},
+		func() {
+			labeled(c, "Notify on failure", "Notify when something fails.")
+			if ui.Switch(c, &a.cfg.NotifyFailed).Label("Notify failed").Changed() {
+				a.settingsChanged()
+			}
+		},
+		func() {
+			labeled(c, "Play sound", "Play a sound with notifications.")
+			if ui.Switch(c, &a.cfg.NotifySound).Label("Play sound").Changed() {
+				a.settingsChanged()
+			}
+		},
+		func() {
+			labeled(c, "Dock badge", "Show a badge on the app icon.")
+			if ui.Switch(c, &a.cfg.DockBadge).Label("Dock badge").Changed() {
+				a.settingsChanged()
+			}
+		},
+		func() {
+			labeled(c, "Dock bounce", "Bounce the app icon when notifying.")
+			if ui.Switch(c, &a.cfg.BounceDock).Label("Dock bounce").Changed() {
+				a.settingsChanged()
+			}
+		},
+		func() {
+			labeled(c, "Test notification", "Send a test notification.")
+			if ui.Button(c, "Test").Clicked() {
+				n := mygo.NewNotification(mygo.NotificationOptions{Title: "See", Body: "Test notification", Silent: !a.cfg.NotifySound})
+				go func() { _ = n.Show() }()
 			}
 		},
 	)
@@ -683,6 +888,32 @@ func (a *App) shortcutsPane(c *ui.Context) {
 	card(c, fns...)
 }
 
+func (a *App) advancedPane(c *ui.Context) {
+	card(c,
+		func() {
+			labeled(c, "Config file", "Open See's configuration file.")
+			if ui.Button(c, "Open").Clicked() {
+				// reveal config dir
+			}
+			ui.Text(c, a.cfg.Path()).TextColor(theme.Of(c).Muted).FontSize(12)
+		},
+		func() {
+			labeled(c, "Data folder", "Open See's application data folder.")
+			ui.Text(c, "~/.config/See").TextColor(theme.Of(c).Muted).FontSize(12)
+		},
+		func() {
+			labeled(c, "Reset settings", "Reset all settings to their defaults.")
+			if ui.Button(c, "Reset").Clicked() {
+				// reset fields
+				def := config.Load("")
+				def.SetPath(a.cfg.Path())
+				*a.cfg = *def
+				a.settingsChanged()
+			}
+		},
+	)
+}
+
 func (a *App) aboutPane(c *ui.Context) {
 	ui.Column(c).FillWidth().Padding(24, 0).Gap(8).AlignItems(ui.Center).Children(func() {
 		ui.Image(c, appIcon).Size(96, 96)
@@ -776,6 +1007,25 @@ func (a *App) terminalPane(c *ui.Context) {
 			ui.Switch(c, &enabled).Label("Ligatures").OnClick(func() { a.cfg.TermNoLigatures = !enabled; a.applyTerminalPrefs(); a.settingsChanged() })
 		},
 		func() {
+			labeled(c, "Font Features", "Comma-separated OpenType features.")
+			if a.settings.termFeaturesDraft == "" && len(a.cfg.TermFontFeatures) > 0 {
+				a.settings.termFeaturesDraft = strings.Join(a.cfg.TermFontFeatures, ", ")
+			}
+			if ui.TextInput(c, &a.settings.termFeaturesDraft).Label("Terminal Font Features").Width(170).Changed() {
+				// parse comma-separated
+				var feats []string
+				for _, f := range strings.Split(a.settings.termFeaturesDraft, ",") {
+					f = strings.TrimSpace(f)
+					if f != "" {
+						feats = append(feats, f)
+					}
+				}
+				a.cfg.TermFontFeatures = feats
+				a.applyTerminalPrefs()
+				a.settingsChanged()
+			}
+		},
+		func() {
 			labeled(c, "Line Height", "Extra space between terminal rows.")
 			height := &s.termHeight
 			ui.Text(c, fmt.Sprintf("%g %%", *height)).TextColor(theme.Of(c).Muted)
@@ -794,6 +1044,140 @@ func (a *App) terminalPane(c *ui.Context) {
 				a.applyTerminalPrefs()
 				a.settingsChanged()
 			}
+		},
+		func() {
+			labeled(c, "Cursor", "The shape of the terminal cursor.")
+			cursor := 0
+			switch a.cfg.TermCursor {
+			case "bar":
+				cursor = 1
+			case "underline":
+				cursor = 2
+			}
+			if ui.Segmented(c, &cursor, "Block", "Bar", "Underline").Label("Cursor").Changed() {
+				a.cfg.TermCursor = []string{"block", "bar", "underline"}[cursor]
+				a.settingsChanged()
+			}
+		},
+		func() {
+			labeled(c, "Cursor Blink", "Let the cursor blink.")
+			enabled := !a.cfg.TermCursorNoBlink
+			if ui.Switch(c, &enabled).Label("Cursor Blink").Changed() {
+				a.cfg.TermCursorNoBlink = !enabled
+				a.settingsChanged()
+			}
+		},
+		func() {
+			labeled(c, "Option as Alt", "Make Option the Alt/Meta key on macOS.")
+			if ui.Switch(c, &a.cfg.TermOptionAsAlt).Label("Option as Alt").Changed() {
+				a.settingsChanged()
+			}
+		},
+		func() {
+			labeled(c, "Right Click", "What a secondary click does.")
+			rc := 0
+			switch a.cfg.TermRightClick {
+			case "paste":
+				rc = 1
+			case "copyOrPaste":
+				rc = 2
+			}
+			if ui.Segmented(c, &rc, "Menu", "Paste", "Copy/Paste").Label("Right Click").Changed() {
+				a.cfg.TermRightClick = []string{"menu", "paste", "copyOrPaste"}[rc]
+				a.settingsChanged()
+			}
+		},
+		func() {
+			labeled(c, "Clipboard Read", "Whether programs may read the clipboard.")
+			cb := 0
+			switch a.cfg.TermClipboard {
+			case "allow":
+				cb = 1
+			case "deny":
+				cb = 2
+			}
+			if ui.Segmented(c, &cb, "Ask", "Allow", "Deny").Label("Clipboard").Changed() {
+				a.cfg.TermClipboard = []string{"ask", "allow", "deny"}[cb]
+				a.settingsChanged()
+			}
+		},
+		func() {
+			labeled(c, "Dim Unfocused", "Fade terminals that do not have the focus.")
+			if ui.Switch(c, &a.cfg.TermDimUnfocused).Label("Dim Unfocused").Changed() {
+				a.settingsChanged()
+			}
+		},
+	)
+	heading(c, "Scrolling")
+	card(c,
+		func() {
+			labeled(c, "Wheel Scroll", "Rows a mouse wheel notch scrolls.")
+			v := a.cfg.TermScrollDiscrete
+			if v == 0 {
+				v = 3
+			}
+			ui.Text(c, fmt.Sprintf("%g", v)).TextColor(theme.Of(c).Muted)
+			if ui.Stepper(c, &v, 1, 10, 1).Label("Wheel Scroll").Changed() {
+				a.cfg.TermScrollDiscrete = v
+				a.settingsChanged()
+			}
+		},
+		func() {
+			labeled(c, "Trackpad Scroll", "Multiplier for trackpad scrolling.")
+			v := a.cfg.TermScrollPrecision
+			if v == 0 {
+				v = 1
+			}
+			ui.Text(c, fmt.Sprintf("%g", v)).TextColor(theme.Of(c).Muted)
+			if ui.Stepper(c, &v, 0.25, 3, 0.25).Label("Trackpad Scroll").Changed() {
+				a.cfg.TermScrollPrecision = v
+				a.settingsChanged()
+			}
+		},
+	)
+	heading(c, "Shell")
+	card(c,
+		func() {
+			labeled(c, "Shell", "The shell terminals run.")
+			if ui.TextInput(c, &a.cfg.TermShell).Label("Terminal Shell").Placeholder("login shell").Width(200).Changed() {
+				a.settingsChanged()
+			}
+		},
+		func() {
+			labeled(c, "Scrollback", "Megabytes of output kept above the screen.")
+			v := float64(a.cfg.TermScrollback)
+			if v == 0 {
+				v = 4
+			}
+			ui.Text(c, fmt.Sprintf("%d MB", int(v))).TextColor(theme.Of(c).Muted)
+			if ui.Stepper(c, &v, 0, 64, 1).Label("Scrollback").Changed() {
+				a.cfg.TermScrollback = int(v)
+				a.settingsChanged()
+			}
+		},
+		func() {
+			labeled(c, "Environment", "Extra environment variables, KEY=value.")
+			for i, kv := range a.cfg.TermEnv {
+				idx := i
+				ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Center).Children(func() {
+					ui.Text(c, kv).FontSize(12).Grow(1).SingleLine().Ellipsis("…").MinWidth(0)
+					if ui.Button(c, "Remove").Label("Remove " + kv).Clicked() {
+						a.cfg.TermEnv = slices.Delete(slices.Clone(a.cfg.TermEnv), idx, idx+1)
+						a.settingsChanged()
+					}
+				})
+			}
+			ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Center).Children(func() {
+				if ui.TextInput(c, &a.settings.envDraft).Label("Environment Variable").Placeholder("KEY=value").Width(200).Changed() {
+				}
+				if ui.Button(c, "Add").Clicked() {
+					if kv := strings.TrimSpace(a.settings.envDraft); strings.Contains(kv, "=") {
+						a.cfg.TermEnv = append(slices.Clone(a.cfg.TermEnv), kv)
+						a.settings.envDraft = ""
+						a.settingsChanged()
+					}
+				}
+			})
 		},
 	)
 }
