@@ -118,6 +118,7 @@ type App struct {
 	saveTimer        *time.Timer // a settings save waiting for changes to stop
 	restoringSession bool
 	theme            *ui.Theme
+	modifiers        ui.Modifiers // keyboard modifiers held this frame
 	edTheme          *editor.Theme
 	themeDark        bool
 	themeAccent      ui.Color

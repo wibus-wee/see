@@ -19,6 +19,7 @@ type gitState struct {
 	root, branch, message  string
 	head                   string // HEAD's commit, so committed versions are read again only when it moves
 	changes                []git.Change
+	selected               map[string]bool // multi-selected changes, keyed by staged:path
 	decor                  map[string]byte
 	err                    string
 	loading, pending, busy bool
@@ -155,6 +156,7 @@ func (a *App) refreshGit() {
 				return
 			}
 			a.git.loading = false
+			a.git.selected = map[string]bool{}
 			a.git.root, a.git.branch, a.git.changes, a.git.head = r, b, changes, head
 			a.git.upstream, a.git.ahead, a.git.behind = upstream, ahead, behind
 			if counting || len(changes) == 0 {
@@ -411,6 +413,82 @@ func (a *App) discardGitChange(ch git.Change) {
 	a.deleteConfirm = q
 }
 
+func (a *App) discardGitChanges(chs []git.Change) {
+	if a.git.busy || a.git.root == "" || a.deleteConfirm != nil {
+		return
+	}
+	for _, ch := range chs {
+		path := workspace.DocPath(a.root, a.realRoot, filepath.Join(a.git.root, filepath.FromSlash(ch.Path)))
+		if d := a.docs[path]; d != nil && d.buf != nil && d.buf.Modified() {
+			a.note("Save or close the file's unsaved edits before discarding its Git changes.", true)
+			return
+		}
+	}
+	message := fmt.Sprintf("Discard working tree changes to %d files? This cannot be undone.", len(chs))
+	q := &confirmation{message: message}
+	q.actions = []action{
+		{"Discard Changes", func() {
+			if a.deleteConfirm != q || a.git.busy {
+				return
+			}
+			a.deleteConfirm = nil
+			a.git.busy = true
+			ctx, root, gen, trash := a.wsCtx, a.git.root, a.gen, a.host.TrashItem
+			go func() {
+				var firstErr error
+				for _, ch := range chs {
+					path := workspace.DocPath(a.root, a.realRoot, filepath.Join(root, filepath.FromSlash(ch.Path)))
+					var err error
+					if ch.Index == '?' {
+						err = trash(path)
+					} else {
+						_, err = git.Command(ctx, root, "restore", "--worktree", "--", ch.Path)
+					}
+					if err != nil && firstErr == nil {
+						firstErr = err
+					}
+					a.post.Post(func() {
+						if ch.Index == '?' {
+							if err == nil {
+								a.removed(path)
+							}
+						} else if d := a.docs[path]; d != nil && err == nil {
+							a.reloadDoc(d)
+						}
+						if err == nil {
+							a.refreshDir(filepath.Dir(path))
+						}
+					})
+				}
+				a.post.Post(func() {
+					if a.gen != gen {
+						return
+					}
+					a.git.busy = false
+					if firstErr != nil {
+						a.note("Could not discard Git changes: "+firstErr.Error(), true)
+					} else {
+						a.git.diffSeq++
+						a.quick.files = nil
+						a.filter.forQuery = ""
+					}
+					a.refreshGit()
+				})
+			}()
+		}},
+		{"Cancel", func() {
+			if a.deleteConfirm == q {
+				a.deleteConfirm = nil
+			}
+		}},
+	}
+	a.deleteConfirm = q
+}
+
+func gitChangeKey(staged bool, path string) string {
+	return fmt.Sprintf("%t\x00%s", staged, path)
+}
+
 func (a *App) showGitDiff(ch git.Change, staged bool) {
 	a.showGitDiffIn(ch, staged, a.focus, sideNone, len(a.focus.order))
 }
@@ -544,7 +622,9 @@ func (a *App) gitRow(c *ui.Context, ch git.Change, staged bool) {
 	}
 	container := ui.Row(c.Key(fmt.Sprintf("%t:%s", staged, ch.Path))).FillWidth().Padding(1, 13).Gap(2).Radius(4).AlignItems(ui.Center)
 	hovered := container.Hovered()
-	if a.focus.active == diffTab(ch.Path, staged) {
+	if a.git.selected[gitChangeKey(staged, ch.Path)] {
+		container.Background(colors(c).SelectedRow)
+	} else if a.focus.active == diffTab(ch.Path, staged) {
 		container.Background(colors(c).SelectedRow)
 	} else if hovered {
 		container.Background(colors(c).Pill)
@@ -562,12 +642,47 @@ func (a *App) gitRow(c *ui.Context, ch git.Change, staged bool) {
 				}
 			})
 		})
-		row.OnClick(func() { a.showGitDiff(ch, staged) })
+		row.OnClick(func() {
+		if a.modifiers&(ui.Cmd|ui.Ctrl|ui.Shift) != 0 {
+			key := gitChangeKey(staged, ch.Path)
+			if a.git.selected == nil {
+				a.git.selected = map[string]bool{}
+			}
+			if a.git.selected[key] {
+				delete(a.git.selected, key)
+			} else {
+				a.git.selected[key] = true
+			}
+			return
+		}
+		a.showGitDiff(ch, staged)
+	})
 		if hovered {
 			if ch.Work != 'D' && !(ch.Index == 'D' && ch.Work == ' ') && glyphButton(c, icGitOpen, "Open file "+ch.Path, "Open File", false, false).Clicked() {
 				a.openGitFile(ch)
 			}
 			if !staged && glyphButton(c, icGitDiscard, "Discard changes "+ch.Path, "Discard Changes", false, a.git.busy).Clicked() {
+				if a.git.selected[gitChangeKey(false, ch.Path)] {
+					var targets []git.Change
+					for _, c2 := range a.git.changes {
+						if a.git.selected[gitChangeKey(false, c2.Path)] {
+							targets = append(targets, c2)
+						}
+					}
+					seen := map[string]bool{}
+					var uniq []git.Change
+					for _, t := range targets {
+						if seen[t.Path] {
+							continue
+						}
+						seen[t.Path] = true
+						uniq = append(uniq, t)
+					}
+					if len(uniq) > 1 {
+						a.discardGitChanges(uniq)
+						return
+					}
+				}
 				a.discardGitChange(ch)
 			}
 			icon := icPlus
@@ -575,9 +690,31 @@ func (a *App) gitRow(c *ui.Context, ch git.Change, staged bool) {
 				icon = icMinus
 			}
 			if glyphButton(c, icon, action+" "+ch.Path, action, false, a.git.busy).Clicked() {
-				paths := []string{ch.Path}
-				if ch.OldPath != "" {
-					paths = append(paths, ch.OldPath)
+				targets := []git.Change{ch}
+				if a.git.selected[gitChangeKey(staged, ch.Path)] {
+					for _, c2 := range a.git.changes {
+						if a.git.selected[gitChangeKey(staged, c2.Path)] {
+							targets = append(targets, c2)
+						}
+					}
+					// de-duplicate
+					seen := map[string]bool{}
+					var uniq []git.Change
+					for _, t := range targets {
+						if seen[t.Path] {
+							continue
+						}
+						seen[t.Path] = true
+						uniq = append(uniq, t)
+					}
+					targets = uniq
+				}
+				var paths []string
+				for _, t := range targets {
+					paths = append(paths, t.Path)
+					if t.OldPath != "" {
+						paths = append(paths, t.OldPath)
+					}
 				}
 				if staged {
 					a.gitAction(append([]string{"reset", "-q", "--"}, paths...)...)
