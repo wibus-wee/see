@@ -5,6 +5,7 @@ import (
 	"errors"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -210,6 +211,8 @@ type quickOpen struct {
 	results       []search.Scored
 	list          ui.ListState
 	sel           int
+	line          int // line to open, from a trailing :N in the query
+	col           int // column to open, from a trailing :N:N
 	gen           int
 	symbols       []quickSymbol
 	symbolCancel  context.CancelFunc
@@ -238,6 +241,7 @@ func (a *App) openQuickPanel(query string) {
 		q.symbolCancel = nil
 	}
 	q.open, q.query, q.ranked, q.sel = true, query, "\x00", 0
+	q.line, q.col = 0, 0
 	q.list.Selected = &q.sel
 	a.ensureFiles()
 }
@@ -299,7 +303,13 @@ func (a *App) rankQuick() {
 			a.searchSymbols(strings.TrimSpace(q.query[1:]))
 		}
 	} else {
-		q.results = search.Fuzzy(q.files, q.query, 60)
+		query := q.query
+		q.line, q.col = 0, 0
+		if path, line, col, ok := splitQuickPosition(query); ok && line > 0 {
+			q.line, q.col = line, col
+			query = path
+		}
+		q.results = search.Fuzzy(q.files, query, 60)
 	}
 	q.sel = 0
 }
@@ -417,7 +427,35 @@ func (a *App) chooseQuick(i int) {
 		}
 		return
 	}
-	a.previewOpen(joinRoot(a.root, p))
+	if q.line > 0 {
+		path := joinRoot(a.root, p)
+		pos := editor.Pos{Line: q.line - 1, Col: q.col}
+		if q.col > 0 {
+			pos.Col = q.col - 1
+		}
+		a.openFile(path, &pos)
+	} else {
+		a.previewOpen(joinRoot(a.root, p))
+	}
 }
 
 func joinRoot(root, rel string) string { return filepath.Join(root, filepath.FromSlash(rel)) }
+
+// splitQuickPosition splits a trailing :line or :line:col from an Open
+// Quickly query, so that "foo.go:42" opens foo.go at line 42.
+func splitQuickPosition(q string) (string, int, int, bool) {
+	parts := strings.Split(q, ":")
+	if len(parts) >= 3 {
+		if line, err := strconv.Atoi(parts[len(parts)-2]); err == nil && line > 0 {
+			if col, err := strconv.Atoi(parts[len(parts)-1]); err == nil && col >= 0 {
+				return strings.Join(parts[:len(parts)-2], ":"), line, col, true
+			}
+		}
+	}
+	if len(parts) >= 2 {
+		if line, err := strconv.Atoi(parts[len(parts)-1]); err == nil && line > 0 {
+			return strings.Join(parts[:len(parts)-1], ":"), line, 0, true
+		}
+	}
+	return q, 0, 0, false
+}
