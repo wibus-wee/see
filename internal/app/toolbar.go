@@ -18,7 +18,13 @@ const toolbarHeight = 48
 // document navigation and editor actions over the workspace.
 func (a *App) toolbar(c *ui.Context, sidebarProgress float32, vibrant bool) {
 	bar := c.TitleBar()
-	closedWidth := max(bar.Left, 8) + 44
+	// A folderless window has no sidebar: its header leaves only room for
+	// the window buttons, without the toggle.
+	headerWidth := float32(44)
+	if a.root == "" {
+		headerWidth = 12
+	}
+	closedWidth := max(bar.Left, 8) + headerWidth
 	// Split places its one-point divider after the sidebar; include it in
 	// the header so both divider lines share the same x position.
 	width := closedWidth + (max(closedWidth, a.sidebarW+1)-closedWidth)*sidebarProgress
@@ -33,15 +39,15 @@ func (a *App) toolbar(c *ui.Context, sidebarProgress float32, vibrant bool) {
 	row := ui.Row(c).FillWidth().Height(max(bar.Height, toolbarHeight)).
 		AlignItems(ui.Stretch).DragWindow()
 	row.Children(func() {
-		sidebarHeader := ui.Row(c).Width(width).MinWidth(bar.Left+44).Shrink(1).FillHeight().Padding(0, 0, 0, max(bar.Left, 8)+12).
+		sidebarHeader := ui.Row(c).Width(width).MinWidth(max(bar.Left, 8)+headerWidth).Shrink(1).FillHeight().Padding(0, 0, 0, max(bar.Left, 8)+12).
 			AlignItems(ui.Center)
-		if !a.sidebarOff {
+		if a.root != "" && !a.sidebarOff {
 			sidebarHeader.Background(sidebarColor(c, vibrant)).BorderWidth(0, 1, 0, 0).BorderColor(colors(c).Separator)
 		} else {
 			sidebarHeader.Background(colors(c).Toolbar).BorderWidth(0, 0, 1, 0).BorderColor(colors(c).Hairline)
 		}
 		sidebarHeader.Children(func() {
-			if glassToolbarButton(c, icSidebar, "Show Navigator", "Hide or Show the Navigator", !a.sidebarOff).Clicked() {
+			if a.root != "" && glassToolbarButton(c, icSidebar, "Show Navigator", "Hide or Show the Navigator", !a.sidebarOff).Clicked() {
 				a.sidebarOff = !a.sidebarOff
 			}
 		})

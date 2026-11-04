@@ -33,7 +33,10 @@ type windows struct {
 // of background work. from is the window that drew just now, or nil.
 func (w *windows) sync(from window) {
 	a := w.a
-	wantMain := a.root != "" || !a.showWelcome
+	// A folder or an open file makes the main window, with or without the
+	// welcome window over it. Otherwise closing the welcome window leaves
+	// the app with no window up, as Xcode does, rather than an empty one.
+	wantMain := a.root != "" || len(a.docs) > 0
 	wantWelcome := a.showWelcome
 	// Show before hiding, so that the app always has a window up while it
 	// switches from one to the other.

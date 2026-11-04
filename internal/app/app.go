@@ -113,6 +113,7 @@ type App struct {
 	branchHandle     ui.Handle               // the toolbar's branch, under which the branch picker shows
 	welcomeNote      string
 	showWelcome      bool   // the welcome window over an open workspace
+	hasWelcome       bool   // this app owns the welcome window
 	version          string // the app's, shown on the welcome window
 	sidebarW         float32
 	saveTimer        *time.Timer // a settings save waiting for changes to stop

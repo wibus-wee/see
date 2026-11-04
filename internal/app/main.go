@@ -41,17 +41,30 @@ func Main() {
 	mygo.Use(native.Plugin)
 	cfg := config.Load(config.Path())
 	a := newApp(cfg)
+	a.hasWelcome = true
 	var (
-		win, welcome  *mygo.Window
-		wins          = &windows{a: a}
-		quitting      bool
-		quitApproved  bool
-		projects      []*projectWindow
-		active        *projectWindow
-		varSetMenu    func()
-		createProject func(string)
-		openProject   func(string) *projectWindow
+		win, welcome   *mygo.Window
+		wins           = &windows{a: a}
+		quitting       bool
+		quitApproved   bool
+		projects       []*projectWindow
+		active         *projectWindow
+		varSetMenu     func()
+		createProject  func(string)
+		openProject    func(string) *projectWindow
+		openFromSystem func(string)
+		pendingOpen    []string
 	)
+	// Files and folders opened with the application, as by a drop on its
+	// Dock icon: they wait for the windows to exist when the app starts
+	// with one, and open in the windows that fit them after.
+	mygo.App.OnOpenFile(func(path string) {
+		if openFromSystem == nil {
+			pendingOpen = append(pendingOpen, path)
+			return
+		}
+		openFromSystem(path)
+	})
 	mygo.App.OnBeforeQuit(func(e *mygo.QuitEvent) {
 		if !quitApproved {
 			for _, project := range projects {
@@ -205,6 +218,46 @@ func Main() {
 		host.wins, host.welcome = wins, welcome
 		host.createProject = createProject
 		a.host = host
+
+		// openPath opens what the system hands the app, as a file or folder
+		// dropped on its Dock icon: in the window that has it open, else a
+		// folder in the first window while it has no folder, else a window
+		// of its own. A file opens as a file, not as its folder.
+		openPath := func(path string) {
+			if p := projectHolding(projects, path); p != nil {
+				p.app.revealCLIPath(path)
+				wins.sync(nil)
+				p.win.Show()
+				p.win.Focus()
+				p.win.Update(func() {}) // draws the file
+				return
+			}
+			if fi, err := os.Stat(path); err == nil && fi.IsDir() {
+				if a.root == "" {
+					a.openWorkspace(path)
+					wins.sync(nil)
+					win.Focus()
+					return
+				}
+				openProject(path)
+				return
+			}
+			// A file, in the first window: folderless while it has no
+			// folder, a tab of its own otherwise.
+			a.showWelcome = false
+			a.openFile(path, nil)
+			wins.sync(nil)
+			win.Show()
+			win.Focus()
+			win.Update(func() {})
+		}
+		openFromSystem = func(path string) { win.Update(func() { openPath(path) }) }
+		// What the app was launched with may have arrived before its
+		// windows did.
+		for _, path := range pendingOpen {
+			openPath(path)
+		}
+		pendingOpen = nil
 
 		a.post = platform.SchedulerFunc(func(fn func()) { win.Update(func() { fn(); wins.sync(nil) }) })
 		if ready := shellpath.Ready(); ready != nil {

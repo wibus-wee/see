@@ -72,9 +72,10 @@ func (a *App) view(c *ui.Context) {
 	if !a.hover.cmd {
 		a.hideLink()
 	}
-	if a.root == "" && (a.showWelcome || len(a.docs) == 0) {
+	if a.root == "" && a.hasWelcome && len(a.docs) == 0 {
 		// The main window hides without a folder (windows.sync); the
-		// welcome window shows instead.
+		// welcome window shows instead. A window of its own, as New Window
+		// opens, has no welcome window and draws the empty editor.
 		if c.Shortcut(ui.Cmd|ui.Shift, ui.KeyN) {
 			a.host.OpenProjectWindow("")
 		} else if c.Shortcut(ui.Cmd, ui.KeyO) {

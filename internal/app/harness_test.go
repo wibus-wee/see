@@ -76,6 +76,7 @@ func newHarness(t *testing.T, root string) *harness {
 	t.Helper()
 	h := &harness{t: t, q: make(chan func(), 1024), fc: &fakeClient{enc: lsp.UTF16}, host: &fakeHost{}}
 	h.a = newApp(&config.Config{})
+	h.a.hasWelcome = true
 	h.a.host = h.host
 	h.a.post = platform.SchedulerFunc(func(fn func()) { h.q <- fn })
 	h.a.logf = testLogf(t)
