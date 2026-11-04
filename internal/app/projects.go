@@ -32,10 +32,11 @@ func (a *App) fileMenu(run func(func())) *mygo.MenuItem {
 		closeKey = "Cmd+Ctrl+W" // Xcode's Close Workspace
 	}
 	return &mygo.MenuItem{Label: "File", Submenu: []*mygo.MenuItem{
-		{Label: "New File…", Disabled: a.root == "", Click: do(a.newFile)},
+		{Label: "New File…", Disabled: a.root == "" && a.showWelcome, Click: do(a.newFile)},
 		{Label: "New Window", Click: do(func() {
 			a.host.OpenProjectWindow("")
 		})},
+		{Label: "Open File…", Click: do(a.openFileDialog)},
 		{Label: "Open Folder…", Click: do(a.openFolderDialog)},
 		{Label: "Open Recent", Submenu: recent},
 		{Label: "Save", Click: do(a.saveActive)},

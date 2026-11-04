@@ -1,6 +1,8 @@
 package app
 
 import (
+	"see/internal/config"
+
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 )
@@ -31,7 +33,7 @@ func newWindowHost(a *App, win *mygo.Window) *windowHost {
 
 func (h *windowHost) SetTitle(title string) {
 	h.win.SetTitle(title)
-	if !h.own {
+	if !h.own || !h.welcomeSized {
 		return
 	}
 	if want := h.app.root == ""; want != h.welcomeSized {
@@ -41,6 +43,11 @@ func (h *windowHost) SetTitle(title string) {
 			h.win.SetResizable(false)
 			h.win.SetMinimizable(false)
 			h.win.SetMaximizable(false)
+		} else {
+			h.win.SetResizable(true)
+			h.win.SetMinimizable(true)
+			h.win.SetMaximizable(true)
+			h.win.SetSize(config.DefaultWindowWidth, config.DefaultWindowHeight)
 		}
 		h.win.Center()
 	}
@@ -72,6 +79,14 @@ func (h *windowHost) dialogParent() *mygo.Window {
 
 func (h *windowHost) PickFolder() (string, error) {
 	paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Parent: h.dialogParent(), Title: "Open Folder", Directory: true})
+	if err != nil || len(paths) == 0 {
+		return "", err
+	}
+	return paths[0], nil
+}
+
+func (h *windowHost) PickFile() (string, error) {
+	paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Parent: h.dialogParent(), Title: "Open File"})
 	if err != nil || len(paths) == 0 {
 		return "", err
 	}

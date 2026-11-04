@@ -136,14 +136,13 @@ func Main() {
 			}
 			child := newApp(cfg)
 			child.version = a.version
-			width, height := config.DefaultWindowWidth, config.DefaultWindowHeight
 			if path == "" {
-				width, height = welcomeWidth, welcomeHeight
+				child.showWelcome = false
 			}
+			width, height := config.DefaultWindowWidth, config.DefaultWindowHeight
 			var childWin *mygo.Window
 			childWin = mygo.NewWindow(mygo.WindowOptions{
 				Title: "See", Width: width, Height: height, MinWidth: 480, MinHeight: 320,
-				DisableResize: path == "", DisableMinimize: path == "", DisableMaximize: path == "",
 				TitleBarStyle: mygo.TitleBarHidden, TitleBarHeight: toolbarHeight,
 				TrafficLightPosition: &mygo.Point{X: 20, Y: (toolbarHeight - trafficLightSize) / 2},
 				Vibrancy:             mygo.VibrancySidebar, Content: ui.View(child.view),
@@ -152,7 +151,7 @@ func Main() {
 			projects = append(projects, p)
 			child.post = platform.SchedulerFunc(func(fn func()) { childWin.Update(fn) })
 			host := newWindowHost(child, childWin)
-			host.own, host.welcomeSized = true, path == ""
+			host.own, host.welcomeSized = true, false
 			host.createProject = createProject
 			host.setMenu = func() {
 				if varSetMenu != nil {

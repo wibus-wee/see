@@ -14,9 +14,33 @@ import (
 	"see/internal/workspace"
 )
 
+// openFileDialog asks for a file, off the UI thread, and opens it.
+func (a *App) openFileDialog() {
+	pick := a.host.PickFile
+	go func() {
+		p, err := pick()
+		a.post.Post(func() {
+			switch {
+			case err != nil:
+				a.note("Could not show the file dialog: "+err.Error(), true)
+			case p != "":
+				if a.root == "" {
+					a.showWelcome = false
+					a.openFile(p, nil)
+				} else {
+					a.openCLIPath(p)
+				}
+			}
+		})
+	}()
+}
+
 func (a *App) newFile() {
-	if a.root == "" {
+	if a.root == "" && a.showWelcome {
 		return
+	}
+	if a.root == "" {
+		a.showWelcome = false
 	}
 	dir, err := draftDir()
 	if err != nil {

@@ -71,7 +71,7 @@ func (a *App) view(c *ui.Context) {
 	if !a.hover.cmd {
 		a.hideLink()
 	}
-	if a.root == "" {
+	if a.root == "" && (a.showWelcome || len(a.docs) == 0) {
 		// The main window hides without a folder (windows.sync); the
 		// welcome window shows instead.
 		if c.Shortcut(ui.Cmd|ui.Shift, ui.KeyN) {
@@ -87,7 +87,7 @@ func (a *App) view(c *ui.Context) {
 	a.shortcuts(c)
 	root := ui.Column(c).Fill()
 	target := float32(1)
-	if a.sidebarOff {
+	if a.sidebarOff || a.root == "" {
 		target = 0
 	}
 	progress := min(max(root.AnimateTo("sidebar", target, ui.Animation{Spring: ui.SpringOptions{Duration: 250 * time.Millisecond}}), 0), 1)

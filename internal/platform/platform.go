@@ -38,6 +38,7 @@ type Desktop interface {
 	PopupMenu(x, y int, items []*mygo.MenuItem)
 
 	PickFolder() (string, error)             // "" when canceled
+	PickFile() (string, error)               // "" when canceled
 	PickNewFile(root string) (string, error) // "" when canceled
 	// ConfirmDirty asks what to do with unsaved changes: the index of
 	// Save, Don't Save or Cancel. ErrNoDialog has the app ask in the window.
@@ -77,6 +78,7 @@ func (NoDesktop) SetTitle(string)                      {}
 func (NoDesktop) SetWorkspaceSize(int, int)            {}
 func (NoDesktop) PopupMenu(int, int, []*mygo.MenuItem) {}
 func (NoDesktop) PickFolder() (string, error)          { return "", nil }
+func (NoDesktop) PickFile() (string, error)            { return "", nil }
 func (NoDesktop) PickNewFile(string) (string, error)   { return "", nil }
 func (NoDesktop) ConfirmDirty(string) (int, error)     { return 0, ErrNoDialog }
 func (NoDesktop) TrashItem(string) error               { return ErrNoDialog }

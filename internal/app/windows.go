@@ -33,7 +33,7 @@ type windows struct {
 // of background work. from is the window that drew just now, or nil.
 func (w *windows) sync(from window) {
 	a := w.a
-	wantMain := a.root != ""
+	wantMain := a.root != "" || !a.showWelcome
 	wantWelcome := a.showWelcome
 	// Show before hiding, so that the app always has a window up while it
 	// switches from one to the other.

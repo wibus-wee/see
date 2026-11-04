@@ -47,6 +47,7 @@ func (a *App) welcomeIntro(c *ui.Context) {
 			ui.Box(c).Height(12)
 			ui.Column(c).Gap(2).Width(300).Children(func() {
 				a.welcomeAction(c, openIcon, "Open Folder…", "Read the source of a folder", shortcutLabel("O"), a.openFolderDialog)
+				a.welcomeAction(c, openIcon, "Open File…", "Read a single file", "", a.openFileDialog)
 				if last := a.lastFolder(); last != "" {
 					a.welcomeAction(c, reopenIcon, "Reopen "+filepath.Base(last), tildePath(last), "", func() { a.openRecent(last) })
 				}
