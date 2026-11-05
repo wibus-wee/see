@@ -44,7 +44,7 @@ type settingsPane struct {
 }
 
 var settingsPanes = []settingsPane{
-	{"general", "General", icGear, ui.RGB(0x8e, 0x8e, 0x93), 0, "appearance light dark system theme reopen launch recent folders"},
+	{"general", "General", icGear, ui.RGB(0x8e, 0x8e, 0x93), 0, "appearance light dark system theme reopen launch recent folders shell command install uninstall path cli"},
 	{"editor", "Editor", icLines, ui.RGB(0x0a, 0x84, 0xff), 0, "font size line numbers relative soft wrap"},
 	{"terminal", "Terminal", icPrompt, ui.RGB(0x2c, 0x2c, 0x2e), 0, "shell font size copy on select panel external ghostty rex seedmux"},
 	{"notifications", "Notifications", icPrompt, ui.RGB(0xff, 0x95, 0x00), 1, "notify waiting done failed sound dock badge bounce"},
@@ -56,6 +56,7 @@ var settingsPanes = []settingsPane{
 
 // settingsState is the settings window's own state.
 type settingsState struct {
+	shellCommandMessage string
 	termFeaturesDraft  string
 	editorFeaturesDraft string
 	envDraft           string
@@ -504,6 +505,22 @@ func (a *App) generalPane(c *ui.Context) {
 			}
 		},
 	)
+	heading(c, "Shell Command")
+	card(c, func() {
+		detail := "Install see in ~/.local/bin to open files and folders from a terminal. Add ~/.local/bin to your PATH if needed."
+		if s.shellCommandMessage != "" {
+			detail = s.shellCommandMessage
+		}
+		labeled(c, "see command", detail)
+		ui.Button(c.Key("install-see"), "Install").Label("Install see command").OnClick(func() {
+			a.installSee()
+			s.shellCommandMessage = a.notice
+		})
+		ui.Button(c.Key("uninstall-see"), "Uninstall").Label("Uninstall see command").OnClick(func() {
+			a.uninstallSee()
+			s.shellCommandMessage = a.notice
+		})
+	})
 	heading(c, "Recent Folders")
 	card(c, func() {
 		n := len(a.cfg.Recent)

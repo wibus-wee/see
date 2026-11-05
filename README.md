@@ -44,9 +44,9 @@ Use `go tool mygo build -platform darwin/universal` for a universal macOS build,
 
 ### The `see` shell command
 
-Open the command palette with **Cmd+Shift+P** and choose **Shell Command: Install 'see' Command in PATH** to link the running executable at `~/.local/bin/see`; add `~/.local/bin` to your `PATH` if needed. The command returns immediately and the link points at the app or executable in place, so use a persistent build rather than `go run`.
+In **Settings → General → Shell Command**, click **Install**, or open the command palette with **Cmd+Shift+P** and choose **Shell Command: Install 'see' Command in PATH**. This links the running executable at `~/.local/bin/see`; add `~/.local/bin` to your `PATH` if needed. The command returns immediately and the link points at the app or executable in place, so use a persistent build rather than `go run`.
 
-Use `see` or `see .` for the current folder, `see /path/to/project` to open a folder, or `see /path/to/file` to open a file in its parent folder. When See is already running, `see` hands the path to it rather than starting another copy: a folder that is open comes forward, a file opens in the window whose folder holds it, and anything else opens in a window of its own. To remove the link, choose **Shell Command: Uninstall 'see' Command from PATH**; it removes only a link pointing to the running executable.
+Use `see` or `see .` for the current folder, `see /path/to/project` to open a folder, or `see /path/to/file` to open a file in its parent folder. When See is already running, `see` hands the path to it rather than starting another copy: a folder that is open comes forward, a file opens in the window whose folder holds it, and anything else opens in a window of its own. To remove the link, click **Uninstall** in Settings or choose **Shell Command: Uninstall 'see' Command from PATH**; it removes only a link pointing to the running executable.
 
 ## Features
 

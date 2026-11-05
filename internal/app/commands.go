@@ -134,11 +134,10 @@ func (a *App) installSee() {
 		a.note(fmt.Sprintf("Could not install %s: %v", path, err), true)
 		return
 	}
-	if already {
-		a.note("The see command is already installed at "+path, false)
-		return
-	}
 	msg := "Installed see at " + path
+	if already {
+		msg = "The see command is already installed at " + path
+	}
 	found := false
 	for _, p := range filepath.SplitList(os.Getenv("PATH")) {
 		if filepath.Clean(p) == dir {
