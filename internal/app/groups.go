@@ -260,6 +260,9 @@ func (a *App) closeTab(g *group, path string) {
 		}
 	}
 	a.releaseIfUnused(docPath)
+	if a.root == "" && len(a.docs) == 0 {
+		a.host.SetTitle("See")
+	}
 	if len(g.order) == 0 && len(a.groups()) > 1 {
 		a.removeGroup(g)
 	}

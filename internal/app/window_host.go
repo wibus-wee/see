@@ -33,10 +33,10 @@ func newWindowHost(a *App, win *mygo.Window) *windowHost {
 
 func (h *windowHost) SetTitle(title string) {
 	h.win.SetTitle(title)
-	if !h.own || !h.welcomeSized {
+	if !h.own {
 		return
 	}
-	if want := h.app.root == ""; want != h.welcomeSized {
+	if want := h.app.root == "" && len(h.app.docs) == 0; want != h.welcomeSized {
 		h.welcomeSized = want
 		if want {
 			h.win.SetSize(welcomeWidth, welcomeHeight)
@@ -55,6 +55,7 @@ func (h *windowHost) SetTitle(title string) {
 
 func (h *windowHost) SetWorkspaceSize(width, height int) {
 	if h.own {
+		h.welcomeSized = false
 		h.win.SetResizable(true)
 		h.win.SetMinimizable(true)
 		h.win.SetMaximizable(true)

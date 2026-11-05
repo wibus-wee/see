@@ -22,6 +22,7 @@ func editorBindings() []editor.Binding {
 		none(ui.Cmd|ui.Shift, ui.KeyS),
 		none(ui.Cmd, ui.KeyO),
 		none(ui.Cmd, ui.KeyN),
+		none(ui.Cmd|ui.Shift, ui.KeyN),
 		none(ui.Cmd, ui.KeyP),
 		none(ui.Cmd, ui.KeyB),
 		none(ui.Cmd|ui.Shift, ui.KeyP),
@@ -73,9 +74,8 @@ func (a *App) view(c *ui.Context) {
 		a.hideLink()
 	}
 	if a.root == "" && a.hasWelcome && len(a.docs) == 0 {
-		// The main window hides without a folder (windows.sync); the
-		// welcome window shows instead. A window of its own, as New Window
-		// opens, has no welcome window and draws the empty editor.
+		// The primary main window hides without a folder; its welcome
+		// window and folderless project windows show these actions.
 		if c.Shortcut(ui.Cmd|ui.Shift, ui.KeyN) {
 			a.host.OpenProjectWindow("")
 		} else if c.Shortcut(ui.Cmd, ui.KeyO) {

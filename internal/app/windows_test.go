@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"see/internal/config"
+
+	"github.com/egoist/mygo/ui"
 )
 
 // testWindow records what windows does with it.
@@ -43,15 +45,28 @@ func TestClosingWelcomeWithoutFolderShowsNoWindow(t *testing.T) {
 	}
 }
 
-// A folderless window of its own, as New Window opens, shows the empty
-// editor rather than a second welcome screen.
-func TestEmptyFolderlessWindowDrawsNoWelcome(t *testing.T) {
+func TestEmptyFolderlessWindowDrawsWelcome(t *testing.T) {
 	h := newHarness(t, "")
-	h.a.showWelcome = false
-	h.a.hasWelcome = false
+	h.a.showWelcome = true
 	h.tt.Frame()
-	if h.tt.HasText("Show this window when See launches") {
-		t.Error("an empty window of its own drew the welcome screen")
+	if !h.tt.HasText("Show this window when See launches") {
+		t.Error("a folderless window did not draw the welcome screen")
+	}
+}
+
+func TestNewWindowShortcutFromWelcome(t *testing.T) {
+	h := newHarness(t, "")
+	h.a.showWelcome = true
+	called := false
+	h.host.openProject = func(path string) bool {
+		called = path == ""
+		return true
+	}
+	h.tt.Frame()
+	h.tt.Key(ui.Cmd|ui.Shift, ui.KeyN)
+	h.tt.Frame()
+	if !called {
+		t.Error("new window shortcut did not request a folderless window")
 	}
 }
 

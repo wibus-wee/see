@@ -559,6 +559,9 @@ func (a *App) openFile(path string, pos *editor.Pos) *doc {
 
 // openIn shows path in g, at the place to says, if any.
 func (a *App) openIn(g *group, path string, to goTo) *doc {
+	if a.root == "" && len(a.docs) == 0 {
+		a.host.SetWorkspaceSize(config.DefaultWindowWidth, config.DefaultWindowHeight)
+	}
 	a.term.maximized = false
 	a.git.diffSeq++
 	a.git.peek = nil
