@@ -20,6 +20,7 @@ type gitState struct {
 	head                   string // HEAD's commit, so committed versions are read again only when it moves
 	changes                []git.Change
 	selected               map[string]bool // multi-selected changes, keyed by staged:path
+	selectionAnchor        string
 	decor                  map[string]byte
 	err                    string
 	loading, pending, busy bool
@@ -156,8 +157,8 @@ func (a *App) refreshGit() {
 				return
 			}
 			a.git.loading = false
-			a.git.selected = map[string]bool{}
 			a.git.root, a.git.branch, a.git.changes, a.git.head = r, b, changes, head
+			a.git.pruneSelection()
 			a.git.upstream, a.git.ahead, a.git.behind = upstream, ahead, behind
 			if counting || len(changes) == 0 {
 				a.git.counts = counts
@@ -489,6 +490,103 @@ func gitChangeKey(staged bool, path string) string {
 	return fmt.Sprintf("%t\x00%s", staged, path)
 }
 
+func (g *gitState) changeKeys() []string {
+	var keys []string
+	for _, staged := range []bool{true, false} {
+		for _, ch := range g.changes {
+			if staged && ch.Index != ' ' && ch.Index != '?' || !staged && (ch.Work != ' ' || ch.Index == '?') {
+				keys = append(keys, gitChangeKey(staged, ch.Path))
+			}
+		}
+	}
+	return keys
+}
+
+func (g *gitState) pruneSelection() {
+	valid := make(map[string]bool)
+	for _, key := range g.changeKeys() {
+		valid[key] = true
+	}
+	for key := range g.selected {
+		if !valid[key] {
+			delete(g.selected, key)
+		}
+	}
+	if !valid[g.selectionAnchor] {
+		g.selectionAnchor = ""
+	}
+}
+
+func (g *gitState) selectChange(key string, mods ui.Modifiers) {
+	if mods&ui.Shift != 0 && g.selectionAnchor != "" {
+		keys := g.changeKeys()
+		start, end := -1, -1
+		for i, item := range keys {
+			if item == g.selectionAnchor {
+				start = i
+			}
+			if item == key {
+				end = i
+			}
+		}
+		if start >= 0 && end >= 0 {
+			if mods&(ui.Cmd|ui.Ctrl) == 0 {
+				g.selected = make(map[string]bool)
+			}
+			if g.selected == nil {
+				g.selected = make(map[string]bool)
+			}
+			if start > end {
+				start, end = end, start
+			}
+			for _, item := range keys[start : end+1] {
+				g.selected[item] = true
+			}
+			return
+		}
+	}
+	if mods&(ui.Cmd|ui.Ctrl) == 0 {
+		g.selected = make(map[string]bool)
+	}
+	if g.selected == nil {
+		g.selected = make(map[string]bool)
+	}
+	if mods&(ui.Cmd|ui.Ctrl) != 0 && g.selected[key] {
+		delete(g.selected, key)
+	} else {
+		g.selected[key] = true
+	}
+	g.selectionAnchor = key
+}
+
+func (a *App) stageGitChanges(staged bool, changes []git.Change) {
+	var paths []string
+	for _, ch := range changes {
+		paths = append(paths, ch.Path)
+		if ch.OldPath != "" {
+			paths = append(paths, ch.OldPath)
+		}
+	}
+	if len(paths) == 0 {
+		return
+	}
+	if staged {
+		a.gitAction(append([]string{"reset", "-q", "--"}, paths...)...)
+	} else {
+		a.gitAction(append([]string{"add", "--"}, paths...)...)
+	}
+}
+
+func (a *App) stageAllGitChanges(staged bool) {
+	var changes []git.Change
+	for _, ch := range a.git.changes {
+		if staged && ch.Index != ' ' && ch.Index != '?' || !staged && (ch.Work != ' ' || ch.Index == '?') {
+			changes = append(changes, ch)
+		}
+	}
+	a.stageGitChanges(staged, changes)
+}
+
 func (a *App) showGitDiff(ch git.Change, staged bool) {
 	a.showGitDiffIn(ch, staged, a.focus, sideNone, len(a.focus.order))
 }
@@ -624,7 +722,7 @@ func (a *App) gitRow(c *ui.Context, ch git.Change, staged bool) {
 	hovered := container.Hovered()
 	if a.git.selected[gitChangeKey(staged, ch.Path)] {
 		container.Background(colors(c).SelectedRow)
-	} else if a.focus.active == diffTab(ch.Path, staged) {
+	} else if len(a.git.selected) == 0 && a.focus.active == diffTab(ch.Path, staged) {
 		container.Background(colors(c).SelectedRow)
 	} else if hovered {
 		container.Background(colors(c).Pill)
@@ -642,21 +740,13 @@ func (a *App) gitRow(c *ui.Context, ch git.Change, staged bool) {
 				}
 			})
 		})
+		mods := row.ClickModifiers()
 		row.OnClick(func() {
-		if a.modifiers&(ui.Cmd|ui.Ctrl|ui.Shift) != 0 {
-			key := gitChangeKey(staged, ch.Path)
-			if a.git.selected == nil {
-				a.git.selected = map[string]bool{}
+			a.git.selectChange(gitChangeKey(staged, ch.Path), mods)
+			if mods&(ui.Cmd|ui.Ctrl|ui.Shift) == 0 {
+				a.showGitDiff(ch, staged)
 			}
-			if a.git.selected[key] {
-				delete(a.git.selected, key)
-			} else {
-				a.git.selected[key] = true
-			}
-			return
-		}
-		a.showGitDiff(ch, staged)
-	})
+		})
 		if hovered {
 			if ch.Work != 'D' && !(ch.Index == 'D' && ch.Work == ' ') && glyphButton(c, icGitOpen, "Open file "+ch.Path, "Open File", false, false).Clicked() {
 				a.openGitFile(ch)
@@ -709,18 +799,7 @@ func (a *App) gitRow(c *ui.Context, ch git.Change, staged bool) {
 					}
 					targets = uniq
 				}
-				var paths []string
-				for _, t := range targets {
-					paths = append(paths, t.Path)
-					if t.OldPath != "" {
-						paths = append(paths, t.OldPath)
-					}
-				}
-				if staged {
-					a.gitAction(append([]string{"reset", "-q", "--"}, paths...)...)
-				} else {
-					a.gitAction(append([]string{"add", "--"}, paths...)...)
-				}
+				a.stageGitChanges(staged, targets)
 			}
 		}
 		status := ch.Work

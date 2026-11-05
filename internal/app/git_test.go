@@ -44,6 +44,52 @@ func (h *harness) readGit() {
 	h.settle(func() bool { return !h.a.git.loading && !h.a.git.busy })
 }
 
+func TestGitRangeSelectionAndStageAll(t *testing.T) {
+	root := gitRepo(t, map[string]string{"a.txt": "a\n", "b.txt": "b\n", "c.txt": "c\n"})
+	for _, name := range []string{"a.txt", "b.txt", "c.txt"} {
+		writeFile(t, root, name, "changed\n")
+	}
+	h := newHarness(t, root)
+	h.readGit()
+	h.a.navigator = navGit
+	h.a.git.historyClosed = true
+	h.tt.Frame()
+	if err := h.tt.Click("Unstaged diff: a.txt"); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.tt.ClickWith(ui.Shift, "Unstaged diff: c.txt"); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"a.txt", "b.txt", "c.txt"} {
+		if !h.a.git.selected[gitChangeKey(false, name)] {
+			t.Fatalf("%s not selected: %v", name, h.a.git.selected)
+		}
+	}
+	h.readGit()
+	if len(h.a.git.selected) != 3 {
+		t.Fatalf("refresh lost selection: %v", h.a.git.selected)
+	}
+	if err := h.tt.Click("Stage All Changes"); err != nil {
+		t.Fatal(err)
+	}
+	h.settle(func() bool { return !h.a.git.busy && !h.a.git.loading })
+	for _, ch := range h.a.git.changes {
+		if ch.Index == ' ' || ch.Work != ' ' {
+			t.Fatalf("not staged: %+v", ch)
+		}
+	}
+	h.tt.Frame()
+	if err := h.tt.Click("Unstage All Changes"); err != nil {
+		t.Fatal(err)
+	}
+	h.settle(func() bool { return !h.a.git.busy && !h.a.git.loading })
+	for _, ch := range h.a.git.changes {
+		if ch.Index != ' ' || ch.Work == ' ' {
+			t.Fatalf("not unstaged: %+v", ch)
+		}
+	}
+}
+
 // The branch in the toolbar opens the branch picker; choosing a branch
 // switches to it, and typing a new name makes one.
 func TestBranchPickerSwitchesAndCreates(t *testing.T) {

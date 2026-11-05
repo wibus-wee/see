@@ -372,6 +372,18 @@ func Main() {
 					{Label: "Appearance", Submenu: appearanceMenu(currentApp)},
 				}}, {Role: mygo.RoleWindowMenu},
 			}))
+			mygo.App.Dock.SetMenu(mygo.NewMenu(dockRecentItems(cfg.Recent, func(path string) {
+				win.Update(func() {
+					if _, err := workspace.CanonicalRoot(path); err != nil {
+						a.openWorkspace(path)
+						a.showWelcome = true
+						wins.sync(nil)
+						welcome.Focus()
+						return
+					}
+					openPath(path)
+				})
+			})))
 		}
 		varSetMenu = setMenu
 		cfg.SetRecentHook(setMenu)

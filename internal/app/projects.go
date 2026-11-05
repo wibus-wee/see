@@ -7,6 +7,21 @@ import (
 	"github.com/egoist/mygo"
 )
 
+// dockRecentItems uses the same recent projects as the welcome window.
+func dockRecentItems(paths []string, open func(string)) []*mygo.MenuItem {
+	if len(paths) == 0 {
+		return nil
+	}
+	items := []*mygo.MenuItem{{Label: "Recent Projects", Disabled: true}}
+	for _, path := range paths {
+		items = append(items, &mygo.MenuItem{
+			Label: filepath.Base(path), ToolTip: path,
+			Click: func(*mygo.MenuItem, *mygo.Window) { open(path) },
+		})
+	}
+	return items
+}
+
 // Switching projects from the menu bar, as Xcode's File menu: Open
 // Folder…, Open Recent, Close Folder and the welcome window.
 
