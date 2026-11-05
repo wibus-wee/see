@@ -3,3 +3,4 @@
 /build/
 /.mygo/
 mygo_windows_*.syso
+__pycache__/

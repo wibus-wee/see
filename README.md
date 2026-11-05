@@ -150,15 +150,18 @@ Settings and recent folders are stored in `See/config.json` under the operating 
 
 ### Release
 
-Set `version` in [`mygo.json`](./mygo.json), commit the change, and push a matching tag, for example:
+Prepare user-facing notes from the commits since the last release. Run `python3 scripts/changelog/changelog.py context` to collect the commit messages and changed files; use `--from <tag> --to <ref>` for another range. The [AI drafting prompt](./scripts/changelog/AI-PROMPT.md) explains how to turn that evidence into an Unreleased draft and verify it against the code. Fetch tags first if the checkout is shallow or missing tags.
+
+Review [`CHANGELOG.md`](./CHANGELOG.md), move the Unreleased notes into a new `## <version>` section, and set the same `version` in [`mygo.json`](./mygo.json). Check the notes, commit both files, and push the commit and matching tag, for example:
 
 ```sh
-git tag v0.1.0
-git push origin v0.1.0
+python3 scripts/changelog/changelog.py notes 0.1.17
+git tag v0.1.17
+git push origin main v0.1.17
 ```
 
-The [release workflow](./.github/workflows/release.yml) checks the tag, builds macOS, Windows, and Linux packages and signed updates for amd64 and arm64, and publishes a GitHub Release with generated notes after all builds succeed. The body starts with a link to each platform's installer, since the asset list below it also holds the delta files that installed copies use to update themselves. Versions containing a hyphen are marked as prereleases and are not offered by the default update checks. Failed jobs can be rerun from Actions; a published release is never overwritten by a rerun. The workflow uses the repository's `GITHUB_TOKEN` and requires Actions to have permission to write repository contents.
+The [release workflow](./.github/workflows/release.yml) checks the tag and notes, builds macOS, Windows, and Linux packages and signed updates for amd64 and arm64, and publishes a GitHub Release after all builds succeed. The release and the in-app updater use the same reviewed changelog section. The release body starts with installer links, since the asset list also holds the delta files that installed copies use to update themselves. Versions containing a hyphen are marked as prereleases and are not offered by the default update checks. Failed jobs can be rerun from Actions; a published release is never overwritten by a rerun. The workflow uses the repository's `GITHUB_TOKEN` and requires Actions to have permission to write repository contents.
 
-The `MYGO_UPDATER_PRIVATE_KEY` Actions secret signs updates against the public key in `mygo.json`. Keep a secure backup of the private key: existing installations cannot accept updates signed by a different key. If `CHANGELOG.md` exists, MyGo uses its section for the release version as the update window's notes and requires that section for every release. GitHub's generated release notes are separate.
+The `MYGO_UPDATER_PRIVATE_KEY` Actions secret signs updates against the public key in `mygo.json`. Keep a secure backup of the private key: existing installations cannot accept updates signed by a different key. Every tagged version must have a nonempty changelog section with at least one bullet; the release check fails before building if it is missing.
 
 The macOS packages use ad hoc signing and are not notarized, so Gatekeeper may block them on other Macs. Windows installers are unsigned and may trigger SmartScreen. Distribution without these warnings requires configuring platform signing certificates and, for macOS, Apple notarization; see [MyGo's signing instructions](https://mygo.egoist.dev/docs/github-actions).

@@ -16,6 +16,7 @@ jobs:
         run: |
           version=$(jq -er '.version | select(type == "string" and length > 0)' mygo.json)
           test "$GITHUB_REF_NAME" = "v$version" || { echo "Tag must match mygo.json version: v$version" >&2; exit 1; }
+          python3 scripts/changelog/changelog.py notes "$version" > /dev/null
 
   build:
     needs: check
@@ -106,7 +107,7 @@ jobs:
           if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft > "$RUNNER_TEMP/release-draft" 2>/dev/null; then
             test "$(cat "$RUNNER_TEMP/release-draft")" = true || { echo 'Release already published; refusing to replace assets' >&2; exit 1; }
           else
-            args=(--draft --verify-tag --title "$GITHUB_REF_NAME" --generate-notes)
+            args=(--draft --verify-tag --title "$GITHUB_REF_NAME" --notes '')
             if [[ "$GITHUB_REF_NAME" == *-* ]]; then args+=(--prerelease); fi
             gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" "${args[@]}"
           fi
@@ -114,12 +115,13 @@ jobs:
           test "${#files[@]}" -gt 0
           gh release upload "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" "${files[@]}" --clobber
       # The asset list mixes installers with deltas, so the body carries the
-      # links to the installers themselves, above the generated notes.
+      # links to the installers themselves, above the reviewed notes.
       - name: Write the download links into the body
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          .github/release-body.sh "$GITHUB_REF_NAME" "$GITHUB_REPOSITORY" > "$RUNNER_TEMP/body.md"
+          python3 scripts/changelog/changelog.py notes "$GITHUB_REF_NAME" > "$RUNNER_TEMP/notes.md"
+          .github/release-body.sh "$GITHUB_REF_NAME" "$GITHUB_REPOSITORY" "$RUNNER_TEMP/notes.md" > "$RUNNER_TEMP/body.md"
           gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --notes-file "$RUNNER_TEMP/body.md"
       - name: Publish
         env:

@@ -1,29 +1,21 @@
 #!/usr/bin/env bash
 #
 # release-body.sh writes a GitHub release body to stdout: first the direct
-# download links for the release's installers, then the notes GitHub
-# generated. The release page shows the assets in one undifferentiated
-# list, deltas included, so the links go where people look first.
+# download links for the release's installers, then the reviewed notes from
+# CHANGELOG.md. The release page lists installers and deltas together.
 #
-# Usage: release-body.sh <tag> <owner/repo>
+# Usage: release-body.sh <tag> <owner/repo> <notes-file>
 # Needs gh, authenticated with a token that can read the release.
 set -euo pipefail
 
 tag="${1:?usage: release-body.sh <tag> <owner/repo>}"
 repo="${2:?usage: release-body.sh <tag> <owner/repo>}"
+notes="${3:?usage: release-body.sh <tag> <owner/repo> <notes-file>}"
 
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
 gh release view "$tag" --repo "$repo" --json assets --jq '.assets[].name' | sort >"$work/assets"
-gh release view "$tag" --repo "$repo" --json body --jq '.body' >"$work/notes"
-
-# The body already written: leave it alone, so that a rerun of the release
-# job does not stack two download sections.
-if grep -q '^### Download' "$work/notes"; then
-	cat "$work/notes"
-	exit 0
-fi
 
 base="https://github.com/$repo/releases/download/$tag"
 
@@ -83,5 +75,5 @@ row() {
 	echo
 	echo '---'
 	echo
-	cat "$work/notes"
+	cat "$notes"
 }
