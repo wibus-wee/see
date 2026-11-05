@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os/exec"
 	"runtime"
+	"see/locales"
 	"slices"
 	"strings"
 )
@@ -58,7 +59,7 @@ func externalTerminalCommand(name, appPath, dir, platform string) (*exec.Cmd, er
 
 func (a *App) openExternalTerminal() {
 	if a.root == "" {
-		a.note("Open a folder first.", true)
+		a.note(locales.MsgOpenAFolderFirst(), true)
 		return
 	}
 	name, dir, gen := externalTerminalName(a.cfg.ExternalTerminal), a.root, a.gen
@@ -76,7 +77,7 @@ func (a *App) openExternalTerminal() {
 			}
 			a.post.Post(func() {
 				if a.gen == gen {
-					a.note("Could not open "+name+": "+detail, true)
+					a.note(locales.MsgCouldNotOpen()+name+": "+detail, true)
 				}
 			})
 		}

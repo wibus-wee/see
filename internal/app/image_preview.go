@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"see/locales"
 	"strings"
 
 	"github.com/egoist/mygo/ui"
@@ -52,14 +53,14 @@ func readImage(path string) (*ui.Bitmap, error) {
 func (a *App) imagePreview(c *ui.Context, g *group, d *doc) {
 	w, h := d.image.Size()
 	preview := ui.Column(c).Grow(1).FillWidth().Padding(20).Gap(10).AlignItems(ui.Center).
-		Focusable().FocusRing(false).Label("Image preview area").OnShortcut(ui.Cmd, ui.KeyC, func() { a.copyPreviewImage(d.path) })
+		Focusable().FocusRing(false).Label(locales.MsgImagePreviewArea()).OnShortcut(ui.Cmd, ui.KeyC, func() { a.copyPreviewImage(d.path) })
 	if a.focusImage == d.path && a.focus == g {
 		preview.Focus()
 		a.focusImage = ""
 	}
 	preview.Children(func() {
 		ui.Box(c).Grow(1).FillWidth().MinHeight(0).Center().Children(func() {
-			ui.Image(c, d.image).Fill().Fit(ui.ScaleDown).Label("Image preview")
+			ui.Image(c, d.image).Fill().Fit(ui.ScaleDown).Label(locales.MsgImagePreview())
 		})
 		ui.Text(c, fmt.Sprintf("%d × %d · %s", w, h, size(d.size))).FontSize(11).TextColor(colors(c).Muted).SingleLine()
 	})
@@ -67,7 +68,7 @@ func (a *App) imagePreview(c *ui.Context, g *group, d *doc) {
 
 func (a *App) copyFile(path string) {
 	if err := a.host.CopyFiles(path); err != nil {
-		a.note("Could not copy file: "+describeErr(err), true)
+		a.note(locales.MsgCouldNotCopyFile()+describeErr(err), true)
 	}
 }
 
@@ -79,7 +80,7 @@ func (a *App) copyPreviewImage(path string) {
 				err = a.host.CopyImage(bitmap)
 			}
 			if err != nil {
-				a.note("Could not copy image: "+describeErr(err), true)
+				a.note(locales.MsgCouldNotCopyImage()+describeErr(err), true)
 			}
 		})
 	}()

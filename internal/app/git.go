@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"see/locales"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -354,12 +355,12 @@ func (a *App) gitAction(args ...string) {
 			}
 			a.git.busy = false
 			if err != nil {
-				a.note("Git: "+err.Error(), true)
+				a.note(locales.MsgGit()+err.Error(), true)
 			} else {
 				a.git.diffSeq++
 				if args[0] == "commit" {
 					a.git.message = ""
-					a.note("Committed staged changes.", false)
+					a.note(locales.MsgCommittedStagedChanges(), false)
 				}
 			}
 			a.refreshGit()
@@ -380,22 +381,22 @@ func (a *App) discardGitChange(ch git.Change) {
 	}
 	path := workspace.DocPath(a.root, a.realRoot, filepath.Join(a.git.root, filepath.FromSlash(ch.Path)))
 	if d := a.docs[path]; d != nil && d.buf != nil && d.buf.Modified() {
-		a.note("Save or close the file's unsaved edits before discarding its Git changes.", true)
+		a.note(locales.MsgSaveOrCloseTheFileSUnsavedEdits(), true)
 		return
 	}
-	message := fmt.Sprintf("Discard working tree changes to %q? This cannot be undone.", ch.Path)
+	message := locales.DiscardFileQuestion(ch.Path)
 	if ch.Index == '?' {
-		message = fmt.Sprintf("Move untracked file %q to Trash?", ch.Path)
+		message = locales.TrashUntrackedQuestion(ch.Path)
 	}
 	q := &confirmation{message: message}
 	q.actions = []action{
-		{"Discard Changes", func() {
+		{locales.DiscardChanges(), func() {
 			if a.deleteConfirm != q || a.git.busy {
 				return
 			}
 			a.deleteConfirm = nil
 			if d := a.docs[path]; d != nil && d.buf != nil && d.buf.Modified() {
-				a.note("Save or close the file's unsaved edits before discarding its Git changes.", true)
+				a.note(locales.MsgSaveOrCloseTheFileSUnsavedEdits(), true)
 				return
 			}
 			a.git.busy = true
@@ -413,7 +414,7 @@ func (a *App) discardGitChange(ch git.Change) {
 					}
 					a.git.busy = false
 					if err != nil {
-						a.note("Could not discard Git changes: "+err.Error(), true)
+						a.note(locales.MsgCouldNotDiscardGitChanges()+err.Error(), true)
 					} else {
 						a.git.diffSeq++
 						if ch.Index == '?' {
@@ -429,7 +430,7 @@ func (a *App) discardGitChange(ch git.Change) {
 				})
 			}()
 		}},
-		{"Cancel", func() {
+		{locales.Cancel(), func() {
 			if a.deleteConfirm == q {
 				a.deleteConfirm = nil
 			}
@@ -445,14 +446,14 @@ func (a *App) discardGitChanges(chs []git.Change) {
 	for _, ch := range chs {
 		path := workspace.DocPath(a.root, a.realRoot, filepath.Join(a.git.root, filepath.FromSlash(ch.Path)))
 		if d := a.docs[path]; d != nil && d.buf != nil && d.buf.Modified() {
-			a.note("Save or close the file's unsaved edits before discarding its Git changes.", true)
+			a.note(locales.MsgSaveOrCloseTheFileSUnsavedEdits(), true)
 			return
 		}
 	}
-	message := fmt.Sprintf("Discard working tree changes to %d files? This cannot be undone.", len(chs))
+	message := locales.DiscardFilesQuestion(len(chs))
 	q := &confirmation{message: message}
 	q.actions = []action{
-		{"Discard Changes", func() {
+		{locales.DiscardChanges(), func() {
 			if a.deleteConfirm != q || a.git.busy {
 				return
 			}
@@ -491,7 +492,7 @@ func (a *App) discardGitChanges(chs []git.Change) {
 					}
 					a.git.busy = false
 					if firstErr != nil {
-						a.note("Could not discard Git changes: "+firstErr.Error(), true)
+						a.note(locales.MsgCouldNotDiscardGitChanges()+firstErr.Error(), true)
 					} else {
 						a.git.diffSeq++
 						a.quick.files = nil
@@ -501,7 +502,7 @@ func (a *App) discardGitChanges(chs []git.Change) {
 				})
 			}()
 		}},
-		{"Cancel", func() {
+		{locales.Cancel(), func() {
 			if a.deleteConfirm == q {
 				a.deleteConfirm = nil
 			}
@@ -631,11 +632,11 @@ func (a *App) showGitDiffIn(ch git.Change, staged bool, target *group, placement
 				return
 			}
 			if err != nil {
-				a.note("Git diff: "+err.Error(), true)
+				a.note(locales.MsgGitDiff()+err.Error(), true)
 				return
 			}
 			if parseErr != nil || len(patches) == 0 || patches[0].Binary {
-				a.note("No text diff available for "+ch.Path, true)
+				a.note(locales.MsgNoTextDiffAvailableFor()+ch.Path, true)
 				return
 			}
 			v := a.newGitDiffTab(patches[0], ch.Path, staged)
@@ -685,7 +686,7 @@ func (a *App) gitNavigator(c *ui.Context) {
 		ui.Scroll(c).Grow(1).FillWidth().Children(func() {
 			ui.Column(c).FillWidth().Padding(0, 0, 6, 0).Children(func() {
 				if len(a.git.changes) == 0 {
-					ui.Text(c, "No changes").FontSize(12).TextColor(colors(c).Muted).Padding(4, 16, 8, 16)
+					ui.Text(c, locales.MsgNoChanges()).FontSize(12).TextColor(colors(c).Muted).Padding(4, 16, 8, 16)
 				}
 				if staged > 0 {
 					a.gitSection(c, "Staged Changes", staged)
@@ -752,7 +753,7 @@ func (a *App) gitRow(c *ui.Context, ch git.Change, staged bool) {
 		container.Background(colors(c).Pill)
 	}
 	container.Children(func() {
-		row := ui.ButtonBase(c).Label(label+" diff: "+ch.Path).Tooltip(ch.Path).Grow(1).Padding(4, 4).Radius(4)
+		row := ui.ButtonBase(c).Label(label+locales.MsgDiff()+ch.Path).Tooltip(ch.Path).Grow(1).Padding(4, 4).Radius(4)
 		row.Drag(&tabDrag{change: &ch, staged: staged})
 		row.Children(func() {
 			ui.Row(c).FillWidth().Gap(6).AlignItems(ui.Center).Children(func() {
@@ -876,13 +877,13 @@ func (a *App) commitBar(c *ui.Context, staged int) {
 	}
 	ui.Row(c).Shrink(0).FillWidth().Padding(2, sidebarInset, 6, sidebarInset).Children(func() {
 		ui.Row(c).FillWidth().Height(28).Radius(14).Background(colors(c).Pill).Padding(0, 3, 0, 12).Gap(4).AlignItems(ui.Center).Children(func() {
-			in := ui.TextInput(c, &a.git.message).Placeholder(placeholder).Label("Commit message").
+			in := ui.TextInput(c, &a.git.message).Placeholder(placeholder).Label(locales.MsgCommitMessage()).
 				FontSize(12).Grow(1).Background(ui.Transparent).BorderWidth(0).Padding(0)
 			if in.Submitted() {
 				commit()
 			}
 			tip := "Commit " + fmt.Sprint(staged) + " staged change" + plural(staged)
-			b := ui.ButtonBase(c).Label("Commit").Tooltip(tip).Size(22, 22).Radius(11).Center().Disabled(!can).KeepFocus()
+			b := ui.ButtonBase(c).Label(locales.MsgCommit()).Tooltip(tip).Size(22, 22).Radius(11).Center().Disabled(!can).KeepFocus()
 			color := colors(c).Dim
 			if can {
 				b.Background(c.Theme().Accent)

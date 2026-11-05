@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"see/locales"
 	"strings"
 
 	"github.com/egoist/mygo/ui"
@@ -45,14 +46,14 @@ func (a *App) serverStateLog(source string, state langserver.State, err error) {
 func (a *App) logView(c *ui.Context) {
 	ui.Column(c).Fill().Children(func() {
 		ui.Row(c).FillWidth().Padding(6, 12).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, "Output").Bold().Grow(1)
-			if ui.Button(c, "Clear").Label("Clear Output").Clicked() {
+			ui.Text(c, locales.MsgOutput()).Bold().Grow(1)
+			if ui.Button(c, locales.MsgClear()).Label(locales.MsgClearOutput()).Clicked() {
 				a.logs.Clear()
 			}
 		})
 		entries := a.logs.Snapshot()
 		if len(entries) == 0 {
-			ui.Text(c, "No output yet.").TextColor(theme.Of(c).Muted).Padding(12)
+			ui.Text(c, locales.MsgNoOutputYet()).TextColor(theme.Of(c).Muted).Padding(12)
 			return
 		}
 		ui.Scroll(c).Grow(1).FillWidth().Children(func() {

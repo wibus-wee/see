@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"see/locales"
 	"strings"
 	"unicode/utf8"
 
@@ -11,7 +12,6 @@ import (
 	"see/internal/workspace"
 
 	"github.com/egoist/mygo/ui"
-	"github.com/egoist/mygo/ui/editor"
 )
 
 type renamePrompt struct {
@@ -28,7 +28,7 @@ func (a *App) beginRename(path string) {
 
 func (a *App) renameField(c *ui.Context, q *renamePrompt) {
 	ui.Column(c).Grow(1).Children(func() {
-		field := ui.TextInput(c, &q.name).Label("Rename "+filepath.Base(q.path)).Grow(1).Height(20).Padding(0, 4).FontSize(12).AutoFocus()
+		field := ui.TextInput(c, &q.name).Label(locales.MsgRename()+filepath.Base(q.path)).Grow(1).Height(20).Padding(0, 4).FontSize(12).AutoFocus()
 		if !q.selected {
 			q.selected = true
 			stem := strings.TrimSuffix(q.name, filepath.Ext(q.name))
@@ -120,7 +120,7 @@ func (a *App) renamed(old, dst string) {
 		d.markdownOptions = nil
 		d.hex = nil
 		if d.buf != nil {
-			d.buf.SetLanguage(editor.LanguageFor(d.name))
+			d.buf.SetLanguage(languageFor(d.name))
 		}
 		a.docs[next] = d
 		for _, g := range a.groups() {

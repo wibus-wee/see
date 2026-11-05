@@ -294,7 +294,7 @@ func (a *App) rankQuick() {
 		all := commands()
 		names := make([]string, len(all))
 		for i, cmd := range all {
-			names[i] = cmd.name
+			names[i] = commandLabel(cmd.name)
 		}
 		q.results = search.Fuzzy(names, strings.TrimSpace(q.query[1:]), len(names))
 	} else if strings.HasPrefix(q.query, "#") {
@@ -319,7 +319,7 @@ func (a *App) searchSymbols(query string) {
 	ctx, cancel := context.WithTimeout(a.wsCtx, 20*time.Second)
 	q.symbolCancel, q.symbolLoading = cancel, true
 	gen, ranked, request := a.gen, q.ranked, q.gen
-	servers := []*langserver.Server{a.lsp, a.tsLSP}
+	servers := []*langserver.Server{a.lsp, a.tsLSP, a.clangLSP, a.cmakeLSP}
 	go func() {
 		defer cancel()
 		select {
@@ -420,7 +420,7 @@ func (a *App) chooseQuick(i int) {
 	}
 	if strings.HasPrefix(q.query, ">") {
 		for _, cmd := range commands() {
-			if cmd.name == p {
+			if commandLabel(cmd.name) == p {
 				cmd.run(a)
 				return
 			}

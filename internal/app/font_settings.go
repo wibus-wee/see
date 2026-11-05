@@ -1,6 +1,7 @@
 package app
 
 import (
+	"see/locales"
 	"strings"
 
 	"github.com/egoist/mygo/ui"
@@ -36,9 +37,9 @@ func (a *App) fontPicker(c *ui.Context, terminal bool) {
 	if label == "" {
 		label = "System Monospace"
 	}
-	labeled(c, "Font Family", "Choose a font for code and text.")
+	labeled(c, locales.MsgFontFamily(), locales.MsgChooseAFontForCodeAndText())
 	ui.Text(c, label).TextColor(colors(c).Muted).SingleLine().Shrink(1)
-	button := ui.Button(c, "Choose…").Label("Choose Font").Bind(&s.fontButton)
+	button := ui.Button(c, locales.MsgChoose()).Label(locales.MsgChooseFont()).Bind(&s.fontButton)
 	button.OnClick(func() {
 		a.host.OpenFontPopover(s.fontButton.Bounds(c), terminal)
 	})
@@ -72,12 +73,12 @@ func (a *App) fontPopover(c *ui.Context, terminal bool) {
 		family = a.cfg.TermFontFamily
 	}
 	ui.Column(c).Fill().Padding(8).Gap(6).Children(func() {
-		ui.SearchField(c, &s.fontQuery).Label("Search Fonts").Placeholder("Search fonts").FillWidth().AutoFocus()
-		ui.Segmented(c, &s.fontFilter, "Monospaced", "All Fonts").Label("Font Filter").FillWidth()
+		ui.SearchField(c, &s.fontQuery).Label(locales.MsgSearchFonts()).Placeholder(locales.MsgSearchFonts2()).FillWidth().AutoFocus()
+		ui.Segmented(c, &s.fontFilter, locales.MsgMonospaced(), locales.MsgAllFonts()).Label(locales.MsgFontFilter()).FillWidth()
 		ui.Scroll(c).FillWidth().Grow(1).Children(func() {
 			ui.Column(c).FillWidth().Gap(1).Children(func() {
 				if s.fontLoading != nil {
-					ui.Text(c, "Loading fonts…").TextColor(colors(c).Muted).Padding(8)
+					ui.Text(c, locales.MsgLoadingFonts()).TextColor(colors(c).Muted).Padding(8)
 					return
 				}
 				query := strings.ToLower(strings.TrimSpace(s.fontQuery))
@@ -94,7 +95,7 @@ func (a *App) fontPopover(c *ui.Context, terminal bool) {
 					count++
 				}
 				if count == 0 {
-					ui.Text(c, "No fonts found").TextColor(colors(c).Muted).Padding(8)
+					ui.Text(c, locales.MsgNoFontsFound()).TextColor(colors(c).Muted).Padding(8)
 				}
 			})
 		})

@@ -14,15 +14,23 @@
           "CFBundleTypeName": "Folder",
           "CFBundleTypeRole": "Viewer",
           "LSHandlerRank": "Alternate",
-          "LSItemContentTypes": ["public.folder"]
+          "LSItemContentTypes": [
+            "public.folder"
+          ]
         },
         {
           "CFBundleTypeName": "File",
           "CFBundleTypeRole": "Viewer",
           "LSHandlerRank": "Alternate",
-          "CFBundleTypeExtensions": ["*"]
+          "CFBundleTypeExtensions": [
+            "*"
+          ]
         }
       ]
     }
+  },
+  "i18n": {
+    "dir": "locales",
+    "source": "en"
   }
 }

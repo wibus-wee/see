@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"see/internal/cli"
 	"see/internal/config"
+	"see/locales"
 	"slices"
 	"time"
 
@@ -104,7 +105,7 @@ func Main() {
 		// The welcome window, as Xcode's: of its own, of one size, its
 		// buttons over its left side.
 		welcome = mygo.NewWindow(mygo.WindowOptions{
-			Title:           "Welcome to See",
+			Title:           locales.MsgWelcomeToSee(),
 			Width:           welcomeWidth,
 			Height:          welcomeHeight,
 			DisableResize:   true,
@@ -367,9 +368,9 @@ func Main() {
 			currentApp, currentWin := current.app, current.win
 			mygo.App.SetMenu(mygo.NewMenu([]*mygo.MenuItem{
 				appMenu(currentApp), currentApp.fileMenu(currentWin.Update), {Role: mygo.RoleEditMenu},
-				{Label: "View", Submenu: []*mygo.MenuItem{
-					{Label: "Command Palette…", Click: func(*mygo.MenuItem, *mygo.Window) { currentWin.Update(currentApp.openPalette) }},
-					{Label: "Appearance", Submenu: appearanceMenu(currentApp)},
+				{Label: locales.View(), Submenu: []*mygo.MenuItem{
+					{Label: locales.CommandPalette(), Click: func(*mygo.MenuItem, *mygo.Window) { currentWin.Update(currentApp.openPalette) }},
+					{Label: locales.Appearance(), Submenu: appearanceMenu(currentApp)},
 				}}, {Role: mygo.RoleWindowMenu},
 			}))
 			mygo.App.Dock.SetMenu(mygo.NewMenu(dockRecentItems(cfg.Recent, func(path string) {
@@ -386,6 +387,13 @@ func Main() {
 			})))
 		}
 		varSetMenu = setMenu
+		mygo.App.OnLocaleChanged(func(string) {
+			setMenu()
+			welcome.SetTitle(locales.MsgWelcomeToSee())
+			for _, project := range projects {
+				project.app.quick.ranked = "\x00"
+			}
+		})
 		cfg.SetRecentHook(setMenu)
 		host.setMenu = setMenu
 		setMenu()
@@ -414,6 +422,12 @@ func Main() {
 			p.app.closeTerminals()
 			if p.app.lsp != nil {
 				p.app.lsp.StopWait(2 * time.Second)
+			}
+			if p.app.cmakeLSP != nil {
+				p.app.cmakeLSP.StopWait(2 * time.Second)
+			}
+			if p.app.clangLSP != nil {
+				p.app.clangLSP.StopWait(2 * time.Second)
 			}
 			if p.app.tsLSP != nil {
 				p.app.tsLSP.StopWait(2 * time.Second)
@@ -455,7 +469,7 @@ func themeSource(s string) mygo.ThemeSource {
 // dark, as the settings of Xcode and Finder do.
 func appearanceMenu(a *App) []*mygo.MenuItem {
 	var items []*mygo.MenuItem
-	for _, o := range []struct{ label, value string }{{"System", ""}, {"Light", "light"}, {"Dark", "dark"}} {
+	for _, o := range []struct{ label, value string }{{locales.System(), ""}, {locales.Light(), "light"}, {locales.Dark(), "dark"}} {
 		items = append(items, &mygo.MenuItem{
 			Label:   o.label,
 			Type:    mygo.MenuItemRadio,
@@ -472,7 +486,7 @@ func appMenu(a *App) *mygo.MenuItem {
 		{Role: mygo.RoleAbout},
 		updater.MenuItem(),
 		mygo.Separator(),
-		{Label: "Settings…", Accelerator: "CmdOrCtrl+,", Click: func(*mygo.MenuItem, *mygo.Window) { a.host.OpenSettings() }},
+		{Label: locales.MsgSettings(), Accelerator: "CmdOrCtrl+,", Click: func(*mygo.MenuItem, *mygo.Window) { a.host.OpenSettings() }},
 		mygo.Separator(),
 		{Role: mygo.RoleServices},
 		mygo.Separator(),

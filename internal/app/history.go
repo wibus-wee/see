@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"path/filepath"
+	"see/locales"
 	"strings"
 	"time"
 
@@ -204,12 +205,12 @@ func (a *App) historyNavigator(c *ui.Context) {
 	case h.commits == nil && h.loading:
 		ui.Row(c).Padding(8, 14).Gap(8).Children(func() {
 			ui.Spinner(c)
-			ui.Text(c, "Reading history…").FontSize(12).TextColor(colors(c).Muted)
+			ui.Text(c, locales.MsgReadingHistory()).FontSize(12).TextColor(colors(c).Muted)
 		})
 	case len(h.commits) == 0 && a.git.head == "":
-		ui.Text(c, "No Commits").FontSize(12).TextColor(colors(c).Muted).Padding(10, 14)
+		ui.Text(c, locales.MsgNoCommits()).FontSize(12).TextColor(colors(c).Muted).Padding(10, 14)
 	default:
-		ui.List(c, &h.list, len(h.commits), func(i int) { a.historyRow(c, i) }).Grow(1).FillWidth().Padding(0, sidebarInset).Label("History")
+		ui.List(c, &h.list, len(h.commits), func(i int) { a.historyRow(c, i) }).Grow(1).FillWidth().Padding(0, sidebarInset).Label(locales.MsgHistory())
 	}
 }
 
@@ -218,7 +219,7 @@ func (a *App) historyNavigator(c *ui.Context) {
 // an avatar; it unfolds them.
 func (a *App) uncommittedRow(c *ui.Context, n int) {
 	row := ui.Row(c).FillWidth().Height(historyRowHeight).Margin(0, sidebarInset).Padding(0, 8, 0, 0).Gap(historyGap).AlignItems(ui.Center).Radius(6).
-		Cursor(ui.CursorPointer).Label("Uncommitted Changes")
+		Cursor(ui.CursorPointer).Label(locales.MsgUncommittedChanges())
 	if row.Hovered() {
 		row.Background(colors(c).Pill)
 	}
@@ -242,8 +243,8 @@ func (a *App) uncommittedRow(c *ui.Context, n int) {
 			symbolIcon(c, icPage, 11, orange)
 		})
 		ui.Column(c).Grow(1).Shrink(1).Gap(1).Children(func() {
-			ui.Text(c, "Uncommitted Changes").FontSize(12).Bold().SingleLine()
-			ui.Text(c, fmt.Sprintf("%d file%s", n, plural(n))).FontSize(11).TextColor(colors(c).Muted).SingleLine()
+			ui.Text(c, locales.MsgUncommittedChanges()).FontSize(12).Bold().SingleLine()
+			ui.Text(c, locales.MsgDFileS(n)).FontSize(11).TextColor(colors(c).Muted).SingleLine()
 		})
 	})
 }
@@ -487,10 +488,10 @@ func (a *App) openCommitFile(g *group, cm git.Commit, f git.FileStat) {
 			}
 			switch {
 			case err != nil:
-				a.note("Git diff: "+gitErrLine(err), true)
+				a.note(locales.MsgGitDiff()+gitErrLine(err), true)
 				return
 			case parseErr != nil || len(patches) == 0 || patches[0].Binary:
-				a.note("No text diff available for "+f.Path, true)
+				a.note(locales.MsgNoTextDiffAvailableFor()+f.Path, true)
 				return
 			}
 			v := a.newGitDiffTab(patches[0], f.Path, false)
@@ -542,7 +543,7 @@ func (a *App) commitContent(c *ui.Context, g *group, v *commitView) {
 				ui.Text(c, cm.Hash).FontSize(12).TextColor(colors(c).Muted).Selectable()
 				if glyphButton(c, icCopy, "Copy Commit Hash", "Copy Commit Hash", false, false).Clicked() {
 					c.Services().WriteClipboard(cm.Hash)
-					a.note("Copied "+cm.Short+".", false)
+					a.note(locales.MsgCopied()+cm.Short+".", false)
 				}
 				for _, ref := range cm.Refs {
 					if ref != "HEAD" {
@@ -552,7 +553,7 @@ func (a *App) commitContent(c *ui.Context, g *group, v *commitView) {
 				if link := a.commitLink(cm.Hash); link != "" {
 					ui.Box(c).Grow(1)
 					host := hostName(a.git.web)
-					if ui.Button(c, "Open on "+host).FontSize(12).Tooltip(link).Clicked() {
+					if ui.Button(c, locales.MsgOpenOn()+host).FontSize(12).Tooltip(link).Clicked() {
 						c.Services().OpenURL(link)
 					}
 				}
@@ -566,13 +567,13 @@ func (a *App) commitContent(c *ui.Context, g *group, v *commitView) {
 					ui.Text(c, label).FontSize(12).TextColor(colors(c).Muted)
 					for _, parent := range cm.Parents {
 						short := parent[:min(len(parent), len(cm.Short))]
-						link := ui.ButtonBase(c.Key(parent)).Label("Open parent " + short).Cursor(ui.CursorPointer)
+						link := ui.ButtonBase(c.Key(parent)).Label(locales.MsgOpenParent() + short).Cursor(ui.CursorPointer)
 						link.Children(func() { ui.Text(c, short).FontSize(12).TextColor(c.Theme().Accent) })
 						if link.Clicked() {
 							if pc, ok := a.historyCommit(parent); ok {
 								a.openCommit(pc)
 							} else {
-								a.note("That commit is further back than the history read so far.", false)
+								a.note(locales.MsgThatCommitIsFurtherBackThanTheHistory(), false)
 							}
 						}
 					}
@@ -586,7 +587,7 @@ func (a *App) commitContent(c *ui.Context, g *group, v *commitView) {
 			case v.loading:
 				ui.Row(c).Gap(8).Children(func() {
 					ui.Spinner(c)
-					ui.Text(c, "Reading the commit…").FontSize(12).TextColor(colors(c).Muted)
+					ui.Text(c, locales.MsgReadingTheCommit()).FontSize(12).TextColor(colors(c).Muted)
 				})
 			case v.err != "":
 				ui.Text(c, v.err).FontSize(12).TextColor(colors(c).Err)
@@ -607,7 +608,7 @@ func (a *App) commitFiles(c *ui.Context, g *group, v *commitView) {
 		deleted += max(f.Deleted, 0)
 	}
 	ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-		ui.Text(c, fmt.Sprintf("%d file%s changed", len(files), plural(len(files)))).FontSize(13).Bold()
+		ui.Text(c, locales.MsgDFileSChanged(len(files))).FontSize(13).Bold()
 		ui.Text(c, fmt.Sprintf("+%d", added)).FontSize(12).TextColor(a.gitStatusColor('A'))
 		ui.Text(c, fmt.Sprintf("−%d", deleted)).FontSize(12).TextColor(a.gitStatusColor('D'))
 	})
@@ -634,7 +635,7 @@ func (a *App) commitFiles(c *ui.Context, g *group, v *commitView) {
 				}
 				ui.Box(c).Grow(1)
 				if f.Added < 0 {
-					ui.Text(c, "Binary").FontSize(11).TextColor(colors(c).Muted)
+					ui.Text(c, locales.MsgBinary()).FontSize(11).TextColor(colors(c).Muted)
 					return
 				}
 				ui.Text(c, fmt.Sprintf("+%d", f.Added)).FontSize(11).TextColor(a.gitStatusColor('A'))

@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"see/internal/languages"
+	"see/locales"
 	"slices"
 	"strings"
 	"sync"
@@ -76,6 +77,12 @@ type App struct {
 	choices      *defChoices // several definitions to choose from
 
 	lsp            *langserver.Server
+	cmakeLSP       *langserver.Server
+	cmakeState     langserver.State
+	cmakeErr       error
+	clangLSP       *langserver.Server
+	clangState     langserver.State
+	clangErr       error
 	tsLSP          *langserver.Server
 	tsState        langserver.State
 	tsErr          error
@@ -270,7 +277,7 @@ func (a *App) openFolderDialog() {
 		a.post.Post(func() {
 			switch {
 			case err != nil:
-				a.note("Could not show the folder dialog: "+err.Error(), true)
+				a.note(locales.MsgCouldNotShowTheFolderDialog()+err.Error(), true)
 			case p != "":
 				a.openProject(p)
 			}
@@ -320,6 +327,22 @@ func (a *App) openWorkspace(dir string) {
 		Logf:          a.serverLog("gopls"),
 	})
 	a.resetTypeScriptServer()
+	a.clangLSP = languages.NewClangdServer(root, func(s langserver.State, err error) {
+		a.post.Post(func() {
+			if a.gen == gen {
+				a.clangState, a.clangErr = s, err
+				a.serverStateLog("clangd", s, err)
+			}
+		})
+	}, a.diagnosticsHandler(gen), a.serverLog("clangd"))
+	a.cmakeLSP = languages.NewCMakeServer(root, func(s langserver.State, err error) {
+		a.post.Post(func() {
+			if a.gen == gen {
+				a.cmakeState, a.cmakeErr = s, err
+				a.serverStateLog("cmake-language-server", s, err)
+			}
+		})
+	}, a.diagnosticsHandler(gen), a.serverLog("cmake-language-server"))
 	a.loadDir(root)
 	a.startWatch()
 	a.startGit()
@@ -356,6 +379,16 @@ func (a *App) closeWorkspace() {
 		a.tsLSP = nil
 	}
 	a.tsState, a.tsErr = langserver.Off, nil
+	if a.clangLSP != nil {
+		a.clangLSP.Stop()
+		a.clangLSP = nil
+	}
+	a.clangState, a.clangErr = langserver.Off, nil
+	if a.cmakeLSP != nil {
+		a.cmakeLSP.Stop()
+		a.cmakeLSP = nil
+	}
+	a.cmakeState, a.cmakeErr = langserver.Off, nil
 	a.root, a.realRoot = "", ""
 	a.dirs = map[string]*dirState{}
 	a.tree = ui.OutlineState[string]{}
@@ -708,7 +741,7 @@ func (a *App) loadDoc(d *doc) {
 				buf.Set(f.Text)
 			}
 			if !f.Plain {
-				buf.SetLanguage(editor.LanguageFor(name))
+				buf.SetLanguage(languageFor(name))
 			}
 		}
 		// Compare with what is shown here, off the UI thread, so the UI
@@ -794,7 +827,7 @@ func (a *App) loaded(d *doc, f workspace.File, buf *editor.Buffer, same bool, er
 		}
 		d.buf.Reset(f.Text)
 		if !f.Plain && d.buf.Language() == nil {
-			d.buf.SetLanguage(editor.LanguageFor(d.name))
+			d.buf.SetLanguage(languageFor(d.name))
 		}
 		for st, p := range places {
 			st.GoTo(clampPos(d.buf, p.pos))
@@ -1029,7 +1062,7 @@ func (a *App) goToDefinition(g *group, d *doc, offset int) {
 	a.focus = g
 	m := a.serverFor(d.path)
 	if m == nil {
-		a.note("No language server is configured for this file.", false)
+		a.note(locales.MsgNoLanguageServerIsConfiguredForThisFile(), false)
 		return
 	}
 	if !a.cfg.IsTrusted(a.root) {
@@ -1094,9 +1127,9 @@ func (a *App) definitionFound(g *group, from nav.Entry, targets []target, enc st
 	case err != nil:
 		a.lspFailure(err)
 	case len(targets) == 0 && skipped > 0:
-		a.note("The definition is in a place that is not a local file.", false)
+		a.note(locales.MsgTheDefinitionIsInAPlaceThatIs(), false)
 	case len(targets) == 0:
-		a.note("No definition found.", false)
+		a.note(locales.MsgNoDefinitionFound(), false)
 	case len(targets) == 1:
 		a.jump(g, from, targets[0], enc)
 	default:
@@ -1110,14 +1143,18 @@ func (a *App) definitionFound(g *group, from nav.Entry, targets []target, enc st
 func (a *App) lspFailure(err error) {
 	switch {
 	case errors.Is(err, languages.ErrNoGopls):
-		a.note("Go to Definition needs gopls: install it with “go install golang.org/x/tools/gopls@latest”, then Retry.", true)
+		a.note(locales.MsgGoToDefinitionNeedsGoplsInstallItWith(), true)
+	case errors.Is(err, languages.ErrNoCMakeServer):
+		a.note(locales.MsgInstallCmakeLanguageServerAndMakeItAvailable(), true)
+	case errors.Is(err, languages.ErrNoClangd):
+		a.note(locales.MsgInstallClangdAndMakeItAvailableOnPATH(), true)
 	case errors.Is(err, languages.ErrNoTypeScriptServer):
-		a.note("Install the TypeScript language server in Settings, then retry.", true)
+		a.note(locales.MsgInstallTheTypeScriptLanguageServerInSettingsThen(), true)
 	case errors.Is(err, context.DeadlineExceeded):
-		a.note("The language server took too long to answer. It may still be loading the workspace; try again.", true)
+		a.note(locales.MsgTheLanguageServerTookTooLongToAnswer(), true)
 	case errors.Is(err, context.Canceled):
 	default:
-		a.note("Language server failed: "+err.Error(), true)
+		a.note(locales.MsgLanguageServerFailed()+err.Error(), true)
 	}
 }
 
@@ -1176,6 +1213,12 @@ func (a *App) serverFor(path string) *langserver.Server {
 	}
 	if languages.TypeScriptLanguage(path) != "" {
 		return a.tsLSP
+	}
+	if languages.CMakeLanguage(path) != "" {
+		return a.cmakeLSP
+	}
+	if languages.ClangLanguage(path) != "" {
+		return a.clangLSP
 	}
 	return nil
 }
@@ -1260,7 +1303,7 @@ func (a *App) findUsagesAt(callers bool, anchor ui.Point, validAnchor bool) {
 	}
 	m := a.serverFor(d.path)
 	if m == nil {
-		a.note("No language server is configured for this file.", false)
+		a.note(locales.MsgNoLanguageServerIsConfiguredForThisFile(), false)
 		return
 	}
 	if !a.cfg.IsTrusted(a.root) {
@@ -1329,9 +1372,9 @@ func (a *App) findUsagesAt(callers bool, anchor ui.Point, validAnchor bool) {
 			}
 			if len(targets) == 0 {
 				if skipped > 0 {
-					a.note("Results are not in local files.", false)
+					a.note(locales.MsgResultsAreNotInLocalFiles(), false)
 				} else {
-					a.note("No "+name+" found.", false)
+					a.note("No "+name+locales.MsgFound(), false)
 				}
 				return
 			}
@@ -1364,7 +1407,7 @@ func (a *App) loadRelatedPreviews(ch *defChoices) {
 			if snap, ok := snapshots[t.path]; ok {
 				if buffers[t.path] == nil {
 					buffers[t.path] = editor.NewBuffer(snap.String())
-					buffers[t.path].SetLanguage(editor.LanguageFor(t.path))
+					buffers[t.path].SetLanguage(languageFor(t.path))
 				}
 				if t.pos.Line >= 0 && t.pos.Line < snap.LineCount() {
 					t.previewStart = max(0, t.pos.Line-2)
@@ -1379,7 +1422,7 @@ func (a *App) loadRelatedPreviews(ch *defChoices) {
 				if f, err := workspace.ReadFile(t.path); err == nil && f.Kind == workspace.Text {
 					lines = strings.Split(f.Text, "\n")
 					buffers[t.path] = editor.NewBuffer(f.Text)
-					buffers[t.path].SetLanguage(editor.LanguageFor(t.path))
+					buffers[t.path].SetLanguage(languageFor(t.path))
 				}
 				files[t.path] = lines
 			}
@@ -1436,4 +1479,24 @@ func (a *App) openProject(path string) {
 		return
 	}
 	a.openWorkspace(path)
+}
+
+func (a *App) retryClangd() {
+	if a.clangLSP != nil {
+		a.invalidateHover()
+		a.clangLSP.Retry()
+		a.clangState, a.clangErr = a.clangLSP.Status()
+		a.notice = ""
+		a.openServerDocuments(a.clangLSP)
+	}
+}
+
+func (a *App) retryCMake() {
+	if a.cmakeLSP != nil {
+		a.invalidateHover()
+		a.cmakeLSP.Retry()
+		a.cmakeState, a.cmakeErr = a.cmakeLSP.Status()
+		a.notice = ""
+		a.openServerDocuments(a.cmakeLSP)
+	}
 }

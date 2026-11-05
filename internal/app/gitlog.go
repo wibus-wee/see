@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"path/filepath"
+	"see/locales"
 	"strings"
 	"time"
 
@@ -168,7 +169,7 @@ func (a *App) gitLogContent(c *ui.Context, g *group, v *gitLogView) {
 	ui.Column(c).Grow(1).FillWidth().Children(func() {
 		ui.Row(c).Shrink(0).FillWidth().Height(36).Padding(0, 12).Gap(8).AlignItems(ui.Center).
 			BorderWidth(0, 0, 1, 0).BorderColor(colors(c).Separator).Children(func() {
-			ui.TextInput(c, &v.query).Label("Filter Commits").Placeholder("Filter by subject, author, branch or hash").
+			ui.TextInput(c, &v.query).Label(locales.MsgFilterCommits()).Placeholder(locales.MsgFilterBySubjectAuthorBranchOrHash()).
 				Grow(1).MaxWidth(420).Height(24).Padding(0, 8).FontSize(12)
 			count := fmt.Sprintf("%d commit%s", len(rows), plural(len(rows)))
 			if !h.done {
@@ -204,26 +205,26 @@ func (a *App) gitLogContent(c *ui.Context, g *group, v *gitLogView) {
 				case h.commits == nil && h.loading:
 					ui.Row(c).Padding(10, 14).Gap(8).Children(func() {
 						ui.Spinner(c)
-						ui.Text(c, "Reading history…").FontSize(12).TextColor(colors(c).Muted)
+						ui.Text(c, locales.MsgReadingHistory()).FontSize(12).TextColor(colors(c).Muted)
 					})
 				case len(rows) == 0 && v.query != "" && h.done:
-					ui.Text(c, "No commits match “"+v.query+"”").FontSize(12).TextColor(colors(c).Muted).Padding(10, 14)
+					ui.Text(c, locales.MsgNoCommitsMatch()+v.query+"”").FontSize(12).TextColor(colors(c).Muted).Padding(10, 14)
 				case len(h.commits) == 0:
-					ui.Text(c, "No Commits").FontSize(12).TextColor(colors(c).Muted).Padding(10, 14)
+					ui.Text(c, locales.MsgNoCommits()).FontSize(12).TextColor(colors(c).Muted).Padding(10, 14)
 				default:
 					ui.List(c, &v.list, len(rows), func(i int) {
 						if i == len(rows)-1 && !h.done && !h.loading {
 							a.loadHistory(false)
 						}
 						a.logRow(c, v, h.commits[rows[i]])
-					}).Grow(1).FillWidth().Padding(4, 6).Label("Commits")
+					}).Grow(1).FillWidth().Padding(4, 6).Label(locales.MsgCommits())
 				}
 			})
 		}, func() {
 			ui.Column(c).Fill().Children(func() {
 				if v.detail == nil {
 					ui.Column(c).Grow(1).FillWidth().Center().Children(func() {
-						ui.Text(c, "No Commit Chosen").FontSize(16).TextColor(colors(c).Dim)
+						ui.Text(c, locales.MsgNoCommitChosen()).FontSize(16).TextColor(colors(c).Dim)
 					})
 					return
 				}
@@ -286,7 +287,7 @@ func (a *App) logRow(c *ui.Context, v *gitLogView, cm git.Commit) {
 			}
 			ui.Text(c, cm.Subject).FontSize(12).SingleLine().Shrink(1)
 			if h.unpushed[cm.Hash] {
-				ui.Text(c, "↑").FontSize(11).Bold().TextColor(c.Theme().Accent).Shrink(0).Tooltip("Not pushed yet")
+				ui.Text(c, "↑").FontSize(11).Bold().TextColor(c.Theme().Accent).Shrink(0).Tooltip(locales.MsgNotPushedYet())
 			}
 		})
 		ui.Row(c).Width(logAuthorWidth).Shrink(0).Gap(6).AlignItems(ui.Center).Children(func() {
@@ -318,11 +319,11 @@ func logDate(t, now time.Time) string {
 // its files' diffs one after another.
 func (a *App) logCommitContent(c *ui.Context, g *group, lc *logCommit) {
 	cm := lc.commit
-	ui.Scroll(c.Key(cm.Hash)).Grow(1).FillWidth().TrackScroll(&lc.scroll).Label("Commit").Children(func() {
+	ui.Scroll(c.Key(cm.Hash)).Grow(1).FillWidth().TrackScroll(&lc.scroll).Label(locales.MsgCommit()).Children(func() {
 		ui.Column(c).FillWidth().Padding(16, 20).Gap(12).Children(func() {
 			ui.Row(c).FillWidth().Gap(10).AlignItems(ui.Center).Children(func() {
 				ui.Text(c, cm.Subject).FontSize(16).Bold().Selectable().Grow(1).Shrink(1)
-				if ui.Button(c, "Open in Tab").FontSize(12).Clicked() {
+				if ui.Button(c, locales.MsgOpenInTab()).FontSize(12).Clicked() {
 					a.openCommit(cm)
 				}
 			})
@@ -334,7 +335,7 @@ func (a *App) logCommitContent(c *ui.Context, g *group, lc *logCommit) {
 					ui.Text(c, cm.Short).FontSize(12).TextColor(colors(c).Muted).Selectable()
 					if glyphButton(c, icCopy, "Copy Commit Hash", "Copy Commit Hash", false, false).Clicked() {
 						c.Services().WriteClipboard(cm.Hash)
-						a.note("Copied "+cm.Short+".", false)
+						a.note(locales.MsgCopied()+cm.Short+".", false)
 					}
 				})
 			})
@@ -345,7 +346,7 @@ func (a *App) logCommitContent(c *ui.Context, g *group, lc *logCommit) {
 			case lc.loading:
 				ui.Row(c).Gap(8).Children(func() {
 					ui.Spinner(c)
-					ui.Text(c, "Reading the commit…").FontSize(12).TextColor(colors(c).Muted)
+					ui.Text(c, locales.MsgReadingTheCommit()).FontSize(12).TextColor(colors(c).Muted)
 				})
 			case lc.err != "":
 				ui.Text(c, lc.err).FontSize(12).TextColor(colors(c).Err)
@@ -365,21 +366,21 @@ func (a *App) logCommitFiles(c *ui.Context, g *group, lc *logCommit) {
 		deleted += max(f.deleted, 0)
 	}
 	ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-		ui.Text(c, fmt.Sprintf("%d file%s changed", len(lc.files), plural(len(lc.files)))).FontSize(13).Bold()
+		ui.Text(c, locales.MsgDFileSChanged(len(lc.files))).FontSize(13).Bold()
 		ui.Text(c, fmt.Sprintf("+%d", added)).FontSize(12).TextColor(a.gitStatusColor('A'))
 		ui.Text(c, fmt.Sprintf("−%d", deleted)).FontSize(12).TextColor(a.gitStatusColor('D'))
 	})
 	for i, f := range lc.files {
 		if i >= lc.shown {
 			rest := len(lc.files) - lc.shown
-			if ui.Button(c, fmt.Sprintf("Show %d More File%s", rest, plural(rest))).FontSize(12).Clicked() {
+			if ui.Button(c, locales.MsgShowDMoreFileS(rest)).FontSize(12).Clicked() {
 				lc.shown += logFilesAtOnce
 			}
 			return
 		}
 		ui.Column(c.Key(f.path)).FillWidth().Radius(6).BorderWidth(1).BorderColor(colors(c).Separator).Children(func() {
 			head := ui.Row(c).FillWidth().Height(30).Padding(0, 10).Gap(8).AlignItems(ui.Center).Background(colors(c).Pill).
-				Cursor(ui.CursorPointer).Label(f.path).Tooltip("Open " + f.path + " as a Diff")
+				Cursor(ui.CursorPointer).Label(f.path).Tooltip(locales.MsgOpen2() + f.path + locales.MsgAsADiff())
 			head.OnClick(func() {
 				a.openCommitFile(g, lc.commit, git.FileStat{Path: f.path, OldPath: f.oldPath, Added: f.added, Deleted: f.deleted})
 			})
@@ -392,7 +393,7 @@ func (a *App) logCommitFiles(c *ui.Context, g *group, lc *logCommit) {
 				ui.Text(c, name).FontSize(12).Bold().SingleLine().Shrink(1)
 				ui.Box(c).Grow(1)
 				if f.added < 0 {
-					ui.Text(c, "Binary").FontSize(11).TextColor(colors(c).Muted)
+					ui.Text(c, locales.MsgBinary()).FontSize(11).TextColor(colors(c).Muted)
 					return
 				}
 				ui.Text(c, fmt.Sprintf("+%d", f.added)).FontSize(11).TextColor(a.gitStatusColor('A'))

@@ -2,6 +2,7 @@ package app
 
 import (
 	"see/internal/config"
+	"see/locales"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
@@ -79,7 +80,7 @@ func (h *windowHost) dialogParent() *mygo.Window {
 }
 
 func (h *windowHost) PickFolder() (string, error) {
-	paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Parent: h.dialogParent(), Title: "Open Folder", Directory: true})
+	paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Parent: h.dialogParent(), Title: locales.MsgOpenFolder2(), Directory: true})
 	if err != nil || len(paths) == 0 {
 		return "", err
 	}
@@ -87,7 +88,7 @@ func (h *windowHost) PickFolder() (string, error) {
 }
 
 func (h *windowHost) PickFile() (string, error) {
-	paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Parent: h.dialogParent(), Title: "Open File"})
+	paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Parent: h.dialogParent(), Title: locales.MsgOpenFile2()})
 	if err != nil || len(paths) == 0 {
 		return "", err
 	}
@@ -95,13 +96,13 @@ func (h *windowHost) PickFile() (string, error) {
 }
 
 func (h *windowHost) PickNewFile(root string) (string, error) {
-	return mygo.Dialog.Save(mygo.SaveDialogOptions{Parent: h.win, Title: "New File", DefaultPath: root, ButtonLabel: "Create"})
+	return mygo.Dialog.Save(mygo.SaveDialogOptions{Parent: h.win, Title: locales.MsgNewFile2(), DefaultPath: root, ButtonLabel: "Create"})
 }
 
 func (h *windowHost) ConfirmDirty(message string) (int, error) {
 	result, err := mygo.Dialog.Message(mygo.MessageOptions{
-		Parent: h.win, Type: mygo.MessageWarning, Title: "Unsaved Changes",
-		Message: message, Detail: "Do you want to save your changes?",
+		Parent: h.win, Type: mygo.MessageWarning, Title: locales.MsgUnsavedChanges(),
+		Message: message, Detail: locales.MsgDoYouWantToSaveYourChanges(),
 		Buttons: []string{"Save", "Discard Changes", "Cancel"}, CancelButton: 2,
 	})
 	return result.Button, err
@@ -152,7 +153,7 @@ func (s *settingsWindow) OpenSettings() {
 	a := s.a
 	a.settings = settingsState{}
 	s.w = mygo.NewWindow(mygo.WindowOptions{
-		Title:                "Settings",
+		Title:                locales.Settings(),
 		Width:                900,
 		Height:               680,
 		MinWidth:             620,
@@ -233,13 +234,13 @@ func (s *settingsWindow) PickTerminalApp() {
 	}
 	a, current := s.a, s.w
 	go func() {
-		paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Parent: current, Title: "Choose Terminal App", DefaultPath: "/Applications", Filters: []mygo.FileFilter{{Name: "Applications", Extensions: []string{"app"}}}})
+		paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{Parent: current, Title: locales.MsgChooseTerminalApp(), DefaultPath: "/Applications", Filters: []mygo.FileFilter{{Name: "Applications", Extensions: []string{"app"}}}})
 		current.Update(func() {
 			if s.w != current || current.IsDestroyed() {
 				return
 			}
 			if err != nil {
-				a.note("Could not choose terminal app: "+err.Error(), true)
+				a.note(locales.MsgCouldNotChooseTerminalApp()+err.Error(), true)
 				a.post.Post(func() {})
 				return
 			}

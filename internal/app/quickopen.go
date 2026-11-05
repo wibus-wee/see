@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"path/filepath"
+	"see/locales"
 	"slices"
 	"strings"
 
@@ -30,7 +31,7 @@ func (a *App) quickOpenPanel(c *ui.Context) {
 			panel.Children(func() {
 				ui.Row(c).Padding(4, 8).Gap(8).AlignItems(ui.Center).Children(func() {
 					symbolIcon(c, icSearch, 20, colors(c).Muted)
-					in := ui.TextInput(c, &q.query).Placeholder("Open Quickly").FontSize(20).Grow(1).AutoFocus().Background(ui.Transparent).BorderWidth(0)
+					in := ui.TextInput(c, &q.query).Placeholder(locales.MsgOpenQuickly()).FontSize(20).Grow(1).AutoFocus().Background(ui.Transparent).BorderWidth(0)
 					// The field has the keyboard: it takes the list's keys.
 					switch {
 					case in.Submitted():
@@ -49,32 +50,32 @@ func (a *App) quickOpenPanel(c *ui.Context) {
 				symbolMode := strings.HasPrefix(q.query, "#")
 				switch {
 				case !commandMode && a.root == "":
-					ui.Text(c, "Open a folder to search files, or type > to search commands.").TextColor(colors(c).Muted).Padding(8)
+					ui.Text(c, locales.MsgOpenAFolderToSearchFilesOrType()).TextColor(colors(c).Muted).Padding(8)
 				case symbolMode && !a.cfg.IsTrusted(a.root):
-					if ui.Button(c, "Trust folder to search symbols").Clicked() {
+					if ui.Button(c, locales.MsgTrustFolderToSearchSymbols()).Clicked() {
 						query := q.query
 						q.open = false
 						a.trustAsk = true
 						a.afterTrust = func() { a.openQuickPanel(query) }
 					}
 				case symbolMode && strings.TrimSpace(q.query[1:]) == "":
-					ui.Text(c, "Type a symbol name to search the workspace.").TextColor(colors(c).Muted).Padding(8)
+					ui.Text(c, locales.MsgTypeASymbolNameToSearchTheWorkspace()).TextColor(colors(c).Muted).Padding(8)
 				case symbolMode && q.symbolLoading && len(q.results) == 0:
-					ui.Row(c).Padding(8).Gap(8).Children(func() { ui.Spinner(c); ui.Text(c, "Searching symbols…").TextColor(colors(c).Muted) })
+					ui.Row(c).Padding(8).Gap(8).Children(func() { ui.Spinner(c); ui.Text(c, locales.MsgSearchingSymbols()).TextColor(colors(c).Muted) })
 				case symbolMode && q.symbolErr != nil:
 					ui.Text(c, q.symbolErr.Error()).TextColor(colors(c).Err).Padding(8)
 				case !commandMode && !symbolMode && q.listing:
 					ui.Row(c).Padding(8).Gap(8).Children(func() {
 						ui.Spinner(c)
-						ui.Text(c, "Listing files…").TextColor(colors(c).Muted)
+						ui.Text(c, locales.MsgListingFiles()).TextColor(colors(c).Muted)
 					})
 				case !commandMode && !symbolMode && q.err != nil:
 					ui.Text(c, q.err.Error()).TextColor(colors(c).Err).Padding(8)
 				case len(q.results) == 0:
-					ui.Text(c, "No Matches").TextColor(colors(c).Muted).Padding(8)
+					ui.Text(c, locales.MsgNoMatches()).TextColor(colors(c).Muted).Padding(8)
 				default:
 					ui.Box(c).Height(1).FillWidth().Background(colors(c).Separator)
-					label := "Files"
+					label := locales.Files()
 					if commandMode {
 						label = "Commands"
 					} else if symbolMode {
@@ -112,7 +113,7 @@ func (a *App) quickRow(c *ui.Context, i int) {
 		row.Children(func() {
 			ui.Text(c, r.Path).Grow(1).SingleLine()
 			for _, cmd := range commands() {
-				if cmd.name == r.Path && cmd.key != "" {
+				if commandLabel(cmd.name) == r.Path && cmd.key != "" {
 					ui.Text(c, keyLabel(cmd.mods, cmd.key)).TextColor(colors(c).Muted)
 					break
 				}

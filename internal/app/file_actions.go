@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"see/locales"
 	"slices"
 	"strings"
 
@@ -31,9 +32,9 @@ func (a *App) requestTrash(path string) {
 	if a.guardDirty(dirty, func() { a.requestTrash(path) }) {
 		return
 	}
-	q := &confirmation{message: fmt.Sprintf("Move %q to Trash?", filepath.Base(path))}
+	q := &confirmation{message: locales.TrashQuestion(filepath.Base(path))}
 	q.actions = []action{
-		{"Move to Trash", func() {
+		{locales.MoveToTrash(), func() {
 			if a.deleteConfirm != q {
 				return
 			}
@@ -46,7 +47,7 @@ func (a *App) requestTrash(path string) {
 						return
 					}
 					if err != nil {
-						a.note("Could not move to Trash: "+err.Error(), true)
+						a.note(locales.MsgCouldNotMoveToTrash()+err.Error(), true)
 						return
 					}
 					a.removed(path)
@@ -57,7 +58,7 @@ func (a *App) requestTrash(path string) {
 				})
 			}()
 		}},
-		{"Cancel", func() {
+		{locales.Cancel(), func() {
 			if a.deleteConfirm == q {
 				a.deleteConfirm = nil
 			}
@@ -115,7 +116,7 @@ func (a *App) entryPanel(c *ui.Context) {
 			} else {
 				fileIcon(c, q.name, 16)
 			}
-			field := ui.TextInput(c, &q.name).Label(title+" name").Placeholder("Path").Grow(1).Height(20).Padding(0, 4).FontSize(12).AutoFocus()
+			field := ui.TextInput(c, &q.name).Label(title+locales.MsgName()).Placeholder(locales.MsgPath()).Grow(1).Height(20).Padding(0, 4).FontSize(12).AutoFocus()
 			if field.Submitted() {
 				a.submitEntry(q)
 			}
@@ -183,7 +184,7 @@ func (a *App) openDropped(g *group, zone side, paths []string) {
 	for _, path := range paths {
 		info, err := os.Stat(path)
 		if err != nil || !info.Mode().IsRegular() {
-			a.note("Could not open dropped file: "+path, true)
+			a.note(locales.MsgCouldNotOpenDroppedFile()+path, true)
 			continue
 		}
 		if zone != sideNone {
@@ -214,7 +215,7 @@ func (a *App) copyInto(dir string, paths []string) {
 			a.filter.forQuery = ""
 			a.tree.Open.Add(dir)
 			if len(failures) > 0 {
-				a.note("Could not copy: "+strings.Join(failures, "; "), true)
+				a.note(locales.MsgCouldNotCopy()+strings.Join(failures, "; "), true)
 			}
 		})
 	}()

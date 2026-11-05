@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"path/filepath"
+	"see/locales"
 	"strings"
 
 	"github.com/egoist/mygo/ui"
@@ -114,13 +115,13 @@ func (a *App) linkItems(menu *ui.Menu, d *doc, st *editor.State) {
 	if menu.Item("Copy Code Reference").Chosen() {
 		ref := a.codeReference(d, st)
 		a.services.WriteClipboard(ref)
-		a.note("Copied "+ref+".", false)
+		a.note(locales.MsgCopied()+ref+".", false)
 	}
 	if link := a.webLink(d, st); link != "" {
 		host := hostName(a.git.web)
 		if menu.Item("Copy " + host + " Link").Chosen() {
 			a.services.WriteClipboard(link)
-			a.note("Copied the "+host+" link.", false)
+			a.note(locales.MsgCopiedThe()+host+locales.MsgLink(), false)
 		}
 		if menu.Item("Open on " + host).Chosen() {
 			a.services.OpenURL(link)

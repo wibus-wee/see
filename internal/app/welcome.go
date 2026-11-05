@@ -3,6 +3,7 @@ package app
 import (
 	"os"
 	"path/filepath"
+	"see/locales"
 	"strings"
 
 	"github.com/egoist/mygo/ui"
@@ -42,7 +43,7 @@ func (a *App) welcomeIntro(c *ui.Context) {
 			ui.Image(c, appIcon).Size(120, 120)
 			ui.Text(c, "See").FontSize(28).Bold().TextColor(colors(c).Text).TextAlign(ui.Center)
 			if a.version != "" {
-				ui.Text(c, "Version "+a.version).FontSize(13).TextColor(colors(c).Muted)
+				ui.Text(c, locales.MsgVersion()+a.version).FontSize(13).TextColor(colors(c).Muted)
 			}
 			ui.Box(c).Height(12)
 			ui.Column(c).Gap(2).Width(300).Children(func() {
@@ -99,7 +100,7 @@ func (a *App) welcomeRecent(c *ui.Context) {
 		recent := a.cfg.Recent
 		if len(recent) == 0 {
 			ui.Column(c).Grow(1).FillWidth().Center().Children(func() {
-				ui.Text(c, "No Recent Folders").FontSize(13).TextColor(colors(c).Dim)
+				ui.Text(c, locales.MsgNoRecentFolders()).FontSize(13).TextColor(colors(c).Dim)
 			})
 			return
 		}

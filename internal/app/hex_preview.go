@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"math"
+	"see/locales"
 
 	"github.com/egoist/mygo/ui"
 	"see/internal/hexview"
@@ -79,9 +80,9 @@ func (a *App) hexView(c *ui.Context, g *group, d *doc) {
 	rowWidth := 32 + offsetWidth + hexWidth + 16*charWidth
 	ui.Column(c).Grow(1).FillWidth().Children(func() {
 		ui.Row(c).FillWidth().Padding(8, 14).Gap(7).AlignItems(ui.Center).Background(colors(c).Toolbar).BorderWidth(0, 0, 1, 0).BorderColor(colors(c).Hairline).Children(func() {
-			ui.Text(c, "HEX VIEW").FontSize(10).Bold().TextColor(colors(c).Muted).Shrink(0)
+			ui.Text(c, locales.MsgHEXVIEW()).FontSize(10).Bold().TextColor(colors(c).Muted).Shrink(0)
 			ui.Box(c).Width(1).Height(18).Background(colors(c).Separator).Shrink(0)
-			jump := ui.TextInput(c, &control.jump).Label("Hex offset").Placeholder("Offset").Width(105).Height(26).FontSize(12)
+			jump := ui.TextInput(c, &control.jump).Label(locales.MsgHexOffset()).Placeholder(locales.MsgOffset()).Width(105).Height(26).FontSize(12)
 			if jump.Submitted() {
 				a.jumpHex(control, state, d.size)
 			}
@@ -89,7 +90,7 @@ func (a *App) hexView(c *ui.Context, g *group, d *doc) {
 				a.jumpHex(control, state, d.size)
 			}
 			ui.Box(c).Width(1).Height(18).Background(colors(c).Separator).Shrink(0)
-			search := ui.TextInput(c, &control.query).Label("Find bytes").Placeholder("Find text or hex: 00 FF").Grow(1).MinWidth(80).Height(26).FontSize(12)
+			search := ui.TextInput(c, &control.query).Label(locales.MsgFindBytes()).Placeholder(locales.MsgFindTextOrHex00FF()).Grow(1).MinWidth(80).Height(26).FontSize(12)
 			if search.Changed() && control.searching {
 				control.cancel()
 				control.cancel = nil
@@ -100,13 +101,13 @@ func (a *App) hexView(c *ui.Context, g *group, d *doc) {
 			if search.Submitted() {
 				a.findHex(d, control, state)
 			}
-			if ui.Button(c, "Find Next").Height(26).Disabled(control.searching).Clicked() {
+			if ui.Button(c, locales.MsgFindNext()).Height(26).Disabled(control.searching).Clicked() {
 				a.findHex(d, control, state)
 			}
-			if control.searching && ui.Button(c, "Cancel Search").Height(26).Clicked() && control.cancel != nil {
+			if control.searching && ui.Button(c, locales.MsgCancelSearch()).Height(26).Clicked() && control.cancel != nil {
 				control.cancel()
 			}
-			if ui.Button(c, "Copy Hex").Height(26).Disabled(!control.selected).Clicked() {
+			if ui.Button(c, locales.MsgCopyHex()).Height(26).Disabled(!control.selected).Clicked() {
 				a.copyHex(d, control, services)
 			}
 		})
@@ -125,15 +126,15 @@ func (a *App) hexView(c *ui.Context, g *group, d *doc) {
 		})
 		if h.err != nil {
 			ui.Row(c).Gap(8).Padding(12, 16).Children(func() {
-				ui.Text(c, "Could not read file bytes: "+h.err.Error()).FontSize(12).TextColor(colors(c).Err)
-				if ui.Button(c, "Retry").Clicked() {
+				ui.Text(c, locales.MsgCouldNotReadFileBytes()+h.err.Error()).FontSize(12).TextColor(colors(c).Err)
+				if ui.Button(c, locales.Retry()).Clicked() {
 					d.hex = nil
 				}
 			})
 		} else if count == 0 {
-			ui.Text(c, "Empty file").Padding(12, 16)
+			ui.Text(c, locales.MsgEmptyFile()).Padding(12, 16)
 		} else {
-			list := ui.List(c.Key(d.path), state, int(count)).Grow(1).FillWidth().RowWidth(rowWidth).Label("File bytes")
+			list := ui.List(c.Key(d.path), state, int(count)).Grow(1).FillWidth().RowWidth(rowWidth).Label(locales.MsgFileBytes())
 			list.Rows(func(row ui.ListRow) {
 				offset := int64(row.Index) * hexview.RowBytes
 				pageOffset := offset / hexview.PageBytes * hexview.PageBytes
@@ -153,7 +154,7 @@ func (a *App) hexView(c *ui.Context, g *group, d *doc) {
 			head.ScrollWith(list)
 		}
 		ui.Row(c).FillWidth().Padding(6, 16).Gap(12).AlignItems(ui.Center).Background(colors(c).TabBar).BorderWidth(1, 0, 0, 0).BorderColor(colors(c).Hairline).Children(func() {
-			ui.Text(c, "READ ONLY").FontSize(10).Bold().TextColor(colors(c).Muted)
+			ui.Text(c, locales.MsgREADONLY()).FontSize(10).Bold().TextColor(colors(c).Muted)
 			ui.Text(c, size(d.size)).FontSize(11).TextColor(colors(c).Muted)
 			if control.selected {
 				lo, hi := control.bounds()
@@ -228,7 +229,7 @@ func (a *App) hexRow(c *ui.Context, list *ui.ListState, s *hexControl, offset in
 }
 
 func hexCell(c *ui.Context, list *ui.ListState, s *hexControl, pos int64, text string, value byte, width float32) {
-	cell := ui.ButtonBase(c.Key(fmt.Sprintf("%d:%s", pos, text))).Label(fmt.Sprintf("Byte %X %s", pos, text)).Width(width).Shrink(0).Padding(0).FocusRing(false)
+	cell := ui.ButtonBase(c.Key(fmt.Sprintf("%d:%s", pos, text))).Label(fmt.Sprintf(locales.MsgByteXS(), pos, text)).Width(width).Shrink(0).Padding(0).FocusRing(false)
 	if s.selected {
 		lo, hi := s.bounds()
 		if pos >= lo && pos < hi {

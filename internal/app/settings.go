@@ -20,6 +20,7 @@ import (
 	"see/internal/langserver"
 	"see/internal/languages"
 	"see/internal/theme"
+	"see/locales"
 )
 
 // The settings window, after macOS 27's System Settings: the panes in a
@@ -57,27 +58,29 @@ var settingsPanes = []settingsPane{
 // settingsState is the settings window's own state.
 type settingsState struct {
 	shellCommandMessage string
-	termFeaturesDraft  string
+	termFeaturesDraft   string
 	editorFeaturesDraft string
-	envDraft           string
-	pane          string
-	query         string
-	back, forward []string
-	fontOpen      bool
-	fontButton    ui.Handle
-	fontQuery     string
-	fontFilter    int
-	fontFamilies  []ui.FontFamily
-	fontLoading   chan []ui.FontFamily
-	fontValuesSet bool
-	termWeight    float64
-	termHeight    float64
-	fontSize      float64
-	termFontSize  float64
-	lineNumbers   int
-	serverInstall string
-	appearance    int
-	terminalIcons map[string]*ui.Bitmap
+	envDraft            string
+	pane                string
+	query               string
+	back, forward       []string
+	fontOpen            bool
+	fontButton          ui.Handle
+	fontQuery           string
+	fontFilter          int
+	fontFamilies        []ui.FontFamily
+	fontLoading         chan []ui.FontFamily
+	fontValuesSet       bool
+	termWeight          float64
+	termHeight          float64
+	fontSize            float64
+	termFontSize        float64
+	lineNumbers         int
+	serverInstall       string
+	appearance          int
+	languageChoice      int
+	languageChoiceSet   bool
+	terminalIcons       map[string]*ui.Bitmap
 }
 
 func (a *App) settingsGo(pane string) {
@@ -231,7 +234,7 @@ func (a *App) settingsView(c *ui.Context) {
 
 func (a *App) settingsSidebar(c *ui.Context) {
 	s := &a.settings
-	ui.SearchField(c, &s.query).Label("Search Settings").Placeholder("Search").FillWidth().Height(28).Radius(14).Margin(0, 0, 10, 0)
+	ui.SearchField(c, &s.query).Label(locales.MsgSearchSettings()).Placeholder(locales.Search()).FillWidth().Height(28).Radius(14).Margin(0, 0, 10, 0)
 	q := strings.ToLower(strings.TrimSpace(s.query))
 	// The app's own row, as System Settings shows the account's.
 	if q == "" {
@@ -247,6 +250,7 @@ func (a *App) settingsSidebar(c *ui.Context) {
 	group := -1
 	shown := 0
 	for _, p := range settingsPanes {
+		p.title = settingsPaneTitle(p.id)
 		if q != "" && !strings.Contains(strings.ToLower(p.title+" "+p.keywords), q) {
 			continue
 		}
@@ -265,8 +269,8 @@ func (a *App) settingsSidebar(c *ui.Context) {
 	}
 	if shown == 0 {
 		ui.Column(c).FillWidth().Padding(24, 8).Gap(4).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, "No Results").Bold().TextColor(theme.Of(c).Muted)
-			ui.Text(c, "for “"+strings.TrimSpace(s.query)+"”").FontSize(11).TextColor(theme.Of(c).Dim).SingleLine()
+			ui.Text(c, locales.MsgNoResults()).Bold().TextColor(theme.Of(c).Muted)
+			ui.Text(c, locales.MsgFor()+strings.TrimSpace(s.query)+"”").FontSize(11).TextColor(theme.Of(c).Dim).SingleLine()
 		})
 	}
 	// Up and Down go from pane to pane, as in System Settings, unless
@@ -284,6 +288,7 @@ func (a *App) settingsStep(q string, up bool) {
 		ids = append(ids, "about")
 	}
 	for _, p := range settingsPanes {
+		p.title = settingsPaneTitle(p.id)
 		if q == "" || strings.Contains(strings.ToLower(p.title+" "+p.keywords), q) {
 			ids = append(ids, p.id)
 		}
@@ -353,7 +358,7 @@ func (a *App) settingsContent(c *ui.Context, bar ui.TitleBar) {
 	title := "See"
 	for _, p := range settingsPanes {
 		if p.id == s.pane {
-			title = p.title
+			title = settingsPaneTitle(p.id)
 		}
 	}
 	// The title bar: back and forward on a pill of glass, then the title.
@@ -458,46 +463,63 @@ func (a *App) generalPane(c *ui.Context) {
 	}
 	card(c,
 		func() {
-			labeled(c, "Appearance", "Follows the system, or stays light or dark.")
-			if ui.Segmented(c, &s.appearance, "System", "Light", "Dark").Label("Appearance").Changed() {
+			if !s.languageChoiceSet {
+				switch a.cfg.Language {
+				case "en":
+					s.languageChoice = 1
+				case "zh-Hans":
+					s.languageChoice = 2
+				}
+				s.languageChoiceSet = true
+			}
+			labeled(c, locales.Language(), locales.LanguageDescription())
+			if ui.Segmented(c, &s.languageChoice, locales.System(), "English", "简体中文").Label(locales.Language()).Changed() {
+				a.cfg.Language = []string{"", "en", "zh-Hans"}[s.languageChoice]
+				mygo.App.SetLocale(a.cfg.Language)
+				a.settingsChanged()
+			}
+		},
+		func() {
+			labeled(c, locales.Appearance(), locales.MsgFollowsTheSystemOrStaysLightOrDark())
+			if ui.Segmented(c, &s.appearance, locales.System(), locales.Light(), locales.Dark()).Label(locales.Appearance()).Changed() {
 				a.chooseAppearance([]string{"", "light", "dark"}[s.appearance])
 				a.post.Post(func() {})
 			}
 		},
 		func() {
-			labeled(c, "Reopen the last folder at launch", "Otherwise the welcome window shows, with the folders opened lately.")
-			if ui.Switch(c, &a.cfg.ReopenLast).Label("Reopen the last folder at launch").Changed() {
+			labeled(c, locales.MsgReopenTheLastFolderAtLaunch(), locales.MsgOtherwiseTheWelcomeWindowShowsWithTheFolders())
+			if ui.Switch(c, &a.cfg.ReopenLast).Label(locales.MsgReopenTheLastFolderAtLaunch()).Changed() {
 				a.settingsChanged()
 			}
 		},
 		func() {
-			labeled(c, "Ask before closing unsaved files", "See asks before closing a tab or window with unsaved changes.")
-			if ui.Switch(c, &a.cfg.ConfirmClose).Label("Ask before closing").Changed() {
+			labeled(c, locales.MsgAskBeforeClosingUnsavedFiles(), locales.MsgSeeAsksBeforeClosingATabOrWindow())
+			if ui.Switch(c, &a.cfg.ConfirmClose).Label(locales.MsgAskBeforeClosing()).Changed() {
 				a.settingsChanged()
 			}
 		},
 		func() {
-			labeled(c, "Git status in the navigator", "Show each file's status and line counts beside it.")
-			if ui.Switch(c, &a.cfg.GitStatus).Label("Git status").Changed() {
+			labeled(c, locales.MsgGitStatusInTheNavigator(), locales.MsgShowEachFileSStatusAndLineCounts())
+			if ui.Switch(c, &a.cfg.GitStatus).Label(locales.MsgGitStatus()).Changed() {
 				a.settingsChanged()
 			}
 		},
 		func() {
-			labeled(c, "Hidden names", "Hide matching files and folders in the project navigator. Separate names with commas.")
-			if ui.TextInput(c, &a.cfg.HiddenNames).Label("Hidden names").Placeholder(".DS_Store").Width(200).Changed() {
+			labeled(c, locales.MsgHiddenNames(), locales.MsgHideMatchingFilesAndFoldersInTheProject())
+			if ui.TextInput(c, &a.cfg.HiddenNames).Label(locales.MsgHiddenNames()).Placeholder(".DS_Store").Width(200).Changed() {
 				a.filter.forQuery = ""
 				a.settingsChanged()
 			}
 		},
 		func() {
-			labeled(c, "Diff layout", "Show diffs inline or side by side.")
+			labeled(c, locales.MsgDiffLayout(), locales.MsgShowDiffsInlineOrSideBySide())
 			layout := 0
 			if a.cfg.DiffLayout == "unified" || (a.cfg.DiffLayout == "" && a.cfg.DiffUnified) {
 				layout = 1
 			} else if a.cfg.DiffLayout == "split" {
 				layout = 2
 			}
-			if ui.Segmented(c, &layout, "Auto", "Unified", "Split").Label("Diff layout").Changed() {
+			if ui.Segmented(c, &layout, locales.MsgAuto(), locales.MsgUnified(), locales.MsgSplit()).Label(locales.MsgDiffLayout()).Changed() {
 				a.cfg.DiffLayout = []string{"auto", "unified", "split"}[layout]
 				a.cfg.DiffUnified = a.cfg.DiffLayout == "unified"
 				a.applyEditorPrefsAll()
@@ -505,37 +527,37 @@ func (a *App) generalPane(c *ui.Context) {
 			}
 		},
 	)
-	heading(c, "Shell Command")
+	heading(c, locales.MsgShellCommand())
 	card(c, func() {
 		detail := "Install see in ~/.local/bin to open files and folders from a terminal. Add ~/.local/bin to your PATH if needed."
 		if s.shellCommandMessage != "" {
 			detail = s.shellCommandMessage
 		}
-		labeled(c, "see command", detail)
-		ui.Button(c.Key("install-see"), "Install").Label("Install see command").OnClick(func() {
+		labeled(c, locales.MsgSeeCommand(), detail)
+		ui.Button(c.Key("install-see"), locales.Install()).Label(locales.MsgInstallSeeCommand()).OnClick(func() {
 			a.installSee()
 			s.shellCommandMessage = a.notice
 		})
-		ui.Button(c.Key("uninstall-see"), "Uninstall").Label("Uninstall see command").OnClick(func() {
+		ui.Button(c.Key("uninstall-see"), locales.MsgUninstall()).Label(locales.MsgUninstallSeeCommand()).OnClick(func() {
 			a.uninstallSee()
 			s.shellCommandMessage = a.notice
 		})
 	})
-	heading(c, "Recent Folders")
+	heading(c, locales.MsgRecentFolders())
 	card(c, func() {
 		n := len(a.cfg.Recent)
-		labeled(c, fmt.Sprintf("%d recent folder%s", n, plural(n)), "Shown on the welcome window.")
-		if ui.Button(c, "Clear Recents").Disabled(n == 0).Clicked() {
+		labeled(c, locales.MsgDRecentFolderS(n), locales.MsgShownOnTheWelcomeWindow())
+		if ui.Button(c, locales.MsgClearRecents()).Disabled(n == 0).Clicked() {
 			a.cfg.ClearRecent()
 			a.settingsChanged()
 		}
 	})
-	heading(c, "Startup")
+	heading(c, locales.MsgStartup())
 	card(c,
 		func() {
-			labeled(c, "Open at login", "Start See when you log in.")
+			labeled(c, locales.MsgOpenAtLogin(), locales.MsgStartSeeWhenYouLogIn())
 			open := mygo.App.OpenAtLogin()
-			if ui.Switch(c, &open).Label("Open at login").Changed() {
+			if ui.Switch(c, &open).Label(locales.MsgOpenAtLogin()).Changed() {
 				if err := mygo.App.SetOpenAtLogin(open); err != nil {
 					_ = err
 				}
@@ -543,12 +565,12 @@ func (a *App) generalPane(c *ui.Context) {
 			}
 		},
 	)
-	heading(c, "Updates")
+	heading(c, locales.MsgUpdates())
 	card(c,
 		func() {
-			labeled(c, "Automatic checks", "Check for new versions in the background.")
+			labeled(c, locales.MsgAutomaticChecks(), locales.MsgCheckForNewVersionsInTheBackground())
 			auto := updater.AutomaticChecks()
-			if ui.Switch(c, &auto).Label("Automatic checks").Changed() {
+			if ui.Switch(c, &auto).Label(locales.MsgAutomaticChecks()).Changed() {
 				updater.SetAutomaticChecks(auto)
 				a.settingsChanged()
 			}
@@ -575,63 +597,63 @@ func (a *App) editorPane(c *ui.Context) {
 	s := &a.settings
 	a.initFontValues()
 	s.lineNumbers = a.cfg.LineNumbers
-	heading(c, "Typography")
+	heading(c, locales.MsgTypography())
 	a.fontPreview(c, false)
 	card(c,
 		func() { a.fontPicker(c, false) },
 		func() {
-			labeled(c, "Font Size", "The editor's font size.")
+			labeled(c, locales.MsgFontSize(), locales.MsgTheEditorSFontSize())
 			ui.Text(c, fmt.Sprintf("%g pt", s.fontSize)).TextColor(theme.Of(c).Muted)
-			if ui.Stepper(c, &s.fontSize, 9, 28, 1).Label("Font Size").Changed() {
+			if ui.Stepper(c, &s.fontSize, 9, 28, 1).Label(locales.MsgFontSize()).Changed() {
 				a.cfg.FontSize = s.fontSize
 				a.applyEditorPrefsAll()
 				a.settingsChanged()
 			}
 		},
 		func() {
-			labeled(c, "Font Weight", "The weight of regular editor text.")
+			labeled(c, locales.MsgFontWeight(), locales.MsgTheWeightOfRegularEditorText())
 			weight := float64(a.cfg.EditorFontWeight)
 			if weight == 0 {
 				weight = 400
 			}
 			ui.Text(c, fmt.Sprintf("%g", weight)).TextColor(theme.Of(c).Muted)
-			if ui.Stepper(c, &weight, 100, 900, 100).Label("Editor Font Weight").Changed() {
+			if ui.Stepper(c, &weight, 100, 900, 100).Label(locales.MsgEditorFontWeight()).Changed() {
 				a.cfg.EditorFontWeight = int(weight)
 				a.applyEditorPrefsAll()
 				a.settingsChanged()
 			}
 		},
 		func() {
-			labeled(c, "Line Height", "Extra space between editor rows.")
+			labeled(c, locales.MsgLineHeight(), locales.MsgExtraSpaceBetweenEditorRows())
 			height := a.cfg.EditorLineHeight
 			if height == 0 {
 				height = 1.5
 			}
 			ui.Text(c, fmt.Sprintf("%g", height)).TextColor(theme.Of(c).Muted)
-			if ui.Stepper(c, &height, 1, 3, 0.1).Label("Editor Line Height").Changed() {
+			if ui.Stepper(c, &height, 1, 3, 0.1).Label(locales.MsgEditorLineHeight()).Changed() {
 				a.cfg.EditorLineHeight = height
 				a.applyEditorPrefsAll()
 				a.settingsChanged()
 			}
 		},
 		func() {
-			labeled(c, "Ligatures", "Combine supported character sequences.")
+			labeled(c, locales.MsgLigatures(), locales.MsgCombineSupportedCharacterSequences())
 			enabled := !a.cfg.EditorNoLigatures
-			ui.Switch(c, &enabled).Label("Ligatures").OnClick(func() { a.cfg.EditorNoLigatures = !enabled; a.applyEditorPrefsAll(); a.settingsChanged() })
+			ui.Switch(c, &enabled).Label(locales.MsgLigatures()).OnClick(func() { a.cfg.EditorNoLigatures = !enabled; a.applyEditorPrefsAll(); a.settingsChanged() })
 		},
 		func() {
-			labeled(c, "Font Smoothing", "Draw editor text with a thicker stroke on macOS.")
-			if ui.Switch(c, &a.cfg.EditorThicken).Label("Font Smoothing").Changed() {
+			labeled(c, locales.MsgFontSmoothing(), locales.MsgDrawEditorTextWithAThickerStrokeOn())
+			if ui.Switch(c, &a.cfg.EditorThicken).Label(locales.MsgFontSmoothing()).Changed() {
 				a.applyEditorPrefsAll()
 				a.settingsChanged()
 			}
 		},
 		func() {
-			labeled(c, "Font Features", "Comma-separated OpenType features.")
+			labeled(c, locales.MsgFontFeatures(), locales.MsgCommaSeparatedOpenTypeFeatures())
 			if a.settings.editorFeaturesDraft == "" && len(a.cfg.EditorFontFeatures) > 0 {
 				a.settings.editorFeaturesDraft = strings.Join(a.cfg.EditorFontFeatures, ", ")
 			}
-			if ui.TextInput(c, &a.settings.editorFeaturesDraft).Label("Editor Font Features").Width(170).Changed() {
+			if ui.TextInput(c, &a.settings.editorFeaturesDraft).Label(locales.MsgEditorFontFeatures()).Width(170).Changed() {
 				var feats []string
 				for _, f := range strings.Split(a.settings.editorFeaturesDraft, ",") {
 					f = strings.TrimSpace(f)
@@ -645,16 +667,16 @@ func (a *App) editorPane(c *ui.Context) {
 			}
 		},
 		func() {
-			labeled(c, "Line Numbers", "Relative numbers count from the caret's line.")
-			if ui.Segmented(c, &s.lineNumbers, "On", "Relative", "Off").Label("Line Numbers").Changed() {
+			labeled(c, locales.MsgLineNumbers(), locales.MsgRelativeNumbersCountFromTheCaretSLine())
+			if ui.Segmented(c, &s.lineNumbers, "On", locales.MsgRelative(), locales.MsgOff()).Label(locales.MsgLineNumbers()).Changed() {
 				a.cfg.LineNumbers = s.lineNumbers
 				a.applyEditorPrefsAll()
 				a.settingsChanged()
 			}
 		},
 		func() {
-			labeled(c, "Wrap Lines", "Long lines wrap at the editor's width rather than scrolling sideways.")
-			if ui.Switch(c, &a.cfg.SoftWrap).Label("Wrap Lines").Changed() {
+			labeled(c, locales.MsgWrapLines(), locales.MsgLongLinesWrapAtTheEditorSWidth())
+			if ui.Switch(c, &a.cfg.SoftWrap).Label(locales.MsgWrapLines()).Changed() {
 				a.applyEditorPrefsAll()
 				a.settingsChanged()
 			}
@@ -665,44 +687,44 @@ func (a *App) editorPane(c *ui.Context) {
 func (a *App) notificationsPane(c *ui.Context) {
 	card(c,
 		func() {
-			labeled(c, "Notify when waiting", "Notify when a terminal or agent needs you.")
-			if ui.Switch(c, &a.cfg.NotifyWaiting).Label("Notify waiting").Changed() {
+			labeled(c, locales.MsgNotifyWhenWaiting(), locales.MsgNotifyWhenATerminalOrAgentNeedsYou())
+			if ui.Switch(c, &a.cfg.NotifyWaiting).Label(locales.MsgNotifyWaiting()).Changed() {
 				a.settingsChanged()
 			}
 		},
 		func() {
-			labeled(c, "Notify when done", "Notify when a task finishes.")
-			if ui.Switch(c, &a.cfg.NotifyDone).Label("Notify done").Changed() {
+			labeled(c, locales.MsgNotifyWhenDone(), locales.MsgNotifyWhenATaskFinishes())
+			if ui.Switch(c, &a.cfg.NotifyDone).Label(locales.MsgNotifyDone()).Changed() {
 				a.settingsChanged()
 			}
 		},
 		func() {
-			labeled(c, "Notify on failure", "Notify when something fails.")
-			if ui.Switch(c, &a.cfg.NotifyFailed).Label("Notify failed").Changed() {
+			labeled(c, locales.MsgNotifyOnFailure(), locales.MsgNotifyWhenSomethingFails())
+			if ui.Switch(c, &a.cfg.NotifyFailed).Label(locales.MsgNotifyFailed()).Changed() {
 				a.settingsChanged()
 			}
 		},
 		func() {
-			labeled(c, "Play sound", "Play a sound with notifications.")
-			if ui.Switch(c, &a.cfg.NotifySound).Label("Play sound").Changed() {
+			labeled(c, locales.MsgPlaySound(), locales.MsgPlayASoundWithNotifications())
+			if ui.Switch(c, &a.cfg.NotifySound).Label(locales.MsgPlaySound()).Changed() {
 				a.settingsChanged()
 			}
 		},
 		func() {
-			labeled(c, "Dock badge", "Show a badge on the app icon.")
-			if ui.Switch(c, &a.cfg.DockBadge).Label("Dock badge").Changed() {
+			labeled(c, locales.MsgDockBadge(), locales.MsgShowABadgeOnTheAppIcon())
+			if ui.Switch(c, &a.cfg.DockBadge).Label(locales.MsgDockBadge()).Changed() {
 				a.settingsChanged()
 			}
 		},
 		func() {
-			labeled(c, "Dock bounce", "Bounce the app icon when notifying.")
-			if ui.Switch(c, &a.cfg.BounceDock).Label("Dock bounce").Changed() {
+			labeled(c, locales.MsgDockBounce(), locales.MsgBounceTheAppIconWhenNotifying())
+			if ui.Switch(c, &a.cfg.BounceDock).Label(locales.MsgDockBounce()).Changed() {
 				a.settingsChanged()
 			}
 		},
 		func() {
-			labeled(c, "Test notification", "Send a test notification.")
-			if ui.Button(c, "Test").Clicked() {
+			labeled(c, locales.MsgTestNotification(), locales.MsgSendATestNotification())
+			if ui.Button(c, locales.MsgTest()).Clicked() {
 				n := mygo.NewNotification(mygo.NotificationOptions{Title: "See", Body: "Test notification", Silent: !a.cfg.NotifySound})
 				go func() { _ = n.Show() }()
 			}
@@ -711,31 +733,37 @@ func (a *App) notificationsPane(c *ui.Context) {
 }
 
 func (a *App) intelligencePane(c *ui.Context) {
-	heading(c, "Language Servers")
-	ui.Text(c, "Power definition lookup and symbol help in trusted folders.").FontSize(12).TextColor(theme.Of(c).Muted).Padding(0, 4, 4, 4)
+	heading(c, locales.LanguageServers())
+	ui.Text(c, locales.IntelligenceDescription()).FontSize(12).TextColor(theme.Of(c).Muted).Padding(0, 4, 4, 4)
 	goPath, goErr := findGopls(a.root)
 	tsPath, tsErr := languages.FindTypeScript(a.root)
+	clangPath, clangErr := languages.FindClangd(a.root)
+	cmakePath, cmakeErr := languages.FindCMakeServer(a.root)
 	ui.Column(c).FillWidth().Radius(12).Background(theme.Of(c).Card).Padding(0, 14).Children(func() {
 		a.toolRow(c.Key("go"), toolRow{
 			id: "gopls", language: "Go", server: "gopls",
 			path: goPath, findErr: goErr, state: a.lspState, serverErr: a.lspErr, retry: a.retryLSP,
 			managed: managedGoplsExists(), install: a.installManagedGopls, remove: a.removeManagedGopls,
-			installLabel: "Install gopls", removeLabel: "Remove managed gopls", hint: goplsInstallCommand(),
+			installLabel: locales.MsgInstallGopls(), removeLabel: locales.MsgRemoveManagedGopls(), hint: goplsInstallCommand(),
 		})
 		ui.Box(c).Height(1).FillWidth().Background(theme.Of(c).Separator)
 		a.toolRow(c.Key("typescript"), toolRow{
 			id: "typescript", language: "TypeScript & JavaScript", server: "tsrs",
 			path: tsPath, findErr: tsErr, state: a.tsState, serverErr: a.tsErr, retry: a.retryTypeScriptLSP,
 			managed: languages.ManagedTypeScriptExists(), install: a.installManagedTypeScript, remove: a.removeManagedTypeScript,
-			installLabel: "Install TypeScript & JavaScript", removeLabel: "Remove managed TypeScript server",
+			installLabel: locales.MsgInstallTypeScriptJavaScript(), removeLabel: locales.MsgRemoveManagedTypeScriptServer(),
 			hint: "npm install -g tsrs@0.20.1-ts7.1.0-beta",
 		})
+		ui.Box(c).Height(1).FillWidth().Background(theme.Of(c).Separator)
+		a.toolRow(c.Key("clangd"), toolRow{id: "clangd", language: "C / C++ / Objective-C", server: "clangd", path: clangPath, findErr: clangErr, state: a.clangState, serverErr: a.clangErr, retry: a.retryClangd, hint: "https://clangd.llvm.org/installation"})
+		ui.Box(c).Height(1).FillWidth().Background(theme.Of(c).Separator)
+		a.toolRow(c.Key("cmake"), toolRow{id: "cmake", language: "CMake", server: "cmake-language-server", path: cmakePath, findErr: cmakeErr, state: a.cmakeState, serverErr: a.cmakeErr, retry: a.retryCMake, hint: "pip install cmake-language-server"})
 	})
-	heading(c, "Trusted Folders")
-	ui.Text(c, "Language servers can run project tools and download dependencies or toolchains in these folders.").FontSize(12).TextColor(theme.Of(c).Muted).Padding(0, 4, 4, 4)
+	heading(c, locales.TrustedFolders())
+	ui.Text(c, locales.TrustedDescription()).FontSize(12).TextColor(theme.Of(c).Muted).Padding(0, 4, 4, 4)
 	if len(a.cfg.Trusted) == 0 {
 		card(c, func() {
-			labeled(c, "No trusted folders", "A folder is trusted the first time you allow a language server in it.")
+			labeled(c, locales.NoTrustedFolders(), locales.TrustedHint())
 		})
 		return
 	}
@@ -744,7 +772,7 @@ func (a *App) intelligencePane(c *ui.Context) {
 		rows = append(rows, func() {
 			folderGlyph(c, false, 18)
 			labeled(c, filepath.Base(p), tildePath(p))
-			if ui.Button(c, "Remove").Label("Remove trusted folder " + p).Clicked() {
+			if ui.Button(c, locales.Remove()).Label(locales.MsgRemoveTrustedFolder() + p).Clicked() {
 				a.cfg.Trusted = slices.DeleteFunc(a.cfg.Trusted, func(t string) bool { return t == p })
 				a.settingsChanged()
 			}
@@ -771,16 +799,16 @@ type toolRow struct {
 }
 
 func (a *App) toolRow(c *ui.Context, r toolRow) {
-	status, color := "Available", theme.Of(c).Muted
+	status, color := locales.Available(), theme.Of(c).Muted
 	switch {
 	case r.state == langserver.Failed:
-		status, color = "Unavailable", theme.Of(c).Err
+		status, color = locales.Unavailable(), theme.Of(c).Err
 	case r.state == langserver.Starting:
-		status = "Starting…"
+		status = locales.Starting()
 	case r.state == langserver.Ready:
-		status = "Running"
+		status = locales.Running()
 	case r.findErr != nil:
-		status = "Not installed"
+		status = locales.NotInstalled()
 	}
 	detail := r.server
 	if r.path != "" {
@@ -816,27 +844,29 @@ func (a *App) toolRow(c *ui.Context, r toolRow) {
 // installed it.
 func (a *App) toolButtons(c *ui.Context, r toolRow) {
 	if a.serverJob && a.serverJobName == r.id {
-		ui.Text(c, "Working…").FontSize(12).TextColor(theme.Of(c).Muted)
+		ui.Text(c, locales.Working()).FontSize(12).TextColor(theme.Of(c).Muted)
 		return
 	}
 	services := c.Services()
 	retry := func() {
-		if r.state == langserver.Failed && ui.Button(c.Key("retry"), "Retry").Label("Retry "+r.server).Clicked() {
+		if r.state == langserver.Failed && ui.Button(c.Key("retry"), locales.Retry()).Label(locales.MsgRetry()+r.server).Clicked() {
 			r.retry()
 		}
 	}
 	switch {
 	case r.managed:
 		retry()
-		ui.Button(c.Key("remove"), "Remove").Label(r.removeLabel).OnClick(func() { r.remove(services) })
+		ui.Button(c.Key("remove"), locales.Remove()).Label(r.removeLabel).OnClick(func() { r.remove(services) })
 	case r.findErr != nil:
-		ui.Button(c.Key("install"), "Install").Label(r.installLabel).OnClick(func() { r.install(services) })
+		if r.install != nil {
+			ui.Button(c.Key("install"), locales.Install()).Label(r.installLabel).OnClick(func() { r.install(services) })
+		}
 		if r.hint != "" {
-			label := "Other ways"
+			label := locales.OtherWays()
 			if a.settings.serverInstall == r.id {
-				label = "Done"
+				label = locales.Done()
 			}
-			if ui.Button(c.Key("ways"), label).Label("Other ways to install " + r.server).Clicked() {
+			if ui.Button(c.Key("ways"), label).Label(locales.MsgOtherWaysToInstall() + r.server).Clicked() {
 				if a.settings.serverInstall == r.id {
 					a.settings.serverInstall = ""
 				} else {
@@ -859,11 +889,11 @@ func (a *App) toolNote(c *ui.Context, r toolRow) {
 		return
 	}
 	ui.Column(c).FillWidth().Gap(6).Padding(2, 0, 2, 0).Children(func() {
-		ui.Text(c, "Or install it yourself, then retry.").FontSize(12).TextColor(theme.Of(c).Muted)
+		ui.Text(c, locales.InstallHint()).FontSize(12).TextColor(theme.Of(c).Muted)
 		ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Center).Children(func() {
 			ui.Text(c, r.hint).FontSize(12).TextColor(theme.Of(c).Text).Grow(1).Shrink(1)
 			services := c.Services()
-			ui.Button(c.Key("copy"), "Copy").Label("Copy " + r.server + " install command").OnClick(func() { services.WriteClipboard(r.hint) })
+			ui.Button(c.Key("copy"), locales.Copy()).Label(locales.MsgCopy() + r.server + locales.MsgInstallCommand()).OnClick(func() { services.WriteClipboard(r.hint) })
 		})
 	})
 }
@@ -878,18 +908,18 @@ func (a *App) searchPane(c *ui.Context) {
 		id: "ripgrep", language: "ripgrep", server: "ripgrep",
 		path: rg, findErr: err, state: langserver.Off,
 		managed: managedRipgrepExists(), install: a.installManagedRipgrep, remove: a.removeManagedRipgrep,
-		installLabel: "Install ripgrep", removeLabel: "Remove managed ripgrep",
+		installLabel: locales.MsgInstallRipgrep(), removeLabel: locales.MsgRemoveManagedRipgrep(),
 		hint: search.InstallHint(),
 	}
 	statusCard(c, icSearch, ui.RGB(0xff, 0x95, 0x00), "ripgrep", status, func() { a.toolButtons(c, r) })
 	a.toolNote(c, r)
-	heading(c, "What is searched")
+	heading(c, locales.MsgWhatIsSearched())
 	card(c,
 		func() {
-			labeled(c, "Ignored folders", strings.Join(ignoredList(), ", ")+", and what .gitignore leaves out.")
+			labeled(c, locales.MsgIgnoredFolders(), strings.Join(ignoredList(), ", ")+locales.MsgAndWhatGitignoreLeavesOut())
 		},
 		func() {
-			labeled(c, "Open Quickly", fmt.Sprintf("Lists up to %d files by name.", maxQuickFiles))
+			labeled(c, locales.MsgOpenQuickly(), fmt.Sprintf(locales.MsgListsUpToDFilesByName(), maxQuickFiles))
 		},
 	)
 }
@@ -914,19 +944,19 @@ func (a *App) shortcutsPane(c *ui.Context) {
 func (a *App) advancedPane(c *ui.Context) {
 	card(c,
 		func() {
-			labeled(c, "Config file", "Open See's configuration file.")
-			if ui.Button(c, "Open").Clicked() {
+			labeled(c, locales.MsgConfigFile(), locales.MsgOpenSeeSConfigurationFile())
+			if ui.Button(c, locales.MsgOpen()).Clicked() {
 				// reveal config dir
 			}
 			ui.Text(c, a.cfg.Path()).TextColor(theme.Of(c).Muted).FontSize(12)
 		},
 		func() {
-			labeled(c, "Data folder", "Open See's application data folder.")
+			labeled(c, locales.MsgDataFolder(), locales.MsgOpenSeeSApplicationDataFolder())
 			ui.Text(c, "~/.config/See").TextColor(theme.Of(c).Muted).FontSize(12)
 		},
 		func() {
-			labeled(c, "Reset settings", "Reset all settings to their defaults.")
-			if ui.Button(c, "Reset").Clicked() {
+			labeled(c, locales.MsgResetSettings(), locales.MsgResetAllSettingsToTheirDefaults())
+			if ui.Button(c, locales.MsgReset()).Clicked() {
 				// reset fields
 				def := config.Load("")
 				def.SetPath(a.cfg.Path())
@@ -942,10 +972,10 @@ func (a *App) aboutPane(c *ui.Context) {
 		ui.Image(c, appIcon).Size(96, 96)
 		ui.Text(c, "See").FontSize(20).Bold()
 		ui.Text(c, a.versionLabel()).TextColor(theme.Of(c).Muted)
-		ui.Text(c, "Fast, focused reading of source code, drawn natively.").FontSize(12).TextColor(theme.Of(c).Muted)
+		ui.Text(c, locales.MsgFastFocusedReadingOfSourceCodeDrawnNatively()).FontSize(12).TextColor(theme.Of(c).Muted)
 	})
 	if a.root != "" {
-		card(c, func() { labeled(c, "Folder open", tildePath(a.root)) })
+		card(c, func() { labeled(c, locales.MsgFolderOpen(), tildePath(a.root)) })
 	}
 }
 
@@ -964,15 +994,15 @@ func (a *App) terminalPane(c *ui.Context) {
 	statusCard(c, icPrompt, ui.RGB(0x2c, 0x2c, 0x2e), shellName(),
 		"Terminals run your login shell in the open folder, with Ghostty's emulator.", nil)
 	a.cfg.ExternalTerminal = externalTerminalName(a.cfg.ExternalTerminal)
-	heading(c, "External Terminal")
+	heading(c, locales.MsgExternalTerminal())
 	rows := []func(){func() {
-		labeled(c, "Terminal App", "Open the current folder with "+keyLabel("Cmd+Shift+", "C")+".")
+		labeled(c, locales.MsgTerminalApp(), locales.MsgOpenTheCurrentFolderWith()+keyLabel("Cmd+Shift+", "C")+".")
 		a.externalTerminalPicker(c)
 	}}
 	if a.cfg.ExternalTerminal == "Custom App" {
 		rows = append(rows, func() {
-			labeled(c, "App Path", "Path to a terminal application that can open folders.")
-			ui.TextInput(c, &a.cfg.ExternalTerminalPath).Label("External Terminal App Path").Placeholder("/Applications/Terminal.app").Width(200).OnChange(func() {
+			labeled(c, locales.MsgAppPath(), locales.MsgPathToATerminalApplicationThatCanOpen())
+			ui.TextInput(c, &a.cfg.ExternalTerminalPath).Label(locales.MsgExternalTerminalAppPath()).Placeholder("/Applications/Terminal.app").Width(200).OnChange(func() {
 				delete(a.settings.terminalIcons, "Custom App")
 				a.settingsChanged()
 				if strings.HasSuffix(strings.ToLower(a.cfg.ExternalTerminalPath), ".app") {
@@ -981,60 +1011,60 @@ func (a *App) terminalPane(c *ui.Context) {
 			}).OnSubmit(func() {
 				a.host.LoadTerminalIcon(a.cfg.ExternalTerminalPath)
 			})
-			if ui.Button(c, "Choose…").Clicked() {
+			if ui.Button(c, locales.MsgChoose()).Clicked() {
 				a.host.PickTerminalApp()
 			}
 		})
 	}
 	card(c, rows...)
-	heading(c, "Typography")
+	heading(c, locales.MsgTypography())
 	a.fontPreview(c, true)
 	card(c,
 		func() { a.fontPicker(c, true) },
 		func() {
-			labeled(c, "Font Size", "The terminal font size.")
+			labeled(c, locales.MsgFontSize(), locales.MsgTheTerminalFontSize())
 			ui.Text(c, fmt.Sprintf("%g pt", s.termFontSize)).TextColor(theme.Of(c).Muted)
-			if ui.Stepper(c, &s.termFontSize, 9, 28, 1).Label("Terminal Font Size").Changed() {
+			if ui.Stepper(c, &s.termFontSize, 9, 28, 1).Label(locales.MsgTerminalFontSize()).Changed() {
 				a.cfg.TermFontSize = s.termFontSize
 				a.applyTerminalPrefs()
 				a.settingsChanged()
 			}
 		},
 		func() {
-			labeled(c, "Fallback Fonts", "Comma-separated families used for missing characters.")
-			if ui.TextInput(c, &a.cfg.TermFontFallback).Label("Fallback Fonts").Placeholder("System fallback").Width(170).Changed() {
+			labeled(c, locales.MsgFallbackFonts(), locales.MsgCommaSeparatedFamiliesUsedForMissingCharacters())
+			if ui.TextInput(c, &a.cfg.TermFontFallback).Label(locales.MsgFallbackFonts()).Placeholder(locales.MsgSystemFallback()).Width(170).Changed() {
 				a.applyTerminalPrefs()
 				a.settingsChanged()
 			}
 		},
 		func() {
-			labeled(c, "Font Weight", "The weight of regular terminal text.")
+			labeled(c, locales.MsgFontWeight(), locales.MsgTheWeightOfRegularTerminalText())
 			weight := &s.termWeight
 			ui.Text(c, fmt.Sprintf("%g", *weight)).TextColor(theme.Of(c).Muted)
-			if ui.Stepper(c, weight, 100, 900, 100).Label("Terminal Font Weight").Changed() {
+			if ui.Stepper(c, weight, 100, 900, 100).Label(locales.MsgTerminalFontWeight()).Changed() {
 				a.cfg.TermFontWeight = int(*weight)
 				a.applyTerminalPrefs()
 				a.settingsChanged()
 			}
 		},
 		func() {
-			labeled(c, "Font Smoothing", "Draw terminal text with a thicker stroke on macOS.")
-			if ui.Switch(c, &a.cfg.TermThicken).Label("Font Smoothing").Changed() {
+			labeled(c, locales.MsgFontSmoothing(), locales.MsgDrawTerminalTextWithAThickerStrokeOn())
+			if ui.Switch(c, &a.cfg.TermThicken).Label(locales.MsgFontSmoothing()).Changed() {
 				a.applyTerminalPrefs()
 				a.settingsChanged()
 			}
 		},
 		func() {
-			labeled(c, "Ligatures", "Combine supported character sequences.")
+			labeled(c, locales.MsgLigatures(), locales.MsgCombineSupportedCharacterSequences())
 			enabled := !a.cfg.TermNoLigatures
-			ui.Switch(c, &enabled).Label("Ligatures").OnClick(func() { a.cfg.TermNoLigatures = !enabled; a.applyTerminalPrefs(); a.settingsChanged() })
+			ui.Switch(c, &enabled).Label(locales.MsgLigatures()).OnClick(func() { a.cfg.TermNoLigatures = !enabled; a.applyTerminalPrefs(); a.settingsChanged() })
 		},
 		func() {
-			labeled(c, "Font Features", "Comma-separated OpenType features.")
+			labeled(c, locales.MsgFontFeatures(), locales.MsgCommaSeparatedOpenTypeFeatures())
 			if a.settings.termFeaturesDraft == "" && len(a.cfg.TermFontFeatures) > 0 {
 				a.settings.termFeaturesDraft = strings.Join(a.cfg.TermFontFeatures, ", ")
 			}
-			if ui.TextInput(c, &a.settings.termFeaturesDraft).Label("Terminal Font Features").Width(170).Changed() {
+			if ui.TextInput(c, &a.settings.termFeaturesDraft).Label(locales.MsgTerminalFontFeatures()).Width(170).Changed() {
 				// parse comma-separated
 				var feats []string
 				for _, f := range strings.Split(a.settings.termFeaturesDraft, ",") {
@@ -1049,27 +1079,27 @@ func (a *App) terminalPane(c *ui.Context) {
 			}
 		},
 		func() {
-			labeled(c, "Line Height", "Extra space between terminal rows.")
+			labeled(c, locales.MsgLineHeight(), locales.MsgExtraSpaceBetweenTerminalRows())
 			height := &s.termHeight
 			ui.Text(c, fmt.Sprintf("%g %%", *height)).TextColor(theme.Of(c).Muted)
-			if ui.Stepper(c, height, -20, 100, 5).Label("Terminal Line Height").Changed() {
+			if ui.Stepper(c, height, -20, 100, 5).Label(locales.MsgTerminalLineHeight()).Changed() {
 				a.cfg.TermLineHeight = *height
 				a.applyTerminalPrefs()
 				a.settingsChanged()
 			}
 		},
 	)
-	heading(c, "Behavior")
+	heading(c, locales.MsgBehavior())
 	card(c,
 		func() {
-			labeled(c, "Copy on Select", "Selecting text copies it to the clipboard, as in Ghostty.")
-			if ui.Switch(c, &a.cfg.TermCopyOnSelect).Label("Copy on Select").Changed() {
+			labeled(c, locales.MsgCopyOnSelect(), locales.MsgSelectingTextCopiesItToTheClipboardAs())
+			if ui.Switch(c, &a.cfg.TermCopyOnSelect).Label(locales.MsgCopyOnSelect()).Changed() {
 				a.applyTerminalPrefs()
 				a.settingsChanged()
 			}
 		},
 		func() {
-			labeled(c, "Cursor", "The shape of the terminal cursor.")
+			labeled(c, locales.MsgCursor(), locales.MsgTheShapeOfTheTerminalCursor())
 			cursor := 0
 			switch a.cfg.TermCursor {
 			case "bar":
@@ -1077,27 +1107,27 @@ func (a *App) terminalPane(c *ui.Context) {
 			case "underline":
 				cursor = 2
 			}
-			if ui.Segmented(c, &cursor, "Block", "Bar", "Underline").Label("Cursor").Changed() {
+			if ui.Segmented(c, &cursor, locales.MsgBlock(), locales.MsgBar(), locales.MsgUnderline()).Label(locales.MsgCursor()).Changed() {
 				a.cfg.TermCursor = []string{"block", "bar", "underline"}[cursor]
 				a.settingsChanged()
 			}
 		},
 		func() {
-			labeled(c, "Cursor Blink", "Let the cursor blink.")
+			labeled(c, locales.MsgCursorBlink(), locales.MsgLetTheCursorBlink())
 			enabled := !a.cfg.TermCursorNoBlink
-			if ui.Switch(c, &enabled).Label("Cursor Blink").Changed() {
+			if ui.Switch(c, &enabled).Label(locales.MsgCursorBlink()).Changed() {
 				a.cfg.TermCursorNoBlink = !enabled
 				a.settingsChanged()
 			}
 		},
 		func() {
-			labeled(c, "Option as Alt", "Make Option the Alt/Meta key on macOS.")
-			if ui.Switch(c, &a.cfg.TermOptionAsAlt).Label("Option as Alt").Changed() {
+			labeled(c, locales.MsgOptionAsAlt(), locales.MsgMakeOptionTheAltMetaKeyOnMacOS())
+			if ui.Switch(c, &a.cfg.TermOptionAsAlt).Label(locales.MsgOptionAsAlt()).Changed() {
 				a.settingsChanged()
 			}
 		},
 		func() {
-			labeled(c, "Right Click", "What a secondary click does.")
+			labeled(c, locales.MsgRightClick(), locales.MsgWhatASecondaryClickDoes())
 			rc := 0
 			switch a.cfg.TermRightClick {
 			case "paste":
@@ -1105,13 +1135,13 @@ func (a *App) terminalPane(c *ui.Context) {
 			case "copyOrPaste":
 				rc = 2
 			}
-			if ui.Segmented(c, &rc, "Menu", "Paste", "Copy/Paste").Label("Right Click").Changed() {
+			if ui.Segmented(c, &rc, locales.MsgMenu(), locales.MsgPaste(), locales.MsgCopyPaste()).Label(locales.MsgRightClick()).Changed() {
 				a.cfg.TermRightClick = []string{"menu", "paste", "copyOrPaste"}[rc]
 				a.settingsChanged()
 			}
 		},
 		func() {
-			labeled(c, "Clipboard Read", "Whether programs may read the clipboard.")
+			labeled(c, locales.MsgClipboardRead(), locales.MsgWhetherProgramsMayReadTheClipboard())
 			cb := 0
 			switch a.cfg.TermClipboard {
 			case "allow":
@@ -1119,81 +1149,81 @@ func (a *App) terminalPane(c *ui.Context) {
 			case "deny":
 				cb = 2
 			}
-			if ui.Segmented(c, &cb, "Ask", "Allow", "Deny").Label("Clipboard").Changed() {
+			if ui.Segmented(c, &cb, locales.MsgAsk(), locales.MsgAllow(), locales.MsgDeny()).Label(locales.MsgClipboard()).Changed() {
 				a.cfg.TermClipboard = []string{"ask", "allow", "deny"}[cb]
 				a.settingsChanged()
 			}
 		},
 		func() {
-			labeled(c, "Dim Unfocused", "Fade terminals that do not have the focus.")
-			if ui.Switch(c, &a.cfg.TermDimUnfocused).Label("Dim Unfocused").Changed() {
+			labeled(c, locales.MsgDimUnfocused(), locales.MsgFadeTerminalsThatDoNotHaveTheFocus())
+			if ui.Switch(c, &a.cfg.TermDimUnfocused).Label(locales.MsgDimUnfocused()).Changed() {
 				a.settingsChanged()
 			}
 		},
 	)
-	heading(c, "Scrolling")
+	heading(c, locales.MsgScrolling())
 	card(c,
 		func() {
-			labeled(c, "Wheel Scroll", "Rows a mouse wheel notch scrolls.")
+			labeled(c, locales.MsgWheelScroll(), locales.MsgRowsAMouseWheelNotchScrolls())
 			v := a.cfg.TermScrollDiscrete
 			if v == 0 {
 				v = 3
 			}
 			ui.Text(c, fmt.Sprintf("%g", v)).TextColor(theme.Of(c).Muted)
-			if ui.Stepper(c, &v, 1, 10, 1).Label("Wheel Scroll").Changed() {
+			if ui.Stepper(c, &v, 1, 10, 1).Label(locales.MsgWheelScroll()).Changed() {
 				a.cfg.TermScrollDiscrete = v
 				a.settingsChanged()
 			}
 		},
 		func() {
-			labeled(c, "Trackpad Scroll", "Multiplier for trackpad scrolling.")
+			labeled(c, locales.MsgTrackpadScroll(), locales.MsgMultiplierForTrackpadScrolling())
 			v := a.cfg.TermScrollPrecision
 			if v == 0 {
 				v = 1
 			}
 			ui.Text(c, fmt.Sprintf("%g", v)).TextColor(theme.Of(c).Muted)
-			if ui.Stepper(c, &v, 0.25, 3, 0.25).Label("Trackpad Scroll").Changed() {
+			if ui.Stepper(c, &v, 0.25, 3, 0.25).Label(locales.MsgTrackpadScroll()).Changed() {
 				a.cfg.TermScrollPrecision = v
 				a.settingsChanged()
 			}
 		},
 	)
-	heading(c, "Shell")
+	heading(c, locales.MsgShell())
 	card(c,
 		func() {
-			labeled(c, "Shell", "The shell terminals run.")
-			if ui.TextInput(c, &a.cfg.TermShell).Label("Terminal Shell").Placeholder("login shell").Width(200).Changed() {
+			labeled(c, locales.MsgShell(), locales.MsgTheShellTerminalsRun())
+			if ui.TextInput(c, &a.cfg.TermShell).Label(locales.MsgTerminalShell()).Placeholder(locales.MsgLoginShell()).Width(200).Changed() {
 				a.settingsChanged()
 			}
 		},
 		func() {
-			labeled(c, "Scrollback", "Megabytes of output kept above the screen.")
+			labeled(c, locales.MsgScrollback(), locales.MsgMegabytesOfOutputKeptAboveTheScreen())
 			v := float64(a.cfg.TermScrollback)
 			if v == 0 {
 				v = 4
 			}
 			ui.Text(c, fmt.Sprintf("%d MB", int(v))).TextColor(theme.Of(c).Muted)
-			if ui.Stepper(c, &v, 0, 64, 1).Label("Scrollback").Changed() {
+			if ui.Stepper(c, &v, 0, 64, 1).Label(locales.MsgScrollback()).Changed() {
 				a.cfg.TermScrollback = int(v)
 				a.settingsChanged()
 			}
 		},
 		func() {
-			labeled(c, "Environment", "Extra environment variables, KEY=value.")
+			labeled(c, locales.MsgEnvironment(), locales.MsgExtraEnvironmentVariablesKEYValue())
 			for i, kv := range a.cfg.TermEnv {
 				idx := i
 				ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Center).Children(func() {
 					ui.Text(c, kv).FontSize(12).Grow(1).SingleLine().Ellipsis("…").MinWidth(0)
-					if ui.Button(c, "Remove").Label("Remove " + kv).Clicked() {
+					if ui.Button(c, locales.Remove()).Label(locales.MsgRemove() + kv).Clicked() {
 						a.cfg.TermEnv = slices.Delete(slices.Clone(a.cfg.TermEnv), idx, idx+1)
 						a.settingsChanged()
 					}
 				})
 			}
 			ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Center).Children(func() {
-				if ui.TextInput(c, &a.settings.envDraft).Label("Environment Variable").Placeholder("KEY=value").Width(200).Changed() {
+				if ui.TextInput(c, &a.settings.envDraft).Label(locales.MsgEnvironmentVariable()).Placeholder("KEY=value").Width(200).Changed() {
 				}
-				if ui.Button(c, "Add").Clicked() {
+				if ui.Button(c, locales.MsgAdd()).Clicked() {
 					if kv := strings.TrimSpace(a.settings.envDraft); strings.Contains(kv, "=") {
 						a.cfg.TermEnv = append(slices.Clone(a.cfg.TermEnv), kv)
 						a.settings.envDraft = ""
@@ -1220,7 +1250,7 @@ func (a *App) externalTerminalPicker(c *ui.Context) {
 		}
 		ui.Text(c, display).SingleLine()
 	}
-	sel.Trigger.Label("External Terminal App").Gap(8).Padding(6, 10).Radius(8).Background(t.Surface).Border(1, t.Border).AlignItems(ui.Center).Children(func() {
+	sel.Trigger.Label(locales.MsgExternalTerminalApp()).Gap(8).Padding(6, 10).Radius(8).Background(t.Surface).Border(1, t.Border).AlignItems(ui.Center).Children(func() {
 		label(a.cfg.ExternalTerminal)
 		symbolIcon(c, icChevron, 10, theme.Of(c).Muted)
 	})
@@ -1235,4 +1265,28 @@ func (a *App) externalTerminalPicker(c *ui.Context) {
 			item.Children(func() { label(name) })
 		}
 	})
+}
+
+func settingsPaneTitle(id string) string {
+	switch id {
+	case "general":
+		return locales.General()
+	case "editor":
+		return locales.Editor()
+	case "terminal":
+		return locales.Terminal()
+	case "notifications":
+		return locales.Notifications()
+	case "intelligence":
+		return locales.CodeIntelligence()
+	case "advanced":
+		return locales.Advanced()
+	case "search":
+		return locales.Search()
+	case "shortcuts":
+		return locales.Shortcuts()
+	case "about":
+		return locales.About()
+	}
+	return id
 }

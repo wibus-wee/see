@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"see/locales"
 	"strings"
 
 	"github.com/egoist/mygo/ui"
@@ -111,27 +112,27 @@ func (a *App) openPalette() {
 func (a *App) installSee() {
 	exe, err := os.Executable()
 	if err != nil {
-		a.note("Could not locate the application: "+err.Error(), true)
+		a.note(locales.MsgCouldNotLocateTheApplication()+err.Error(), true)
 		return
 	}
 	exe, err = filepath.EvalSymlinks(exe)
 	if err != nil {
-		a.note("Could not locate the application: "+err.Error(), true)
+		a.note(locales.MsgCouldNotLocateTheApplication()+err.Error(), true)
 		return
 	}
 	if strings.Contains(filepath.ToSlash(exe), "/go-build") || strings.Contains(filepath.ToSlash(exe), "/.mygo/dev/") {
-		a.note("Build a permanent executable before installing the see command.", true)
+		a.note(locales.MsgBuildAPermanentExecutableBeforeInstallingTheSee(), true)
 		return
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
-		a.note("Could not locate your home directory: "+err.Error(), true)
+		a.note(locales.MsgCouldNotLocateYourHomeDirectory()+err.Error(), true)
 		return
 	}
 	dir := filepath.Join(home, ".local", "bin")
 	path, already, err := installSeeLink(exe, dir)
 	if err != nil {
-		a.note(fmt.Sprintf("Could not install %s: %v", path, err), true)
+		a.note(fmt.Sprintf(locales.MsgCouldNotInstallSV(), path, err), true)
 		return
 	}
 	msg := "Installed see at " + path
@@ -156,21 +157,21 @@ func (a *App) uninstallSee() {
 		exe, err = filepath.EvalSymlinks(exe)
 	}
 	if err != nil {
-		a.note("Could not locate the application: "+err.Error(), true)
+		a.note(locales.MsgCouldNotLocateTheApplication()+err.Error(), true)
 		return
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
-		a.note("Could not locate your home directory: "+err.Error(), true)
+		a.note(locales.MsgCouldNotLocateYourHomeDirectory()+err.Error(), true)
 		return
 	}
 	path, removed, err := uninstallSeeLink(exe, filepath.Join(home, ".local", "bin"))
 	if err != nil {
-		a.note(fmt.Sprintf("Could not uninstall %s: %v", path, err), true)
+		a.note(fmt.Sprintf(locales.MsgCouldNotUninstallSV(), path, err), true)
 	} else if !removed {
-		a.note("The see command is not installed at "+path, false)
+		a.note(locales.MsgTheSeeCommandIsNotInstalledAt()+path, false)
 	} else {
-		a.note("Uninstalled see from "+path, false)
+		a.note(locales.MsgUninstalledSeeFrom()+path, false)
 	}
 }
 

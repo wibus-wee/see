@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"see/locales"
 	"strings"
 	"time"
 
@@ -41,7 +42,7 @@ func (it branchItem) choosable() bool { return it.heading == "" }
 // openBranchPicker shows the branches, read again each time it opens.
 func (a *App) openBranchPicker(at ui.Rect) {
 	if a.git.root == "" {
-		a.note("This folder is not in a Git repository.", true)
+		a.note(locales.MsgThisFolderIsNotInAGitRepository(), true)
 		return
 	}
 	p := &a.git.picker
@@ -153,7 +154,7 @@ func (a *App) runBranchJob(done string, job func() error) {
 			}
 			a.git.busy = false
 			if err != nil {
-				a.note("Git: "+gitErrLine(err), true)
+				a.note(locales.MsgGit()+gitErrLine(err), true)
 			} else {
 				a.note(done, false)
 				if !a.watching {
@@ -190,7 +191,7 @@ func (a *App) branchButton(c *ui.Context) {
 		return
 	}
 	a.git.picker.anchor = a.branchHandle.Bounds(c)
-	b := ui.ButtonBase(c).Label("Switch Branch").Tooltip("Switch Branch: "+a.git.branch).
+	b := ui.ButtonBase(c).Label(locales.MsgSwitchBranch()).Tooltip(locales.MsgSwitchBranch2()+a.git.branch).
 		Padding(0, 4, 0, 2).Radius(5).Shrink(1).KeepFocus().Bind(&a.branchHandle)
 	if b.Hovered() || b.Pressed() || a.git.picker.open {
 		b.Background(colors(c).Pill)
@@ -229,7 +230,7 @@ func (a *App) branchPickerPanel(c *ui.Context) {
 		panel.Children(func() {
 			ui.Row(c).Padding(4, 6).Gap(6).AlignItems(ui.Center).Children(func() {
 				symbolIcon(c, icSearch, 14, colors(c).Muted)
-				in := ui.TextInput(c, &p.query).Placeholder("Filter, or name a new branch").Label("Filter branches").
+				in := ui.TextInput(c, &p.query).Placeholder(locales.MsgFilterOrNameANewBranch()).Label(locales.MsgFilterBranches()).
 					FontSize(13).Grow(1).AutoFocus().Background(ui.Transparent).BorderWidth(0)
 				switch {
 				case in.Changed():
@@ -251,14 +252,14 @@ func (a *App) branchPickerPanel(c *ui.Context) {
 			case p.loading:
 				ui.Row(c).Padding(8).Gap(8).Children(func() {
 					ui.Spinner(c)
-					ui.Text(c, "Reading branches…").FontSize(12).TextColor(colors(c).Muted)
+					ui.Text(c, locales.MsgReadingBranches()).FontSize(12).TextColor(colors(c).Muted)
 				})
 			case p.err != "":
 				ui.Text(c, p.err).FontSize(12).TextColor(colors(c).Err).Padding(8)
 			case len(items) == 0:
-				ui.Text(c, "No Branches").FontSize(12).TextColor(colors(c).Muted).Padding(8)
+				ui.Text(c, locales.MsgNoBranches()).FontSize(12).TextColor(colors(c).Muted).Padding(8)
 			default:
-				ui.List(c, &p.list, len(items), func(i int) { a.branchRow(c, items, i) }).Grow(1).FillWidth().MaxHeight(380).Label("Branches")
+				ui.List(c, &p.list, len(items), func(i int) { a.branchRow(c, items, i) }).Grow(1).FillWidth().MaxHeight(380).Label(locales.MsgBranches())
 			}
 		})
 	})
@@ -285,7 +286,7 @@ func (a *App) branchRow(c *ui.Context, items []branchItem, i int) {
 	row.Children(func() {
 		if it.create != "" {
 			symbolIcon(c, icPlus, 13, text)
-			ui.Text(c, "Create Branch “"+it.create+"”").FontSize(13).TextColor(text).SingleLine().Shrink(1)
+			ui.Text(c, locales.MsgCreateBranch()+it.create+"”").FontSize(13).TextColor(text).SingleLine().Shrink(1)
 			return
 		}
 		b := it.branch

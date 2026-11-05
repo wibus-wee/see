@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"path/filepath"
+	"see/locales"
 	"strings"
 	"unicode/utf8"
 
@@ -86,7 +87,7 @@ func (a *App) groupView(c *ui.Context, g *group) {
 			ui.Row(c).FillWidth().Height(24).Padding(0, 10).AlignItems(ui.Center).
 				BorderWidth(1, 0, 0, 0).BorderColor(colors(c).Separator).Background(colors(c).Editor).Children(func() {
 				ui.Box(c).Grow(1)
-				ui.Text(c, fmt.Sprintf("Line %d  ·  Column %d", pos.Line+1, column)).FontSize(11).TextColor(colors(c).Muted).SingleLine()
+				ui.Text(c, fmt.Sprintf(locales.MsgLineDColumnD(), pos.Line+1, column)).FontSize(11).TextColor(colors(c).Muted).SingleLine()
 			})
 		}
 	})
@@ -183,7 +184,7 @@ func (a *App) groupContent(c *ui.Context, g *group) {
 	} else if v != nil && v.state == nil {
 		ui.Row(c).Grow(1).FillWidth().Center().Gap(8).Children(func() {
 			ui.Spinner(c)
-			ui.Text(c, "Reading "+v.name+"…").TextColor(colors(c).Muted)
+			ui.Text(c, locales.MsgReading()+v.name+"…").TextColor(colors(c).Muted)
 		})
 		return
 	} else if v != nil {
@@ -196,8 +197,8 @@ func (a *App) groupContent(c *ui.Context, g *group) {
 	d := a.docs[tabPath(g.active)]
 	if d == nil {
 		ui.Column(c).Grow(1).FillWidth().Center().Gap(6).Children(func() {
-			ui.Text(c, "No Editor").FontSize(20).TextColor(colors(c).Dim)
-			ui.Text(c, "Choose a file in the navigator, or press "+keyLabel("Cmd+Shift+", "O")+" to open one quickly.").FontSize(12).TextColor(colors(c).Dim)
+			ui.Text(c, locales.MsgNoEditor()).FontSize(20).TextColor(colors(c).Dim)
+			ui.Text(c, locales.MsgChooseAFileInTheNavigatorOrPress()+keyLabel("Cmd+Shift+", "O")+locales.MsgToOpenOneQuickly()).FontSize(12).TextColor(colors(c).Dim)
 		})
 		return
 	}
@@ -208,22 +209,22 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 	st := g.eds[d.path]
 	switch {
 	case d.err != nil:
-		a.message(c, "Could not open "+d.name, describeErr(d.err), "Retry", func() { a.reloadDoc(d) })
+		a.message(c, locales.MsgCouldNotOpen()+d.name, describeErr(d.err), locales.Retry(), func() { a.reloadDoc(d) })
 	case d.loading && st == nil:
 		ui.Row(c).Grow(1).FillWidth().Center().Gap(8).Children(func() {
 			ui.Spinner(c)
-			ui.Text(c, "Loading "+d.name+"…").TextColor(colors(c).Muted)
+			ui.Text(c, locales.MsgLoading2()+d.name+"…").TextColor(colors(c).Muted)
 		})
 	case g.hexPreview[d.path] || d.kind == workspace.Binary && d.image == nil:
 		a.hexView(c, g, d)
 	case d.image != nil:
 		a.imagePreview(c, g, d)
 	case d.kind == workspace.TooLarge:
-		a.message(c, d.name+" is too large to show",
-			fmt.Sprintf("It is %s; files up to %s open here.", size(d.size), size(workspace.MaxSize)), "", nil)
+		a.message(c, locales.TooLargeTitle(d.name),
+			locales.TooLargeDetail(size(d.size), size(workspace.MaxSize)), "", nil)
 	case d.kind == workspace.BadEncoding:
-		a.message(c, d.name+" is not UTF-8 text",
-			"Its text uses another encoding, or it is not text.", "Show with Replacement Characters", func() {
+		a.message(c, locales.BadEncodingTitle(d.name),
+			locales.BadEncodingDetail(), locales.ShowReplacement(), func() {
 				d.lossy = true
 				a.reloadDoc(d)
 			})
@@ -244,12 +245,12 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 			}
 		}
 		if d.conflict {
-			a.banner(c, colors(c).WarnBg, "This file changed on disk. Your edits are preserved.", []action{{"Overwrite", func() { a.saveDoc(d, true) }}})
+			a.banner(c, colors(c).WarnBg, locales.FileChangedBanner(), []action{{locales.Overwrite(), func() { a.saveDoc(d, true) }}})
 		}
 		if d.gone {
-			a.banner(c, colors(c).WarnBg, "This file was deleted or moved on disk. The text below is how it was.", []action{
-				{"Reload", func() { a.reloadDoc(d) }},
-				{"Close", func() { a.closeTab(g, g.active) }},
+			a.banner(c, colors(c).WarnBg, locales.FileDeletedBanner(), []action{
+				{locales.Reload(), func() { a.reloadDoc(d) }},
+				{locales.Close(), func() { a.closeTab(g, g.active) }},
 			})
 		}
 		if d.plain || d.lossy {
@@ -338,7 +339,7 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 					// the pointer passes through to the editor, which keeps
 					// the wheel and takes the press (changeBarInput).
 					b := ui.ButtonBase(c.Key(key)).Absolute().Left(bar.r.X).Top(bar.r.Y).Width(bar.r.W).Height(bar.r.H).Radius(3).
-						PassThrough().Label(fmt.Sprintf("Show Git change at line %d", line+1))
+						PassThrough().Label(fmt.Sprintf(locales.MsgShowGitChangeAtLineD(), line+1))
 					if hovered {
 						b.Background(ui.RGBA(128, 128, 128, 0.25))
 					}
@@ -350,7 +351,7 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 		st.OnInput = func(ev ui.InputEvent) bool { return a.changeBarInput(g, d, st, origin, ev) }
 		if peek := a.git.peek; peek != nil && peek.doc == d && peek.group == g {
 			a.editorPeek(c, bounds, st, peek.line, d.name+" — Git changes", "Close Change Preview", diffHeight(st, peek.diff), func() { a.git.peek = nil }, func() {
-				ui.Scroll(c).Grow(1).FillWidth().TrackScroll(&peek.scroll).Label("Git change preview").Children(func() {
+				ui.Scroll(c).Grow(1).FillWidth().TrackScroll(&peek.scroll).Label(locales.MsgGitChangePreview()).Children(func() {
 					editor.DiffView(c, peek.diff).FillWidth()
 				})
 			})
@@ -502,11 +503,11 @@ func (a *App) relatedView(c *ui.Context, ch *defChoices) {
 			}
 		})
 		ui.Column(c).Grow(1).FillHeight().BorderWidth(0, 0, 0, 1).BorderColor(colors(c).Separator).Children(func() {
-			ui.Scroll(c).Grow(1).FillWidth().Label("Navigation results").Children(func() {
+			ui.Scroll(c).Grow(1).FillWidth().Label(locales.MsgNavigationResults()).Children(func() {
 				ui.Column(c).FillWidth().Children(func() {
 					for _, path := range paths {
 						indices := groups[path]
-						file := ui.ButtonBase(c.Key(path)).FillWidth().Padding(5, 8).Gap(6).Label("Toggle " + ch.title + " in " + workspace.RelPath(a.root, path)).Tooltip(path)
+						file := ui.ButtonBase(c.Key(path)).FillWidth().Padding(5, 8).Gap(6).Label(locales.MsgToggle() + ch.title + locales.MsgIn() + workspace.RelPath(a.root, path)).Tooltip(path)
 						if file.Hovered() {
 							file.Background(colors(c).Pill)
 						}
@@ -534,7 +535,7 @@ func (a *App) relatedView(c *ui.Context, ch *defChoices) {
 							if text == "" {
 								text = label
 							}
-							row := ui.ButtonBase(c.Key(i)).FillWidth().Padding(4, 8, 4, 25).Radius(4).Justify(ui.Start).Label(label).Tooltip("Select to preview; double-click to open")
+							row := ui.ButtonBase(c.Key(i)).FillWidth().Padding(4, 8, 4, 25).Radius(4).Justify(ui.Start).Label(label).Tooltip(locales.MsgSelectToPreviewDoubleClickToOpen())
 							if i == ch.selected {
 								row.Background(colors(c).SelectedRow)
 							} else if row.Hovered() {
@@ -630,6 +631,6 @@ func (a *App) message(c *ui.Context, title, detail, button string, fn func()) {
 
 func (a *App) trustBanner(c *ui.Context) {
 	a.banner(c, colors(c).InfoBg,
-		"Go to Definition and symbol help run language servers in “"+filepath.Base(a.root)+"”. Servers may run project tools and download dependencies or toolchains. Reading works without them.",
-		[]action{{"Trust Folder", a.trust}, {"Not Now", func() { a.trustAsk, a.afterTrust = false, nil; a.trustDismissed = true }}})
+		locales.TrustBanner(filepath.Base(a.root)),
+		[]action{{locales.TrustFolder(), a.trust}, {locales.NotNow(), func() { a.trustAsk, a.afterTrust = false, nil; a.trustDismissed = true }}})
 }

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"see/locales"
 	"slices"
 	"strconv"
 	"strings"
@@ -56,7 +57,7 @@ func (a *App) newTerm(p *termPane) error {
 	gen := a.gen
 	var t *terminal.Terminal
 	t, err := terminal.New(terminal.Options{
-		Dir:  a.root,
+		Dir: a.root,
 		Command: func() []string {
 			if a.cfg.TermShell == "" {
 				return nil
@@ -73,7 +74,7 @@ func (a *App) newTerm(p *termPane) error {
 			}
 			return terminal.CursorBlock
 		}(),
-		NoBlink: a.cfg.TermCursorNoBlink,
+		NoBlink:     a.cfg.TermCursorNoBlink,
 		OptionAsAlt: a.cfg.TermOptionAsAlt,
 		CopyOnSelect: map[bool]terminal.CopyOnSelect{
 			true: terminal.CopyOnSelectClipboard,
@@ -106,7 +107,7 @@ func (a *App) newTerm(p *termPane) error {
 			}
 			return v << 20
 		}(),
-		Env: a.cfg.TermEnv,
+		Env:             a.cfg.TermEnv,
 		MinimumContrast: float32(a.cfg.TermMinContrast),
 		OnTitle: func(title string) {
 			a.post.Post(func() {
@@ -198,7 +199,7 @@ func (a *App) newTerminalTab() {
 		tp.nextID++
 		p := &termPane{id: tp.nextID, title: shellName()}
 		if err := a.newTerm(p); err != nil {
-			a.note("Could not start a terminal: "+err.Error(), true)
+			a.note(locales.MsgCouldNotStartATerminal()+err.Error(), true)
 			return
 		}
 		tab := &termTab{id: tp.nextID, panes: []*termPane{p}, active: p}
@@ -219,7 +220,7 @@ func (a *App) splitTerminal() {
 		tp.nextID++
 		p := &termPane{id: tp.nextID, title: shellName()}
 		if err := a.newTerm(p); err != nil {
-			a.note("Could not start a terminal: "+err.Error(), true)
+			a.note(locales.MsgCouldNotStartATerminal()+err.Error(), true)
 			return
 		}
 		at := slices.Index(tab.panes, tab.active) + 1
@@ -371,11 +372,11 @@ func (a *App) terminalPanel(c *ui.Context) {
 			case tp.output:
 				a.logView(c)
 			case tp.loadErr != nil:
-				a.message(c, "The terminal is not available", tp.loadErr.Error(), "", nil)
+				a.message(c, locales.TerminalUnavailable(), tp.loadErr.Error(), "", nil)
 			case tp.loading:
 				ui.Row(c).Grow(1).FillWidth().Center().Gap(8).Children(func() {
 					ui.Spinner(c)
-					ui.Text(c, "Loading the terminal…").TextColor(colors(c).Muted)
+					ui.Text(c, locales.MsgLoadingTheTerminal()).TextColor(colors(c).Muted)
 				})
 			case tp.active != nil:
 				a.paneSplit(c, tp.active, tp.active.panes)
@@ -406,7 +407,7 @@ func (a *App) termPaneView(c *ui.Context, tab *termTab, p *termPane) {
 		})
 	}
 	box.Children(func() {
-		v := terminal.View(c, p.term).Grow(1).Fill().Label("Terminal "+p.title).FocusBind(&tp.focus, p)
+		v := terminal.View(c, p.term).Grow(1).Fill().Label(locales.MsgTerminal()+p.title).FocusBind(&tp.focus, p)
 		if v.FocusWithin() {
 			tab.active = p
 		}
@@ -458,7 +459,7 @@ func (a *App) termTabList(c *ui.Context) {
 					row.Background(colors(c).SelectedRow)
 				}
 				row.OnClick(func() { tp.output = true; tp.focus = nil })
-				row.Children(func() { symbolIcon(c, icLines, 16, colors(c).Muted); ui.Text(c, "Output").FontSize(12) })
+				row.Children(func() { symbolIcon(c, icLines, 16, colors(c).Muted); ui.Text(c, locales.MsgOutput()).FontSize(12) })
 				for i, tab := range tp.tabs {
 					a.termTabRow(c, i, tab)
 				}
@@ -477,7 +478,7 @@ func (a *App) termTabRow(c *ui.Context, i int, tab *termTab) {
 func (a *App) termPaneRow(c *ui.Context, i, j int, tab *termTab, p *termPane, nested bool) {
 	tp := &a.term
 	active := tp.active == tab && tab.active == p && !tp.output
-	row := ui.Row(c.Key(p)).Label(fmt.Sprintf("Terminal %d.%d", i+1, j+1)).FillWidth().Height(24).Padding(0, 4, 0, 6).Gap(6).Radius(5).AlignItems(ui.Center)
+	row := ui.Row(c.Key(p)).Label(fmt.Sprintf(locales.MsgTerminalDD(), i+1, j+1)).FillWidth().Height(24).Padding(0, 4, 0, 6).Gap(6).Radius(5).AlignItems(ui.Center)
 	hovered := row.Hovered()
 	switch {
 	case active:
@@ -511,7 +512,7 @@ func (a *App) termPaneRow(c *ui.Context, i, j int, tab *termTab, p *termPane, ne
 			t.TextColor(colors(c).Muted)
 		}
 		if hovered {
-			split := ui.ButtonBase(c).Label(fmt.Sprintf("Split Terminal %d.%d", i+1, j+1)).Size(20, 20).Radius(3).Center().KeepFocus()
+			split := ui.ButtonBase(c).Label(fmt.Sprintf(locales.MsgSplitTerminalDD(), i+1, j+1)).Size(20, 20).Radius(3).Center().KeepFocus()
 			split.Children(func() { symbolIcon(c, icSplitH, 16, colors(c).Muted) })
 			split.OnClick(func() {
 				tp.active, tab.active = tab, p
@@ -519,7 +520,7 @@ func (a *App) termPaneRow(c *ui.Context, i, j int, tab *termTab, p *termPane, ne
 				a.splitTerminal()
 			})
 		}
-		cl := ui.ButtonBase(c).Label(fmt.Sprintf("Close Terminal %d.%d", i+1, j+1)).Size(20, 20).Radius(3).Center().KeepFocus()
+		cl := ui.ButtonBase(c).Label(fmt.Sprintf(locales.MsgCloseTerminalDD(), i+1, j+1)).Size(20, 20).Radius(3).Center().KeepFocus()
 		if hovered {
 			cl.Children(func() { symbolIcon(c, icTrash, 16, colors(c).Muted) })
 		}

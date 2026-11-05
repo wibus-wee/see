@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"see/locales"
 	"strings"
 
 	"github.com/egoist/mygo/ui/editor"
@@ -22,7 +23,7 @@ func (a *App) openFileDialog() {
 		a.post.Post(func() {
 			switch {
 			case err != nil:
-				a.note("Could not show the file dialog: "+err.Error(), true)
+				a.note(locales.MsgCouldNotShowTheFileDialog()+err.Error(), true)
 			case p != "":
 				if a.root == "" {
 					a.showWelcome = false
@@ -44,12 +45,12 @@ func (a *App) newFile() {
 	}
 	dir, err := draftDir()
 	if err != nil {
-		a.note("Could not create recovery cache: "+err.Error(), true)
+		a.note(locales.MsgCouldNotCreateRecoveryCache()+err.Error(), true)
 		return
 	}
 	var id [16]byte
 	if _, err = rand.Read(id[:]); err != nil {
-		a.note("Could not create file: "+err.Error(), true)
+		a.note(locales.MsgCouldNotCreateFile()+err.Error(), true)
 		return
 	}
 	path := filepath.Join(dir, fmt.Sprintf("%x", id))
@@ -98,12 +99,12 @@ func (a *App) cacheDraft(d *doc) {
 			return
 		}
 		if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
-			post(func() { a.note("Could not cache unsaved file: "+err.Error(), true) })
+			post(func() { a.note(locales.MsgCouldNotCacheUnsavedFile()+err.Error(), true) })
 			return
 		}
 		tmp, err := os.CreateTemp(filepath.Dir(path), ".draft-")
 		if err != nil {
-			post(func() { a.note("Could not cache unsaved file: "+err.Error(), true) })
+			post(func() { a.note(locales.MsgCouldNotCacheUnsavedFile()+err.Error(), true) })
 			return
 		}
 		name := tmp.Name()
@@ -120,7 +121,7 @@ func (a *App) cacheDraft(d *doc) {
 		}
 		post(func() {
 			if err != nil {
-				a.note("Could not cache unsaved file: "+err.Error(), true)
+				a.note(locales.MsgCouldNotCacheUnsavedFile()+err.Error(), true)
 			}
 		})
 	}()
@@ -163,12 +164,12 @@ func (a *App) guardDirty(docs []*doc, proceed func()) bool {
 		return true
 	}
 	a.showWelcome = false
-	a.confirm = &confirmation{message: fmt.Sprintf("%d file(s) have unsaved changes.", len(docs))}
+	a.confirm = &confirmation{message: locales.UnsavedCount(len(docs))}
 	a.confirm.actions = []action{
-		{"Save", func() {
+		{locales.MsgSave(), func() {
 			a.saveDocs(docs, func() { a.confirm = nil; proceed() })
 		}},
-		{"Discard Changes", func() {
+		{locales.DiscardChanges(), func() {
 			a.confirm = nil
 			for _, d := range docs {
 				if d.untitled {
@@ -181,7 +182,7 @@ func (a *App) guardDirty(docs []*doc, proceed func()) bool {
 			defer func() { a.allowDirty = false }()
 			proceed()
 		}},
-		{"Cancel", func() { a.confirm = nil }},
+		{locales.Cancel(), func() { a.confirm = nil }},
 	}
 	q, ask, post := a.confirm, a.host.ConfirmDirty, a.post.Post
 	go func() {
@@ -194,7 +195,7 @@ func (a *App) guardDirty(docs []*doc, proceed func()) bool {
 			case errors.Is(err, platform.ErrNoDialog):
 				q.inWindow = true
 			case err != nil:
-				a.note("Could not show the confirmation: "+err.Error(), true)
+				a.note(locales.MsgCouldNotShowTheConfirmation()+err.Error(), true)
 				a.confirm = nil
 			default:
 				if choice < 0 || choice >= len(q.actions) {
@@ -253,7 +254,7 @@ func (a *App) saveUntitled(d *doc, done func(bool)) {
 			if err != nil || path == "" {
 				d.saving = false
 				if err != nil {
-					a.note("Could not show the save dialog: "+err.Error(), true)
+					a.note(locales.MsgCouldNotShowTheSaveDialog()+err.Error(), true)
 				}
 				done(false)
 				return
@@ -261,7 +262,7 @@ func (a *App) saveUntitled(d *doc, done func(bool)) {
 			path = workspace.DocPath(a.root, a.realRoot, path)
 			if a.docs[path] != nil {
 				d.saving = false
-				a.note("That file is already open.", true)
+				a.note(locales.MsgThatFileIsAlreadyOpen(), true)
 				done(false)
 				return
 			}
@@ -280,7 +281,7 @@ func (a *App) saveUntitled(d *doc, done func(bool)) {
 					}
 					d.saving = false
 					if err != nil {
-						a.note("Could not save file: "+err.Error(), true)
+						a.note(locales.MsgCouldNotSaveFile()+err.Error(), true)
 						done(false)
 						return
 					}
@@ -292,7 +293,7 @@ func (a *App) saveUntitled(d *doc, done func(bool)) {
 					if d.buf.Version() == snap.Version() {
 						d.buf.MarkSaved()
 					}
-					d.buf.SetLanguage(editor.LanguageFor(d.name))
+					d.buf.SetLanguage(languageFor(d.name))
 					if fi, e := os.Stat(path); e == nil {
 						d.stamp = fileStamp{fi.Size(), fi.ModTime()}
 					}
@@ -334,7 +335,7 @@ func (a *App) saveUntitled(d *doc, done func(bool)) {
 					}
 					a.refreshDir(filepath.Dir(path))
 					a.saveConfig()
-					a.note("Saved "+d.name, false)
+					a.note(locales.MsgSaved()+d.name, false)
 					done(!d.buf.Modified())
 				})
 			}()
@@ -352,7 +353,7 @@ func (a *App) saveDoc(d *doc, overwrite bool) bool {
 	}
 	current, err := os.ReadFile(d.path)
 	if err != nil && !os.IsNotExist(err) {
-		a.note("Could not save "+d.name+": "+err.Error(), true)
+		a.note(locales.MsgCouldNotSave()+d.name+": "+err.Error(), true)
 		return false
 	}
 	expected := []byte(d.diskText)
@@ -361,7 +362,7 @@ func (a *App) saveDoc(d *doc, overwrite bool) bool {
 	}
 	if !overwrite && (err != nil || !bytes.Equal(current, expected)) {
 		d.conflict = true
-		a.note("The file changed on disk. Review it before choosing Overwrite.", true)
+		a.note(locales.MsgTheFileChangedOnDiskReviewItBefore(), true)
 		return false
 	}
 	var out bytes.Buffer
@@ -372,7 +373,7 @@ func (a *App) saveDoc(d *doc, overwrite bool) bool {
 		err = os.WriteFile(d.path, out.Bytes(), 0666)
 	}
 	if err != nil {
-		a.note("Could not save "+d.name+": "+err.Error(), true)
+		a.note(locales.MsgCouldNotSave()+d.name+": "+err.Error(), true)
 		return false
 	}
 	d.seq++ // an older asynchronous read must not replace the saved text
@@ -387,6 +388,6 @@ func (a *App) saveDoc(d *doc, overwrite bool) bool {
 		d.stamp = fileStamp{fi.Size(), fi.ModTime()}
 	}
 	d.gone, d.conflict = false, false
-	a.note("Saved "+d.name, false)
+	a.note(locales.MsgSaved()+d.name, false)
 	return true
 }

@@ -3,6 +3,7 @@ package app
 import (
 	"path/filepath"
 	"runtime"
+	"see/locales"
 
 	"github.com/egoist/mygo"
 )
@@ -12,7 +13,7 @@ func dockRecentItems(paths []string, open func(string)) []*mygo.MenuItem {
 	if len(paths) == 0 {
 		return nil
 	}
-	items := []*mygo.MenuItem{{Label: "Recent Projects", Disabled: true}}
+	items := []*mygo.MenuItem{{Label: locales.MsgRecentProjects(), Disabled: true}}
 	for _, path := range paths {
 		items = append(items, &mygo.MenuItem{
 			Label: filepath.Base(path), ToolTip: path,
@@ -40,25 +41,25 @@ func (a *App) fileMenu(run func(func())) *mygo.MenuItem {
 	if len(recent) > 0 {
 		recent = append(recent, mygo.Separator())
 	}
-	recent = append(recent, &mygo.MenuItem{Label: "Clear Menu", Disabled: len(a.cfg.Recent) == 0, Click: do(a.cfg.ClearRecent)})
+	recent = append(recent, &mygo.MenuItem{Label: locales.MsgClearMenu(), Disabled: len(a.cfg.Recent) == 0, Click: do(a.cfg.ClearRecent)})
 
 	closeKey := "Ctrl+Shift+W"
 	if runtime.GOOS == "darwin" {
 		closeKey = "Cmd+Ctrl+W" // Xcode's Close Workspace
 	}
-	return &mygo.MenuItem{Label: "File", Submenu: []*mygo.MenuItem{
-		{Label: "New File…", Disabled: a.root == "" && a.showWelcome, Click: do(a.newFile)},
-		{Label: "New Window", Click: do(func() {
+	return &mygo.MenuItem{Label: locales.MsgFile(), Submenu: []*mygo.MenuItem{
+		{Label: locales.MsgNewFile(), Disabled: a.root == "" && a.showWelcome, Click: do(a.newFile)},
+		{Label: locales.MsgNewWindow(), Click: do(func() {
 			a.host.OpenProjectWindow("")
 		})},
-		{Label: "Open File…", Click: do(a.openFileDialog)},
-		{Label: "Open Folder…", Click: do(a.openFolderDialog)},
-		{Label: "Open Recent", Submenu: recent},
-		{Label: "Save", Click: do(a.saveActive)},
+		{Label: locales.MsgOpenFile(), Click: do(a.openFileDialog)},
+		{Label: locales.MsgOpenFolder(), Click: do(a.openFolderDialog)},
+		{Label: locales.MsgOpenRecent(), Submenu: recent},
+		{Label: locales.MsgSave(), Click: do(a.saveActive)},
 		mygo.Separator(),
-		{Label: "Close Folder", Accelerator: closeKey, Click: do(a.closeFolder)},
+		{Label: locales.MsgCloseFolder(), Accelerator: closeKey, Click: do(a.closeFolder)},
 		mygo.Separator(),
-		{Label: "Welcome to See", Click: do(func() { a.showWelcome = true })},
+		{Label: locales.MsgWelcomeToSee(), Click: do(func() { a.showWelcome = true })},
 	}}
 }
 

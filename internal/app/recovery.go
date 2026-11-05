@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"see/locales"
 )
 
 type recoveryRecord struct {
@@ -49,7 +50,7 @@ func (a *App) cacheRecovery(d *doc) {
 	cache := d.cache
 	name, err := recoveryPath(a.root, d.path)
 	if err != nil {
-		a.note("Could not cache unsaved file: "+err.Error(), true)
+		a.note(locales.MsgCouldNotCacheUnsavedFile()+err.Error(), true)
 		return
 	}
 	snap := d.buf.Snapshot()
@@ -83,7 +84,7 @@ func (a *App) cacheRecovery(d *doc) {
 			cache.version = snap.Version()
 			post(func() {})
 		} else {
-			post(func() { a.note("Could not cache unsaved file: "+err.Error(), true) })
+			post(func() { a.note(locales.MsgCouldNotCacheUnsavedFile()+err.Error(), true) })
 		}
 	}()
 }

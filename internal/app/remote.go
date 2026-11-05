@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"see/locales"
 	"strings"
 
 	"github.com/egoist/mygo/ui"
@@ -33,7 +34,7 @@ func (a *App) syncGit(doing, done string, args ...string) {
 			}
 			a.git.busy, a.git.syncing = false, ""
 			if err != nil {
-				a.note("Git: "+gitErrLine(err), true)
+				a.note(locales.MsgGit()+gitErrLine(err), true)
 			} else {
 				a.note(done, false)
 				a.git.history.stale = true
@@ -52,7 +53,7 @@ func (a *App) gitFetch() { a.syncGit("Fetching…", "Fetched.", "fetch", "--all"
 // as Peek's one-click pull: one that would need a merge says so.
 func (a *App) gitPull() {
 	if a.git.upstream == "" {
-		a.note("The branch tracks no remote branch to pull from.", true)
+		a.note(locales.MsgTheBranchTracksNoRemoteBranchToPull(), true)
 		return
 	}
 	a.syncGit("Pulling…", "Pulled from "+a.git.upstream+".", "pull", "--ff-only")
@@ -65,7 +66,7 @@ func (a *App) gitPush() {
 	case a.git.upstream != "":
 		a.syncGit("Pushing…", "Pushed to "+a.git.upstream+".", "push")
 	case len(a.git.remotes) == 0:
-		a.note("The repository has no remote to push to.", true)
+		a.note(locales.MsgTheRepositoryHasNoRemoteToPushTo(), true)
 	default:
 		remote := a.git.remotes[0]
 		a.syncGit("Pushing…", "Pushed to "+remote+"/"+a.git.branch+".", "push", "--set-upstream", remote, "HEAD")

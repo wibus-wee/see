@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"see/locales"
 	"strings"
 	"time"
 	"unicode"
@@ -196,7 +197,7 @@ func hoverContent(c *ui.Context, md string, location *hoverLocation) {
 			})
 		}
 		if md != "" {
-			ui.Scroll(c).MaxHeight(380).Shrink(1).Label("Hover documentation").Children(func() {
+			ui.Scroll(c).MaxHeight(380).Shrink(1).Label(locales.MsgHoverDocumentation()).Children(func() {
 				markdown.View(c, md, nil)
 			})
 		}

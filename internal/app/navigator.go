@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"runtime"
+	"see/locales"
 	"strings"
 	"time"
 
@@ -48,7 +49,7 @@ func (a *App) navigatorBar(c *ui.Context) {
 	ui.Row(c).FillWidth().Padding(0, 10, 10, 10).Children(func() {
 		const segW, segGap = 38, 2
 		parts := ui.SegmentedBase(c, &a.navigator, 3)
-		parts.Track.FillWidth().Height(30).Padding(3).Gap(segGap).Radius(15).Background(t.Text.Alpha(0.06)).Label("Navigator")
+		parts.Track.FillWidth().Height(30).Padding(3).Gap(segGap).Radius(15).Background(t.Text.Alpha(0.06)).Label(locales.MsgNavigator())
 		if c.Preferences().HighContrast {
 			parts.Track.Border(1, t.Border)
 		}
@@ -105,19 +106,19 @@ func (a *App) projectNavigatorContent(c *ui.Context) {
 		switch {
 		case a.quick.err != nil:
 			ui.Column(c).Grow(1).Padding(8, 12).Gap(6).Children(func() {
-				ui.Text(c, "Could not list the files: "+describeErr(a.quick.err)).TextColor(colors(c).Err).FontSize(12)
-				if ui.Button(c, "Retry").Clicked() {
+				ui.Text(c, locales.MsgCouldNotListTheFiles()+describeErr(a.quick.err)).TextColor(colors(c).Err).FontSize(12)
+				if ui.Button(c, locales.Retry()).Clicked() {
 					a.retryFiles()
 				}
 			})
 		case a.quick.files == nil:
 			ui.Row(c).Padding(8, 12).Gap(8).Children(func() {
 				ui.Spinner(c)
-				ui.Text(c, "Listing files…").TextColor(colors(c).Muted)
+				ui.Text(c, locales.MsgListingFiles()).TextColor(colors(c).Muted)
 			})
 		case a.filter.matches == 0:
 			ui.Column(c).Grow(1).FillWidth().AlignItems(ui.Center).Justify(ui.Center).Children(func() {
-				ui.Text(c, "No Results").TextColor(colors(c).Muted)
+				ui.Text(c, locales.MsgNoResults()).TextColor(colors(c).Muted)
 			})
 		default:
 			a.fileTree(c, a.filter.roots)
@@ -128,12 +129,12 @@ func (a *App) projectNavigatorContent(c *ui.Context) {
 		case rootDir == nil || (!rootDir.loaded && rootDir.loading):
 			ui.Row(c).Padding(8, 12).Gap(8).Children(func() {
 				ui.Spinner(c)
-				ui.Text(c, "Loading…").TextColor(colors(c).Muted)
+				ui.Text(c, locales.MsgLoading()).TextColor(colors(c).Muted)
 			})
 		case !rootDir.loaded:
 			a.dirError(c, a.root, rootDir.err)
 		case len(a.entryPaths(rootDir)) == 0 && a.createEntry == nil:
-			ui.Text(c, "This folder is empty.").TextColor(colors(c).Muted).Padding(8, 12)
+			ui.Text(c, locales.MsgThisFolderIsEmpty()).TextColor(colors(c).Muted).Padding(8, 12)
 		default:
 			a.fileTree(c, a.withEntryPrompt(a.root, a.entryPaths(rootDir)))
 		}
@@ -228,7 +229,7 @@ const sidebarInset = 10
 
 func (a *App) fileTree(c *ui.Context, roots []string) {
 	a.tree.Indent = 12
-	tree := ui.Outline(c, &a.tree, roots, a.children, func(p string) { a.treeItem(c, p) }).Grow(1).FillWidth().Padding(0, sidebarInset).Label("Files")
+	tree := ui.Outline(c, &a.tree, roots, a.children, func(p string) { a.treeItem(c, p) }).Grow(1).FillWidth().Padding(0, sidebarInset).Label(locales.Files())
 	a.tree.List.Handle.OnShortcut(c, ui.Cmd, ui.KeyC, func() {
 		if a.treeRow >= 0 && a.treeRow < a.tree.Rows() {
 			p := a.tree.Item(a.treeRow)
@@ -304,7 +305,7 @@ func (a *App) treeItem(c *ui.Context, p string) {
 		}
 		return
 	case strings.HasSuffix(p, loadingSuffix):
-		ui.Text(c, "Loading…").TextColor(colors(c).Muted).FontSize(12)
+		ui.Text(c, locales.MsgLoading()).TextColor(colors(c).Muted).FontSize(12)
 		return
 	case strings.HasSuffix(p, errorSuffix):
 		dir := strings.TrimSuffix(p, errorSuffix)
@@ -314,7 +315,7 @@ func (a *App) treeItem(c *ui.Context, p string) {
 		}
 		ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
 			ui.Text(c, msg).TextColor(colors(c).Err).FontSize(12).SingleLine().Shrink(1)
-			if ui.Button(c, "Retry").Padding(0, 6).Clicked() {
+			if ui.Button(c, locales.Retry()).Padding(0, 6).Clicked() {
 				a.retryDir(dir)
 			}
 		})
@@ -439,8 +440,8 @@ func (a *App) treeItem(c *ui.Context, p string) {
 
 func (a *App) dirError(c *ui.Context, dir string, err error) {
 	ui.Column(c).Padding(8, 12).Gap(6).Children(func() {
-		ui.Text(c, "Could not read this folder: "+describeErr(err)).TextColor(colors(c).Err)
-		if ui.Button(c, "Retry").Clicked() {
+		ui.Text(c, locales.MsgCouldNotReadThisFolder()+describeErr(err)).TextColor(colors(c).Err)
+		if ui.Button(c, locales.Retry()).Clicked() {
 			a.retryDir(dir)
 		}
 	})
@@ -451,7 +452,7 @@ func (a *App) dirError(c *ui.Context, dir string, err error) {
 func (a *App) findNavigator(c *ui.Context) {
 	f := &a.find
 	ui.Column(c).FillWidth().Padding(8, 10).Gap(6).Children(func() {
-		field := ui.SearchField(c, &f.opts.Query).Label("Find in workspace").FillWidth().Bind(&f.field)
+		field := ui.SearchField(c, &f.opts.Query).Label(locales.MsgFindInWorkspace()).FillWidth().Bind(&f.field)
 		if f.focus {
 			f.focus = false
 			f.field.Focus(c)
@@ -464,20 +465,20 @@ func (a *App) findNavigator(c *ui.Context) {
 		}
 		ui.Row(c).Gap(4).AlignItems(ui.Center).Children(func() {
 			changed := false
-			changed = ui.Toggle(c, &f.opts.CaseSensitive, "Aa").Label("Match Case").Tooltip("Match Case").KeepFocus().Changed() || changed
-			changed = ui.Toggle(c, &f.opts.WholeWord, "W").Label("Whole Words").Tooltip("Match Whole Words").KeepFocus().Changed() || changed
-			changed = ui.Toggle(c, &f.opts.Regexp, ".*").Label("Regular Expression").Tooltip("Regular Expression").KeepFocus().Changed() || changed
+			changed = ui.Toggle(c, &f.opts.CaseSensitive, "Aa").Label(locales.MsgMatchCase()).Tooltip(locales.MsgMatchCase()).KeepFocus().Changed() || changed
+			changed = ui.Toggle(c, &f.opts.WholeWord, "W").Label(locales.MsgWholeWords()).Tooltip(locales.MsgMatchWholeWords()).KeepFocus().Changed() || changed
+			changed = ui.Toggle(c, &f.opts.Regexp, ".*").Label(locales.MsgRegularExpression()).Tooltip(locales.MsgRegularExpression()).KeepFocus().Changed() || changed
 			ui.Box(c).Grow(1)
-			ui.Toggle(c, &f.showFilters, "Filters").Tooltip("Files to include and exclude").KeepFocus()
+			ui.Toggle(c, &f.showFilters, "Filters").Tooltip(locales.MsgFilesToIncludeAndExclude()).KeepFocus()
 			if changed {
 				a.runFind()
 			}
 		})
 		if f.showFilters {
-			if ui.TextInput(c, &f.opts.Include).Placeholder("Include: *.go, cmd/**").FillWidth().Changed() {
+			if ui.TextInput(c, &f.opts.Include).Placeholder(locales.MsgIncludeGoCmd()).FillWidth().Changed() {
 				a.findSoon()
 			}
-			if ui.TextInput(c, &f.opts.Exclude).Placeholder("Exclude: *_test.go").FillWidth().Changed() {
+			if ui.TextInput(c, &f.opts.Exclude).Placeholder(locales.MsgExcludeTestGo()).FillWidth().Changed() {
 				a.findSoon()
 			}
 		}
@@ -491,7 +492,7 @@ func (a *App) findNavigator(c *ui.Context) {
 		roots[i] = findKey{path: r.Path, match: -1}
 	}
 	f.tree.Indent = 6
-	list := ui.Outline(c, &f.tree, roots, a.findChildren, func(k findKey) { a.findRow(c, k) }).Grow(1).FillWidth().Padding(0, sidebarInset).Label("Find results")
+	list := ui.Outline(c, &f.tree, roots, a.findChildren, func(k findKey) { a.findRow(c, k) }).Grow(1).FillWidth().Padding(0, sidebarInset).Label(locales.MsgFindResults())
 	if list.Submitted() && f.row >= 0 && f.row < f.tree.Rows() {
 		a.openMatch(f.tree.Item(f.row))
 	}
@@ -556,7 +557,7 @@ func (a *App) findRow(c *ui.Context, k findKey) {
 		gap(len(post) - len(trimmed))
 		ui.Text(c, trimmed).FontSize(12).TextColor(colors(c).Muted).SingleLine().Shrink(1)
 	})
-	row.Tooltip(fmt.Sprintf("Line %d", m.Line+1))
+	row.Tooltip(fmt.Sprintf(locales.MsgLineD(), m.Line+1))
 	row.OnClick(func() {
 		for i := 0; i < a.find.tree.Rows(); i++ {
 			if a.find.tree.Item(i) == k {

@@ -3,6 +3,7 @@ package app
 import (
 	"path/filepath"
 	"see/internal/languages"
+	"see/locales"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/plugins/glass"
@@ -100,14 +101,14 @@ func (a *App) toolbar(c *ui.Context, sidebarProgress float32, vibrant bool) {
 
 func (a *App) quickButton(c *ui.Context, centered bool, x, y float32) {
 	quick := ui.ButtonBase(c).Height(32).Padding(0, 12).Radius(16).Shrink(1).KeepFocus().
-		Label("Open Quickly").Tooltip("Open Quickly (" + keyLabel("Cmd+Shift+", "O") + ")").Material(glass.Glass{Interactive: true})
+		Label(locales.MsgOpenQuickly()).Tooltip(locales.MsgOpenQuickly2() + keyLabel("Cmd+Shift+", "O") + ")").Material(glass.Glass{Interactive: true})
 	if centered {
 		quick.Absolute().Left(x).Top(y).Width(132).Center()
 	}
 	quick.Children(func() {
 		ui.Row(c).Gap(7).AlignItems(ui.Center).Children(func() {
 			symbolIcon(c, icSearch, 15, colors(c).Text)
-			ui.Text(c, "Open Quickly").FontSize(12).SingleLine().Shrink(1)
+			ui.Text(c, locales.MsgOpenQuickly()).FontSize(12).SingleLine().Shrink(1)
 		})
 	})
 	if quick.Clicked() {
@@ -119,7 +120,7 @@ func (a *App) quickButton(c *ui.Context, centered bool, x, y float32) {
 // native menu of the recent folders, with the one open checked, so the
 // window's title is also the way between projects.
 func (a *App) projectTitle(c *ui.Context) {
-	b := ui.ButtonBase(c).Label("Switch Project").Tooltip(tildePath(a.root)).
+	b := ui.ButtonBase(c).Label(locales.MsgSwitchProject()).Tooltip(tildePath(a.root)).
 		Padding(0, 5, 0, 0).Radius(6).Shrink(1).Bind(&a.titleButton)
 	if b.Hovered() || b.Pressed() {
 		b.Background(colors(c).Pill)
@@ -157,7 +158,7 @@ func (a *App) projectMenu(x, y int) {
 		items = append(items, mygo.Separator())
 	}
 	items = append(items, &mygo.MenuItem{
-		Label:       "Open Folder…",
+		Label:       locales.MsgOpenFolder(),
 		Accelerator: "CmdOrCtrl+O",
 		Click: func(*mygo.MenuItem, *mygo.Window) {
 			a.post.Post(a.openFolderDialog)
@@ -185,7 +186,7 @@ func (a *App) modeSwitch(c *ui.Context) {
 	t := c.Theme()
 	const pad, inset = 12, 2
 	var widest float32
-	for _, label := range []string{"Files", "Find"} {
+	for _, label := range []string{locales.Files(), locales.Find()} {
 		w, _ := c.MeasureText(0, ui.Span{Text: label, Size: t.FontSize})
 		widest = max(widest, w)
 	}
@@ -199,7 +200,7 @@ func (a *App) modeSwitch(c *ui.Context) {
 		parts.Track.Border(1, t.Border)
 	}
 	parts.Track.Children(func() {
-		for i, label := range []string{"Files", "Find"} {
+		for i, label := range []string{locales.Files(), locales.Find()} {
 			s := parts.Segment(i).Width(widest + 2*pad).Radius(5).TextColor(t.Text)
 			if i == a.navigator {
 				s.Background(chosen).Shadow(0, 1, 2, 0, ui.RGBA(0, 0, 0, 0.15))
@@ -220,6 +221,14 @@ func (a *App) activityView(c *ui.Context) {
 	if a.focus != nil && languages.TypeScriptLanguage(a.activePath()) != "" {
 		state, serverErr, name = a.tsState, a.tsErr, "tsrs"
 		retry = a.retryTypeScriptLSP
+	}
+	if a.focus != nil && languages.ClangLanguage(a.activePath()) != "" {
+		state, serverErr, name = a.clangState, a.clangErr, "clangd"
+		retry = a.retryClangd
+	}
+	if a.focus != nil && languages.CMakeLanguage(a.activePath()) != "" {
+		state, serverErr, name = a.cmakeState, a.cmakeErr, "cmake-language-server"
+		retry = a.retryCMake
 	}
 	pill := ui.Row(c).Height(16).MaxWidth(260).Shrink(1).Gap(5).AlignItems(ui.Center)
 	pill.Children(func() {
@@ -244,30 +253,30 @@ func (a *App) activityView(c *ui.Context) {
 			if a.noticeError {
 				t.TextColor(colors(c).Err)
 			}
-			if state == langserver.Failed && ui.Button(c, "Retry").Label("Retry "+name).Padding(0, 6).FontSize(11).Clicked() {
+			if state == langserver.Failed && ui.Button(c, locales.Retry()).Label(locales.MsgRetry()+name).Padding(0, 6).FontSize(11).Clicked() {
 				retry()
 			}
 		case a.find.running:
 			ui.Spinner(c).FontSize(11)
-			ui.Text(c, "Searching…").FontSize(12).TextColor(colors(c).Muted)
+			ui.Text(c, locales.Searching()).FontSize(12).TextColor(colors(c).Muted)
 		case state == langserver.Starting:
 			ui.Spinner(c).FontSize(11)
-			ui.Text(c, "Starting "+name+"…").FontSize(12).TextColor(colors(c).Muted)
+			ui.Text(c, locales.MsgStarting()+name+"…").FontSize(12).TextColor(colors(c).Muted)
 		case state == langserver.Failed:
 			msg := name + " unavailable"
 			if serverErr != nil {
 				msg = name + ": " + shortErr(serverErr)
 			}
 			ui.Text(c, msg).FontSize(12).TextColor(colors(c).Err).SingleLine().Shrink(1)
-			if ui.Button(c, "Retry").Label("Retry "+name).Padding(0, 6).FontSize(11).Clicked() {
+			if ui.Button(c, locales.Retry()).Label(locales.MsgRetry()+name).Padding(0, 6).FontSize(11).Clicked() {
 				retry()
 			}
 		case a.watchErr != nil:
-			ui.Text(c, "Not watching for changes").FontSize(12).TextColor(colors(c).Muted).Tooltip(a.watchErr.Error())
+			ui.Text(c, locales.MsgNotWatchingForChanges()).FontSize(12).TextColor(colors(c).Muted).Tooltip(a.watchErr.Error())
 		case state == langserver.Ready:
-			ui.Text(c, "Ready · "+name).FontSize(12).TextColor(colors(c).Muted)
+			ui.Text(c, locales.MsgReady2()+name).FontSize(12).TextColor(colors(c).Muted)
 		default:
-			ui.Text(c, "Ready").FontSize(12).TextColor(colors(c).Muted)
+			ui.Text(c, locales.MsgReady()).FontSize(12).TextColor(colors(c).Muted)
 		}
 	})
 }

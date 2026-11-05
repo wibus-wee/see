@@ -2,6 +2,7 @@ package app
 
 import (
 	"path/filepath"
+	"see/locales"
 	"slices"
 	"strings"
 
@@ -23,7 +24,7 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 	}
 	g.tabSel = slices.Index(g.order, g.active)
 	tabs := ui.TabsBase(c, &g.tabSel, len(g.order))
-	tabs.List.Background(colors(c).TabBar).FillWidth().Height(30).AlignItems(ui.Stretch).BorderWidth(0, 0, 1, 0).BorderColor(colors(c).Hairline).Label("Open files")
+	tabs.List.Background(colors(c).TabBar).FillWidth().Height(30).AlignItems(ui.Stretch).BorderWidth(0, 0, 1, 0).BorderColor(colors(c).Hairline).Label(locales.MsgOpenFiles())
 	if v, ok := ui.Drop[*tabDrag](tabs.List); ok {
 		a.dropTab(v, g, sideNone, len(g.order))
 	}
@@ -76,7 +77,7 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 				if diff != nil && !diff.page() {
 					nameLabel += " (" + diff.label() + ")"
 				}
-				cl := ui.ButtonBase(c).Label("Close "+nameLabel).Size(16, 16).Radius(4).Center().KeepFocus()
+				cl := ui.ButtonBase(c).Label(locales.MsgClose()+nameLabel).Size(16, 16).Radius(4).Center().KeepFocus()
 				if hovered || active {
 					cl.Children(func() { symbolIcon(c, icClose, 10, colors(c).Muted) })
 					if cl.Hovered() {
@@ -181,7 +182,7 @@ func (a *App) jumpBar(c *ui.Context, g *group) {
 	ui.Row(c).FillWidth().Height(26).Padding(0, 6).Gap(2).AlignItems(ui.Center).Background(colors(c).Editor).
 		BorderWidth(0, 0, 1, 0).BorderColor(colors(c).Separator).Children(func() {
 		g.relatedBounds = g.relatedHandle.Bounds(c)
-		related := ui.ButtonBase(c.Key("related-items")).Label("Related Items").Tooltip("Related Items").Size(22, 22).Radius(4).Center().Bind(&g.relatedHandle)
+		related := ui.ButtonBase(c.Key("related-items")).Label(locales.MsgRelatedItems()).Tooltip(locales.MsgRelatedItems()).Size(22, 22).Radius(4).Center().Bind(&g.relatedHandle)
 		if related.Hovered() || related.Pressed() {
 			related.Background(colors(c).Pill)
 		}
