@@ -2,6 +2,19 @@
 
 User-facing changes are grouped by release. Earlier releases are documented on the [Releases page](https://github.com/wibus-wee/see/releases).
 
+## 0.2.1
+
+### Added
+
+- Use See in Simplified Chinese, including the command palette and language settings.
+- Highlight CMake files and use clangd or cmake-language-server for code navigation and diagnostics in trusted folders.
+- Install or uninstall the `see` shell command from Settings.
+- Hide selected file and folder names in the project navigator; `.DS_Store` is hidden by default.
+
+### Fixed
+
+- Dim navigator entries based on Git ignore status, and exclude hidden names from navigator filtering.
+
 ## 0.2.0
 
 ### Changed
