@@ -3,111 +3,46 @@
     <path id="sq" d="M512.00 100.00 L382.80 100.00 L272.22 103.54 L245.69 107.07 L229.64 110.61 L217.77 114.14 L208.23 117.68 L200.19 121.21 L193.21 124.75 L187.01 128.28 L181.42 131.82 L176.30 135.35 L171.57 138.89 L167.15 142.42 L162.99 145.96 L159.07 149.49 L155.36 153.03 L151.86 156.56 L148.55 160.10 L145.40 163.63 L142.40 167.17 L139.56 170.70 L136.86 174.24 L134.30 177.77 L131.89 181.31 L129.61 184.84 L127.47 188.38 L125.45 191.91 L123.56 195.45 L121.79 198.98 L120.13 202.52 L118.58 206.05 L117.13 209.59 L115.78 213.12 L114.52 216.66 L113.35 220.19 L112.26 223.73 L111.24 227.26 L110.31 230.80 L109.44 234.33 L108.63 237.87 L107.89 241.40 L107.21 244.94 L106.58 248.47 L106.00 252.01 L105.47 255.54 L104.99 259.08 L104.55 262.61 L104.14 266.15 L103.78 269.68 L103.45 273.22 L103.14 276.75 L102.87 280.29 L102.63 283.82 L102.40 287.36 L102.20 290.89 L102.02 294.43 L101.86 297.96 L101.72 301.50 L101.58 305.03 L101.46 308.57 L101.35 312.10 L101.25 315.64 L101.16 319.17 L101.07 322.71 L100.98 326.24 L100.90 329.78 L100.83 333.31 L100.75 336.85 L100.67 340.38 L100.60 343.92 L100.53 347.45 L100.45 350.99 L100.38 354.52 L100.31 358.06 L100.24 361.59 L100.18 365.13 L100.12 368.66 L100.07 372.20 L100.04 375.73 L100.01 379.27 L100.00 382.80 L100.00 641.20 L100.01 644.73 L100.04 648.27 L100.07 651.80 L100.12 655.34 L100.18 658.87 L100.24 662.41 L100.31 665.94 L100.38 669.48 L100.45 673.01 L100.53 676.55 L100.60 680.08 L100.67 683.62 L100.75 687.15 L100.83 690.69 L100.90 694.22 L100.98 697.76 L101.07 701.29 L101.16 704.83 L101.25 708.36 L101.35 711.90 L101.46 715.43 L101.58 718.97 L101.72 722.50 L101.86 726.04 L102.02 729.57 L102.20 733.11 L102.40 736.64 L102.63 740.18 L102.87 743.71 L103.14 747.25 L103.45 750.78 L103.78 754.32 L104.14 757.85 L104.55 761.39 L104.99 764.92 L105.47 768.46 L106.00 771.99 L106.58 775.53 L107.21 779.06 L107.89 782.60 L108.63 786.13 L109.44 789.67 L110.31 793.20 L111.24 796.74 L112.26 800.27 L113.35 803.81 L114.52 807.34 L115.78 810.88 L117.13 814.41 L118.58 817.95 L120.13 821.48 L121.79 825.02 L123.56 828.55 L125.45 832.09 L127.47 835.62 L129.61 839.16 L131.89 842.69 L134.30 846.23 L136.86 849.76 L139.56 853.30 L142.40 856.83 L145.40 860.37 L148.55 863.90 L151.86 867.44 L155.36 870.97 L159.07 874.51 L162.99 878.04 L167.15 881.58 L171.57 885.11 L176.30 888.65 L181.42 892.18 L187.01 895.72 L193.21 899.25 L200.19 902.79 L208.23 906.32 L217.77 909.86 L229.64 913.39 L245.69 916.93 L272.22 920.46 L382.80 924.00 L641.20 924.00 L751.78 920.46 L778.31 916.93 L794.36 913.39 L806.23 909.86 L815.77 906.32 L823.81 902.79 L830.79 899.25 L836.99 895.72 L842.58 892.18 L847.70 888.65 L852.43 885.11 L856.85 881.58 L861.01 878.04 L864.93 874.51 L868.64 870.97 L872.14 867.44 L875.45 863.90 L878.60 860.37 L881.60 856.83 L884.44 853.30 L887.14 849.76 L889.70 846.23 L892.11 842.69 L894.39 839.16 L896.53 835.62 L898.55 832.09 L900.44 828.55 L902.21 825.02 L903.87 821.48 L905.42 817.95 L906.87 814.41 L908.22 810.88 L909.48 807.34 L910.65 803.81 L911.74 800.27 L912.76 796.74 L913.69 793.20 L914.56 789.67 L915.37 786.13 L916.11 782.60 L916.79 779.06 L917.42 775.53 L918.00 771.99 L918.53 768.46 L919.01 764.92 L919.45 761.39 L919.86 757.85 L920.22 754.32 L920.55 750.78 L920.86 747.25 L921.13 743.71 L921.37 740.18 L921.60 736.64 L921.80 733.11 L921.98 729.57 L922.14 726.04 L922.28 722.50 L922.42 718.97 L922.54 715.43 L922.65 711.90 L922.75 708.36 L922.84 704.83 L922.93 701.29 L923.02 697.76 L923.10 694.22 L923.17 690.69 L923.25 687.15 L923.33 683.62 L923.40 680.08 L923.47 676.55 L923.55 673.01 L923.62 669.48 L923.69 665.94 L923.76 662.41 L923.82 658.87 L923.88 655.34 L923.93 651.80 L923.96 648.27 L923.99 644.73 L924.00 641.20 L924.00 382.80 L923.99 379.27 L923.96 375.73 L923.93 372.20 L923.88 368.66 L923.82 365.13 L923.76 361.59 L923.69 358.06 L923.62 354.52 L923.55 350.99 L923.47 347.45 L923.40 343.92 L923.33 340.38 L923.25 336.85 L923.17 333.31 L923.10 329.78 L923.02 326.24 L922.93 322.71 L922.84 319.17 L922.75 315.64 L922.65 312.10 L922.54 308.57 L922.42 305.03 L922.28 301.50 L922.14 297.96 L921.98 294.43 L921.80 290.89 L921.60 287.36 L921.37 283.82 L921.13 280.29 L920.86 276.75 L920.55 273.22 L920.22 269.68 L919.86 266.15 L919.45 262.61 L919.01 259.08 L918.53 255.54 L918.00 252.01 L917.42 248.47 L916.79 244.94 L916.11 241.40 L915.37 237.87 L914.56 234.33 L913.69 230.80 L912.76 227.26 L911.74 223.73 L910.65 220.19 L909.48 216.66 L908.22 213.12 L906.87 209.59 L905.42 206.05 L903.87 202.52 L902.21 198.98 L900.44 195.45 L898.55 191.91 L896.53 188.38 L894.39 184.84 L892.11 181.31 L889.70 177.77 L887.14 174.24 L884.44 170.70 L881.60 167.17 L878.60 163.63 L875.45 160.10 L872.14 156.56 L868.64 153.03 L864.93 149.49 L861.01 145.96 L856.85 142.42 L852.43 138.89 L847.70 135.35 L842.58 131.82 L836.99 128.28 L830.79 124.75 L823.81 121.21 L815.77 117.68 L806.23 114.14 L794.36 110.61 L778.31 107.07 L751.78 103.54 L641.20 100.00 L512.00 100.00 Z"/>
     <clipPath id="clipSq"><use xlink:href="#sq"/></clipPath>
     <linearGradient id="bg" x1="0" y1="100" x2="0" y2="924" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#5B8CFF"/>
-      <stop offset="0.55" stop-color="#3355E8"/>
-      <stop offset="1" stop-color="#1E2A9E"/>
+      <stop offset="0" stop-color="#46464D"/>
+      <stop offset="1" stop-color="#1B1B1F"/>
     </linearGradient>
-    <radialGradient id="bgGlow" cx="300" cy="180" r="620" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#B9D4FF" stop-opacity="0.55"/>
-      <stop offset="1" stop-color="#B9D4FF" stop-opacity="0"/>
-    </radialGradient>
-    <radialGradient id="bgDeep" cx="820" cy="900" r="520" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#7A3CFF" stop-opacity="0.45"/>
-      <stop offset="1" stop-color="#7A3CFF" stop-opacity="0"/>
-    </radialGradient>
+    <linearGradient id="sel" x1="100" y1="0" x2="924" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3B7BFF" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#3B7BFF" stop-opacity="0.18"/>
+    </linearGradient>
     <linearGradient id="rim" x1="0" y1="100" x2="0" y2="924" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.75"/>
-      <stop offset="0.18" stop-color="#FFFFFF" stop-opacity="0.12"/>
-      <stop offset="0.8" stop-color="#FFFFFF" stop-opacity="0.04"/>
-      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.35"/>
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.45"/>
+      <stop offset="0.18" stop-color="#FFFFFF" stop-opacity="0.08"/>
+      <stop offset="0.8" stop-color="#FFFFFF" stop-opacity="0.03"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.18"/>
     </linearGradient>
-    <linearGradient id="page" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#FFFFFF"/>
-      <stop offset="1" stop-color="#E6ECFF"/>
-    </linearGradient>
-    <radialGradient id="lens" cx="0.38" cy="0.32" r="0.75">
-      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.42"/>
-      <stop offset="0.6" stop-color="#DCE6FF" stop-opacity="0.14"/>
-      <stop offset="1" stop-color="#9DB4FF" stop-opacity="0.30"/>
-    </radialGradient>
-    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#FFFFFF"/>
-      <stop offset="0.45" stop-color="#E3E9FF"/>
-      <stop offset="1" stop-color="#8E9FE0"/>
-    </linearGradient>
-    <linearGradient id="handle" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#3A4377"/>
-      <stop offset="0.35" stop-color="#5E69A8"/>
-      <stop offset="1" stop-color="#1A1F45"/>
-    </linearGradient>
-    <radialGradient id="soft" cx="0.5" cy="0.5" r="0.5">
-      <stop offset="0" stop-color="#0A1260" stop-opacity="0.45"/>
-      <stop offset="1" stop-color="#0A1260" stop-opacity="0"/>
-    </radialGradient>
-    <circle id="lensShape" cx="566" cy="580" r="178"/>
-    <clipPath id="clipLens"><use xlink:href="#lensShape"/></clipPath>
-    <g id="code">
-      <rect x="0" y="0" width="420" height="540" rx="44" fill="url(#page)"/>
-      <rect x="54" y="70"  width="70"  height="26" rx="13" fill="#AF52DE"/>
-      <rect x="136" y="70" width="150" height="26" rx="13" fill="#0A84FF"/>
-      <rect x="298" y="70" width="40" height="26" rx="13" fill="#B8C2DA"/>
-      <rect x="94" y="128" width="96" height="26" rx="13" fill="#FF9F0A"/>
-      <rect x="202" y="128" width="130" height="26" rx="13" fill="#B8C2DA"/>
-      <rect x="94" y="186" width="60" height="26" rx="13" fill="#AF52DE"/>
-      <rect x="166" y="186" width="196" height="26" rx="13" fill="#30C759"/>
-      <rect x="134" y="244" width="120" height="26" rx="13" fill="#0A84FF"/>
-      <rect x="266" y="244" width="96" height="26" rx="13" fill="#FF375F"/>
-      <rect x="134" y="302" width="86" height="26" rx="13" fill="#5AC8FA"/>
-      <rect x="232" y="302" width="130" height="26" rx="13" fill="#B8C2DA"/>
-      <rect x="94" y="360" width="40" height="26" rx="13" fill="#B8C2DA"/>
-      <rect x="146" y="360" width="104" height="26" rx="13" fill="#FF375F"/>
-      <rect x="262" y="360" width="100" height="26" rx="13" fill="#B8C2DA"/>
-      <rect x="94" y="418" width="80" height="26" rx="13" fill="#AF52DE"/>
-      <rect x="186" y="418" width="150" height="26" rx="13" fill="#FF9F0A"/>
-      <rect x="54" y="476" width="40" height="26" rx="13" fill="#B8C2DA"/>
-    </g>
   </defs>
-
 
   <g clip-path="url(#clipSq)">
     <rect x="0" y="0" width="1024" height="1024" fill="url(#bg)"/>
-    <rect x="0" y="0" width="1024" height="1024" fill="url(#bgDeep)"/>
-    <rect x="0" y="0" width="1024" height="1024" fill="url(#bgGlow)"/>
 
-    <!-- The page of source, tilted -->
-    <g transform="translate(196 196) rotate(-7 210 270)">
-      <rect x="18" y="34" width="420" height="540" rx="44" fill="#0A1260" fill-opacity="0.22"/>
-      <rect x="10" y="20" width="420" height="540" rx="44" fill="#0A1260" fill-opacity="0.18"/>
-      <use xlink:href="#code"/>
-    </g>
+    <!-- Two selected lines, as when copying a link to them -->
+    <rect x="0" y="428" width="1024" height="168" fill="url(#sel)"/>
+    <rect x="100" y="428" width="14" height="168" fill="#5B9BFF"/>
 
-    <!-- Lens shadow on the page -->
-    <ellipse cx="602" cy="626" rx="232" ry="222" fill="url(#soft)"/>
+    <!-- Gutter -->
+    <circle cx="222" cy="290" r="10" fill="#5D5D66"/>
+    <circle cx="222" cy="364" r="10" fill="#5D5D66"/>
+    <circle cx="222" cy="476" r="10" fill="#CFE0FF"/>
+    <circle cx="222" cy="550" r="10" fill="#CFE0FF"/>
+    <circle cx="222" cy="660" r="10" fill="#5D5D66"/>
+    <circle cx="222" cy="734" r="10" fill="#5D5D66"/>
 
-    <!-- Handle -->
-    <g transform="rotate(-45 566 580)">
-      <rect x="578" y="770" width="80" height="196" rx="40" fill="#0A1260" fill-opacity="0.28" transform="translate(10 6)"/>
-      <rect x="578" y="760" width="80" height="196" rx="40" fill="url(#handle)"/>
-      <rect x="596" y="782" width="16" height="150" rx="8" fill="#FFFFFF" fill-opacity="0.28"/>
-      <rect x="586" y="732" width="64" height="44" rx="10" fill="#C9D3F5"/>
-    </g>
-
-    <!-- Magnified source seen through the lens -->
-    <g clip-path="url(#clipLens)">
-      <g transform="translate(566 580) scale(1.3) translate(-566 -580)">
-        <g transform="translate(196 196) rotate(-7 210 270)">
-          <use xlink:href="#code"/>
-        </g>
-      </g>
-      <use xlink:href="#lensShape" fill="url(#lens)"/>
-      <!-- specular highlight -->
-      <path d="M427.4 599.5 A140 140 0 0 1 536.9 443.1" fill="none" stroke="#FFFFFF" stroke-opacity="0.9" stroke-width="16" stroke-linecap="round"/>
-      <ellipse cx="648" cy="670" rx="56" ry="18" transform="rotate(-45 648 670)" fill="#FFFFFF" fill-opacity="0.22"/>
-    </g>
-    <!-- Lens ring -->
-    <use xlink:href="#lensShape" fill="none" stroke="url(#ring)" stroke-width="34"/>
-    <circle cx="566" cy="580" r="195" fill="none" stroke="#1A2370" stroke-opacity="0.25" stroke-width="2"/>
-    <circle cx="566" cy="580" r="161" fill="none" stroke="#FFFFFF" stroke-opacity="0.55" stroke-width="2"/>
+    <!-- Source -->
+    <rect x="280" y="276" width="120" height="28" rx="14" fill="#74747E"/>
+    <rect x="420" y="276" width="220" height="28" rx="14" fill="#74747E"/>
+    <rect x="320" y="350" width="300" height="28" rx="14" fill="#74747E"/>
+    <rect x="320" y="462" width="170" height="28" rx="14" fill="#FFFFFF"/>
+    <rect x="510" y="462" width="230" height="28" rx="14" fill="#FFFFFF"/>
+    <rect x="360" y="536" width="280" height="28" rx="14" fill="#FFFFFF"/>
+    <rect x="360" y="646" width="230" height="28" rx="14" fill="#74747E"/>
+    <rect x="320" y="720" width="140" height="28" rx="14" fill="#74747E"/>
+    <rect x="480" y="720" width="180" height="28" rx="14" fill="#74747E"/>
 
     <!-- Liquid glass rim of the tile -->
     <use xlink:href="#sq" fill="none" stroke="url(#rim)" stroke-width="10"/>

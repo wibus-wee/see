@@ -5,7 +5,7 @@
 See is a desktop app for reading source code. Open a folder and you get its tree, tabs, search, symbols, diffs, and a terminal in one window — written in Go and built with [MyGo](https://github.com/egoist/mygo), drawn natively, with no web view in the stack.
 
 
-<img width="3146" height="2132" alt="CleanShot 2026-10-28 at 20 55 47@2x" src="https://github.com/user-attachments/assets/231c9a8b-96d5-4db0-9652-189ec76d6aa8" />
+<img width="3344" height="2300" alt="See showing a Go project with the file navigator, a hex view, a Markdown preview and a terminal" src="resources/screenshot.webp" />
 
 
 ## Install

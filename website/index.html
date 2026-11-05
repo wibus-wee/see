@@ -11,7 +11,16 @@
 <link rel="apple-touch-icon" href="icon.png">
 <meta property="og:title" content="See — See the code. Follow the idea.">
 <meta property="og:description" content="A native desktop app for reading source code.">
-<meta property="og:image" content="icon.png">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://see.wibus.ren/">
+<meta property="og:image" content="https://see.wibus.ren/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="See the code. Follow the idea. — the See window beside its icon">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="See — See the code. Follow the idea.">
+<meta name="twitter:description" content="A native desktop app for reading source code.">
+<meta name="twitter:image" content="https://see.wibus.ren/og.png">
 <style>
   :root {
     --bg: #fbfbfd;
@@ -198,135 +207,85 @@
   .native { background: #000; color: #f5f5f7; text-align: center; overflow: hidden; }
   .native .kicker { color: #2997ff; }
   .native .section-head p { color: #a1a1a6; }
-  /* Exploded stack: flat plates seen from above, spread apart when revealed */
-  @property --gap { syntax: '<length>'; inherits: true; initial-value: 22px; }
-  .stack {
-    --s: 220px;                 /* plate side */
-    --pw: calc(var(--s) * 1.4142);
-    --ph: calc(var(--s) * .7071);
-    --gap: 22px;
-    position: relative; max-width: 720px; margin: 8px auto 0; text-align: left;
-    height: calc(var(--gap) * 3 + var(--ph) + 40px);
+  /* Exploded view: See's real window, the native UI layer under it, and Go at the bottom,
+     drawn in one orthographic view and one material, pulled apart when the section comes into view. */
+  @property --gap { syntax: '<length>'; inherits: true; initial-value: 14px; }
+  .explode { position: relative; max-width: 980px; margin: 56px auto 0; height: 500px; text-align: left; }
+  .scene { position: absolute; left: 0; top: 0; width: 64%; height: 100%; }
+  .rig {
+    --gap: 14px;
+    position: absolute; left: 50%; top: 50%; width: 440px; aspect-ratio: 1.54;
+    /* orthographic, and centred on the middle layer so the stack opens up and down evenly */
+    translate: -50% calc(-50% + var(--gap) * .85);
+    transform: rotateX(58deg) rotateZ(-32deg);
+    transform-style: preserve-3d;
+    transition: --gap 1.6s var(--ease) .2s;
   }
-  .stack.reveal { transition: opacity .9s var(--ease), transform .9s var(--ease), --gap 1.4s var(--ease) .15s; }
-  .stack.in { --gap: 92px; }
-  .plate {
-    position: absolute; left: 0; top: 0;
-    width: var(--s); height: var(--s); border-radius: 22px;
-    margin-left: calc((var(--pw) - var(--s)) / 2);
-    margin-top: calc((var(--ph) - var(--s)) / 2);
-    transform: translateY(calc(var(--i) * var(--gap))) rotateX(60deg) rotateZ(-45deg);
-    z-index: calc(10 - var(--i));
-    display: grid; place-items: center;
-    /* edge thickness, then a soft shadow cast on the plate below */
+  .explode.in .rig { --gap: 120px; }
+  .layer {
+    position: absolute; inset: 0; border-radius: 18px;
+    transform: translateZ(calc(var(--z) * var(--gap)));
     box-shadow:
-      inset 0 0 0 1px rgba(255, 255, 255, .12),
-      1px 1px 0 var(--edge), 2px 2px 0 var(--edge), 3px 3px 0 var(--edge),
-      4px 4px 0 var(--edge), 5px 5px 0 var(--edge), 6px 6px 0 var(--edge),
-      24px 24px 48px rgba(0, 0, 0, .55);
-    overflow: visible;
+      1px 1px 0 var(--edge), 1px 2px 0 var(--edge), 2px 3px 0 var(--edge), 2px 4px 0 var(--edge), 3px 5px 0 var(--edge),
+      18px 30px 60px rgba(0, 0, 0, .55);
   }
-  .plate::after {
-    content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
-    background: linear-gradient(135deg, rgba(255, 255, 255, .16), transparent 42%);
+  .layer i.c { position: absolute; width: 1px; height: 1px; }
+  .layer i.c:nth-of-type(1) { left: 0; top: 0; } .layer i.c:nth-of-type(2) { right: 0; top: 0; }
+  .layer i.c:nth-of-type(3) { right: 0; bottom: 0; } .layer i.c:nth-of-type(4) { left: 0; bottom: 0; }
+  .floor {
+    position: absolute; inset: 8%; border-radius: 40px; transform: translateZ(-30px);
+    background: rgba(0, 0, 0, .9); filter: blur(40px);
   }
-  .plate.see {
-    --edge: #3b3399;
-    background: linear-gradient(135deg, #3b82f6 0%, #7c5cf5 55%, #c25bd6 100%);
-    box-shadow:
-      inset 0 0 0 1px rgba(255, 255, 255, .22),
-      1px 1px 0 var(--edge), 2px 2px 0 var(--edge), 3px 3px 0 var(--edge),
-      4px 4px 0 var(--edge), 5px 5px 0 var(--edge), 6px 6px 0 var(--edge),
-      24px 24px 48px rgba(0, 0, 0, .55), 0 0 90px rgba(124, 92, 245, .45);
-  }
-  /* The icon hovers upright over the top plate instead of lying on it */
-  .stack .float {
-    position: absolute; z-index: 20; width: calc(var(--s) * .46); height: auto;
-    left: calc(var(--pw) / 2 - var(--s) * .23);
-    top: calc(var(--ph) / 2 - var(--s) * .38);
-    filter: drop-shadow(0 18px 18px rgba(20, 10, 80, .55));
-    animation: hover 5s ease-in-out infinite;
-  }
-  @keyframes hover { 50% { translate: 0 -8px; } }
-  @media (prefers-reduced-motion: reduce) { .stack .float { animation: none; } }
-  .plate.ui {
-    --edge: #0f0f11;
-    background: #1c1c1e;
-    place-items: stretch;
-  }
-  .plate.ui .win {
-    margin: 14%; border-radius: 10px; overflow: hidden;
-    background: #2a2a2d; border: 1px solid rgba(255, 255, 255, .08);
-    display: grid; grid-template-columns: 30% 1fr; grid-template-rows: 14% 1fr;
-  }
-  .plate.ui .win > i:first-child {
-    grid-column: 1 / -1; display: block;
-    background:
-      radial-gradient(circle, #ff5f57 0 3px, transparent 3.5px) 8px 50% / 10px 10px no-repeat,
-      radial-gradient(circle, #febc2e 0 3px, transparent 3.5px) 19px 50% / 10px 10px no-repeat,
-      radial-gradient(circle, #28c840 0 3px, transparent 3.5px) 30px 50% / 10px 10px no-repeat,
-      #323236;
-    border-bottom: 1px solid rgba(255, 255, 255, .06);
-  }
-  .plate.ui .win > i:nth-child(2) {
-    display: block; background: repeating-linear-gradient(180deg, transparent 0 8px, rgba(255, 255, 255, .1) 8px 10px) 8px 8px / calc(100% - 16px) 100% no-repeat, #262628;
-    border-right: 1px solid rgba(255, 255, 255, .06);
-  }
-  .plate.ui .win > i:nth-child(3) {
-    display: block;
-    background: repeating-linear-gradient(180deg, transparent 0 9px, rgba(41, 151, 255, .35) 9px 11px, transparent 11px 18px, rgba(255, 255, 255, .12) 18px 20px) 10px 10px / 70% 100% no-repeat;
-  }
-  .plate.go {
-    --edge: #0b0b0c;
-    background:
-      radial-gradient(circle, rgba(0, 173, 216, .55) 1px, transparent 1.5px) 0 0 / 14px 14px,
-      linear-gradient(135deg, #1a2a30, #121214 70%);
-  }
-  .plate.gone {
-    background: rgba(255, 255, 255, .025); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .22);
-    transition: opacity 1.2s var(--ease) .5s, translate 1.4s var(--ease) .5s;
-  }
-  .plate.gone::after { display: none; }
-  .stack.in .plate.gone { opacity: .7; translate: 0 26px; }
+  .layer.app { --z: 2; --edge: #2a2a2e; overflow: hidden; background: #1c1c1e; }
+  /* the screenshot has a wallpaper margin around the window; crop to the window */
+  .layer.app img { position: absolute; max-width: none; width: 112.4%; height: 119.05%; left: -6.3%; top: -9.65%; }
+  .layer.app::after { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .22);
+    background: linear-gradient(120deg, rgba(255, 255, 255, .14), transparent 40%); }
+  .layer.ui { --z: 1; --edge: #1a1a1d; background: rgba(36, 36, 40, .92); box-shadow:
+      inset 0 0 0 1px rgba(255, 255, 255, .14),
+      1px 1px 0 var(--edge), 1px 2px 0 var(--edge), 2px 3px 0 var(--edge), 2px 4px 0 var(--edge), 3px 5px 0 var(--edge),
+      18px 30px 60px rgba(0, 0, 0, .55); }
+  /* the same window, as frames: toolbar, navigator, editor, terminal */
+  .layer.ui b { position: absolute; border: 1px solid rgba(255, 255, 255, .26); border-radius: 6px; }
+  .layer.ui b:nth-of-type(1) { left: 4%; right: 4%; top: 5%; height: 9%; }
+  .layer.ui b:nth-of-type(2) { left: 4%; width: 20%; top: 17%; bottom: 5%; }
+  .layer.ui b:nth-of-type(3) { left: 26%; right: 4%; top: 17%; bottom: 36%; border-color: rgba(41, 151, 255, .7); background: rgba(41, 151, 255, .08); }
+  .layer.ui b:nth-of-type(4) { left: 26%; right: 4%; bottom: 5%; height: 28%; }
+  .layer.go { --z: 0; --edge: #0d0d0f; background:
+      linear-gradient(rgba(0, 173, 216, .16) 1px, transparent 1px) 0 0 / 22px 22px,
+      linear-gradient(90deg, rgba(0, 173, 216, .16) 1px, transparent 1px) 0 0 / 22px 22px,
+      #121214; }
+  .layer.go::after { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 1px rgba(0, 173, 216, .4); }
 
-  .tag {
-    position: absolute; left: calc(var(--pw) + 64px); right: 0;
-    top: calc(var(--i) * var(--gap) + var(--ph) / 2 - 20px);
-    display: flex; flex-direction: column; gap: 2px;
-  }
-  .tag::before {
-    content: ""; position: absolute; right: calc(100% + 14px); top: 13px;
-    width: 72px; height: 1px; background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .28));
-  }
-  .tag::after {
-    content: ""; position: absolute; right: calc(100% + 10px); top: 11px;
-    width: 5px; height: 5px; border-radius: 50%; background: #f5f5f7;
-  }
-  .tag b { font-size: 19px; font-weight: 600; letter-spacing: -.02em; }
-  .tag span { font-size: 14px; color: #86868b; letter-spacing: -.01em; }
-  .tag.gone b { color: #6e6e73; text-decoration: line-through; text-decoration-thickness: 1px; }
-  .tag.gone::after { background: transparent; box-shadow: inset 0 0 0 1px #6e6e73; }
-  .tag.gone::before { background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .12)); }
+  .anns { position: absolute; inset: 0; pointer-events: none; }
+  .ann { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; gap: 2px; opacity: 0; transition: opacity .6s var(--ease); translate: 0 -50%; }
+  .explode.in.laid .ann { opacity: 1; transition-delay: 1.1s; }
+  .ann b { font-size: 21px; font-weight: 600; letter-spacing: -.02em; }
+  .ann span { font-size: 15px; color: #86868b; }
+  .lead { position: absolute; height: 1px; background: rgba(255, 255, 255, .28); opacity: 0; transition: opacity .6s var(--ease); }
+  .lead::before { content: ""; position: absolute; left: -3px; top: -3px; width: 7px; height: 7px; border-radius: 50%; background: #f5f5f7; }
+  .explode.in.laid .lead { opacity: 1; transition-delay: 1s; }
 
   .stats {
     display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px;
-    max-width: 720px; margin: 72px auto 0; text-align: left;
+    max-width: 720px; margin: 48px auto 0; text-align: left;
   }
   .stat { border-top: 1px solid rgba(255, 255, 255, .16); padding-top: 20px; }
   .stat b { display: block; font-size: clamp(44px, 6vw, 64px); font-weight: 700; letter-spacing: -.045em; line-height: 1;
     background: linear-gradient(180deg, #fff, #8e8e93); -webkit-background-clip: text; background-clip: text; color: transparent;
     font-variant-numeric: tabular-nums; margin-bottom: 10px; }
   .stat span { color: #a1a1a6; font-size: 15px; line-height: 1.4; display: block; }
-  @media (prefers-reduced-motion: reduce) { .stack.reveal { transition: none; } .plate.gone { transition: none; } }
+  @media (prefers-reduced-motion: reduce) { .rig { transition: none; } .ann, .lead { transition: none !important; } }
   @media (max-width: 600px) {
-    .stack { --s: 128px; }
-    .stack.in { --gap: 66px; }
-    .plate { border-radius: 14px; }
-    .plate.ui .win { border-radius: 6px; }
-    .tag { left: calc(var(--pw) + 30px); }
-    .tag::before { width: 20px; }
-    .tag b { font-size: 17px; }
-    .tag span { font-size: 13px; }
+    .explode { height: auto; display: flex; flex-direction: column; gap: 8px; }
+    .scene { position: relative; width: 100%; height: 300px; }
+    .rig { width: 230px; }
+    .explode.in .rig { --gap: 70px; }
+    .layer { border-radius: 10px; }
+    .anns { position: static; display: flex; flex-direction: column; gap: 16px; }
+    .ann { position: static; translate: none; }
+    .explode.in .ann { opacity: 1; transition-delay: .8s; }
+    .lead { display: none; }
     .stats { grid-template-columns: 1fr; gap: 24px; margin-top: 56px; }
   }
 
@@ -420,7 +379,7 @@
     </div>
     <div class="shot wide">
       <div class="shot-frame" id="shot">
-        <img src="https://github.com/user-attachments/assets/231c9a8b-96d5-4db0-9652-189ec76d6aa8" alt="See showing a Go project with the file navigator, an editor and a terminal" width="3146" height="2132" loading="eager">
+        <img src="screenshot.webp" alt="See showing a Go project with the file navigator, a hex view, a Markdown preview and a terminal" width="3344" height="2300" loading="eager">
       </div>
     </div>
   </header>
@@ -518,16 +477,20 @@
       <h2>No web view.<br>Not anywhere.</h2>
       <p>See is written in Go and built with MyGo. Every pixel is drawn natively — so it opens fast, scrolls smoothly, and feels at home on your desktop.</p>
     </div>
-    <div class="stack reveal" role="img" aria-label="See's stack: See, on MyGo, on Go — with no web view">
-      <div class="plate see" style="--i:0"></div>
-      <img class="float" src="icon.png" alt="">
-      <div class="plate ui" style="--i:1"><div class="win"><i></i><i></i><i></i></div></div>
-      <div class="plate go" style="--i:2"></div>
-      <div class="plate gone" style="--i:3"></div>
-      <div class="tag" style="--i:0"><b>See</b><span>Reading, searching, reviewing</span></div>
-      <div class="tag" style="--i:1"><b>MyGo</b><span>Native windows and drawing</span></div>
-      <div class="tag" style="--i:2"><b>Go</b><span>The language underneath</span></div>
-      <div class="tag gone" style="--i:3"><b>Web view</b><span>Not in the stack</span></div>
+    <div class="explode reveal" id="explode" role="img" aria-label="Exploded view: the See window, on MyGo's native drawing, on Go">
+      <div class="scene">
+        <div class="rig">
+          <div class="floor"></div>
+          <div class="layer go"><i class="c"></i><i class="c"></i><i class="c"></i><i class="c"></i></div>
+          <div class="layer ui"><b></b><b></b><b></b><b></b><i class="c"></i><i class="c"></i><i class="c"></i><i class="c"></i></div>
+          <div class="layer app"><img src="screenshot.webp" alt="" loading="lazy"><i class="c"></i><i class="c"></i><i class="c"></i><i class="c"></i></div>
+        </div>
+      </div>
+      <div class="anns">
+        <div class="ann" data-for="app"><b>See</b><span>The window you read code in</span></div>
+        <div class="ann" data-for="ui"><b>MyGo</b><span>Native windows, text and drawing</span></div>
+        <div class="ann" data-for="go"><b>Go</b><span>The language underneath it all</span></div>
+      </div>
     </div>
     <div class="stats reveal">
       <div class="stat"><b>0</b><span>web views between you<br>and your code</span></div>
@@ -618,6 +581,45 @@
   } else {
     shot.style.setProperty('--tilt', '0deg');
     shot.style.setProperty('--scale', '1');
+  }
+
+  // Pin each label to the rightmost projected corner of its layer while the view opens.
+  const explode = document.getElementById('explode');
+  if (explode) {
+    const wide = matchMedia('(min-width: 601px)');
+    const leads = {};
+    const place = () => {
+      if (!wide.matches) return;
+      const box = explode.getBoundingClientRect();
+      const pts = {};
+      let maxX = 0;
+      for (const name of ['app', 'ui', 'go']) {
+        let best = null;
+        for (const c of explode.querySelectorAll('.layer.' + name + ' i.c')) {
+          const r = c.getBoundingClientRect();
+          if (!best || r.left > best.x) best = { x: r.left - box.left, y: r.top - box.top };
+        }
+        pts[name] = best; maxX = Math.max(maxX, best.x);
+      }
+      const col = Math.min(maxX + 72, box.width - 220);
+      for (const name in pts) {
+        const p = pts[name];
+        const ann = explode.querySelector('.ann[data-for="' + name + '"]');
+        ann.style.left = col + 'px'; ann.style.top = p.y + 'px';
+        let lead = leads[name];
+        if (!lead) { lead = leads[name] = document.createElement('div'); lead.className = 'lead'; explode.querySelector('.anns').append(lead); }
+        lead.style.left = (p.x + 10) + 'px'; lead.style.top = p.y + 'px'; lead.style.width = Math.max(0, col - p.x - 26) + 'px';
+      }
+    };
+    const follow = (ms) => {
+      const end = performance.now() + ms;
+      const tick = () => { place(); if (performance.now() < end) requestAnimationFrame(tick); };
+      requestAnimationFrame(tick);
+    };
+    new MutationObserver(() => { if (explode.classList.contains('in') && !explode.classList.contains('laid')) { follow(2200); explode.classList.add('laid'); } })
+      .observe(explode, { attributes: true, attributeFilter: ['class'] });
+    addEventListener('resize', place);
+    place();
   }
 
   // Show the latest release tag when GitHub answers; keep the baked-in one otherwise.
