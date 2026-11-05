@@ -2,6 +2,12 @@
 
 User-facing changes are grouped by release. Earlier releases are documented on the [Releases page](https://github.com/wibus-wee/see/releases).
 
+## 0.2.0
+
+### Changed
+
+- See has a new app icon and refreshed visual identity.
+
 ## 0.1.18
 
 ### Added
