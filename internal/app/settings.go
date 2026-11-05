@@ -125,10 +125,9 @@ func (a *App) applyEditorPrefsAll() {
 			a.applyEditorPrefs(st)
 		}
 		for _, v := range g.diffs {
-			if v.state == nil {
-				continue
+			for _, d := range v.diffStates() {
+				a.applyDiffPrefs(d)
 			}
-			a.applyDiffPrefs(v.state)
 		}
 	}
 }
@@ -171,8 +170,8 @@ func (a *App) toggleDiffLayout() {
 	a.cfg.DiffUnified = !a.cfg.DiffUnified
 	for _, g := range a.groups() {
 		for _, v := range g.diffs {
-			if v.state != nil {
-				a.applyDiffPrefs(v.state)
+			for _, d := range v.diffStates() {
+				a.applyDiffPrefs(d)
 			}
 		}
 	}

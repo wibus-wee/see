@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -166,5 +167,36 @@ func TestCoAuthorsFromTheLog(t *testing.T) {
 	got := commits[0].CoAuthors
 	if len(got) != 2 || got[0] != (Person{"Ada", "ada@x.org"}) || got[1] != (Person{"Bob", "bob@x.org"}) {
 		t.Fatalf("co-authors %+v, subject %q", got, commits[0].Subject)
+	}
+}
+
+// CommitPatch is the patch of every file of a commit, with a few lines
+// of context, the first commit's against the empty tree.
+func TestCommitPatch(t *testing.T) {
+	root, run := newRepo(t)
+	ctx := context.Background()
+	write(t, root, "a", "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n")
+	run("add", "a")
+	run("commit", "-qm", "first")
+	write(t, root, "a", "1\n2\n3\n4\n5\n6\n7\n8\n9\nten\n")
+	write(t, root, "b", "b\n")
+	run("add", ".")
+	run("commit", "-qm", "second")
+	out, err := CommitPatch(ctx, root, "HEAD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(out)
+	for _, want := range []string{"diff --git a/a b/a", "-10", "+ten", "diff --git a/b b/b", "+b"} {
+		if !strings.Contains(s, want) {
+			t.Fatalf("no %q in\n%s", want, s)
+		}
+	}
+	if strings.Contains(s, " 2\n") {
+		t.Fatalf("the whole file, not a few lines around the change:\n%s", s)
+	}
+	out, err = CommitPatch(ctx, root, "HEAD~1")
+	if err != nil || !strings.Contains(string(out), "+1\n") {
+		t.Fatalf("first commit: %v\n%s", err, out)
 	}
 }

@@ -73,7 +73,7 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 				if isMarkdownTab(p) {
 					nameLabel += " Preview"
 				}
-				if diff != nil && diff.commit == nil {
+				if diff != nil && !diff.page() {
 					nameLabel += " (" + diff.label() + ")"
 				}
 				cl := ui.ButtonBase(c).Label("Close "+nameLabel).Size(16, 16).Radius(4).Center().KeepFocus()
@@ -84,7 +84,7 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 					}
 				}
 				cl.OnClick(func() { a.closeTab(g, p) })
-				if diff != nil && diff.commit != nil {
+				if diff != nil && diff.page() {
 					symbolIcon(c, icGit, 13, colors(c).Muted)
 				} else {
 					fileIcon(c, d.name, 13)
@@ -128,7 +128,11 @@ func (a *App) diffJumpBar(c *ui.Context, g *group) {
 		ui.Text(c, filepath.Base(a.root)).FontSize(12).TextColor(colors(c).Muted).SingleLine()
 		symbolIcon(c, icChevron, 9, colors(c).Dim)
 		label := v.label()
-		if v.commit != nil {
+		if v.log != nil {
+			symbolIcon(c, icGit, 12, colors(c).Muted)
+			ui.Text(c, v.name).FontSize(12).SingleLine().Shrink(1)
+			label = ""
+		} else if v.commit != nil {
 			symbolIcon(c, icGit, 12, colors(c).Muted)
 			ui.Text(c, v.rev).FontSize(12).SingleLine()
 			ui.Text(c, v.name).FontSize(12).TextColor(colors(c).Muted).SingleLine().Shrink(1)

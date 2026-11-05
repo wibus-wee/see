@@ -31,6 +31,7 @@ type gitState struct {
 	// folded away, as VS Code's views; both show by default.
 	changesClosed, historyClosed bool
 	split                        float32 // the changes' share of the height while both show, as a percentage
+	logSplit                     float32 // the commits' share of the log's tab, as a percentage
 	// upstream is the branch HEAD's tracks, and ahead and behind how
 	// far apart they are; remotes are the repository's, origin first.
 	upstream      string
@@ -63,6 +64,7 @@ type gitDiffTab struct {
 	staged bool
 	rev    string      // the commit's short hash, for a file of a commit
 	commit *commitView // a commit, which shows in place of a diff
+	log    *gitLogView // the log, which shows in place of a diff
 	// What the tab shows, to read it again in the next session: the
 	// commit's full hash, a renamed file's old path, and whether the
 	// change is of a file git does not track.
@@ -82,6 +84,28 @@ func (v *gitDiffTab) label() string {
 		return "Staged"
 	}
 	return "Working Tree"
+}
+
+// page reports whether the tab shows a commit or the log, not a file's
+// diff.
+func (v *gitDiffTab) page() bool { return v.commit != nil || v.log != nil }
+
+// diffStates are the diffs the tab shows: its own, or the log's of the
+// commit chosen.
+func (v *gitDiffTab) diffStates() []*editor.DiffState {
+	switch {
+	case v.state != nil:
+		return []*editor.DiffState{v.state}
+	case v.log != nil && v.log.detail != nil:
+		var out []*editor.DiffState
+		for _, f := range v.log.detail.files {
+			if f.diff != nil {
+				out = append(out, f.diff)
+			}
+		}
+		return out
+	}
+	return nil
 }
 
 func (a *App) newGitDiffTab(p editor.FilePatch, name string, staged bool) *gitDiffTab {

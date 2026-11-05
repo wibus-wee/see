@@ -10,7 +10,8 @@ type Workspace struct {
 	// folded away.
 	ChangesClosed bool    `json:"changesClosed,omitempty"`
 	HistoryClosed bool    `json:"historyClosed,omitempty"`
-	GitSplit      float32 `json:"gitSplit,omitempty"` // the changes' share of the Git navigator, as a percentage
+	GitSplit      float32 `json:"gitSplit,omitempty"`    // the changes' share of the Git navigator, as a percentage
+	GitLogSplit   float32 `json:"gitLogSplit,omitempty"` // the commits' share of the Git log's tab, as a percentage
 	WindowWidth   int     `json:"windowWidth,omitempty"`
 	WindowHeight  int     `json:"windowHeight,omitempty"`
 }

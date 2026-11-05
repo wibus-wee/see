@@ -148,6 +148,9 @@ func (a *App) gitHistoryHeader(c *ui.Context) {
 			h.all, h.stale = !h.all, true
 			a.syncHistory()
 		}
+		if glyphButton(c, icGit, "Show Log", "Show the Log in a Tab", false, false).Clicked() {
+			a.openGitLog()
+		}
 	})
 }
 

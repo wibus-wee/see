@@ -36,6 +36,7 @@ func commands() []command {
 			a.sidebarOff, a.navigator, a.git.historyClosed = false, navGit, false
 			a.refreshGit()
 		}},
+		{"Git: Show Log", "", "", 0, 0, func(a *App) { a.openGitLog() }},
 		{"Toggle Inline Diff", "", "", 0, 0, func(a *App) { a.toggleDiffLayout() }},
 		{"Next Change", "", "", 0, 0, func(a *App) { a.goToChange(1) }},
 		{"Previous Change", "", "", 0, 0, func(a *App) { a.goToChange(-1) }},

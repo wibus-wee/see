@@ -75,7 +75,7 @@ func (a *App) tabFile(g *group, tab string) string {
 		return tabPath(tab)
 	}
 	v := g.diffs[tab]
-	if v == nil || v.commit != nil || a.git.root == "" {
+	if v == nil || v.page() || a.git.root == "" {
 		return ""
 	}
 	return workspace.DocPath(a.root, a.realRoot, filepath.Join(a.git.root, filepath.FromSlash(v.name)))
@@ -448,6 +448,8 @@ func (a *App) splitActive(s side) {
 	if isDiffTab(path) {
 		if v := g.diffs[path]; v != nil && v.pending {
 			ng.diffs = map[string]*gitDiffTab{path: v} // filled where it is when read
+		} else if v != nil && v.log != nil {
+			ng.diffs = map[string]*gitDiffTab{path: {name: v.name, log: &gitLogView{query: v.log.query}}}
 		} else if v != nil && v.commit != nil {
 			cv := *v.commit
 			cv.scroll = ui.ScrollState{}

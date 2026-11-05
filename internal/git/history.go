@@ -362,6 +362,12 @@ func CommitFileDiff(ctx context.Context, root, hash string, f FileStat) ([]byte,
 	return Command(ctx, root, args...)
 }
 
+// CommitPatch is the patch of every file of a commit against its first
+// parent, with git's few lines of context, for the log to show at once.
+func CommitPatch(ctx context.Context, root, hash string) ([]byte, error) {
+	return Command(ctx, root, "diff", "--no-ext-diff", "--no-color", "-M", Parent(ctx, root, hash), hash)
+}
+
 // LineCounts are the lines added and deleted of each changed file, by
 // its path: those staged, and those of the working tree not staged.
 // Untracked files have none.
