@@ -21,6 +21,21 @@ func TestRoundTrip(t *testing.T) {
 	}
 }
 
+func TestHiddenNamesDefaultAndEmpty(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "config.json")
+	c := Load(p)
+	if c.HiddenNames != ".DS_Store" {
+		t.Fatalf("default hidden names = %q", c.HiddenNames)
+	}
+	c.HiddenNames = ""
+	if err := c.Save(); err != nil {
+		t.Fatal(err)
+	}
+	if got := Load(p).HiddenNames; got != "" {
+		t.Fatalf("empty hidden names did not persist: %q", got)
+	}
+}
+
 func TestBrokenFileGivesDefaults(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "config.json")
 	if err := os.WriteFile(p, []byte("{broken"), 0o600); err != nil {

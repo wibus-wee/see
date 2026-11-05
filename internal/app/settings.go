@@ -482,6 +482,13 @@ func (a *App) generalPane(c *ui.Context) {
 			}
 		},
 		func() {
+			labeled(c, "Hidden names", "Hide matching files and folders in the project navigator. Separate names with commas.")
+			if ui.TextInput(c, &a.cfg.HiddenNames).Label("Hidden names").Placeholder(".DS_Store").Width(200).Changed() {
+				a.filter.forQuery = ""
+				a.settingsChanged()
+			}
+		},
+		func() {
 			labeled(c, "Diff layout", "Show diffs inline or side by side.")
 			layout := 0
 			if a.cfg.DiffLayout == "unified" || (a.cfg.DiffLayout == "" && a.cfg.DiffUnified) {

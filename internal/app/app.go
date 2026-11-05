@@ -451,7 +451,7 @@ func (a *App) children(p string) []string {
 	d := a.dirs[p]
 	if !a.tree.Open.Has(p) {
 		if d != nil && d.loaded {
-			return entryPaths(d)
+			return a.entryPaths(d)
 		}
 		return []string{}
 	}
@@ -465,19 +465,42 @@ func (a *App) children(p string) []string {
 		}
 		return a.withEntryPrompt(p, []string{p + loadingSuffix})
 	}
-	out := entryPaths(d)
+	out := a.entryPaths(d)
 	if d.err != nil {
 		out = append(out, p+errorSuffix) // a refresh failed: keep the old list
 	}
 	return a.withEntryPrompt(p, out)
 }
 
-func entryPaths(d *dirState) []string {
-	out := make([]string, len(d.entries))
-	for i, e := range d.entries {
-		out[i] = e.Path
+func (a *App) entryPaths(d *dirState) []string {
+	out := make([]string, 0, len(d.entries))
+	for _, e := range d.entries {
+		if !a.hiddenPath(e.Path) {
+			out = append(out, e.Path)
+		}
 	}
 	return out
+}
+
+func (a *App) hiddenPath(p string) bool {
+	if !filepath.IsAbs(p) {
+		p = filepath.Join(a.root, p)
+	}
+	rel, err := filepath.Rel(a.root, p)
+	if err != nil {
+		return false
+	}
+	if a.cfg == nil {
+		return false
+	}
+	for _, part := range strings.Split(filepath.ToSlash(rel), "/") {
+		for _, name := range strings.Split(a.cfg.HiddenNames, ",") {
+			if name = strings.TrimSpace(name); name != "" && part == name {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 const (

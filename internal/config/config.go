@@ -28,8 +28,8 @@ type Config struct {
 	TermThicken          bool                 `json:"terminalFontSmoothing,omitempty"`
 	TermNoLigatures      bool                 `json:"terminalNoLigatures,omitempty"`
 	TermFontFeatures     []string             `json:"terminalFontFeatures,omitempty"`
-	TermCursor           string               `json:"terminalCursor,omitempty"`     // "block", "bar", "underline"
-	TermCursorNoBlink   bool                 `json:"terminalCursorNoBlink,omitempty"`
+	TermCursor           string               `json:"terminalCursor,omitempty"` // "block", "bar", "underline"
+	TermCursorNoBlink    bool                 `json:"terminalCursorNoBlink,omitempty"`
 	TermOptionAsAlt      bool                 `json:"terminalOptionAsAlt,omitempty"`
 	TermRightClick       string               `json:"terminalRightClick,omitempty"` // "menu", "paste", "copyOrPaste"
 	TermClipboard        string               `json:"terminalClipboard,omitempty"`  // "ask", "allow", "deny"
@@ -42,15 +42,16 @@ type Config struct {
 	TermShell            string               `json:"terminalShell,omitempty"`
 	EditorFontWeight     int                  `json:"editorFontWeight,omitempty"`
 	EditorLineHeight     float64              `json:"editorLineHeight,omitempty"`
-	EditorNoLigatures   bool                 `json:"editorNoLigatures,omitempty"`
+	EditorNoLigatures    bool                 `json:"editorNoLigatures,omitempty"`
 	EditorFontFeatures   []string             `json:"editorFontFeatures,omitempty"`
 	EditorThicken        bool                 `json:"editorFontThicken,omitempty"`
 	FontSize             float64              `json:"editorFontSize,omitempty"`    // 13 when 0
 	LineNumbers          int                  `json:"editorLineNumbers,omitempty"` // 0 on, 1 relative, 2 off
 	SoftWrap             bool                 `json:"editorSoftWrap,omitempty"`
-	DiffUnified          bool                 `json:"diffUnified,omitempty"`      // diffs inline rather than side by side
-	DiffLayout           string               `json:"diffLayout,omitempty"`       // "auto", "unified", "split"
+	DiffUnified          bool                 `json:"diffUnified,omitempty"` // diffs inline rather than side by side
+	DiffLayout           string               `json:"diffLayout,omitempty"`  // "auto", "unified", "split"
 	GitStatus            bool                 `json:"gitStatus,omitempty"`
+	HiddenNames          string               `json:"hiddenNames"`
 	ConfirmClose         bool                 `json:"confirmClose,omitempty"`
 	KeepAwake            string               `json:"keepAwake,omitempty"`
 	AppIcon              string               `json:"appIcon,omitempty"`
@@ -83,13 +84,13 @@ func Path() string {
 // Load reads the configuration at p; a missing or broken file gives the
 // defaults.
 func Load(p string) *Config {
-	c := &Config{path: p}
+	c := &Config{path: p, HiddenNames: ".DS_Store"}
 	if p == "" {
 		return c
 	}
 	if data, err := os.ReadFile(p); err == nil {
 		if json.Unmarshal(data, c) != nil {
-			*c = Config{}
+			*c = Config{HiddenNames: ".DS_Store"}
 		}
 		c.path = p
 	}

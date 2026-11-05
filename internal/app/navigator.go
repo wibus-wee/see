@@ -132,10 +132,10 @@ func (a *App) projectNavigatorContent(c *ui.Context) {
 			})
 		case !rootDir.loaded:
 			a.dirError(c, a.root, rootDir.err)
-		case len(rootDir.entries) == 0 && a.createEntry == nil:
+		case len(a.entryPaths(rootDir)) == 0 && a.createEntry == nil:
 			ui.Text(c, "This folder is empty.").TextColor(colors(c).Muted).Padding(8, 12)
 		default:
-			a.fileTree(c, a.withEntryPrompt(a.root, entryPaths(rootDir)))
+			a.fileTree(c, a.withEntryPrompt(a.root, a.entryPaths(rootDir)))
 		}
 	}
 	if a.filter.toList {
@@ -328,7 +328,7 @@ func (a *App) treeItem(c *ui.Context, p string) {
 	if name == "" {
 		name = filepath.Base(p)
 	}
-	dim := (e.Dir && workspace.Ignored(name)) || strings.HasPrefix(name, ".") || a.gitIgnores(p)
+	dim := a.gitIgnores(p)
 	// Extend the hit area into the outline's row padding and the
 	// sidebar's inset, to the sidebar's edge as AppKit's rows, keeping
 	// the disclosure arrow as a separate target.

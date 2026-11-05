@@ -55,7 +55,8 @@ func (a *App) syncFilter() {
 		return
 	}
 	f.forQuery = q
-	f.tree, f.roots, f.matches = treefilter.BuildTree(a.root, a.quick.files, q)
+	files := slices.DeleteFunc(slices.Clone(a.quick.files), a.hiddenPath)
+	f.tree, f.roots, f.matches = treefilter.BuildTree(a.root, files, q)
 	if !f.saved {
 		f.saved = true
 		f.savedOpen = slices.Collect(a.tree.Open.All())
