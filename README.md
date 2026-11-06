@@ -55,7 +55,7 @@ Use `see` or `see .` for the current folder, `see /path/to/project` to open a fo
 - **Jump** — reach files by fuzzy name, search workspace symbols, and step back and forward through your reading history.
 - **Understand** — definitions, references, callers, diagnostics, and hover help for Go, TypeScript, and JavaScript, through language servers.
 - **Review** — stage, unstage, commit, and discard changes, open a change as a diff tab, and see each file's status and line counts beside it in the navigator.
-- **History** — browse the branch's commits, or every branch's, as a graph; open a commit to read its message and files, and a file as a diff. **Git: Show Log** opens the history in a tab of its own, with authors, dates and hashes, a filter, and the chosen commit's diffs one after another.
+- **History** — browse the branch's commits, or every branch's, as a graph; open a commit to read its message and files, and a file as a diff. **Git: Show Log** opens a table with separate branch/tag and graph columns, aligned commit messages, authors, dates and hashes, plus the chosen commit's diffs below. Narrow editors keep the message and date visible; dense graphs scroll horizontally. Filtering hides graph connections until cleared, and older commits remain available through **Load More Commits**.
 - **Branch and sync** — switch or create branches from the branch name in the toolbar, and fetch, pull and push, with incoming and outgoing commits counted.
 - **Link** — copy a reference to the selected lines, or their link on GitHub, GitLab and similar hosts.
 - **Preview** — Markdown rendered natively, and any file as hexadecimal bytes when text is not an option.

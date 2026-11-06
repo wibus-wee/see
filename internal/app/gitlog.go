@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"path/filepath"
 	"see/locales"
+	"slices"
 	"strings"
 	"time"
 
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 
@@ -26,10 +28,11 @@ const gitLogTab = diffTabPrefix + "log"
 const logFilesAtOnce = 20
 
 type gitLogView struct {
-	query    string
-	selected string // the commit chosen, by hash
-	list     ui.ListState
-	detail   *logCommit
+	query      string
+	selected   string // the commit chosen, by hash
+	list       ui.ListState
+	horizontal ui.ScrollState
+	detail     *logCommit
 }
 
 // logCommit is the commit the log shows under its rows.
@@ -163,9 +166,15 @@ func (a *App) gitLogContent(c *ui.Context, g *group, v *gitLogView) {
 			rows = append(rows, i)
 		}
 	}
-	if v.selected == "" && len(h.commits) > 0 {
-		a.chooseLogCommit(v, h.commits[0])
+	if v.selected == "" && len(rows) > 0 {
+		a.chooseLogCommit(v, h.commits[rows[0]])
 	}
+	width := g.focusHandle.Bounds(c).W
+	if width <= 0 {
+		width = 900
+	}
+	columns := logColumns(width, h.lanesW)
+	graphVisible := strings.TrimSpace(v.query) == ""
 	ui.Column(c).Grow(1).FillWidth().Children(func() {
 		ui.Row(c).Shrink(0).FillWidth().Height(36).Padding(0, 12).Gap(8).AlignItems(ui.Center).
 			BorderWidth(0, 0, 1, 0).BorderColor(colors(c).Separator).Children(func() {
@@ -192,33 +201,43 @@ func (a *App) gitLogContent(c *ui.Context, g *group, v *gitLogView) {
 				a.syncHistory()
 			}
 		})
+		if !graphVisible {
+			ui.Text(c, logText("gitLogFilteredGraph")).FontSize(11).TextColor(colors(c).Muted).Padding(4, 12).FillWidth()
+		}
 		if a.git.logSplit <= 0 {
 			a.git.logSplit = 40
 		}
 		// The commits over the one chosen, the bar between them dragged
 		// to share the height, as the Git navigator's sections.
 		ui.SplitVerticalPercent(c, &a.git.logSplit, func() {
-			ui.Column(c).Fill().Children(func() {
-				switch {
-				case h.err != "":
-					ui.Text(c, h.err).FontSize(12).TextColor(colors(c).Err).Padding(10, 14)
-				case h.commits == nil && h.loading:
-					ui.Row(c).Padding(10, 14).Gap(8).Children(func() {
-						ui.Spinner(c)
-						ui.Text(c, locales.MsgReadingHistory()).FontSize(12).TextColor(colors(c).Muted)
-					})
-				case len(rows) == 0 && v.query != "" && h.done:
-					ui.Text(c, locales.MsgNoCommitsMatch()+v.query+"”").FontSize(12).TextColor(colors(c).Muted).Padding(10, 14)
-				case len(h.commits) == 0:
-					ui.Text(c, locales.MsgNoCommits()).FontSize(12).TextColor(colors(c).Muted).Padding(10, 14)
-				default:
-					ui.List(c, &v.list, len(rows), func(i int) {
-						if i == len(rows)-1 && !h.done && !h.loading {
-							a.loadHistory(false)
-						}
-						a.logRow(c, v, h.commits[rows[i]])
-					}).Grow(1).FillWidth().Padding(4, 6).Label(locales.MsgCommits())
-				}
+			ui.ScrollHorizontal(c).Fill().TrackScroll(&v.horizontal).Label(logText("gitLogTable")).Children(func() {
+				ui.Column(c).Width(max(width, columns.minimumWidth())).Shrink(0).FillHeight().Children(func() {
+					logTableHeader(c, columns)
+					switch {
+					case h.err != "":
+						ui.Text(c, h.err).FontSize(12).TextColor(colors(c).Err).Padding(10, 14)
+					case h.commits == nil && h.loading:
+						ui.Row(c).Padding(10, 14).Gap(8).Children(func() {
+							ui.Spinner(c)
+							ui.Text(c, locales.MsgReadingHistory()).FontSize(12).TextColor(colors(c).Muted)
+						})
+					case len(rows) == 0 && v.query != "" && h.done:
+						ui.Text(c, locales.MsgNoCommitsMatch()+v.query+"”").FontSize(12).TextColor(colors(c).Muted).Padding(10, 14)
+					case len(h.commits) == 0:
+						ui.Text(c, locales.MsgNoCommits()).FontSize(12).TextColor(colors(c).Muted).Padding(10, 14)
+					default:
+						ui.List(c, &v.list, len(rows)).ItemKey(func(i int) any { return h.commits[rows[i]].Hash }).Grow(1).FillWidth().Label(locales.MsgCommits()).Rows(func(item ui.ListRow) {
+							i := item.Index
+							if i == len(rows)-1 && !h.done && !h.loading {
+								a.loadHistory(false)
+							}
+							a.logRow(item.Context, v, h.commits[rows[i]], columns, graphVisible)
+						})
+					}
+					if !h.done && !h.loading {
+						ui.Button(c, logText("gitLogLoadMore")).OnClick(func() { a.loadHistory(false) })
+					}
+				})
 			})
 		}, func() {
 			ui.Column(c).Fill().Children(func() {
@@ -234,25 +253,63 @@ func (a *App) gitLogContent(c *ui.Context, g *group, v *gitLogView) {
 	})
 }
 
-// The log's columns beside the subject, and its rows' height.
-const (
-	logRowHeight   = 28
-	logAuthorWidth = 150
-	logDateWidth   = 120
-	logHashWidth   = 72
-)
+const logRowHeight = 34
 
-// logRow is a commit of the log: its lanes of the graph, its subject
-// after the branches and tags at it, who made it, when, and its hash.
-func (a *App) logRow(c *ui.Context, v *gitLogView, cm git.Commit) {
-	h := &a.git.history
+type logTableColumns struct{ refs, graph, author, date, hash float32 }
+
+func logColumns(width float32, lanes int) logTableColumns {
+	columns := logTableColumns{refs: 144, graph: max(62, graphX(max(lanes, 1)-1)+graphLane), date: 92}
+	if width >= 900 {
+		columns.author = 140
+	}
+	if width >= 1100 {
+		columns.hash = 72
+	}
+	if width < 700 {
+		columns.refs = 108
+	}
+	return columns
+}
+
+func (columns logTableColumns) minimumWidth() float32 {
+	count := 4
+	if columns.author > 0 {
+		count++
+	}
+	if columns.hash > 0 {
+		count++
+	}
+	return columns.refs + columns.graph + columns.author + columns.date + columns.hash + 160 + 24 + float32(count-1)*12
+}
+
+func logText(key string) string { return locales.Catalog.Format(i18n.Locale(), key, nil) }
+
+func logTableHeader(c *ui.Context, columns logTableColumns) {
+	ui.Row(c).FillWidth().Height(26).Padding(0, 12).Gap(12).AlignItems(ui.Center).
+		Background(colors(c).TabBar).BorderWidth(0, 0, 1, 0).BorderColor(colors(c).Separator).Children(func() {
+		label := func(key string, width float32) {
+			ui.Text(c, logText(key)).Width(width).Shrink(0).FontSize(11).TextColor(colors(c).Muted).SingleLine()
+		}
+		label("gitLogRefs", columns.refs)
+		label("gitLogGraph", columns.graph)
+		ui.Text(c, logText("gitLogMessage")).Grow(1).Basis(0).FontSize(11).TextColor(colors(c).Muted).SingleLine()
+		if columns.author > 0 {
+			label("gitLogAuthor", columns.author)
+		}
+		label("gitLogDate", columns.date)
+		if columns.hash > 0 {
+			label("gitLogHash", columns.hash)
+		}
+	})
+}
+
+func (a *App) logRow(c *ui.Context, v *gitLogView, cm git.Commit, columns logTableColumns, graphVisible bool) {
 	chosen := v.selected == cm.Hash
-	row := ui.Row(c.Key(cm.Hash)).FillWidth().Height(logRowHeight).Padding(0, 8, 0, 0).Gap(10).AlignItems(ui.Center).Radius(5).
+	row := ui.Row(c.Key(cm.Hash)).FillWidth().Height(logRowHeight).Padding(0, 12).Gap(12).AlignItems(ui.Center).
 		Label(cm.Subject).Tooltip(cm.Short + " " + cm.Subject)
-	switch {
-	case chosen:
-		row.Background(c.Theme().Accent.Alpha(0.2))
-	case row.Hovered():
+	if chosen {
+		row.Background(c.Theme().Accent.Alpha(0.18))
+	} else if row.Hovered() {
 		row.Background(colors(c).Pill)
 	}
 	row.OnClick(func() { a.chooseLogCommit(v, cm) })
@@ -274,45 +331,42 @@ func (a *App) logRow(c *ui.Context, v *gitLogView, cm git.Commit) {
 			}
 		}
 	})
+
 	row.Children(func() {
-		lanes := min(max(h.lanesW, 1), graphMaxLanes)
-		ui.Box(c).Size(graphX(lanes-1)+graphLane, logRowHeight).Shrink(0).Draw(func(p *ui.Painter, r ui.Rect) {
-			drawGraphRow(p, r, cm)
-		})
-		ui.Row(c).Grow(1).Shrink(1).Basis(0).Gap(5).AlignItems(ui.Center).Children(func() {
-			for _, ref := range cm.Refs {
-				if ref != "HEAD" {
-					refBadge(c.Key(ref), ref, ref == a.git.branch)
-				}
+		ui.Row(c).Width(columns.refs).Shrink(0).Gap(4).AlignItems(ui.Center).Tooltip(strings.Join(cm.Refs, "\n")).Children(func() {
+			refs := slices.DeleteFunc(slices.Clone(cm.Refs), func(ref string) bool { return ref == "HEAD" })
+			for _, ref := range refs[:min(2, len(refs))] {
+				refBadge(c.Key(ref), ref, ref == a.git.branch)
 			}
+			if len(refs) > 2 {
+				ui.Text(c, fmt.Sprintf("+%d", len(refs)-2)).FontSize(10).TextColor(colors(c).Muted).Shrink(0)
+			}
+		})
+		graph := ui.Box(c).Size(columns.graph, logRowHeight).Shrink(0)
+		if graphVisible {
+			graph.Label(logText("gitLogGraph") + " " + cm.Short).Draw(func(p *ui.Painter, r ui.Rect) { drawGraphRowLanes(p, r, cm, max(a.git.history.lanesW, 1)) })
+			// Decorated tips carry author identity; ordinary commits keep compact dots.
+			if len(cm.Refs) > 0 {
+				graph.Children(func() {
+					ui.Box(c).Size(20, 20).Absolute().Left(graphX(cm.Lane)-10).Top((logRowHeight-20)/2).
+						Radius(10).Border(1.5, laneColor(cm.Lane)).Background(colors(c).Editor).Center().Children(func() { a.personAvatar(c, cm.Author, cm.Email, 16) })
+				})
+			}
+		}
+		ui.Row(c).Grow(1).Shrink(1).Basis(0).Gap(5).AlignItems(ui.Center).Children(func() {
 			ui.Text(c, cm.Subject).FontSize(12).SingleLine().Shrink(1)
-			if h.unpushed[cm.Hash] {
+			if a.git.history.unpushed[cm.Hash] {
 				ui.Text(c, "↑").FontSize(11).Bold().TextColor(c.Theme().Accent).Shrink(0).Tooltip(locales.MsgNotPushedYet())
 			}
 		})
-		ui.Row(c).Width(logAuthorWidth).Shrink(0).Gap(6).AlignItems(ui.Center).Children(func() {
-			a.commitAvatars(c, cm, 16)
-			ui.Text(c, authors(cm)).FontSize(12).TextColor(colors(c).Muted).SingleLine().Shrink(1)
-		})
-		ui.Text(c, logDate(cm.Date, time.Now())).Width(logDateWidth).Shrink(0).FontSize(12).TextColor(colors(c).Muted).SingleLine()
-		ui.Text(c, cm.Short).Width(logHashWidth).Shrink(0).FontSize(11).TextColor(colors(c).Dim).SingleLine()
+		if columns.author > 0 {
+			ui.Text(c, authors(cm)).Width(columns.author).Shrink(0).FontSize(12).TextColor(colors(c).Muted).SingleLine().Tooltip(authors(cm))
+		}
+		ui.Text(c, shortDate(cm.Date, time.Now())).Width(columns.date).Shrink(0).FontSize(11).TextColor(colors(c).Muted).SingleLine().Tooltip(cm.Date.Format(time.RFC1123))
+		if columns.hash > 0 {
+			ui.Text(c, cm.Short).Width(columns.hash).Shrink(0).FontSize(11).TextColor(colors(c).Dim).SingleLine()
+		}
 	})
-}
-
-// logDate is when, with room for the time too: today's and yesterday's
-// by name, this year's without the year.
-func logDate(t, now time.Time) string {
-	y, m, d := now.Date()
-	today := time.Date(y, m, d, 0, 0, 0, 0, now.Location())
-	switch {
-	case !t.Before(today):
-		return "Today " + t.Format("15:04")
-	case !t.Before(today.AddDate(0, 0, -1)):
-		return "Yesterday " + t.Format("15:04")
-	case t.Year() == now.Year():
-		return t.Format("Jan 2 15:04")
-	}
-	return t.Format("Jan 2, 2006")
 }
 
 // logCommitContent is the chosen commit: its message, who and when, and

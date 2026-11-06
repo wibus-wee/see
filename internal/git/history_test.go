@@ -117,6 +117,23 @@ func TestLogGraphAndShow(t *testing.T) {
 		t.Fatalf("refs %q", commits[0].Refs)
 	}
 	Graph(commits, nil)
+	page1, err := Log(ctx, root, false, 0, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	page2, err := Log(ctx, root, false, 2, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lanes := Graph(page1, nil)
+	Graph(page2, lanes)
+	paged := append(page1, page2...)
+	for i, commit := range paged {
+		want := commits[i]
+		if commit.Hash != want.Hash || commit.Lane != want.Lane || !slices.Equal(commit.Before, want.Before) || !slices.Equal(commit.After, want.After) {
+			t.Fatalf("page boundary changed topology for %s: %+v vs %+v", commit.Short, commit, want)
+		}
+	}
 	// The merge opens a second lane, which ends in the first commit.
 	if commits[0].Lane != 0 || len(commits[0].After) != 2 {
 		t.Fatalf("merge: lane %d, after %q", commits[0].Lane, commits[0].After)
