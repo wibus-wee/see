@@ -70,6 +70,8 @@ Opening another folder while a project is open shows it in a separate window. Us
 
 Clicking a file opens it as a preview, and opening another file replaces that preview. Double-click the file, its tab, or its name in the path bar, or use **Keep Preview Tab** in the command palette, to keep it. Tabs appear once more than one file is open.
 
+Use **F6** / **Shift+F6** to cycle editor groups in layout order, keeping each group’s cursor position. **Move Tab to Next Editor** in the command palette moves the active tab to the next group, wrapping at the end.
+
 Right-click a tab to keep a preview, close other tabs, close tabs to its right, or close saved tabs in that editor group. The three bulk close actions are also in the command palette. Closing the last view of an unsaved file asks once to save or discard; Cancel keeps the whole selection open. Other editor groups keep their tabs.
 
 Rename a file or folder from its context menu. On macOS, select an item in the file navigator and press Return to rename it; press Escape to cancel.
@@ -146,6 +148,7 @@ These are the macOS shortcuts; on other platforms, use Ctrl in place of Cmd. The
 | Find references | Shift+F12 |
 | Navigate back / forward | Ctrl+- / Ctrl+Shift+- |
 | Add editor right / below | Cmd+D / Cmd+Shift+D |
+| Focus next / previous editor group | F6 / Shift+F6 |
 | Switch tabs | Cmd+1–8, Cmd+9 for the last tab, Ctrl+Tab / Ctrl+Shift+Tab |
 | Close tab (the window, once no tab is left) | Cmd+W |
 | Toggle terminal | Cmd+Shift+Y or Ctrl+` |
