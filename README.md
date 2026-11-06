@@ -92,6 +92,10 @@ Binary files open as a read-only hexadecimal view with offsets and printable ASC
 
 Click a byte and Shift-click, or hold Shift with the arrow keys, to select a range. **Copy Hex** copies up to 1 MiB. Enter a hexadecimal offset to jump, or search for text or a byte sequence prefixed with `hex:` — for example, `hex: 00 FF`.
 
+## Go build and test tasks
+
+Use **Go: Build Workspace** (**Cmd+Shift+B**) or **Go: Test Workspace** in the command palette to run `go build ./...` or `go test ./...` in a trusted workspace. Tasks use saved files; save edits first. The Tasks panel shows live output and completion status. Click a Go file location in the output to open it, or use **Tasks: Stop** to cancel. Closing the workspace cancels its task. Only one task runs per window; the newest 256 KiB of output is retained.
+
 ## Code intelligence
 
 Language support comes from external servers. See installs and manages the ones it knows about, and uses anything you already have:

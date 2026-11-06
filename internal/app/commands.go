@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"see/internal/tasks"
 	"see/locales"
 	"strings"
 
@@ -75,6 +76,10 @@ func commands() []command {
 		{"Add Editor on Right", "Cmd+", "D", ui.Cmd, ui.KeyD, func(a *App) { a.splitActive(sideRight) }},
 		{"Add Editor Below", "Cmd+Shift+", "D", ui.Cmd | ui.Shift, ui.KeyD, func(a *App) { a.splitActive(sideBottom) }},
 		{"Show or Hide the Terminal", "Cmd+Shift+", "Y", ui.Cmd | ui.Shift, ui.KeyY, func(a *App) { a.toggleTerminal() }},
+		{"Go: Build Workspace", "Cmd+Shift+", "B", ui.Cmd | ui.Shift, ui.KeyB, func(a *App) { a.runGoTask(tasks.Build) }},
+		{"Go: Test Workspace", "", "", 0, 0, func(a *App) { a.runGoTask(tasks.Test) }},
+		{"Tasks: Show", "", "", 0, 0, func(a *App) { a.showTasks() }},
+		{"Tasks: Stop", "", "", 0, 0, func(a *App) { a.stopGoTask() }},
 		{"Show Output", "", "", 0, 0, func(a *App) { a.term.open = true; a.term.view = panelOutput; a.term.focus = nil }},
 		{"New Terminal", "Ctrl+Shift+", "`", ui.Ctrl | ui.Shift, ui.KeyBackquote, func(a *App) { a.newTerminalTab() }},
 		{"Open in External Terminal", "Cmd+Shift+", "C", ui.Cmd | ui.Shift, ui.KeyC, func(a *App) { a.openExternalTerminal() }},
