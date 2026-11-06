@@ -106,3 +106,48 @@ func TestRecentHookRuns(t *testing.T) {
 		t.Fatal("the hook never ran")
 	}
 }
+
+func TestFailedSavePreservesPreviousSettingsAndCanRetry(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.json")
+	c := Load(path)
+	c.Trust("/original")
+	c.LastWorkspace = "/original"
+	if err := c.Save(); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Block the staging file without depending on platform permission behavior.
+	staging := path + ".tmp"
+	if err := os.Mkdir(staging, 0700); err != nil {
+		t.Fatal(err)
+	}
+	c.LastWorkspace = "/replacement"
+	c.Trust("/replacement")
+	if err := c.Save(); err == nil {
+		t.Fatal("save succeeded despite blocked staging path")
+	}
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(after) != string(before) {
+		t.Fatal("failed save changed the committed settings")
+	}
+	loaded := Load(path)
+	if loaded.LastWorkspace != "/original" || loaded.IsTrusted("/replacement") {
+		t.Fatalf("failed save leaked new settings: %+v", loaded)
+	}
+	if err := os.Remove(staging); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Save(); err != nil {
+		t.Fatal(err)
+	}
+	loaded = Load(path)
+	if loaded.LastWorkspace != "/replacement" || !loaded.IsTrusted("/original") || !loaded.IsTrusted("/replacement") {
+		t.Fatal("save could not recover after staging failure")
+	}
+}

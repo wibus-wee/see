@@ -281,6 +281,8 @@ func ListFiles(ctx context.Context, rg, root string, limit int, skipDir func(rel
 	args := append([]string{"--files", "--no-config"}, ignoreGlobs()...)
 	cmd := exec.CommandContext(ctx, rg, args...)
 	cmd.Dir = root
+	var stderr strings.Builder
+	cmd.Stderr = &stderr
 	out, err := cmd.StdoutPipe()
 	if err != nil {
 		return nil, false, err
@@ -298,12 +300,21 @@ func ListFiles(ctx context.Context, rg, root string, limit int, skipDir func(rel
 		}
 		files = append(files, filepath.ToSlash(sc.Text()))
 	}
-	if truncated {
+	if truncated || sc.Err() != nil {
 		_ = cmd.Process.Kill()
 	}
-	_ = cmd.Wait()
+	waitErr := cmd.Wait()
 	if err := ctx.Err(); err != nil {
 		return nil, false, err
+	}
+	if err := sc.Err(); err != nil {
+		return nil, false, err
+	}
+	if waitErr != nil && !truncated {
+		var exitErr *exec.ExitError
+		if !errors.As(waitErr, &exitErr) || exitErr.ExitCode() != 1 {
+			return nil, false, fmt.Errorf("listing workspace files: %w: %s", waitErr, strings.TrimSpace(stderr.String()))
+		}
 	}
 	return files, truncated, nil
 }
