@@ -19,10 +19,17 @@ import (
 // split into terminals side by side, where Xcode keeps its debug area.
 // They run with MyGo's terminal plugin, Ghostty's emulator.
 
+type panelView uint8
+
+const (
+	panelTerminal panelView = iota
+	panelOutput
+)
+
 // termPanel is the bottom panel's state.
 type termPanel struct {
 	open      bool
-	output    bool
+	view      panelView
 	maximized bool
 	tabs      []*termTab
 	active    *termTab
@@ -177,7 +184,7 @@ func (a *App) toggleTerminal() {
 		return
 	}
 	tp.open = true
-	tp.output = false
+	tp.view = panelTerminal
 	a.focusEditor = nil
 	if len(tp.tabs) == 0 {
 		a.newTerminalTab()
@@ -192,7 +199,7 @@ func (a *App) newTerminalTab() {
 		return
 	}
 	a.term.open = true
-	a.term.output = false
+	a.term.view = panelTerminal
 	a.focusEditor = nil
 	a.withTerminal(func() {
 		tp := &a.term
@@ -369,7 +376,7 @@ func (a *App) terminalPanel(c *ui.Context) {
 	panel.Children(func() {
 		ui.Column(c).Grow(1).FillHeight().Children(func() {
 			switch {
-			case tp.output:
+			case tp.view == panelOutput:
 				a.logView(c)
 			case tp.loadErr != nil:
 				a.message(c, locales.TerminalUnavailable(), tp.loadErr.Error(), "", nil)
@@ -384,7 +391,7 @@ func (a *App) terminalPanel(c *ui.Context) {
 		})
 		a.termTabList(c)
 	})
-	tp.focused = panel.FocusWithin()
+	tp.focused = tp.view == panelTerminal && panel.FocusWithin()
 }
 
 // paneSplit shows panes side by side, each taking its share of the room
@@ -455,10 +462,10 @@ func (a *App) termTabList(c *ui.Context) {
 		ui.Scroll(c).Grow(1).FillWidth().Children(func() {
 			ui.Column(c).FillWidth().Padding(0, 4, 4, 4).Gap(1).Children(func() {
 				row := ui.Row(c.Key("output")).FillWidth().Height(24).Padding(0, 6).Gap(6).Radius(5).AlignItems(ui.Center)
-				if tp.output {
+				if tp.view == panelOutput {
 					row.Background(colors(c).SelectedRow)
 				}
-				row.OnClick(func() { tp.output = true; tp.focus = nil })
+				row.OnClick(func() { tp.view = panelOutput; tp.focus = nil })
 				row.Children(func() { symbolIcon(c, icLines, 16, colors(c).Muted); ui.Text(c, locales.MsgOutput()).FontSize(12) })
 				for i, tab := range tp.tabs {
 					a.termTabRow(c, i, tab)
@@ -477,7 +484,7 @@ func (a *App) termTabRow(c *ui.Context, i int, tab *termTab) {
 
 func (a *App) termPaneRow(c *ui.Context, i, j int, tab *termTab, p *termPane, nested bool) {
 	tp := &a.term
-	active := tp.active == tab && tab.active == p && !tp.output
+	active := tp.active == tab && tab.active == p && tp.view == panelTerminal
 	row := ui.Row(c.Key(p)).Label(fmt.Sprintf(locales.MsgTerminalDD(), i+1, j+1)).FillWidth().Height(24).Padding(0, 4, 0, 6).Gap(6).Radius(5).AlignItems(ui.Center)
 	hovered := row.Hovered()
 	switch {
@@ -489,7 +496,7 @@ func (a *App) termPaneRow(c *ui.Context, i, j int, tab *termTab, p *termPane, ne
 	row.OnClick(func() {
 		tp.active = tab
 		tab.active = p
-		tp.output = false
+		tp.view = panelTerminal
 		tp.focus = p
 	})
 	row.Children(func() {
@@ -516,7 +523,7 @@ func (a *App) termPaneRow(c *ui.Context, i, j int, tab *termTab, p *termPane, ne
 			split.Children(func() { symbolIcon(c, icSplitH, 16, colors(c).Muted) })
 			split.OnClick(func() {
 				tp.active, tab.active = tab, p
-				tp.output = false
+				tp.view = panelTerminal
 				a.splitTerminal()
 			})
 		}
