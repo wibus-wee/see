@@ -1,4 +1,12 @@
 {
+  "gitLogScope": "历史范围",
+  "gitLogCurrentBranch": "当前分支",
+
+  "gitLogHistory": "历史",
+  "gitLogAllBranches": "所有分支",
+  "gitLogToggleScope": "切换当前分支与所有分支",
+  "gitLogSearch": "筛选提交…",
+
   "gitLogTable": "提交表格",
   "gitLogRefs": "分支 / 标签",
   "gitLogGraph": "拓扑",

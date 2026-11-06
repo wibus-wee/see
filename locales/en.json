@@ -1,4 +1,12 @@
 {
+  "gitLogScope": "History scope",
+  "gitLogCurrentBranch": "Current branch",
+
+  "gitLogHistory": "History",
+  "gitLogAllBranches": "All branches",
+  "gitLogToggleScope": "Switch between this branch and all branches",
+  "gitLogSearch": "Filter commits…",
+
   "gitLogTable": "Commit table",
   "gitLogRefs": "Branch / Tag",
   "gitLogGraph": "Graph",

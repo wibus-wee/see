@@ -388,8 +388,18 @@ func drawGraphRow(p *ui.Painter, r ui.Rect, cm git.Commit) {
 }
 
 func drawGraphRowLanes(p *ui.Painter, r ui.Rect, cm git.Commit, laneLimit int) {
+	drawCommitGraph(p, r, cm, laneLimit, graphPad, graphLane, 1.5)
+}
+
+func logGraphX(lane int) float32 { return 14 + float32(lane)*18 }
+
+func drawLogGraphRow(p *ui.Painter, r ui.Rect, cm git.Commit, laneLimit int) {
+	drawCommitGraph(p, r, cm, laneLimit, 14, 18, 1.8)
+}
+
+func drawCommitGraph(p *ui.Painter, r ui.Rect, cm git.Commit, laneLimit int, pad, step, stroke float32) {
 	mid := r.Y + r.H/2
-	x := func(lane int) float32 { return r.X + graphX(min(lane, laneLimit-1)) }
+	x := func(lane int) float32 { return r.X + pad + float32(min(lane, laneLimit-1))*step }
 	curve := func(x0, y0, x1, y1 float32, color ui.Color) {
 		var path ui.Path
 		if x0 == x1 {
@@ -398,7 +408,7 @@ func drawGraphRowLanes(p *ui.Painter, r ui.Rect, cm git.Commit, laneLimit int) {
 			m := (y0 + y1) / 2
 			path.MoveTo(x0, y0).CubeTo(x0, m, x1, m, x1, y1)
 		}
-		p.StrokePath(&path, 1.5, color)
+		p.StrokePath(&path, stroke, color)
 	}
 	for i, hash := range cm.Before {
 		switch {
