@@ -2,6 +2,22 @@
 
 User-facing changes are grouped by release. Earlier releases are documented on the [Releases page](https://github.com/wibus-wee/see/releases).
 
+## 0.2.2
+
+### Fixed
+
+- Match Quick Open queries against directories and filenames independently, preserve directory order in path queries, and highlight matching folder names.
+- Report file-discovery failures instead of showing partial results as a successful scan.
+- Preserve newly edited text during bulk tab-close confirmation, and close saved untitled tabs correctly after Save As.
+- Transfer keyboard focus correctly between text, Markdown, image, diff, hexadecimal and empty editor groups.
+
+### Added
+
+- Jump to a line or column with Ctrl+G, search declarations in the current file with `@` in Open Quickly, and navigate current-file diagnostics with F8 or Shift+F8.
+- Browse and filter diagnostics from open workspace files in the Problems navigator with Cmd+Shift+M.
+- Run Go build and test tasks in trusted workspaces, stop running tasks, and jump to source locations from their output.
+- Close other, right-hand or saved tabs from tab context menus, cycle editor groups with F6 or Shift+F6, and move the active tab to the next editor from the command palette.
+
 ## 0.2.1
 
 ### Added
