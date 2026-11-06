@@ -73,6 +73,9 @@ func commands() []command {
 				a.host.CloseWindow()
 			}
 		}},
+		{"Close Other Tabs", "", "", 0, 0, func(a *App) { a.closeTabs(a.focus, a.focus.active, closeOtherTabs) }},
+		{"Close Tabs to the Right", "", "", 0, 0, func(a *App) { a.closeTabs(a.focus, a.focus.active, closeRightTabs) }},
+		{"Close Saved Tabs", "", "", 0, 0, func(a *App) { a.closeTabs(a.focus, a.focus.active, closeSavedTabs) }},
 		{"Add Editor on Right", "Cmd+", "D", ui.Cmd, ui.KeyD, func(a *App) { a.splitActive(sideRight) }},
 		{"Add Editor Below", "Cmd+Shift+", "D", ui.Cmd | ui.Shift, ui.KeyD, func(a *App) { a.splitActive(sideBottom) }},
 		{"Show or Hide the Terminal", "Cmd+Shift+", "Y", ui.Cmd | ui.Shift, ui.KeyY, func(a *App) { a.toggleTerminal() }},

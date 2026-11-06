@@ -30,6 +30,9 @@
   "taskSucceeded": "Succeeded",
   "taskFailed": "Failed",
   "taskCancelled": "Cancelled",
+  "commandCloseOtherTabs": "Close Other Tabs",
+  "commandCloseTabsToTheRight": "Close Tabs to the Right",
+  "commandCloseSavedTabs": "Close Saved Tabs",
 
   "commandNextProblem": "Next Problem",
   "commandPreviousProblem": "Previous Problem",

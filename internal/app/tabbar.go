@@ -46,6 +46,23 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 			if tab.DoubleClicked() && g.preview == p {
 				g.preview = ""
 			}
+			tab.ContextMenu(func(m *ui.Menu) {
+				if m.Item(commandLabel("Close Tab")).Chosen() {
+					a.closeTab(g, p)
+				}
+				if m.Item(commandLabel("Keep Preview Tab")).Chosen() && g.preview == p {
+					g.preview = ""
+				}
+				if m.Item(commandLabel("Close Other Tabs")).Chosen() {
+					a.closeTabs(g, p, closeOtherTabs)
+				}
+				if m.Item(commandLabel("Close Tabs to the Right")).Chosen() {
+					a.closeTabs(g, p, closeRightTabs)
+				}
+				if m.Item(commandLabel("Close Saved Tabs")).Chosen() {
+					a.closeTabs(g, p, closeSavedTabs)
+				}
+			})
 			tab.Drag(&tabDrag{from: g, path: p})
 			if v, over := ui.DragOver[*tabDrag](tab); over && v.path != p {
 				tab.DrawOver(func(pt *ui.Painter, r ui.Rect) {
