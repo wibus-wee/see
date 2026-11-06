@@ -11,13 +11,15 @@ func TestFileQueriesMatchFullPaths(t *testing.T) {
 	files := []string{"packages/runtime/src/index.ts", "packages/eval/src/runtime-evidence.ts", "other/runtime.ts", "runtime/package.json", "目录/runtime/你好.go"}
 	for _, query := range []string{"runtime package", "package runtime", " runtime\tpackage "} {
 		got := Files(files, query, 10)
-		if len(got) != 3 {
-			t.Fatalf("%q: %+v", query, got)
+		paths := make([]string, len(got))
+		for i, result := range got {
+			paths[i] = result.Path
 		}
-		for _, result := range got {
-			if result.Path == "other/runtime.ts" {
-				t.Fatal("accepted missing term")
-			}
+		slices.Sort(paths)
+		want := []string{files[0], files[1], files[3]}
+		slices.Sort(want)
+		if !slices.Equal(paths, want) {
+			t.Fatalf("%q: paths=%q want=%q", query, paths, want)
 		}
 	}
 	got := Files(files, "packages/runtime", 10)

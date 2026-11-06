@@ -179,11 +179,7 @@ func (f *fakeServer) serve() {
 		}
 		json.Unmarshal(body, &m)
 		if m.Method == "" {
-			if m.Error != nil {
-				f.replies <- m.Error
-			} else {
-				f.replies <- m.Result
-			}
+			f.replies <- body
 			continue
 		}
 		f.mu.Lock()
@@ -237,11 +233,39 @@ func connect(t *testing.T, f *fakeServer, r io.Reader, w io.WriteCloser, onExit 
 		r.(io.Closer).Close()
 		<-c.Exited()
 	})
-	// The server's two requests got answers: nulls, and method not found.
+	seen := map[string]bool{}
 	for range 2 {
-		got := string(<-f.replies)
-		if got != "[null,null]" && !strings.Contains(got, "-32601") {
-			t.Errorf("reply to server request: %s", got)
+		var body json.RawMessage
+		select {
+		case body = <-f.replies:
+		case <-ctx.Done():
+			t.Fatal("server requests received no response")
+		}
+		var reply struct {
+			ID     string          `json:"id"`
+			Result json.RawMessage `json:"result"`
+			Error  *struct {
+				Code int `json:"code"`
+			} `json:"error"`
+		}
+		if err := json.Unmarshal(body, &reply); err != nil {
+			t.Fatal(err)
+		}
+		if seen[reply.ID] {
+			t.Fatalf("duplicate response %s", body)
+		}
+		seen[reply.ID] = true
+		switch reply.ID {
+		case "s1":
+			if string(reply.Result) != "[null,null]" || reply.Error != nil {
+				t.Fatalf("configuration reply: %s", body)
+			}
+		case "s2":
+			if reply.Error == nil || reply.Error.Code != -32601 || reply.Result != nil {
+				t.Fatalf("unknown-method reply: %s", body)
+			}
+		default:
+			t.Fatalf("unexpected reply ID: %s", body)
 		}
 	}
 	return c

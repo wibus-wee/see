@@ -23,8 +23,11 @@ func TestFileIconOf(t *testing.T) {
 			t.Errorf("%s: %q, want %q", name, got, want)
 		}
 	}
-	if got := th.fileIconOf("a.min.css"); got != th.extensions["css"] && got != th.extensions["min.css"] {
-		t.Errorf("a.min.css: %q", got)
+	precedence := iconTheme{file: "default", names: map[string]string{"special.d.ts": "named"}, extensions: map[string]string{"ts": "short", "d.ts": "compound"}}
+	for name, want := range map[string]string{"special.d.ts": "named", "other.D.TS": "compound", "other.ts": "short", "other.unknown": "default"} {
+		if got := precedence.fileIconOf(name); got != want {
+			t.Errorf("%s: %q, want %q", name, got, want)
+		}
 	}
 }
 

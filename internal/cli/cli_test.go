@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -29,8 +30,8 @@ func TestRunRejectsWhatItCannotOpen(t *testing.T) {
 	}
 	// A device is neither a file nor a folder, and is refused before any
 	// process starts.
-	if err := Run([]string{"/dev/null"}, &out); err == nil || !strings.Contains(err.Error(), "expected a file or folder") {
-		t.Fatalf("/dev/null: %v", err)
+	if err := Run([]string{os.DevNull}, &out); err == nil || !strings.Contains(err.Error(), "expected a file or folder") {
+		t.Fatalf("device %s: %v", os.DevNull, err)
 	}
 }
 
@@ -60,12 +61,13 @@ func TestInvocationRecognizesTheCommand(t *testing.T) {
 
 func TestOpenPath(t *testing.T) {
 	wd := t.TempDir()
+	absolute := filepath.Join(wd, "absolute")
 	for _, tc := range []struct {
 		args []string
 		want string
 		ok   bool
 	}{
-		{[]string{OpenArg, "/x/y"}, "/x/y", true},
+		{[]string{OpenArg, absolute}, absolute, true},
 		{[]string{"rel"}, filepath.Join(wd, "rel"), true},
 		{[]string{"-psn_0_1"}, "", false},
 		{nil, "", false},

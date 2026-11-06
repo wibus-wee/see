@@ -1,12 +1,15 @@
 package tasks
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"net"
 	"os"
 	"os/exec"
-	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -24,8 +27,15 @@ func TestMain(m *testing.M) {
 		case "wait":
 			time.Sleep(30 * time.Second)
 		case "child":
-			time.Sleep(350 * time.Millisecond)
-			_ = os.WriteFile(os.Getenv("SEE_TASK_MARKER"), []byte("survived"), 0600)
+			conn, err := net.Dial("tcp", os.Getenv("SEE_TASK_CHILD_ADDRESS"))
+			if err != nil {
+				panic(err)
+			}
+			defer conn.Close()
+			fmt.Fprintln(conn, os.Getpid())
+			// Remain alive with the socket open until killed or the test cleans up.
+			var b [1]byte
+			_, _ = conn.Read(b[:])
 		case "tree":
 			child := exec.Command(os.Args[0])
 			for _, entry := range os.Environ() {
@@ -37,7 +47,6 @@ func TestMain(m *testing.M) {
 			if err := child.Start(); err != nil {
 				panic(err)
 			}
-			fmt.Println("child started")
 			time.Sleep(30 * time.Second)
 		}
 		os.Exit(0)
@@ -107,24 +116,71 @@ func TestOutputBoundedDuringConcurrentWrites(t *testing.T) {
 }
 
 func TestRunCancelsDescendants(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	if err := listener.(*net.TCPListener).SetDeadline(time.Now().Add(10 * time.Second)); err != nil {
+		t.Fatal(err)
+	}
 	t.Setenv("SEE_TASK_HELPER", "tree")
-	marker := filepath.Join(t.TempDir(), "child-survived")
-	t.Setenv("SEE_TASK_MARKER", marker)
-	executable, _ := os.Executable()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	t.Setenv("SEE_TASK_CHILD_ADDRESS", listener.Addr().String())
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	output := &Output{}
-	output.Changed = func() {
-		text, _ := output.Snapshot()
-		if strings.Contains(text, "child started") {
-			cancel()
+	finished := make(chan error, 1)
+	root := t.TempDir()
+	go func() { finished <- Run(ctx, executable, root, Test, &Output{}) }()
+	conn, err := listener.Accept()
+	if err != nil {
+		t.Fatal("child never connected:", err)
+	}
+	defer conn.Close()
+	if err := conn.SetReadDeadline(time.Now().Add(10 * time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	reader := bufio.NewReader(conn)
+	line, err := reader.ReadString('\n')
+	if err != nil {
+		t.Fatal("child handshake:", err)
+	}
+	pid, err := strconv.Atoi(strings.TrimSpace(line))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Clean up a survivor even when the production cancellation is broken.
+	defer func() {
+		if child, err := os.FindProcess(pid); err == nil {
+			_ = child.Kill()
 		}
+	}()
+	cancel()
+	select {
+	case err := <-finished:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("cancel: %v", err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("task did not finish after cancellation")
 	}
-	if err := Run(ctx, executable, t.TempDir(), Test, output); !errors.Is(err, context.Canceled) {
-		t.Fatalf("cancel: %v", err)
+	if err := conn.SetReadDeadline(time.Now().Add(3 * time.Second)); err != nil {
+		t.Fatal(err)
 	}
-	time.Sleep(500 * time.Millisecond)
-	if _, err := os.Stat(marker); !os.IsNotExist(err) {
-		t.Fatalf("descendant survived task cancellation: %v", err)
+	_, err = reader.ReadByte()
+	if err == nil {
+		t.Fatal("unexpected child output")
+	}
+	if timeout, ok := err.(net.Error); ok && timeout.Timeout() {
+		t.Fatal("descendant remains alive after task cancellation")
+	}
+	if !errors.Is(err, io.EOF) && !errors.Is(err, net.ErrClosed) {
+		// A forcibly terminated process may reset its TCP connection.
+		if operation, ok := err.(*net.OpError); !ok || operation.Op != "read" {
+			t.Fatalf("child exit: %v", err)
+		}
 	}
 }

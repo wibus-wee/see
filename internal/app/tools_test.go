@@ -2,6 +2,7 @@ package app
 
 import (
 	"archive/tar"
+	"archive/zip"
 	"bytes"
 	"compress/gzip"
 	"context"
@@ -24,7 +25,20 @@ func ripgrepArchive(t *testing.T, asset string) []byte {
 	t.Helper()
 	var buf bytes.Buffer
 	if strings.HasSuffix(asset, ".zip") {
-		t.Skip("the tar.gz archive is enough")
+		zw := zip.NewWriter(&buf)
+		header := &zip.FileHeader{Name: "ripgrep-" + ripgrepVersion + "/" + toolExe("rg")}
+		header.SetMode(0755)
+		file, err := zw.CreateHeader(header)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err = file.Write([]byte("ripgrep fixture")); err != nil {
+			t.Fatal(err)
+		}
+		if err := zw.Close(); err != nil {
+			t.Fatal(err)
+		}
+		return buf.Bytes()
 	}
 	gz := gzip.NewWriter(&buf)
 	tw := tar.NewWriter(gz)
@@ -94,7 +108,7 @@ func TestInstallRipgrepInstallsReleaseBinary(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if fi.Mode().Perm()&0100 == 0 {
+	if runtime.GOOS != "windows" && fi.Mode().Perm()&0100 == 0 {
 		t.Fatalf("rg is not executable: %v", fi.Mode())
 	}
 	// A second installation does not replace the first.
@@ -122,6 +136,8 @@ func TestInstallRipgrepRejectsAnotherChecksum(t *testing.T) {
 
 func TestFindRipgrepUsesManagedCopy(t *testing.T) {
 	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("APPDATA", filepath.Join(home, "config"))
 	t.Setenv("SEE_RG", "")
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "config"))
 	t.Setenv("PATH", t.TempDir()) // no ripgrep on the path
@@ -282,5 +298,27 @@ func TestInstallingGoplsFromSettingsBuildsIt(t *testing.T) {
 	}
 	if got, err := findGopls(h.a.root); err != nil || got != managedGoplsPath() {
 		t.Fatalf("path %q, error %v", got, err)
+	}
+}
+
+func TestRipgrepArchivesExtractExpectedBinary(t *testing.T) {
+	for _, asset := range []string{"fixture.tar.gz", "fixture.zip"} {
+		t.Run(asset, func(t *testing.T) {
+			data := ripgrepArchive(t, asset)
+			got, err := ripgrepBinary(data, asset)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := "#!/bin/sh\necho ripgrep\n"
+			if strings.HasSuffix(asset, ".zip") {
+				want = "ripgrep fixture"
+			}
+			if string(got) != want {
+				t.Fatalf("binary %q, want %q", got, want)
+			}
+			if _, err := ripgrepBinary(data[:len(data)/2], asset); err == nil {
+				t.Fatal("accepted truncated archive")
+			}
+		})
 	}
 }

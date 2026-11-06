@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -19,6 +20,9 @@ func TestReadNewRepository(t *testing.T) {
 	run("init", "-q")
 	run("config", "commit.gpgsign", "false")
 	name := ":odd name\nfile"
+	if runtime.GOOS == "windows" {
+		name = "odd name file"
+	}
 	if err := os.WriteFile(filepath.Join(root, name), []byte("hello\n"), 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -52,6 +56,11 @@ func TestReadNewRepository(t *testing.T) {
 }
 
 func TestParseStatusRename(t *testing.T) {
+	const unusual = ":odd name\nfile"
+	got := ParseStatus([]byte("?? " + unusual + "\x00"))
+	if len(got) != 1 || got[0].Path != unusual || got[0].Index != '?' {
+		t.Fatalf("unusual path: %#v", got)
+	}
 	changes := ParseStatus([]byte("R  new name\x00old name\x00 M another\x00"))
 	if len(changes) != 2 || changes[0].Path != "new name" || changes[0].OldPath != "old name" || changes[1].Work != 'M' {
 		t.Fatalf("changes: %#v", changes)
