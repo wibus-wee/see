@@ -1,4 +1,6 @@
 {
+  "commandNextProblem": "下一个问题",
+  "commandPreviousProblem": "上一个问题",
   "commandGoToLine": "跳转到行",
   "goToLineHint": "输入 :行号 或 :行号:列号",
   "language": "语言",
