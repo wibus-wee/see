@@ -219,6 +219,10 @@ type quickOpen struct {
 	symbolCancel  context.CancelFunc
 	symbolLoading bool
 	symbolErr     error
+	filePath      string
+	fileVersion   uint64
+	fileSymbols   []quickSymbol
+	fileLoaded    bool
 }
 
 type quickSymbol struct {
@@ -243,8 +247,10 @@ func (a *App) openQuickPanel(query string) {
 	}
 	q.open, q.query, q.ranked, q.sel = true, query, "\x00", 0
 	q.line, q.col = 0, 0
+	q.fileLoaded = false
+	q.fileSymbols = nil
 	q.list.Selected = &q.sel
-	if !strings.HasPrefix(query, ":") {
+	if !strings.HasPrefix(query, ":") && !strings.HasPrefix(query, "@") {
 		a.ensureFiles()
 	}
 }
@@ -271,7 +277,7 @@ func (a *App) ensureFiles() {
 			if q.files == nil {
 				q.files = []string{}
 			}
-			if !strings.HasPrefix(q.query, ">") && !strings.HasPrefix(q.query, "#") {
+			if !strings.HasPrefix(q.query, ">") && !strings.HasPrefix(q.query, "#") && !strings.HasPrefix(q.query, "@") {
 				q.ranked = "\x00" // rank files again
 			}
 			a.filter.forQuery = "" // filter again over the new list
@@ -282,6 +288,16 @@ func (a *App) ensureFiles() {
 // rankQuick ranks the files for the query when it changed.
 func (a *App) rankQuick() {
 	q := &a.quick
+	if strings.HasPrefix(q.query, "@") {
+		path, version := "", uint64(0)
+		if st := a.activeEditor(); st != nil {
+			path, version = a.activePath(), st.Buffer.Version()
+		}
+		if path != q.filePath || version != q.fileVersion {
+			q.filePath, q.fileVersion, q.fileLoaded, q.fileSymbols = path, version, false, nil
+			q.ranked = "\x00"
+		}
+	}
 	if q.ranked == q.query {
 		return
 	}
@@ -307,6 +323,15 @@ func (a *App) rankQuick() {
 			names[i] = commandLabel(cmd.name)
 		}
 		q.results = search.Fuzzy(names, strings.TrimSpace(q.query[1:]), len(names))
+	} else if strings.HasPrefix(q.query, "@") {
+		q.results = nil
+		if q.filePath != "" && a.cfg.IsTrusted(a.root) {
+			if q.fileLoaded {
+				a.filterFileSymbols()
+			} else {
+				a.searchFileSymbols()
+			}
+		}
 	} else if strings.HasPrefix(q.query, "#") {
 		q.results = nil
 		if a.root != "" && a.cfg.IsTrusted(a.root) && strings.TrimSpace(q.query[1:]) != "" {
@@ -432,7 +457,7 @@ func (a *App) chooseQuick(i int) {
 	}
 	p := q.results[i].Path
 	q.open = false
-	if strings.HasPrefix(q.query, "#") {
+	if strings.HasPrefix(q.query, "#") || strings.HasPrefix(q.query, "@") {
 		s := q.symbols[i]
 		if a.focus != nil {
 			if st := a.activeEditor(); st != nil {

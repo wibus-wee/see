@@ -48,9 +48,12 @@ func (a *App) quickOpenPanel(c *ui.Context) {
 					}
 				})
 				commandMode := strings.HasPrefix(q.query, ">")
-				symbolMode := strings.HasPrefix(q.query, "#")
+				fileSymbolMode := strings.HasPrefix(q.query, "@")
+				symbolMode := strings.HasPrefix(q.query, "#") || fileSymbolMode
 				lineMode := strings.HasPrefix(q.query, ":")
 				switch {
+				case fileSymbolMode && a.activeEditor() == nil:
+					ui.Text(c, locales.Catalog.Format(i18n.Locale(), "fileSymbolsOpenText", nil)).TextColor(colors(c).Muted).Padding(8)
 				case lineMode && len(q.results) == 0:
 					ui.Text(c, locales.Catalog.Format(i18n.Locale(), "goToLineHint", nil)).TextColor(colors(c).Muted).Padding(8)
 				case !commandMode && !lineMode && a.root == "":
@@ -62,7 +65,7 @@ func (a *App) quickOpenPanel(c *ui.Context) {
 						a.trustAsk = true
 						a.afterTrust = func() { a.openQuickPanel(query) }
 					}
-				case symbolMode && strings.TrimSpace(q.query[1:]) == "":
+				case symbolMode && !fileSymbolMode && strings.TrimSpace(q.query[1:]) == "":
 					ui.Text(c, locales.MsgTypeASymbolNameToSearchTheWorkspace()).TextColor(colors(c).Muted).Padding(8)
 				case symbolMode && q.symbolLoading && len(q.results) == 0:
 					ui.Row(c).Padding(8).Gap(8).Children(func() { ui.Spinner(c); ui.Text(c, locales.MsgSearchingSymbols()).TextColor(colors(c).Muted) })
@@ -85,7 +88,10 @@ func (a *App) quickOpenPanel(c *ui.Context) {
 					} else if symbolMode {
 						label = "Symbols"
 					}
-					ui.List(c, &q.list, len(q.results), func(i int) { a.quickRow(c, i) }).Grow(1).FillWidth().MaxHeight(380).Label(label)
+					list := ui.List(c, &q.list, len(q.results), func(i int) { a.quickRow(c, i) }).Grow(1).FillWidth().MaxHeight(380).Label(label)
+					if symbolMode {
+						list.Height(float32(min(len(q.results), 10)) * 36)
+					}
 				}
 			})
 		})
@@ -95,7 +101,7 @@ func (a *App) quickOpenPanel(c *ui.Context) {
 func (a *App) quickRow(c *ui.Context, i int) {
 	q := &a.quick
 	r := q.results[i]
-	if strings.HasPrefix(q.query, "#") {
+	if strings.HasPrefix(q.query, "#") || strings.HasPrefix(q.query, "@") {
 		s := q.symbols[i]
 		row := ui.Row(c.Key(i)).FillWidth().Padding(8).Gap(8).Radius(8).AlignItems(ui.Center)
 		if i == q.sel {
