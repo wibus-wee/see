@@ -1,0 +1,341 @@
+{
+  "version": 1,
+  "skills": {
+    "architect": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/architect/SKILL.md",
+      "computedHash": "98bdd5b66ecf2a1ea699fa82e72c904b88b03d49b04cd02c9df58d4890574b55"
+    },
+    "arena": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/arena/SKILL.md",
+      "computedHash": "364cd73e2043c7975ecf9cccd1afa91609689ac04eccba1591bdada2cc1ffb91"
+    },
+    "automate-me": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/automate-me/SKILL.md",
+      "computedHash": "0b67662bd3606844aa8b938c872651fd3f6a83deb23884c26723e8e344068260"
+    },
+    "benchmark-checklist": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/benchmark-checklist/SKILL.md",
+      "computedHash": "ef1bde63e6817485a8b388be3a05e6860394e52b5305e63a74659f3366dec097"
+    },
+    "blast-radius": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/blast-radius/SKILL.md",
+      "computedHash": "3487878de0fa2e7adec97174999b81cea4f3d3d70cfc9d7718f363f53150e16d"
+    },
+    "bro": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/bro/SKILL.md",
+      "computedHash": "dbb9a82a5d4090409e60c7cad78cb910765349ce7ac904896eccdd9a966227d5"
+    },
+    "correct": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/correct/SKILL.md",
+      "computedHash": "295466999425b44427ca4cc2e87f1fa06fa89e5988842583056b9e276f8282d1"
+    },
+    "create-formal-verification-skill": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/create-formal-verification-skill/SKILL.md",
+      "computedHash": "63bfa65fbae1f921a179ed7736b5450a26732f0ce997926e840cef61a93a0cab"
+    },
+    "create-verification-skill": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/create-verification-skill/SKILL.md",
+      "computedHash": "3324442f14b964e9efb033fcaf24873c0c6a6bf5b2bd8e7c38e62eee62b28103"
+    },
+    "figure-it-out": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/figure-it-out/SKILL.md",
+      "computedHash": "3143afd8d2eddc981c5ca697c495b754430d28fbcb132c47ef7cd415eb40f300"
+    },
+    "how": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/how/SKILL.md",
+      "computedHash": "c9a858b363b6b8089f916fdd1e03dad8e98eb0e79e0fd81feaea0fe1baa66af4"
+    },
+    "in-your-own-words": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/in-your-own-words/SKILL.md",
+      "computedHash": "d550f08c57da4b933908d7812d95e8f79bd802a3ef80c96915cfe646b3a3ce97"
+    },
+    "interrogate": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/interrogate/SKILL.md",
+      "computedHash": "ac172d5f3c78c04b3ca125e6abcba5fe3419f68f8d320f781c67e85b7f3b2f01"
+    },
+    "ketchup": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/ketchup/SKILL.md",
+      "computedHash": "183116a3058e7119ef53226c13ccef80c40973620053d739f18019dec7f2d888"
+    },
+    "maintain-formal-verification-skill": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/maintain-formal-verification-skill/SKILL.md",
+      "computedHash": "bbab1b6e6f4f55938181810c9dff5e078098fbf436076f09061fee4fab663f29"
+    },
+    "maintain-verification-skill": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/maintain-verification-skill/SKILL.md",
+      "computedHash": "628a6c189fbedad21d333755f29e05c8fb78ab122da121eb5b2d0add42046e33"
+    },
+    "make-bot-ui": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/make-bot-ui/SKILL.md",
+      "computedHash": "c98e3401e2307289c3aa62f4294d0ec3bd6d3a6761a2c72e4a9e726b208b9cca"
+    },
+    "no-comments": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/no-comments/SKILL.md",
+      "computedHash": "eca62574cf2a043eac60cac4618d4d5cf0ee13f9a90e1f4e99e94b6712cef007"
+    },
+    "poteto-help": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/poteto-help/SKILL.md",
+      "computedHash": "afaedda3c18a813337f9f87a261e4c5af509cac4544be929a60d2b7252f92803"
+    },
+    "poteto-mode": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/poteto-mode/SKILL.md",
+      "computedHash": "c645f6b71a1e86725f70137c14b845d13681b95721fa2bdd05363271bb184f57"
+    },
+    "principle-attack-the-premise": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/principle-attack-the-premise/SKILL.md",
+      "computedHash": "df82eda045934fd32c37d3d05efc44d2a049e675c8a8543b14f44f3dfc593d30"
+    },
+    "principle-boundary-discipline": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/principle-boundary-discipline/SKILL.md",
+      "computedHash": "afc8cc25a7f3c93a20f4b1c9798f1f696e70be6fbe9724c992a644a9a236cd17"
+    },
+    "principle-build-the-lever": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/principle-build-the-lever/SKILL.md",
+      "computedHash": "0635c10c22095a270c6d3a982df10e77012d07810c272729f8ddf61c4f0c0335"
+    },
+    "principle-encode-lessons-in-structure": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/principle-encode-lessons-in-structure/SKILL.md",
+      "computedHash": "b0641b52a2b5401e7126dcc5efa8a15266ea99b3e201214b1b1f15c10b3eb038"
+    },
+    "principle-exhaust-the-design-space": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/principle-exhaust-the-design-space/SKILL.md",
+      "computedHash": "15def911cc42e4a6694a02b84806eddc902744157940e6f69915c5cb3b7416aa"
+    },
+    "principle-experience-first": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/principle-experience-first/SKILL.md",
+      "computedHash": "8dd8bc1e9fa1944dabf762a820ed0c273638c9228a46d66cd04b97f9b0777511"
+    },
+    "principle-explain-the-number": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/principle-explain-the-number/SKILL.md",
+      "computedHash": "17ef71a00d946ebfd8f911586c45c36f81a05ab9d8bd01a060b4abf73158d01d"
+    },
+    "principle-fix-root-causes": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/principle-fix-root-causes/SKILL.md",
+      "computedHash": "845a0605d3d9e9ecce067e41a5cbe1513b686fa2ce7a6facd5c9f8a049bc2666"
+    },
+    "principle-foundational-thinking": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/principle-foundational-thinking/SKILL.md",
+      "computedHash": "d6fa457ec2a8b5af7cca2c730eb9128cad74da6cfe6cc6273a159ab86f10ba70"
+    },
+    "principle-guard-the-context-window": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/principle-guard-the-context-window/SKILL.md",
+      "computedHash": "d92007bf83ebc11f561ed3f5177ed33e970684a976bac301fb5898a492a0657f"
+    },
+    "principle-laziness-protocol": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/principle-laziness-protocol/SKILL.md",
+      "computedHash": "da3b0056b3f5d53cce501c4720d507346e44dd279a305d2898f28e6531fabc66"
+    },
+    "principle-make-operations-idempotent": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/principle-make-operations-idempotent/SKILL.md",
+      "computedHash": "47115da11e5165252e334c50e0027f0a099491105fd92833bf643e7415fae2e6"
+    },
+    "principle-migrate-callers-then-delete-legacy-apis": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/principle-migrate-callers-then-delete-legacy-apis/SKILL.md",
+      "computedHash": "4056b1a106f9a19bf5f7b34c4b42a0f1c5770835b0c2a1d051b8fcc896494b8a"
+    },
+    "principle-minimize-reader-load": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/principle-minimize-reader-load/SKILL.md",
+      "computedHash": "8da509d334362c88edd321bce047f3857c5f7f8e0d0a63cc02fabd05e36fca8f"
+    },
+    "principle-never-block-on-the-human": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/principle-never-block-on-the-human/SKILL.md",
+      "computedHash": "8cf4222085f647cb9b0b31fb583c0c1fab6f67c882413b9cc62bd0908218e4cf"
+    },
+    "principle-outcome-oriented-execution": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/principle-outcome-oriented-execution/SKILL.md",
+      "computedHash": "d403d5a2e75d3ede521e1f39fdfb355f5f19b605099982310c078454209750e8"
+    },
+    "principle-prove-it-works": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/principle-prove-it-works/SKILL.md",
+      "computedHash": "911985af10782489be51e0486cd67118d962216f3d6ac445aa754e532c3a3200"
+    },
+    "principle-redesign-from-first-principles": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/principle-redesign-from-first-principles/SKILL.md",
+      "computedHash": "fe65a1c88d9da651db860e8298061ae97e78dc29113d4be92e858dd9bf45c490"
+    },
+    "principle-separate-before-serializing-shared-state": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/principle-separate-before-serializing-shared-state/SKILL.md",
+      "computedHash": "69510d7270af2ebace9de2c8e34295b9f7ad56c0a1504c1c2165331f6bc60b60"
+    },
+    "principle-sequence-verifiable-units": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/principle-sequence-verifiable-units/SKILL.md",
+      "computedHash": "21468e89dab9d879fffa71b9a0261b622f86bb5d5043ffd85f364cff97278ae8"
+    },
+    "principle-subtract-before-you-add": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/principle-subtract-before-you-add/SKILL.md",
+      "computedHash": "c4e031760f826363b0224ec28fdb9c50e2b7501dd0a66870439b0651368d3254"
+    },
+    "principle-test-behavior-not-implementation": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/principle-test-behavior-not-implementation/SKILL.md",
+      "computedHash": "4f5dc02a0a09cb077ed7e3eec065671c628d21ea610d845c1ee10f258f6882a8"
+    },
+    "principle-type-system-discipline": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/principle-type-system-discipline/SKILL.md",
+      "computedHash": "321f57f465f069288b7f320fcbd547314c461b7d472b7a62fb85704e9328c441"
+    },
+    "recall": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/recall/SKILL.md",
+      "computedHash": "e7760419301edf2c4ad5423bd664fec72625b2199fceb61ea231b8b02f5e47f1"
+    },
+    "reflect": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/reflect/SKILL.md",
+      "computedHash": "dee99759c7d908fae1733bb2222e66e556df1f4ecee6b49a6d19d8d380be3b50"
+    },
+    "setup-pstack": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/setup-pstack/SKILL.md",
+      "computedHash": "7a777f65821c5d0d2980060cd935b859b5c913a2203608f8f72129b2304c1238"
+    },
+    "sharpen": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/sharpen/SKILL.md",
+      "computedHash": "a4e3567999e051c804871f7a7e0605579fd6dbbe91b2b109afc26b53d38f9cf8"
+    },
+    "show-me-your-work": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/show-me-your-work/SKILL.md",
+      "computedHash": "cb70353b02effe7cacb1b0e65213ba4f5fe24aaff0d85f03a0688bd8772ac246"
+    },
+    "statechart": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/statechart/SKILL.md",
+      "computedHash": "2fbd28da06c795e75a8e99ad49a17a533da150f62634e3575dcea9381b74d33e"
+    },
+    "swarm": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/swarm/SKILL.md",
+      "computedHash": "ef29a70c95fb7f7c82fe38c9ae4c86dd73d3473f457a6ee492ba89a0ff49355d"
+    },
+    "tdd": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/tdd/SKILL.md",
+      "computedHash": "ba3487ec804a448c5a2a9098ebbe396c4b9d5b47622eb9c2c158170646d29d2f"
+    },
+    "teach": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/teach/SKILL.md",
+      "computedHash": "249cd3c99ac1a82a756057d8f7f6afad6ff43e361e2b96c4f716240b857e88cf"
+    },
+    "technical-writing": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/technical-writing/SKILL.md",
+      "computedHash": "9420ce1288590fbc41dbb2d107501b6b4f243c77b43c5368e99045379cc02946"
+    },
+    "typescript-best-practices": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/typescript-best-practices/SKILL.md",
+      "computedHash": "1b90ab8ce348e2455725aa2eec3c373999ff9388332c5b4a9de8becd7eaa3b0c"
+    },
+    "unslop": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/unslop/SKILL.md",
+      "computedHash": "6252e211e2ac5322d82b01593f71e888b53cae3fcc93553ffd467ec5835f5068"
+    },
+    "why": {
+      "source": "TheOnlyFusionCube/potetos-for-everyone",
+      "sourceType": "github",
+      "skillPath": "skills/why/SKILL.md",
+      "computedHash": "c41c2309eae147a63df7815eb2ebceafb964008fadc8fd2ac0e03865f6918c3b"
+    }
+  }
+}
