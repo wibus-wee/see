@@ -76,7 +76,9 @@ not prove desktop dialogs, real filesystem watchers, shell installation,
 single-instance IPC, updater installation or real terminal rendering. These
 still need native smoke checks on the target OS. The real-gopls test covers Go;
 TypeScript/C++ server integration is not established by the fake-client tests.
-Windows shell fixtures and privileged symlink/permission cases may skip; inspect
+The Windows workflow uses the runner's long temporary path because gopls rejects
+8.3 aliases in its default user temp directory. Windows shell fixtures and
+privileged symlink/permission cases may skip; inspect
 verbose test output when investigating a platform issue.
 
 The harness still leaves some asynchronous workspace/timer cleanup to process

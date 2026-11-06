@@ -50,14 +50,20 @@ func TestFindGoplsSaysWhenThereIsNone(t *testing.T) {
 	// A workspace never lends its own gopls, and with nothing on the
 	// caller's PATH the search fails with what to install.
 	root := t.TempDir()
-	if err := os.WriteFile(filepath.Join(root, "gopls"), []byte("#!/bin/sh\n"), 0o755); err != nil {
+	name := "gopls"
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	if err := os.WriteFile(filepath.Join(root, name), []byte("#!/bin/sh\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("SEE_GOPLS", "")
 	t.Setenv("GOBIN", "")
 	t.Setenv("GOPATH", "")
 	t.Setenv("PATH", t.TempDir())
-	t.Setenv("HOME", t.TempDir())
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	if got, err := FindGopls(root); err == nil {
 		t.Fatalf("FindGopls found %q in the workspace", got)
 	}
