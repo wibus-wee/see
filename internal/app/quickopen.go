@@ -142,12 +142,11 @@ func (a *App) quickRow(c *ui.Context, i int) {
 		ui.Column(c).Grow(1).Shrink(1).Children(func() {
 			nameStart := len(r.Path) - len(name)
 			highlightText(c, name, r.Hits, nameStart, i == q.sel)
-			sub := ui.Text(c, strings.TrimSuffix(filepath.ToSlash(dir), "/")).FontSize(11).SingleLine()
+			color := colors(c).Muted
 			if i == q.sel {
-				sub.TextColor(ui.RGBA(0xff, 0xff, 0xff, 0.75))
-			} else {
-				sub.TextColor(colors(c).Muted)
+				color = ui.RGBA(0xff, 0xff, 0xff, 0.75)
 			}
+			highlightTextStyle(c, strings.TrimSuffix(filepath.ToSlash(dir), "/"), r.Hits, 0, 11, color)
 		})
 	})
 }
@@ -159,13 +158,17 @@ func highlightText(c *ui.Context, name string, hits []int, off int, selected boo
 	if selected {
 		color = ui.RGB(0xff, 0xff, 0xff)
 	}
+	highlightTextStyle(c, name, hits, off, 13, color)
+}
+
+func highlightTextStyle(c *ui.Context, name string, hits []int, off int, fontSize float32, color ui.Color) {
 	ui.Row(c).Children(func() {
 		run, bold := "", false
 		flush := func() {
 			if run == "" {
 				return
 			}
-			t := ui.Text(c, run).FontSize(13).TextColor(color).SingleLine()
+			t := ui.Text(c, run).FontSize(fontSize).TextColor(color).SingleLine()
 			if bold {
 				t.Bold().Underline()
 			}
