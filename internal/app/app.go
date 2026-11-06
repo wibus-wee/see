@@ -61,12 +61,13 @@ type App struct {
 	git      gitState
 
 	// Documents, by path, and the editor groups showing them.
-	docs        map[string]*doc
-	layout      *layout
-	focus       *group
-	nextGroup   int
-	focusEditor *editor.State // an editor to give the keyboard to
-	focusImage  string        // an image preview to give the keyboard to once loaded
+	docs             map[string]*doc
+	layout           *layout
+	focus            *group
+	focusGroupTarget *group
+	nextGroup        int
+	focusEditor      *editor.State // an editor to give the keyboard to
+	focusImage       string        // an image preview to give the keyboard to once loaded
 
 	// Navigation.
 	hist         nav.History
