@@ -7,6 +7,7 @@ import (
 // Icons drawn after SF Symbols' shapes (not copies of them), in the
 // color of the text around them.
 var (
+	icProblems   = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2 21h20L12 3Z"/><path d="M12 9v5m0 3v.1"/></svg>`))
 	icAdd        = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>`))
 	icFolder     = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6.5A2.5 2.5 0 0 1 5.5 4h4.1c.7 0 1.3.3 1.8.8L12.8 6.3h5.7A2.5 2.5 0 0 1 21 8.8v8.7a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"/></svg>`))
 	icPage       = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 24"><path d="M3.5 1h8.4c.5 0 1 .2 1.4.6l4.6 4.6c.4.4.6.9.6 1.4V20.5A2.5 2.5 0 0 1 16 23H3.5A2.5 2.5 0 0 1 1 20.5v-17A2.5 2.5 0 0 1 3.5 1z"/></svg>`))
