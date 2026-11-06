@@ -1,6 +1,8 @@
 package app
 
 import (
+	"fmt"
+	"os"
 	"path/filepath"
 	"slices"
 	"testing"
@@ -81,5 +83,72 @@ func TestBulkClosePreservesSharedDirtyBuffers(t *testing.T) {
 	}
 	if !g.has(filepath.Join(h.a.root, "b.txt")) {
 		t.Fatal("other group changed")
+	}
+}
+
+func TestBulkCloseSavesUntitledCandidate(t *testing.T) {
+	h := newHarness(t, writeTree(t, map[string]string{"keep.txt": "keep"}))
+	keep := h.open("keep.txt")
+	h.a.newFile()
+	draft := h.a.docs[h.a.activePath()]
+	draft.buf.Set("draft contents")
+	destination := filepath.Join(h.a.root, "saved.txt")
+	h.host.newFile = func(string) (string, error) { return destination, nil }
+	h.host.confirm = func(string) (int, error) { return 0, nil }
+	g := h.a.focus
+	h.a.closeTabs(g, keep.path, closeOtherTabs)
+	h.settle(func() bool { return !draft.untitled && h.a.confirm == nil })
+	if !slices.Equal(g.order, []string{keep.path}) || h.a.docs[destination] != nil {
+		t.Fatalf("saved candidate remains open: %v", g.order)
+	}
+	data, err := os.ReadFile(destination)
+	if err != nil || string(data) != "draft contents" {
+		t.Fatalf("saved contents %q: %v", data, err)
+	}
+}
+
+func TestBulkCloseReconfirmsEditsWhilePromptIsPending(t *testing.T) {
+	for _, editOriginal := range []bool{false, true} {
+		t.Run(fmt.Sprint("editOriginal=", editOriginal), func(t *testing.T) {
+			h := newHarness(t, writeTree(t, map[string]string{"keep.txt": "keep", "dirty.txt": "dirty", "clean.txt": "clean"}))
+			keep := h.open("keep.txt")
+			dirty := h.open("dirty.txt")
+			clean := h.open("clean.txt")
+			dirty.buf.Set("first edit")
+			g := h.a.focus
+			original := slices.Clone(g.order)
+			h.a.closeTabs(g, keep.path, closeOtherTabs)
+			h.settle(func() bool { return h.a.confirm != nil && h.a.confirm.inWindow })
+			first := h.a.confirm
+			changed := clean
+			if editOriginal {
+				changed = dirty
+			}
+			changed.buf.Set("unconfirmed edit")
+			first.actions[1].fn()
+			if h.a.confirm == nil || h.a.confirm == first || !slices.Equal(g.order, original) {
+				t.Fatalf("discard bypassed new edit confirmation: %v", g.order)
+			}
+			h.a.confirm.actions[2].fn()
+			if changed.buf.String() != "unconfirmed edit" || !slices.Equal(g.order, original) {
+				t.Fatal("Cancel discarded unconfirmed edits")
+			}
+		})
+	}
+}
+
+func TestBulkCloseKeepsTabsOpenedDuringPrompt(t *testing.T) {
+	h := newHarness(t, writeTree(t, map[string]string{"keep.txt": "keep", "dirty.txt": "dirty", "later.txt": "later"}))
+	keep := h.open("keep.txt")
+	dirty := h.open("dirty.txt")
+	dirty.buf.Set("approved edit")
+	g := h.a.focus
+	h.a.closeTabs(g, keep.path, closeOtherTabs)
+	h.settle(func() bool { return h.a.confirm != nil && h.a.confirm.inWindow })
+	later := h.open("later.txt")
+	later.buf.Set("new unsaved tab")
+	h.a.confirm.actions[1].fn()
+	if h.a.confirm != nil || !slices.Equal(g.order, []string{keep.path, later.path}) || later.buf.String() != "new unsaved tab" {
+		t.Fatalf("new tab was included in old close operation: %v", g.order)
 	}
 }
