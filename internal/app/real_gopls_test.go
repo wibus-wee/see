@@ -41,11 +41,24 @@ func TestRealGopls(t *testing.T) {
 	if off < 0 {
 		t.Fatal("the call is not in a.go")
 	}
+	off += len("b.")
+	h.a.activeEditor().GoTo(from.buf.Pos(off))
 	h.a.goToDefinition(h.a.focus, from, off)
 	target := filepath.Join(root, "b", "b.go")
-	h.settle(func() bool { return h.a.activePath() == target })
+	h.settle(func() bool {
+		d := h.a.docs[target]
+		return h.a.activePath() == target && d != nil && !d.loading && h.a.activeEditor() != nil
+	})
+	targetDoc := h.a.docs[target]
+	wantOffset := strings.Index(targetDoc.buf.String(), "Größe名字()")
+	if wantOffset < 0 || h.a.activeEditor().Cursor() != wantOffset {
+		t.Fatalf("definition cursor=%v want byte offset %d", h.a.activeEditor().CursorPos(), wantOffset)
+	}
 
 	// Back returns to the call.
 	h.a.goBack()
-	h.settle(func() bool { return h.a.activePath() == filepath.Join(root, "a.go") })
+	h.settle(func() bool { return h.a.activePath() == filepath.Join(root, "a.go") && h.a.activeEditor() != nil })
+	if h.a.activeEditor().Cursor() != off {
+		t.Fatalf("Go Back cursor=%v want %+v", h.a.activeEditor().CursorPos(), from.buf.Pos(off))
+	}
 }

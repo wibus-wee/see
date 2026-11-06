@@ -61,11 +61,11 @@ func TestFileSymbolsFilterAndNavigate(t *testing.T) {
 func TestFileSymbolsRejectStaleBufferResults(t *testing.T) {
 	h := newHarness(t, writeTree(t, map[string]string{"a.go": "package a\nfunc Old() {}\n"}))
 	h.a.cfg.Trust(h.a.root)
-	entered, release := make(chan struct{}), make(chan struct{})
+	entered, release := make(chan context.Context, 1), make(chan struct{})
 	var calls atomic.Int32
-	client := &fileSymbolClient{fakeClient: h.fc, symbols: func(context.Context, string) ([]lsp.DocumentSymbol, error) {
+	client := &fileSymbolClient{fakeClient: h.fc, symbols: func(ctx context.Context, _ string) ([]lsp.DocumentSymbol, error) {
 		if calls.Add(1) == 1 {
-			close(entered)
+			entered <- ctx
 			<-release
 			return []lsp.DocumentSymbol{{Name: "Old"}}, nil
 		}
@@ -76,18 +76,29 @@ func TestFileSymbolsRejectStaleBufferResults(t *testing.T) {
 	d := h.open("a.go")
 	h.a.openQuickPanel("@")
 	h.tt.Frame()
+	var firstContext context.Context
 	select {
-	case <-entered:
+	case firstContext = <-entered:
 	case <-time.After(time.Second):
 		t.Fatal("no symbols request")
 	}
 	d.buf.Set("package a\nfunc New() {}\n")
+	close(release)
+	// The request cancels its context after posting its completion. Avoid a
+	// frame here: ranking the edited buffer would cancel that context early.
+	select {
+	case <-firstContext.Done():
+	case <-time.After(time.Second):
+		t.Fatal("stale request did not post completion")
+	}
+	for len(h.q) > 0 {
+		(<-h.q)()
+	}
+	if h.a.quick.fileLoaded || len(h.a.quick.symbols) != 0 {
+		t.Fatal("stale request populated the edited file's symbols")
+	}
 	h.tt.Frame()
 	h.settle(func() bool { return h.a.quick.fileLoaded })
-	before := h.ran
-	close(release)
-	h.settle(func() bool { return h.ran > before })
-	h.tt.Frame()
 	if len(h.a.quick.symbols) != 1 || h.a.quick.symbols[0].name != "New" {
 		t.Fatalf("stale results replaced symbols: %+v", h.a.quick.symbols)
 	}
