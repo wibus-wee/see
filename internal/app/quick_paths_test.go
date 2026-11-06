@@ -5,6 +5,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 )
 
@@ -18,8 +19,13 @@ func TestQuickOpenMatchesDirectoryAndFilenameTerms(t *testing.T) {
 	h.settle(func() bool { return h.a.quick.files != nil })
 	h.tt.Type("runtime package")
 	h.tt.Frame()
-	if len(h.a.quick.results) != 2 {
-		t.Fatalf("runtime package results: %+v", h.a.quick.results)
+	paths := make([]string, len(h.a.quick.results))
+	for i, result := range h.a.quick.results {
+		paths[i] = result.Path
+	}
+	slices.Sort(paths)
+	if !slices.Equal(paths, []string{"packages/eval/src/runtime-evidence.ts", "packages/runtime/src/index.ts"}) {
+		t.Fatalf("runtime package results: %v", paths)
 	}
 	if dest := os.Getenv("SEE_QUICK_PATH_SCREENSHOT"); dest != "" {
 		f, err := os.Create(dest)

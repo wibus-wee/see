@@ -1,0 +1,46 @@
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  behavior:
+    name: Behavior (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Install integration tools
+        run: |
+          if ! command -v rg >/dev/null; then
+            case "$RUNNER_OS" in
+              Linux) sudo apt-get update && sudo apt-get install -y ripgrep ;;
+              macOS) brew install ripgrep ;;
+              Windows) choco install ripgrep --yes --no-progress ;;
+            esac
+          fi
+          go install golang.org/x/tools/gopls@v0.24.0
+      - name: Verify behavior and contracts
+        run: ./scripts/verify.sh
+      - name: Check concurrent boundaries
+        if: runner.os == 'Linux'
+        run: go test -race -count=1 -timeout=5m ./internal/tasks ./internal/langserver ./internal/lsp ./internal/logs ./internal/avatar
