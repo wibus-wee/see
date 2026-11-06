@@ -9,6 +9,11 @@
   "problemWarning": "警告",
   "problemInfo": "信息",
   "problemHint": "提示",
+
+  "commandSearchFileSymbols": "搜索文件符号",
+  "fileSymbolsOpenText": "打开文本文件以搜索其中的符号。",
+  "fileSymbolsUnsupported": "语言服务器不支持文件符号。",
+
   "commandNextProblem": "下一个问题",
   "commandPreviousProblem": "上一个问题",
   "commandGoToLine": "跳转到行",

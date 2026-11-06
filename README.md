@@ -112,6 +112,8 @@ Use **Cmd+Shift+M** or **Show Problems** to open the Problems navigator. It list
 
 Use **F8** / **Shift+F8** or **Next Problem** / **Previous Problem** in the command palette to move through current-file diagnostics in source order, wrapping at either end. Navigation waits for fresh diagnostics after edits.
 
+Use **Search File Symbols** or type `@` in Open Quickly to list declarations in the current text file. Type after `@` to filter names, then select a result to jump to it. This uses the file’s language server and requires workspace trust. Results refresh when the active file or buffer changes.
+
 Use **Related Items** in the editor jump bar, or **Find References** and **Find Callers** in the command palette, to move between locations. Callers uses the language server's incoming call hierarchy, so availability depends on the server.
 
 ## Keyboard shortcuts
@@ -125,6 +127,7 @@ These are the macOS shortcuts; on other platforms, use Ctrl in place of Cmd. The
 | New window | Cmd+Shift+N |
 | Save / Save all | Cmd+S / Cmd+Shift+S |
 | Open Quickly | Cmd+Shift+O or Cmd+P |
+| Search file symbols | Alt+Cmd+O (or type `@` in Open Quickly) |
 | Search workspace symbols | Cmd+T (or type `#` in Open Quickly) |
 | Find in workspace | Cmd+Shift+F |
 | Find in file | Cmd+F |

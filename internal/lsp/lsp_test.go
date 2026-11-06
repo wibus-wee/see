@@ -137,9 +137,10 @@ type fakeServer struct {
 	mu  sync.Mutex
 	got []string // methods received, in order
 
-	definition func(params json.RawMessage) string // raw result
-	caps       string
-	replies    chan json.RawMessage // results of our requests to the client
+	documentSymbols func(params json.RawMessage) string
+	definition      func(params json.RawMessage) string // raw result
+	caps            string
+	replies         chan json.RawMessage // results of our requests to the client
 }
 
 func newFake(t *testing.T) (*fakeServer, io.Reader, io.WriteCloser) {
@@ -200,6 +201,12 @@ func (f *fakeServer) serve() {
 			f.send(`{"jsonrpc":"2.0","id":"s1","method":"workspace/configuration","params":{"items":[{},{}]}}`)
 			f.send(`{"jsonrpc":"2.0","id":"s2","method":"custom/unknown","params":{}}`)
 			reply(`{"capabilities":` + f.caps + `}`)
+		case "textDocument/documentSymbol":
+			if f.documentSymbols == nil {
+				reply("null")
+			} else {
+				reply(f.documentSymbols(m.Params))
+			}
 		case "textDocument/definition":
 			if f.definition == nil {
 				reply("null")

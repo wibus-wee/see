@@ -184,6 +184,7 @@ func (c *Client) initialize(ctx context.Context) error {
 			},
 			"textDocument": map[string]any{
 				"synchronization": map[string]any{"didSave": false, "dynamicRegistration": false},
+				"documentSymbol":  map[string]any{"hierarchicalDocumentSymbolSupport": true, "dynamicRegistration": false},
 				"references":      map[string]any{"dynamicRegistration": false},
 				"callHierarchy":   map[string]any{"dynamicRegistration": false},
 				"definition":      map[string]any{"linkSupport": true, "dynamicRegistration": false},

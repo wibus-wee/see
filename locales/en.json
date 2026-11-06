@@ -9,6 +9,11 @@
   "problemWarning": "Warning",
   "problemInfo": "Information",
   "problemHint": "Hint",
+
+  "commandSearchFileSymbols": "Search File Symbols",
+  "fileSymbolsOpenText": "Open a text file to search its symbols.",
+  "fileSymbolsUnsupported": "The language server does not support file symbols.",
+
   "commandNextProblem": "Next Problem",
   "commandPreviousProblem": "Previous Problem",
   "commandGoToLine": "Go to Line",
