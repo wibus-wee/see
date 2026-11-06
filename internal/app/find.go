@@ -345,7 +345,7 @@ func (a *App) rankQuick() {
 			q.line, q.col = line, col
 			query = path
 		}
-		q.results = search.Fuzzy(q.files, query, 60)
+		q.results = search.Files(q.files, query, 60)
 	}
 	q.sel = 0
 }
