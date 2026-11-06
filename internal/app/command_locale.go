@@ -10,6 +10,10 @@ import (
 var commandMessages = map[string]string{
 	"Show Problems":              "commandShowProblems",
 	"Search File Symbols":        "commandSearchFileSymbols",
+	"Go: Build Workspace":        "commandGoBuild",
+	"Go: Test Workspace":         "commandGoTest",
+	"Tasks: Show":                "commandShowTasks",
+	"Tasks: Stop":                "commandStopTasks",
 	"Next Problem":               "commandNextProblem",
 	"Previous Problem":           "commandPreviousProblem",
 	"Go to Line":                 "commandGoToLine",

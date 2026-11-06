@@ -99,6 +99,8 @@ type App struct {
 	noticeError    bool
 
 	hover         hoverState
+	task          *taskRun
+	taskList      ui.ListState
 	term          termPanel
 	logs          logs.Store
 	settings      settingsState
@@ -371,6 +373,9 @@ func (a *App) closeWorkspace() {
 		a.wsCancel()
 	}
 	a.cancelNav()
+	a.stopGoTask()
+	a.task = nil
+	a.taskList = ui.ListState{}
 	a.closeTerminals()
 	if a.lsp != nil {
 		a.lsp.Stop()

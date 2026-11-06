@@ -19,6 +19,7 @@ func editorBindings() []editor.Binding {
 	bs := []editor.Binding{
 		none(ui.Cmd|ui.Shift, ui.KeyM),
 		none(ui.Alt|ui.Cmd, ui.KeyO),
+		none(ui.Cmd|ui.Shift, ui.KeyB),
 		none(0, ui.KeyF8),
 		none(ui.Shift, ui.KeyF8),
 		none(ui.Ctrl, ui.KeyG),
