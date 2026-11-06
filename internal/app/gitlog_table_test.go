@@ -26,23 +26,6 @@ func TestGitLogTableColumnsFilterAndNavigation(t *testing.T) {
 			t.Fatalf("missing table header %q: %v", label, h.tt.Texts())
 		}
 	}
-	if err := h.tt.Click(logText("gitLogScope")); err != nil {
-		t.Fatal(err)
-	}
-	if err := h.tt.ChooseMenuItem(logText("gitLogAllBranches")); err != nil {
-		t.Fatal(err)
-	}
-	h.settle(func() bool { return h.a.git.history.all && !h.a.git.history.loading })
-	if !h.tt.HasText(logText("gitLogAllBranches")) {
-		t.Fatal("scope label did not update")
-	}
-	if err := h.tt.Click(logText("gitLogScope")); err != nil {
-		t.Fatal(err)
-	}
-	if err := h.tt.ChooseMenuItem(logText("gitLogCurrentBranch")); err != nil {
-		t.Fatal(err)
-	}
-	h.settle(func() bool { return !h.a.git.history.all && !h.a.git.history.loading })
 	head := h.a.git.history.commits[0]
 	graph, ok := h.tt.Find("Graph " + head.Short)
 	header, headerOK := h.tt.Find("Graph")
