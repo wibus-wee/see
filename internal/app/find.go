@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -243,7 +244,9 @@ func (a *App) openQuickPanel(query string) {
 	q.open, q.query, q.ranked, q.sel = true, query, "\x00", 0
 	q.line, q.col = 0, 0
 	q.list.Selected = &q.sel
-	a.ensureFiles()
+	if !strings.HasPrefix(query, ":") {
+		a.ensureFiles()
+	}
 }
 
 // ensureFiles lists the workspace's files for Open Quickly and the tree's
@@ -290,7 +293,14 @@ func (a *App) rankQuick() {
 	}
 	q.symbolLoading, q.symbolErr = false, nil
 	q.symbols = nil
-	if strings.HasPrefix(q.query, ">") {
+	if strings.HasPrefix(q.query, ":") {
+		q.results = nil
+		q.line, q.col = 0, 0
+		if path, line, col, ok := splitQuickPosition(q.query); ok && path == "" && a.activeEditor() != nil {
+			q.line, q.col = line, col
+			q.results = []search.Scored{{Path: fmt.Sprintf("%s %d:%d", commandLabel("Go to Line"), line, max(col, 1))}}
+		}
+	} else if strings.HasPrefix(q.query, ">") {
 		all := commands()
 		names := make([]string, len(all))
 		for i, cmd := range all {
@@ -303,6 +313,7 @@ func (a *App) rankQuick() {
 			a.searchSymbols(strings.TrimSpace(q.query[1:]))
 		}
 	} else {
+		a.ensureFiles()
 		query := q.query
 		q.line, q.col = 0, 0
 		if path, line, col, ok := splitQuickPosition(query); ok && line > 0 {
@@ -400,7 +411,23 @@ func (a *App) searchSymbols(query string) {
 
 func (a *App) chooseQuick(i int) {
 	q := &a.quick
+	a.rankQuick()
 	if i < 0 || i >= len(q.results) {
+		return
+	}
+	if strings.HasPrefix(q.query, ":") {
+		st := a.activeEditor()
+		if st == nil {
+			return
+		}
+		if here, ok := a.here(); ok {
+			a.hist.Push(here)
+		}
+		a.cancelNav()
+		offset := st.Buffer.Offset(editor.Pos{Line: q.line - 1, Col: max(q.col-1, 0)})
+		st.Select(offset, offset)
+		a.focusEditor = st
+		q.open = false
 		return
 	}
 	p := q.results[i].Path

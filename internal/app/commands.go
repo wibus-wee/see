@@ -27,6 +27,11 @@ func commands() []command {
 		}},
 		{"Open Folder", "Cmd+", "O", ui.Cmd, ui.KeyO, func(a *App) { a.openFolderDialog() }},
 		{"Open Quickly", "Cmd+Shift+", "O", ui.Cmd | ui.Shift, ui.KeyO, func(a *App) { a.openQuickly() }},
+		{"Go to Line", "Ctrl+", "G", ui.Ctrl, ui.KeyG, func(a *App) {
+			if a.activeEditor() != nil {
+				a.openQuickPanel(":")
+			}
+		}},
 		{"Search Workspace Symbols", "Cmd+", "T", ui.Cmd, ui.KeyT, func(a *App) { a.openQuickPanel("#") }},
 		{"Open Markdown Preview", "Cmd+Shift+", "V", ui.Cmd | ui.Shift, ui.KeyV, func(a *App) { a.openMarkdownTab(a.focus) }},
 		{"Find in Workspace", "Cmd+Shift+", "F", ui.Cmd | ui.Shift, ui.KeyF, func(a *App) {

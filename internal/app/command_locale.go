@@ -8,6 +8,7 @@ import (
 )
 
 var commandMessages = map[string]string{
+	"Go to Line":                 "commandGoToLine",
 	"New File":                   "msgNewFile2",
 	"Command Palette":            "commandCommandPalette",
 	"New Window":                 "msgNewWindow",

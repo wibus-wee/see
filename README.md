@@ -78,6 +78,8 @@ Edit and save UTF-8 text in the source view. Unsaved changes are marked on tabs,
 
 See caches unsaved text for open files so it can restore edits after an unexpected exit. If the disk version changed in the meantime, it preserves the recovered edits and asks before overwriting.
 
+Use **Ctrl+G** or **Go to Line** in the command palette, then enter `:42` or `:42:8` to jump within the current text buffer. Line and column numbers start at 1; columns count UTF-8 bytes. Positions beyond the buffer are clamped. **Go Back** returns to the previous position.
+
 ### Markdown preview
 
 For a Markdown file, use the preview button in the editor bar or **Cmd+Shift+V** to open a preview tab, and drag that tab to an editor edge to read it beside the source. The preview uses the current buffer, so unsaved edits show up in it.
@@ -122,6 +124,7 @@ These are the macOS shortcuts; on other platforms, use Ctrl in place of Cmd. The
 | Search workspace symbols | Cmd+T (or type `#` in Open Quickly) |
 | Find in workspace | Cmd+Shift+F |
 | Find in file | Cmd+F |
+| Go to line / column | Ctrl+G |
 | Toggle navigator | Cmd+B or Cmd+0 |
 | Open Markdown preview | Cmd+Shift+V |
 | Go to definition | F12 |
