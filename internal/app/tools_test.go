@@ -136,6 +136,8 @@ func TestInstallRipgrepRejectsAnotherChecksum(t *testing.T) {
 
 func TestFindRipgrepUsesManagedCopy(t *testing.T) {
 	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("APPDATA", filepath.Join(home, "config"))
 	t.Setenv("SEE_RG", "")
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "config"))
 	t.Setenv("PATH", t.TempDir()) // no ripgrep on the path

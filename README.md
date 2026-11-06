@@ -161,11 +161,18 @@ When a terminal has focus, Cmd+D splits the terminal instead of adding an editor
 
 ## Development
 
-Run the test suite with:
+Run the verification command with Go, Git, ripgrep, gopls and Python 3 on PATH:
 
 ```sh
-go test ./...
+./scripts/verify.sh
 ```
+
+It runs behavior and real-gopls integration tests, MyGo checks and changelog tests.
+For quick feedback, use `CGO_ENABLED=0 go test ./...`; integration tests can skip
+without their tools. The [test guide](./docs/testing.md) maps checks to behavior,
+records the effectiveness audit and names the native surfaces still requiring
+manual verification. Pull requests run the verification command on Linux,
+macOS and Windows; POSIX release fixtures run on Linux/macOS.
 
 The application UI and workspace orchestration live in the root package. `internal/workspace` handles file discovery and classification, `internal/search` implements search and Quick Open, `internal/git` reads repository state and diffs, and `internal/lsp`, `internal/uri`, and `internal/nav` support code navigation.
 

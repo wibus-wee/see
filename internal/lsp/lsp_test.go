@@ -179,11 +179,7 @@ func (f *fakeServer) serve() {
 		}
 		json.Unmarshal(body, &m)
 		if m.Method == "" {
-			if m.Error != nil {
-				f.replies <- body
-			} else {
-				f.replies <- body
-			}
+			f.replies <- body
 			continue
 		}
 		f.mu.Lock()
