@@ -1,4 +1,6 @@
 {
+  "commandNextProblem": "Next Problem",
+  "commandPreviousProblem": "Previous Problem",
   "commandGoToLine": "Go to Line",
   "goToLineHint": "Enter :line or :line:column",
   "language": "Language",

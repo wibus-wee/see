@@ -53,3 +53,50 @@ func (a *App) diagnosticsHandler(gen int) func(*langserver.Server, string, edito
 		})
 	}
 }
+
+// goToProblem uses only diagnostics for the current buffer version.
+func (a *App) goToProblem(dir int) {
+	st := a.activeEditor()
+	if st == nil {
+		return
+	}
+	d := a.docs[a.activePath()]
+	if d == nil || d.buf == nil || d.diagnosticVersion != d.buf.Version() {
+		return
+	}
+	cursor := st.Cursor()
+	next, wrap := -1, -1
+	for _, problem := range d.diagnostics {
+		start := problem.Start
+		if start < 0 || start > d.buf.Len() {
+			continue
+		}
+		if dir > 0 {
+			if wrap < 0 || start < wrap {
+				wrap = start
+			}
+			if start > cursor && (next < 0 || start < next) {
+				next = start
+			}
+		} else {
+			if wrap < 0 || start > wrap {
+				wrap = start
+			}
+			if start < cursor && (next < 0 || start > next) {
+				next = start
+			}
+		}
+	}
+	if next < 0 {
+		next = wrap
+	}
+	if next < 0 || next == cursor {
+		return
+	}
+	if here, ok := a.here(); ok {
+		a.hist.Push(here)
+	}
+	a.cancelNav()
+	st.GoTo(d.buf.Pos(next))
+	a.focusEditor = st
+}
