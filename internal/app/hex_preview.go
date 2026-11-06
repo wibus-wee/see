@@ -68,6 +68,9 @@ func (a *App) hexView(c *ui.Context, g *group, d *doc) {
 		state.Handle.OnShortcut(c, ui.Shift, item.key, func() { control.move(item.delta, d.size, true, state) })
 	}
 	state.Handle.OnShortcut(c, ui.Cmd, ui.KeyC, func() { a.copyHex(d, control, services) })
+	if a.focusGroupTarget == g {
+		state.Handle.Focus(c)
+	}
 	count := hexview.Rows(d.size)
 	if count > int64(math.MaxInt) {
 		count = int64(math.MaxInt)

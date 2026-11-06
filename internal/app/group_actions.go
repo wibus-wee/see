@@ -1,6 +1,9 @@
 package app
 
-import "slices"
+import (
+	"see/internal/workspace"
+	"slices"
+)
 
 func (a *App) cycleEditorGroup(dir int) {
 	groups := a.groups()
@@ -25,7 +28,26 @@ func (a *App) moveTabToNextEditor() {
 	}
 	destination := groups[(at+1)%len(groups)]
 	a.moveTab(a.focus, a.focus.active, destination, sideNone, len(destination.order))
-	if st := a.activeEditor(); st != nil {
-		a.focusEditor = st
+	a.requestGroupFocus(destination)
+}
+
+func (a *App) requestGroupFocus(g *group) {
+	a.focus = g
+	a.focusGroupTarget = g
+	a.focusEditor = nil
+	a.focusImage = ""
+	if isImagePath(g.active) {
+		a.focusImage = g.active
 	}
+}
+
+func (a *App) groupHasFocusTarget(g *group) bool {
+	if v := g.diffs[g.active]; v != nil {
+		return v.state != nil && v.commit == nil && v.log == nil
+	}
+	d := a.docs[tabPath(g.active)]
+	if d == nil || d.loading || d.err != nil {
+		return false
+	}
+	return d.image != nil || g.hexPreview[d.path] || d.kind == workspace.Binary || g.eds[d.path] != nil
 }

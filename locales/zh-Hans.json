@@ -30,6 +30,7 @@
   "taskSucceeded": "已成功",
   "taskFailed": "已失败",
   "taskCancelled": "已取消",
+  "editorGroup": "编辑器组",
   "commandFocusNextEditor": "聚焦下一个编辑器",
   "commandFocusPreviousEditor": "聚焦上一个编辑器",
   "commandMoveTabToNextEditor": "移动标签页到下一个编辑器",

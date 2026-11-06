@@ -142,8 +142,11 @@ func (a *App) markdownView(c *ui.Context, g *group, d *doc) {
 	if v := d.buf.Version(); !d.markdownCached || v != d.markdownVersion {
 		d.markdownText, d.markdownVersion, d.markdownCached = d.buf.String(), v, true
 	}
-	scroll := ui.Scroll(c.Key(d.path)).Grow(1).FillWidth()
-	if scroll.FocusWithin() && a.focus != g {
+	scroll := ui.Scroll(c.Key(d.path)).Grow(1).FillWidth().Focusable()
+	if a.focusGroupTarget == g {
+		scroll.Focus()
+	}
+	if a.focusGroupTarget == nil && scroll.FocusWithin() && a.focus != g {
 		a.focus = g
 	}
 	scroll.Children(func() {

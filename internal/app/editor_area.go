@@ -8,6 +8,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 
@@ -25,6 +26,9 @@ type tabDrag struct {
 }
 
 func (a *App) editorArea(c *ui.Context) {
+	if target := a.focusGroupTarget; target != nil && (a.layout.find(target) == nil || target.focusHandle.FocusWithin(c)) {
+		a.focusGroupTarget = nil
+	}
 	ui.Column(c).Fill().Background(colors(c).Editor).Children(func() {
 		a.editorsAndPanel(c, func() {
 			ui.Column(c).Fill().Children(func() { a.layoutView(c, a.layout) })
@@ -56,7 +60,13 @@ func (a *App) layoutView(c *ui.Context, n *layout) {
 
 func (a *App) groupView(c *ui.Context, g *group) {
 	focused := g == a.focus && len(a.groups()) > 1
-	col := ui.Column(c.Key(g)).Grow(1).Fill()
+	col := ui.Column(c.Key(g)).Grow(1).Fill().FocusRing(false).Bind(&g.focusHandle).Label(fmt.Sprintf("%s %d", locales.Catalog.Format(i18n.Locale(), "editorGroup", nil), g.id))
+	if !a.groupHasFocusTarget(g) {
+		col.Focusable()
+		if a.focusGroupTarget == g {
+			col.Focus()
+		}
+	}
 	if focused {
 		accent := c.Theme().Accent
 		col.DrawOver(func(p *ui.Painter, r ui.Rect) {
@@ -189,7 +199,10 @@ func (a *App) groupContent(c *ui.Context, g *group) {
 		return
 	} else if v != nil {
 		view := editor.DiffView(c, v.state).Grow(1).FillWidth()
-		if view.FocusWithin() {
+		if a.focusGroupTarget == g {
+			view.Focus()
+		}
+		if a.focusGroupTarget == nil && view.FocusWithin() {
 			a.focus = g
 		}
 		return
@@ -368,15 +381,15 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 		width, _ := c.MeasureText(0, ui.Span{Text: prefix, Font: st.Font.Family, Size: fontSize})
 		g.caretAnchor = ui.Point{X: min(bounds.X+bounds.W-4, bounds.X+gutter+width), Y: min(bounds.Y+bounds.H-4, max(bounds.Y, bounds.Y+float32(st.LineTop(pos.Line)-st.ScrollY())+fontSize*lineHeight))}
 		switch {
-		case a.focusEditor == st:
+		case a.focusEditor == st || a.focusGroupTarget == g:
 			// A navigation went here: the keys read on from it.
 			ed.Focus()
 			a.focusEditor = nil
 		case g == a.focus && !a.term.open:
 			ed.AutoFocus()
 		}
-		if ed.FocusWithin() && a.focus != g {
-			a.focus = g // the editor clicked in is the one keys go to
+		if a.focusGroupTarget == nil && ed.FocusWithin() && a.focus != g {
+			a.focus = g
 		}
 	}
 }

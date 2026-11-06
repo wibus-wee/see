@@ -30,6 +30,7 @@
   "taskSucceeded": "Succeeded",
   "taskFailed": "Failed",
   "taskCancelled": "Cancelled",
+  "editorGroup": "Editor group",
   "commandFocusNextEditor": "Focus Next Editor",
   "commandFocusPreviousEditor": "Focus Previous Editor",
   "commandMoveTabToNextEditor": "Move Tab to Next Editor",

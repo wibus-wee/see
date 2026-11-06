@@ -30,6 +30,7 @@ type group struct {
 	hexControls     map[string]*hexControl
 	diffs           map[string]*gitDiffTab
 	tabSel          int
+	focusHandle     ui.Handle
 	relatedHandle   ui.Handle
 	relatedBounds   ui.Rect
 	pointerAnchor   ui.Point
@@ -482,11 +483,8 @@ func (a *App) splitActive(s side) {
 // focusGroup focuses the n-th group, from 0.
 func (a *App) focusGroup(n int) {
 	gs := a.groups()
-	if n < len(gs) {
-		a.focus = gs[n]
-		if ed := gs[n].eds[gs[n].active]; ed != nil {
-			a.focusEditor = ed
-		}
+	if n >= 0 && n < len(gs) {
+		a.requestGroupFocus(gs[n])
 		a.saveConfigSoon()
 	}
 }
