@@ -108,6 +108,8 @@ tsrs is a TypeScript 7 implementation under active development, so expect it to 
 
 The app asks you to trust a folder when you open a supported source file: a server can invoke project tools and download dependencies or toolchains. Reading files does not require trust, and server executables inside the open workspace are not used. Use **Show Output** in the command palette, or **Output** in the bottom panel, to inspect server activity and errors; output is kept in memory for the current session.
 
+Use **Cmd+Shift+M** or **Show Problems** to open the Problems navigator. It lists diagnostics from open files with their severity, location, and source. Filter by file path, message, or source, then click a problem to jump to it. Results disappear after edits until the language server publishes diagnostics for the new buffer version.
+
 Use **F8** / **Shift+F8** or **Next Problem** / **Previous Problem** in the command palette to move through current-file diagnostics in source order, wrapping at either end. Navigation waits for fresh diagnostics after edits.
 
 Use **Related Items** in the editor jump bar, or **Find References** and **Find Callers** in the command palette, to move between locations. Callers uses the language server's incoming call hierarchy, so availability depends on the server.
@@ -131,6 +133,7 @@ These are the macOS shortcuts; on other platforms, use Ctrl in place of Cmd. The
 | Open Markdown preview | Cmd+Shift+V |
 | Go to definition | F12 |
 | Next / previous problem in current file | F8 / Shift+F8 |
+| Show Problems | Cmd+Shift+M |
 | Find references | Shift+F12 |
 | Navigate back / forward | Ctrl+- / Ctrl+Shift+- |
 | Add editor right / below | Cmd+D / Cmd+Shift+D |

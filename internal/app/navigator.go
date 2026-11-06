@@ -24,6 +24,8 @@ func (a *App) navigatorPane(c *ui.Context, vibrant bool) {
 		a.navigatorBar(c)
 		if a.navigator == navGit {
 			a.gitNavigator(c)
+		} else if a.navigator == navProblems {
+			a.problemsNavigator(c)
 		} else if a.navigator == navFind {
 			a.findNavigator(c)
 		} else {
@@ -43,12 +45,12 @@ func sidebarColor(c *ui.Context, vibrant bool) ui.Color {
 // bounce at the end.
 var thumbSpring = ui.Animation{Spring: ui.SpringOptions{Duration: 260 * time.Millisecond, Bounce: 0.2}}
 
-// navigatorBar switches between the file and find navigators.
+// navigatorBar switches between sidebar navigators.
 func (a *App) navigatorBar(c *ui.Context) {
 	t := c.Theme()
 	ui.Row(c).FillWidth().Padding(0, 10, 10, 10).Children(func() {
 		const segW, segGap = 38, 2
-		parts := ui.SegmentedBase(c, &a.navigator, 3)
+		parts := ui.SegmentedBase(c, &a.navigator, 4)
 		parts.Track.FillWidth().Height(30).Padding(3).Gap(segGap).Radius(15).Background(t.Text.Alpha(0.06)).Label(locales.MsgNavigator())
 		if c.Preferences().HighContrast {
 			parts.Track.Border(1, t.Border)
@@ -60,6 +62,7 @@ func (a *App) navigatorBar(c *ui.Context) {
 			{icFolder, "Show the Project Navigator"},
 			{icSearch, "Show the Find Navigator"},
 			{icGit, "Show the Git Navigator"},
+			{icProblems, commandLabel("Show Problems")},
 		}
 		// The chosen segment's glass slides to it, as a segmented control's
 		// thumb does: in the flow, first, so that it paints under the

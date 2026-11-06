@@ -103,6 +103,7 @@ type App struct {
 	logs          logs.Store
 	settings      settingsState
 	find          findState
+	problems      problemsState
 	quick         quickOpen
 	confirm       *confirmation
 	deleteConfirm *confirmation
@@ -111,7 +112,7 @@ type App struct {
 	allowDirty    bool
 	quitApproved  bool
 
-	navigator        int // the sidebar's navigator: navFiles or navFind
+	navigator        int // the sidebar's navigator
 	sidebarOff       bool
 	titleButton      ui.Handle // the toolbar's project name, over which its menu shows
 	titleOpen        bool
@@ -138,6 +139,7 @@ const (
 	navFiles = iota
 	navFind
 	navGit
+	navProblems
 )
 
 // dirState is a directory of the tree: unread until opened.
@@ -410,6 +412,7 @@ func (a *App) closeWorkspace() {
 	a.hover = hoverState{}
 	a.find.reset()
 	a.quick = quickOpen{}
+	a.problems = problemsState{}
 	a.host.SetTitle("See")
 }
 

@@ -17,6 +17,7 @@ func editorBindings() []editor.Binding {
 		return editor.Binding{Mods: m, Key: k, Command: editor.NoCommand}
 	}
 	bs := []editor.Binding{
+		none(ui.Cmd|ui.Shift, ui.KeyM),
 		none(0, ui.KeyF8),
 		none(ui.Shift, ui.KeyF8),
 		none(ui.Ctrl, ui.KeyG),
