@@ -1,4 +1,14 @@
 {
+  "gitLogTable": "Commit table",
+  "gitLogRefs": "Branch / Tag",
+  "gitLogGraph": "Graph",
+  "gitLogMessage": "Commit Message",
+  "gitLogAuthor": "Author",
+  "gitLogDate": "Date",
+  "gitLogHash": "Hash",
+  "gitLogFilteredGraph": "Graph hidden while filtering; clear the filter to see commit connections.",
+  "gitLogLoadMore": "Load More Commits",
+
   "commandShowProblems": "Show Problems",
   "filterProblems": "Filter Problems",
   "problemsOpenFiles": "Diagnostics from open files",

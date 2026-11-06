@@ -1,4 +1,14 @@
 {
+  "gitLogTable": "提交表格",
+  "gitLogRefs": "分支 / 标签",
+  "gitLogGraph": "拓扑",
+  "gitLogMessage": "提交信息",
+  "gitLogAuthor": "作者",
+  "gitLogDate": "日期",
+  "gitLogHash": "哈希",
+  "gitLogFilteredGraph": "筛选时隐藏拓扑；清除筛选以查看提交连线。",
+  "gitLogLoadMore": "加载更多提交",
+
   "commandShowProblems": "显示问题",
   "filterProblems": "筛选问题",
   "problemsOpenFiles": "已打开文件中的诊断",

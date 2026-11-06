@@ -384,8 +384,12 @@ func refBadge(c *ui.Context, name string, current bool) {
 // drawGraphRow draws a commit's row of the graph: the lanes passing by,
 // those that end in its dot, and those leaving it for its parents.
 func drawGraphRow(p *ui.Painter, r ui.Rect, cm git.Commit) {
+	drawGraphRowLanes(p, r, cm, graphMaxLanes)
+}
+
+func drawGraphRowLanes(p *ui.Painter, r ui.Rect, cm git.Commit, laneLimit int) {
 	mid := r.Y + r.H/2
-	x := func(lane int) float32 { return r.X + graphX(min(lane, graphMaxLanes-1)) }
+	x := func(lane int) float32 { return r.X + graphX(min(lane, laneLimit-1)) }
 	curve := func(x0, y0, x1, y1 float32, color ui.Color) {
 		var path ui.Path
 		if x0 == x1 {
