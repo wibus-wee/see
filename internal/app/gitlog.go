@@ -169,52 +169,36 @@ func (a *App) gitLogContent(c *ui.Context, g *group, v *gitLogView) {
 	if v.selected == "" && len(rows) > 0 {
 		a.chooseLogCommit(v, h.commits[rows[0]])
 	}
-	width := float32(int(g.focusHandle.Bounds(c).W + 0.5))
+	width := g.focusHandle.Bounds(c).W
 	if width <= 0 {
 		width = 900
 	}
 	columns := logColumns(width, h.lanesW)
 	graphVisible := strings.TrimSpace(v.query) == ""
 	ui.Column(c).Grow(1).FillWidth().Children(func() {
-		ui.Row(c).Shrink(0).FillWidth().Height(50).Padding(0, 18).Gap(12).AlignItems(ui.Center).
-			BorderWidth(0, 0, 1, 0).BorderColor(colors(c).Hairline).Children(func() {
-			symbolIcon(c, icGit, 16, colors(c).Muted)
-			ui.Text(c, logText("gitLogHistory")).FontSize(14).Bold().SingleLine().Shrink(0)
-			scope := a.git.branch
-			if h.all {
-				scope = logText("gitLogAllBranches")
-			}
-			if scope == "" {
-				scope = "HEAD"
-			}
-			scopeButton := ui.ButtonBase(c).Height(28).MaxWidth(170).Padding(0, 9).Gap(6).Radius(6).AlignItems(ui.Center).
-				Background(colors(c).Pill).Border(1, colors(c).Hairline).Label(logText("gitLogScope")).Tooltip(logText("gitLogToggleScope"))
-			scopeButton.Menu(func(m *ui.Menu) {
-				if m.Item(logText("gitLogCurrentBranch")).Checked(!h.all).Chosen() && h.all {
-					h.all, h.stale = false, true
-					a.syncHistory()
-				}
-				if m.Item(logText("gitLogAllBranches")).Checked(h.all).Chosen() && !h.all {
-					h.all, h.stale = true, true
-					a.syncHistory()
-				}
-			})
-			scopeButton.Children(func() {
-				symbolIcon(c, icBranches, 12, colors(c).Muted)
-				ui.Text(c, scope).FontSize(11).SingleLine().Shrink(1)
-				symbolIcon(c, icChevron, 8, colors(c).Dim).Rotate(90)
-			})
-			ui.Box(c).Grow(1)
-			ui.TextInput(c, &v.query).Label(locales.MsgFilterCommits()).Placeholder(logText("gitLogSearch")).
-				Grow(1).Basis(170).MaxWidth(300).Height(28).Padding(0, 10).Radius(6).FontSize(12).
-				Background(colors(c).Pill).Border(1, colors(c).Hairline)
-			count := fmt.Sprintf("%d", len(rows))
+		ui.Row(c).Shrink(0).FillWidth().Height(36).Padding(0, 12).Gap(8).AlignItems(ui.Center).
+			BorderWidth(0, 0, 1, 0).BorderColor(colors(c).Separator).Children(func() {
+			ui.TextInput(c, &v.query).Label(locales.MsgFilterCommits()).Placeholder(locales.MsgFilterBySubjectAuthorBranchOrHash()).
+				Grow(1).MaxWidth(420).Height(24).Padding(0, 8).FontSize(12)
+			count := fmt.Sprintf("%d commit%s", len(rows), plural(len(rows)))
 			if !h.done {
-				count += "+"
+				count = fmt.Sprintf("%d of the first %d commits", len(rows), len(h.commits))
+				if v.query == "" {
+					count = fmt.Sprintf("%d+ commits", len(h.commits))
+				}
 			}
-			ui.Text(c, count).FontSize(11).TextColor(colors(c).Muted).SingleLine().Shrink(0)
+			ui.Text(c, count).FontSize(11).TextColor(colors(c).Muted).SingleLine()
+			ui.Box(c).Grow(1)
 			if h.loading {
 				ui.Spinner(c).FontSize(10)
+			}
+			tip := "Show Every Branch"
+			if h.all {
+				tip = "Show Only " + a.git.branch
+			}
+			if glyphButton(c, icBranches, "All Branches", tip, h.all, false).Clicked() {
+				h.all, h.stale = !h.all, true
+				a.syncHistory()
 			}
 		})
 		if !graphVisible {
@@ -269,20 +253,20 @@ func (a *App) gitLogContent(c *ui.Context, g *group, v *gitLogView) {
 	})
 }
 
-const logRowHeight = 38
+const logRowHeight = 34
 
 type logTableColumns struct{ refs, graph, author, date, hash float32 }
 
 func logColumns(width float32, lanes int) logTableColumns {
-	columns := logTableColumns{refs: 188, graph: max(76, logGraphX(max(lanes, 1)-1)+18), date: 82}
+	columns := logTableColumns{refs: 144, graph: max(62, graphX(max(lanes, 1)-1)+graphLane), date: 92}
 	if width >= 900 {
-		columns.author = 124
+		columns.author = 140
 	}
 	if width >= 1100 {
 		columns.hash = 72
 	}
 	if width < 700 {
-		columns.refs = 132
+		columns.refs = 108
 	}
 	return columns
 }
@@ -295,13 +279,13 @@ func (columns logTableColumns) minimumWidth() float32 {
 	if columns.hash > 0 {
 		count++
 	}
-	return columns.refs + columns.graph + columns.author + columns.date + columns.hash + 160 + 36 + float32(count-1)*12
+	return columns.refs + columns.graph + columns.author + columns.date + columns.hash + 160 + 24 + float32(count-1)*12
 }
 
 func logText(key string) string { return locales.Catalog.Format(i18n.Locale(), key, nil) }
 
 func logTableHeader(c *ui.Context, columns logTableColumns) {
-	ui.Row(c).FillWidth().Height(30).Padding(0, 18).Gap(12).AlignItems(ui.Center).
+	ui.Row(c).FillWidth().Height(26).Padding(0, 12).Gap(12).AlignItems(ui.Center).
 		Background(colors(c).TabBar).BorderWidth(0, 0, 1, 0).BorderColor(colors(c).Separator).Children(func() {
 		label := func(key string, width float32) {
 			ui.Text(c, logText(key)).Width(width).Shrink(0).FontSize(11).TextColor(colors(c).Muted).SingleLine()
@@ -321,12 +305,10 @@ func logTableHeader(c *ui.Context, columns logTableColumns) {
 
 func (a *App) logRow(c *ui.Context, v *gitLogView, cm git.Commit, columns logTableColumns, graphVisible bool) {
 	chosen := v.selected == cm.Hash
-	row := ui.Row(c.Key(cm.Hash)).FillWidth().Height(logRowHeight).Padding(0, 18).Gap(12).AlignItems(ui.Center).
+	row := ui.Row(c.Key(cm.Hash)).FillWidth().Height(logRowHeight).Padding(0, 12).Gap(12).AlignItems(ui.Center).
 		Label(cm.Subject).Tooltip(cm.Short + " " + cm.Subject)
 	if chosen {
-		row.Background(c.Theme().Accent.Alpha(0.10)).DrawOver(func(p *ui.Painter, r ui.Rect) {
-			p.Fill(ui.Rect{X: r.X, Y: r.Y + 7, W: 3, H: r.H - 14}, c.Theme().Accent, 1.5)
-		})
+		row.Background(c.Theme().Accent.Alpha(0.18))
 	} else if row.Hovered() {
 		row.Background(colors(c).Pill)
 	}
@@ -351,51 +333,34 @@ func (a *App) logRow(c *ui.Context, v *gitLogView, cm git.Commit, columns logTab
 	})
 
 	row.Children(func() {
-		ui.Row(c).Width(columns.refs).Shrink(0).Gap(6).AlignItems(ui.Center).
-			Label(strings.Join(cm.Refs, ", ")).Tooltip(strings.Join(cm.Refs, "\n")).Children(func() {
+		ui.Row(c).Width(columns.refs).Shrink(0).Gap(4).AlignItems(ui.Center).Tooltip(strings.Join(cm.Refs, "\n")).Children(func() {
 			refs := slices.DeleteFunc(slices.Clone(cm.Refs), func(ref string) bool { return ref == "HEAD" })
-			if len(refs) == 0 {
-				return
+			for _, ref := range refs[:min(2, len(refs))] {
+				refBadge(c.Key(ref), ref, ref == a.git.branch)
 			}
-			primary := refs[0]
-			if slices.Contains(refs, a.git.branch) {
-				primary = a.git.branch
-			}
-			accent := laneColor(cm.Lane)
-			if primary == a.git.branch {
-				accent = c.Theme().Accent
-			}
-			ui.Row(c).MaxWidth(columns.refs-32).Height(22).Padding(0, 7).Gap(5).Radius(5).
-				Background(accent.Alpha(0.11)).Border(1, accent.Alpha(0.22)).AlignItems(ui.Center).Children(func() {
-				symbolIcon(c, icBranches, 10, accent)
-				ui.Text(c, primary).FontSize(11).TextColor(accent).SingleLine().Shrink(1)
-			})
-			if len(refs) > 1 {
-				ui.Text(c, fmt.Sprintf("+%d", len(refs)-1)).FontSize(10).TextColor(colors(c).Muted).Shrink(0)
+			if len(refs) > 2 {
+				ui.Text(c, fmt.Sprintf("+%d", len(refs)-2)).FontSize(10).TextColor(colors(c).Muted).Shrink(0)
 			}
 		})
 		graph := ui.Box(c).Size(columns.graph, logRowHeight).Shrink(0)
 		if graphVisible {
-			graph.Label(logText("gitLogGraph") + " " + cm.Short).Draw(func(p *ui.Painter, r ui.Rect) { drawLogGraphRow(p, r, cm, max(a.git.history.lanesW, 1)) })
+			graph.Label(logText("gitLogGraph") + " " + cm.Short).Draw(func(p *ui.Painter, r ui.Rect) { drawGraphRowLanes(p, r, cm, max(a.git.history.lanesW, 1)) })
 			// Decorated tips carry author identity; ordinary commits keep compact dots.
 			if len(cm.Refs) > 0 {
 				graph.Children(func() {
-					ui.Box(c).Size(22, 22).Absolute().Left(logGraphX(cm.Lane)-11).Top((logRowHeight-22)/2).
-						Radius(11).Border(2, laneColor(cm.Lane)).Background(colors(c).Editor).Center().Children(func() { a.personAvatar(c, cm.Author, cm.Email, 16) })
+					ui.Box(c).Size(20, 20).Absolute().Left(graphX(cm.Lane)-10).Top((logRowHeight-20)/2).
+						Radius(10).Border(1.5, laneColor(cm.Lane)).Background(colors(c).Editor).Center().Children(func() { a.personAvatar(c, cm.Author, cm.Email, 16) })
 				})
 			}
 		}
 		ui.Row(c).Grow(1).Shrink(1).Basis(0).Gap(5).AlignItems(ui.Center).Children(func() {
-			title := ui.Text(c, cm.Subject).FontSize(13).SingleLine().Shrink(1)
-			if chosen {
-				title.Bold()
-			}
+			ui.Text(c, cm.Subject).FontSize(12).SingleLine().Shrink(1)
 			if a.git.history.unpushed[cm.Hash] {
 				ui.Text(c, "↑").FontSize(11).Bold().TextColor(c.Theme().Accent).Shrink(0).Tooltip(locales.MsgNotPushedYet())
 			}
 		})
 		if columns.author > 0 {
-			ui.Text(c, authors(cm)).Width(columns.author).Shrink(0).FontSize(11).TextColor(colors(c).Muted).SingleLine().Tooltip(authors(cm))
+			ui.Text(c, authors(cm)).Width(columns.author).Shrink(0).FontSize(12).TextColor(colors(c).Muted).SingleLine().Tooltip(authors(cm))
 		}
 		ui.Text(c, shortDate(cm.Date, time.Now())).Width(columns.date).Shrink(0).FontSize(11).TextColor(colors(c).Muted).SingleLine().Tooltip(cm.Date.Format(time.RFC1123))
 		if columns.hash > 0 {
@@ -409,23 +374,19 @@ func (a *App) logRow(c *ui.Context, v *gitLogView, cm git.Commit, columns logTab
 func (a *App) logCommitContent(c *ui.Context, g *group, lc *logCommit) {
 	cm := lc.commit
 	ui.Scroll(c.Key(cm.Hash)).Grow(1).FillWidth().TrackScroll(&lc.scroll).Label(locales.MsgCommit()).Children(func() {
-		ui.Column(c).FillWidth().Padding(20, 24).Gap(14).Children(func() {
+		ui.Column(c).FillWidth().Padding(16, 20).Gap(12).Children(func() {
 			ui.Row(c).FillWidth().Gap(10).AlignItems(ui.Center).Children(func() {
-				ui.Text(c, cm.Subject).FontSize(18).Bold().Selectable().Grow(1).Shrink(1)
+				ui.Text(c, cm.Subject).FontSize(16).Bold().Selectable().Grow(1).Shrink(1)
 				if ui.Button(c, locales.MsgOpenInTab()).FontSize(12).Clicked() {
 					a.openCommit(cm)
 				}
 			})
 			ui.Row(c).FillWidth().Gap(16).AlignItems(ui.Center).Wrap().Children(func() {
-				ui.Row(c).Grow(1).Shrink(1).Gap(9).AlignItems(ui.Center).Children(func() {
-					a.personAvatar(c, cm.Author, cm.Email, 26)
-					ui.Column(c).Gap(2).Shrink(1).Children(func() {
-						ui.Text(c, authors(cm)).FontSize(12).Bold().SingleLine().Tooltip(cm.Email)
-						ui.Text(c, cm.Date.Format("Jan 2, 2006 · 15:04")).FontSize(11).TextColor(colors(c).Muted).SingleLine()
-					})
+				ui.Box(c).Grow(1).Shrink(1).Basis(240).Children(func() {
+					a.personLine(c, git.Person{Name: cm.Author, Email: cm.Email}, "", cm.Date.Format("Monday, January 2, 2006 at 15:04"))
 				})
 				ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
-					ui.Text(c, cm.Short).FontSize(11).TextColor(colors(c).Muted).Padding(4, 7).Radius(4).Background(colors(c).Pill).Selectable()
+					ui.Text(c, cm.Short).FontSize(12).TextColor(colors(c).Muted).Selectable()
 					if glyphButton(c, icCopy, "Copy Commit Hash", "Copy Commit Hash", false, false).Clicked() {
 						c.Services().WriteClipboard(cm.Hash)
 						a.note(locales.MsgCopied()+cm.Short+".", false)
