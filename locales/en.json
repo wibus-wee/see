@@ -1,4 +1,6 @@
 {
+  "commandGoToLine": "Go to Line",
+  "goToLineHint": "Enter :line or :line:column",
   "language": "Language",
   "languageDescription": "Choose the language used by See.",
   "system": "System",

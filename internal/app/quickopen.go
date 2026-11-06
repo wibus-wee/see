@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/plugins/glass"
 	"github.com/egoist/mygo/ui"
 
@@ -48,8 +49,11 @@ func (a *App) quickOpenPanel(c *ui.Context) {
 				})
 				commandMode := strings.HasPrefix(q.query, ">")
 				symbolMode := strings.HasPrefix(q.query, "#")
+				lineMode := strings.HasPrefix(q.query, ":")
 				switch {
-				case !commandMode && a.root == "":
+				case lineMode && len(q.results) == 0:
+					ui.Text(c, locales.Catalog.Format(i18n.Locale(), "goToLineHint", nil)).TextColor(colors(c).Muted).Padding(8)
+				case !commandMode && !lineMode && a.root == "":
 					ui.Text(c, locales.MsgOpenAFolderToSearchFilesOrType()).TextColor(colors(c).Muted).Padding(8)
 				case symbolMode && !a.cfg.IsTrusted(a.root):
 					if ui.Button(c, locales.MsgTrustFolderToSearchSymbols()).Clicked() {
@@ -64,12 +68,12 @@ func (a *App) quickOpenPanel(c *ui.Context) {
 					ui.Row(c).Padding(8).Gap(8).Children(func() { ui.Spinner(c); ui.Text(c, locales.MsgSearchingSymbols()).TextColor(colors(c).Muted) })
 				case symbolMode && q.symbolErr != nil:
 					ui.Text(c, q.symbolErr.Error()).TextColor(colors(c).Err).Padding(8)
-				case !commandMode && !symbolMode && q.listing:
+				case !commandMode && !symbolMode && !lineMode && q.listing:
 					ui.Row(c).Padding(8).Gap(8).Children(func() {
 						ui.Spinner(c)
 						ui.Text(c, locales.MsgListingFiles()).TextColor(colors(c).Muted)
 					})
-				case !commandMode && !symbolMode && q.err != nil:
+				case !commandMode && !symbolMode && !lineMode && q.err != nil:
 					ui.Text(c, q.err.Error()).TextColor(colors(c).Err).Padding(8)
 				case len(q.results) == 0:
 					ui.Text(c, locales.MsgNoMatches()).TextColor(colors(c).Muted).Padding(8)
@@ -104,7 +108,7 @@ func (a *App) quickRow(c *ui.Context, i int) {
 		})
 		return
 	}
-	if strings.HasPrefix(q.query, ">") {
+	if strings.HasPrefix(q.query, ">") || strings.HasPrefix(q.query, ":") {
 		row := ui.Row(c.Key(r.Path)).FillWidth().Padding(8).Gap(8).Radius(8).AlignItems(ui.Center)
 		if i == q.sel {
 			row.Background(c.Theme().Accent)
