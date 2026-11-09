@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
@@ -272,6 +273,139 @@ func TestPushFetchPull(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(root, "b.go")); err != nil {
 		t.Fatal("the pull brought no b.go")
+	}
+}
+
+func TestGitAutoFetchUpdatesNavigatorTitleAndLog(t *testing.T) {
+	root := gitRepo(t, map[string]string{"a.go": "package a\n"})
+	bare := t.TempDir()
+	gitRun(t, bare, "init", "-q", "--bare")
+	gitRun(t, root, "remote", "add", "origin", bare)
+	gitRun(t, root, "push", "-qu", "origin", "main")
+	other := t.TempDir()
+	gitRun(t, other, "clone", "-q", "-b", "main", bare, ".")
+	writeFile(t, other, "incoming.go", "package a\n")
+	gitRun(t, other, "add", ".")
+	gitRun(t, other, "commit", "-qm", "incoming work")
+	gitRun(t, other, "push", "-q", "origin", "main")
+
+	h := newHarness(t, root)
+	t.Cleanup(h.a.wsCancel)
+	h.a.navigator = navGit
+	h.a.note("Reading source", false)
+	h.a.git.autoFetch = true
+	h.readGit() // the same status refresh used by the periodic poll
+	h.settle(func() bool { return !h.a.git.history.loading && !h.a.git.history.stale })
+	if h.a.git.behind != 1 || !h.tt.HasText("↓1") || !h.tt.HasText("incoming work") || !h.tt.HasText("↓") {
+		t.Fatalf("incoming state: behind=%d, UI=%q", h.a.git.behind, h.tt.Texts())
+	}
+	if h.a.notice != "Reading source" {
+		t.Fatalf("background fetch replaced the notice: %q", h.a.notice)
+	}
+	if _, err := os.Stat(filepath.Join(root, "incoming.go")); !os.IsNotExist(err) {
+		t.Fatalf("auto-fetch changed the checkout: %v", err)
+	}
+	h.a.openGitLog()
+	h.a.sidebarOff = true
+	h.tt.Frame()
+	if !h.tt.HasText("incoming work") || !h.tt.HasText("↓") {
+		t.Fatalf("log omits incoming commits: %q", h.tt.Texts())
+	}
+
+	h.a.sidebarOff = false
+	gitRun(t, other, "commit", "--allow-empty", "-qm", "later work")
+	gitRun(t, other, "push", "-q", "origin", "main")
+	h.readGit()
+	if h.a.git.behind != 1 || h.tt.HasText("later work") {
+		t.Fatal("ordinary status refresh ignored the fetch interval")
+	}
+	h.a.git.lastFetch = time.Now().Add(-gitFetchInterval)
+	h.readGit()
+	h.settle(func() bool { return !h.a.git.history.loading && !h.a.git.history.stale })
+	if h.a.git.behind != 2 || !h.tt.HasText("↓2") || !h.tt.HasText("later work") {
+		t.Fatalf("periodic fetch: behind=%d, UI=%q", h.a.git.behind, h.tt.Texts())
+	}
+	if err := h.tt.Click("Pull"); err != nil {
+		t.Fatal(err)
+	}
+	h.settle(func() bool { return !h.a.git.busy && !h.a.git.loading })
+	h.settle(func() bool { return !h.a.git.history.loading && !h.a.git.history.stale })
+	if h.a.git.behind != 0 || len(h.a.git.history.incoming) != 0 || h.tt.HasText("↓2") {
+		t.Fatalf("pull left incoming state: %+v", h.a.git.history.incoming)
+	}
+}
+
+func TestExternalGitRefsRefreshHistoryWithoutMovingHead(t *testing.T) {
+	root := gitRepo(t, map[string]string{"a.go": "package a\n"})
+	bare := t.TempDir()
+	gitRun(t, bare, "init", "-q", "--bare")
+	gitRun(t, root, "remote", "add", "origin", bare)
+	gitRun(t, root, "push", "-qu", "origin", "main")
+	gitRun(t, root, "commit", "--allow-empty", "-qm", "local work")
+	h := newHarness(t, root)
+	t.Cleanup(h.a.wsCancel)
+	h.a.navigator = navGit
+	h.readGit()
+	h.settle(func() bool { return !h.a.git.history.loading && !h.a.git.history.stale })
+	head := h.a.git.head
+	if !h.a.git.history.unpushed[head] || !h.tt.HasText("↑1") {
+		t.Fatal("local commit was not marked outgoing")
+	}
+	gitRun(t, root, "push", "-q")
+	gitRun(t, root, "tag", "published")
+	h.readGit()
+	h.settle(func() bool { return !h.a.git.history.loading && !h.a.git.history.stale })
+	if h.a.git.head != head || len(h.a.git.history.unpushed) != 0 || h.tt.HasText("↑1") || !slices.Contains(h.a.git.history.commits[0].Refs, "published") {
+		t.Fatalf("external push/tag left stale history: %q", h.tt.Texts())
+	}
+	gitRun(t, root, "tag", "-d", "published")
+	h.readGit()
+	h.settle(func() bool { return !h.a.git.history.loading && !h.a.git.history.stale })
+	if slices.Contains(h.a.git.history.commits[0].Refs, "published") {
+		t.Fatal("deleted tag remained in history")
+	}
+	other := t.TempDir()
+	gitRun(t, other, "clone", "-q", "-b", "main", bare, ".")
+	gitRun(t, other, "commit", "--allow-empty", "-qm", "external incoming")
+	gitRun(t, other, "push", "-q")
+	gitRun(t, root, "fetch", "-q")
+	h.readGit()
+	h.settle(func() bool { return !h.a.git.history.loading && !h.a.git.history.stale })
+	if h.a.git.head != head || h.a.git.behind != 1 || !h.tt.HasText("external incoming") {
+		t.Fatalf("external fetch left stale history: %q", h.tt.Texts())
+	}
+}
+
+func TestGitAutoFetchFailureRetriesAndDiscoversRemotes(t *testing.T) {
+	root := gitRepo(t, map[string]string{"a.go": "package a\n"})
+	h := newHarness(t, root)
+	t.Cleanup(h.a.wsCancel)
+	h.a.git.autoFetch = true
+	h.readGit()
+	if !h.a.git.lastFetch.IsZero() {
+		t.Fatal("fetched a repository without remotes")
+	}
+	gitRun(t, root, "remote", "add", "origin", filepath.Join(t.TempDir(), "missing"))
+	h.a.note("Reading source", false)
+	h.readGit()
+	firstAttempt := h.a.git.lastFetch
+	if firstAttempt.IsZero() || h.a.notice != "Reading source" || h.a.git.busy {
+		t.Fatalf("failed fetch did not settle quietly: %q", h.a.notice)
+	}
+	writeFile(t, root, "a.go", "package changed\n")
+	h.readGit()
+	if !h.a.git.lastFetch.Equal(firstAttempt) || len(h.a.git.changes) != 1 {
+		t.Fatal("failed fetch retried too soon or stopped local status updates")
+	}
+	bare := t.TempDir()
+	gitRun(t, bare, "init", "-q", "--bare")
+	gitRun(t, root, "remote", "set-url", "origin", bare)
+	gitRun(t, root, "push", "-qu", "origin", "main")
+	gitRun(t, bare, "tag", "recovered", "main")
+	h.a.git.lastFetch = time.Now().Add(-gitFetchInterval)
+	h.readGit()
+	if out, err := git.Command(context.Background(), root, "rev-parse", "--verify", "refs/tags/recovered"); err != nil || len(out) == 0 {
+		t.Fatalf("auto-fetch did not recover: %v", err)
 	}
 }
 

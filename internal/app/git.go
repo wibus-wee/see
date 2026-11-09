@@ -19,6 +19,7 @@ import (
 type gitState struct {
 	root, branch, message  string
 	head                   string // HEAD's commit, so committed versions are read again only when it moves
+	refs                   string
 	changes                []git.Change
 	selected               map[string]bool // multi-selected changes, keyed by staged:path
 	selectionAnchor        string
@@ -39,8 +40,10 @@ type gitState struct {
 	ahead, behind int
 	remotes       []string
 	web           string // the web page of the repository, or ""
-	webRoot       string // the repository web was read for
 	syncing       string // what talks to the remote now: Fetching, Pulling, Pushing
+	autoFetch     bool
+	autoFetching  bool
+	lastFetch     time.Time
 	// counts are the lines each change adds and deletes, staged and not,
 	// read while the Git navigator shows.
 	counts [2]map[string]git.FileStat
@@ -121,6 +124,7 @@ func (a *App) startGit() {
 	if watchFiles == nil {
 		return
 	}
+	a.git.autoFetch = true
 	a.refreshGit()
 	ctx, gen := a.wsCtx, a.gen
 	go func() {
@@ -145,51 +149,57 @@ func (a *App) refreshGit() {
 	if a.root == "" || a.wsCtx == nil {
 		return
 	}
-	if a.git.loading || a.git.busy {
+	if a.git.loading || a.git.busy && !a.git.autoFetching {
 		a.git.pending = true
 		return
 	}
 	a.git.loading = true
-	ctx, root, gen, webRoot := a.wsCtx, a.root, a.gen, a.git.webRoot
+	ctx, root, gen := a.wsCtx, a.root, a.gen
 	counting := a.navigator == navGit && !a.sidebarOff
 	go func() {
 		r, b, changes, err := git.Read(ctx, root)
 		var (
-			head, upstream, web string
-			ahead, behind       int
-			remotes             []string
-			counts              [2]map[string]git.FileStat
+			head, upstream, web, refs string
+			refsErr                   error
+			ahead, behind             int
+			remotes                   []string
+			counts                    [2]map[string]git.FileStat
 		)
 		if err == nil {
 			head = git.Head(ctx, r)
+			refs, refsErr = git.Refs(ctx, r)
 			upstream, ahead, behind = git.Tracking(ctx, r)
 			if counting && len(changes) > 0 {
 				counts[0], counts[1] = git.LineCounts(ctx, r)
 			}
-			if r != webRoot {
-				remotes = git.Remotes(ctx, r)
-				remote := "origin"
-				if up, _, ok := strings.Cut(upstream, "/"); ok {
-					remote = up
-				} else if len(remotes) > 0 {
-					remote = remotes[0]
-				}
-				web = git.RemoteWebURL(ctx, r, remote)
+			remotes = git.Remotes(ctx, r)
+			remote := "origin"
+			if up, _, ok := strings.Cut(upstream, "/"); ok {
+				remote = up
+			} else if len(remotes) > 0 {
+				remote = remotes[0]
 			}
+			web = git.RemoteWebURL(ctx, r, remote)
 		}
 		a.post.Post(func() {
 			if a.gen != gen {
 				return
 			}
 			a.git.loading = false
+			if a.git.root != r || a.git.branch != b || a.git.head != head || a.git.upstream != upstream || refsErr == nil && a.git.refs != refs {
+				a.git.history.stale = true
+			}
+			if refsErr == nil {
+				a.git.refs = refs
+			}
 			a.git.root, a.git.branch, a.git.changes, a.git.head = r, b, changes, head
 			a.git.pruneSelection()
 			a.git.upstream, a.git.ahead, a.git.behind = upstream, ahead, behind
 			if counting || len(changes) == 0 {
 				a.git.counts = counts
 			}
-			if err == nil && r != webRoot {
-				a.git.web, a.git.remotes, a.git.webRoot = web, remotes, r
+			if err == nil {
+				a.git.web, a.git.remotes = web, remotes
 			}
 			a.git.decor = git.Decorations(r, changes)
 			for _, d := range a.docs {
@@ -208,6 +218,7 @@ func (a *App) refreshGit() {
 				a.git.pending = false
 				a.refreshGit()
 			}
+			a.maybeFetchGit(time.Now())
 		})
 	}()
 }

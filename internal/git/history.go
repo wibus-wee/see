@@ -126,7 +126,7 @@ type Person struct{ Name, Email string }
 // is compared with.
 const emptyTree = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
-// Log reads up to n commits of HEAD's history, or of every branch with
+// Log reads up to n commits of HEAD and its upstream, or of every branch with
 // all, skipping the first skip, newest first and each before its parents,
 // with the lanes of the graph laid out.
 func Log(ctx context.Context, root string, all bool, skip, n int) ([]Commit, error) {
@@ -137,6 +137,9 @@ func Log(ctx context.Context, root string, all bool, skip, n int) ([]Commit, err
 		args = append(args, "--branches", "--remotes", "--tags", "HEAD")
 	} else {
 		args = append(args, "HEAD")
+		if upstream, err := Command(ctx, root, "rev-parse", "--verify", "--quiet", "@{upstream}"); err == nil {
+			args = append(args, strings.TrimSpace(string(upstream)))
+		}
 	}
 	out, err := Command(ctx, root, args...)
 	if err != nil {
@@ -267,7 +270,16 @@ func Graph(commits []Commit, lanes []string) []string {
 // Unpushed are the commits of HEAD the branch it tracks does not have,
 // nil without one.
 func Unpushed(ctx context.Context, root string) map[string]bool {
-	out, err := Command(ctx, root, "rev-list", "@{upstream}..HEAD")
+	return commitRange(ctx, root, "@{upstream}..HEAD")
+}
+
+// Incoming are the upstream's commits HEAD does not have, nil without one.
+func Incoming(ctx context.Context, root string) map[string]bool {
+	return commitRange(ctx, root, "HEAD..@{upstream}")
+}
+
+func commitRange(ctx context.Context, root, revision string) map[string]bool {
+	out, err := Command(ctx, root, "rev-list", revision)
 	if err != nil {
 		return nil
 	}

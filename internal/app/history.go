@@ -34,6 +34,7 @@ type gitHistory struct {
 	seq      uint64
 	list     ui.ListState
 	unpushed map[string]bool // HEAD's commits the branch it tracks has not
+	incoming map[string]bool
 }
 
 // commitView is a commit open in an editor.
@@ -79,9 +80,10 @@ func (a *App) loadHistory(reset bool) {
 	go func() {
 		commits, err := git.Log(ctx, root, all, skip, historyPage)
 		lanes = git.Graph(commits, lanes)
-		var unpushed map[string]bool
+		var unpushed, incoming map[string]bool
 		if reset {
 			unpushed = git.Unpushed(ctx, root)
+			incoming = git.Incoming(ctx, root)
 		}
 		a.post.Post(func() {
 			if a.gen != gen || h.seq != seq {
@@ -94,6 +96,7 @@ func (a *App) loadHistory(reset bool) {
 			}
 			if reset {
 				h.commits, h.lanesW, h.unpushed = nil, 0, unpushed
+				h.incoming = incoming
 			}
 			h.commits = append(h.commits, commits...)
 			h.lanes, h.head, h.done = lanes, head, len(commits) < historyPage
@@ -143,7 +146,7 @@ func (a *App) gitHistoryHeader(c *ui.Context) {
 		}
 		tip := "Show Every Branch"
 		if h.all {
-			tip = "Show Only " + a.git.branch
+			tip = "Show Only " + a.git.branch + " and Upstream"
 		}
 		if glyphButton(c, icBranches, "All Branches", tip, h.all, false).Clicked() {
 			h.all, h.stale = !h.all, true
@@ -286,6 +289,9 @@ func (a *App) historyRow(c *ui.Context, i int) {
 	if unpushed {
 		tip += "\n\nNot pushed yet"
 	}
+	if h.incoming[cm.Hash] {
+		tip += "\n\n" + logText("gitIncomingCommit")
+	}
 	row := ui.Row(c.Key(cm.Hash)).FillWidth().Height(historyRowHeight).Padding(0, 8, 0, 0).Gap(historyGap).AlignItems(ui.Center).Radius(6).
 		Label(cm.Subject).Tooltip(tip)
 	// A light selection, for the graph to show through.
@@ -321,6 +327,9 @@ func (a *App) historyRow(c *ui.Context, i int) {
 				ui.Text(c, cm.Subject).FontSize(12).Bold().SingleLine().Shrink(1)
 				if unpushed {
 					ui.Text(c, "↑").FontSize(11).Bold().TextColor(c.Theme().Accent).Shrink(0)
+				}
+				if h.incoming[cm.Hash] {
+					ui.Text(c, "↓").FontSize(11).Bold().TextColor(c.Theme().Accent).Shrink(0)
 				}
 			})
 			ui.Text(c, a.commitByline(cm)).FontSize(11).TextColor(colors(c).Muted).SingleLine()

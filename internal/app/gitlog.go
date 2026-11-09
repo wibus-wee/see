@@ -194,7 +194,7 @@ func (a *App) gitLogContent(c *ui.Context, g *group, v *gitLogView) {
 			}
 			tip := "Show Every Branch"
 			if h.all {
-				tip = "Show Only " + a.git.branch
+				tip = "Show Only " + a.git.branch + " and Upstream"
 			}
 			if glyphButton(c, icBranches, "All Branches", tip, h.all, false).Clicked() {
 				h.all, h.stale = !h.all, true
@@ -357,6 +357,9 @@ func (a *App) logRow(c *ui.Context, v *gitLogView, cm git.Commit, columns logTab
 			ui.Text(c, cm.Subject).FontSize(12).SingleLine().Shrink(1)
 			if a.git.history.unpushed[cm.Hash] {
 				ui.Text(c, "↑").FontSize(11).Bold().TextColor(c.Theme().Accent).Shrink(0).Tooltip(locales.MsgNotPushedYet())
+			}
+			if a.git.history.incoming[cm.Hash] {
+				ui.Text(c, "↓").FontSize(11).Bold().TextColor(c.Theme().Accent).Shrink(0).Tooltip(logText("gitIncomingCommit"))
 			}
 		})
 		if columns.author > 0 {

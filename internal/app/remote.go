@@ -1,9 +1,11 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"see/locales"
 	"strings"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 
@@ -21,23 +23,51 @@ var (
 // syncGit runs a command that talks to a remote, one at a time, saying
 // what it does in the toolbar.
 func (a *App) syncGit(doing, done string, args ...string) {
+	a.runSyncGit(doing, done, false, args...)
+}
+
+const gitFetchInterval = 2 * time.Minute
+
+func (a *App) maybeFetchGit(now time.Time) {
+	if !a.git.autoFetch || a.git.busy || a.git.loading || !a.hasRemote() ||
+		!a.git.lastFetch.IsZero() && now.Sub(a.git.lastFetch) < gitFetchInterval {
+		return
+	}
+	a.runSyncGit("Fetching…", "", true, "fetch", "--all", "--prune")
+}
+
+func (a *App) runSyncGit(doing, done string, background bool, args ...string) {
 	if a.git.busy || a.git.root == "" {
 		return
 	}
 	a.git.busy, a.git.syncing = true, doing
+	a.git.autoFetching = background
+	a.git.lastFetch = time.Now()
 	ctx, root, gen := a.wsCtx, a.git.root, a.gen
 	go func() {
+		if background {
+			var cancel context.CancelFunc
+			ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
+			defer cancel()
+		}
 		_, err := git.Network(ctx, root, args...)
 		a.post.Post(func() {
 			if a.gen != gen {
 				return
 			}
 			a.git.busy, a.git.syncing = false, ""
+			a.git.autoFetching = false
 			if err != nil {
-				a.note(locales.MsgGit()+gitErrLine(err), true)
+				if background {
+					a.logf("git auto-fetch: %v", err)
+				} else {
+					a.note(locales.MsgGit()+gitErrLine(err), true)
+				}
 			} else {
-				a.note(done, false)
-				a.git.history.stale = true
+				if !background {
+					a.note(done, false)
+					a.git.history.stale = true
+				}
 				if args[0] == "pull" && !a.watching {
 					a.refreshAll()
 				}

@@ -87,6 +87,47 @@ func TestBranchesSwitchAndCreate(t *testing.T) {
 	}
 }
 
+func TestLogIncludesDivergedUpstreamWithoutOtherBranches(t *testing.T) {
+	root, run := newRepo(t)
+	ctx := context.Background()
+	run("commit", "--allow-empty", "-qm", "common")
+	run("remote", "add", "origin", "https://example.com/repo.git")
+	run("switch", "-qc", "upstream")
+	run("commit", "--allow-empty", "-qm", "incoming")
+	incoming := strings.TrimSpace(run("rev-parse", "HEAD"))
+	run("update-ref", "refs/remotes/origin/main", incoming)
+	run("switch", "-q", "main")
+	run("branch", "--set-upstream-to=origin/main")
+	run("commit", "--allow-empty", "-qm", "outgoing")
+	outgoing := strings.TrimSpace(run("rev-parse", "HEAD"))
+	run("switch", "-qc", "unrelated")
+	run("commit", "--allow-empty", "-qm", "unrelated work")
+	run("switch", "-q", "main")
+	commits, err := Log(ctx, root, false, 0, 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var subjects []string
+	for _, cm := range commits {
+		subjects = append(subjects, cm.Subject)
+	}
+	slices.Sort(subjects)
+	if !slices.Equal(subjects, []string{"common", "incoming", "outgoing"}) {
+		t.Fatalf("current branch history = %v", subjects)
+	}
+	if got := Incoming(ctx, root); len(got) != 1 || !got[incoming] {
+		t.Fatalf("incoming = %v", got)
+	}
+	if got := Unpushed(ctx, root); len(got) != 1 || !got[outgoing] {
+		t.Fatalf("outgoing = %v", got)
+	}
+	run("branch", "--unset-upstream")
+	commits, err = Log(ctx, root, false, 0, 100)
+	if err != nil || len(commits) != 2 || len(Incoming(ctx, root)) != 0 {
+		t.Fatalf("history without upstream = %+v, %v", commits, err)
+	}
+}
+
 func TestLogGraphAndShow(t *testing.T) {
 	root, run := newRepo(t)
 	ctx := context.Background()
