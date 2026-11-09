@@ -2,6 +2,17 @@
 
 User-facing changes are grouped by release. Earlier releases are documented on the [Releases page](https://github.com/wibus-wee/see/releases).
 
+## 0.2.3
+
+### Added
+
+- Browse Git history in an aligned branch graph table with separate branch or tag, graph, commit message, author, date and hash columns; filter commits, load older history and horizontally scroll dense graphs.
+
+### Fixed
+
+- Keep remote Git status current by fetching when a repository opens and periodically afterward, so incoming and outgoing counts refresh without a manual fetch.
+- Show upstream-only commits in History and Git Log with incoming and outgoing markers, and refresh history when external pushes, fetches or tags change repository refs.
+
 ## 0.2.2
 
 ### Fixed
