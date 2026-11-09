@@ -45,6 +45,13 @@ func Tracking(ctx context.Context, root string) (upstream string, ahead, behind 
 	return upstream, ahead, behind
 }
 
+// Refs includes names as well as targets: a push, tag or branch switch
+// can change history decorations without changing HEAD.
+func Refs(ctx context.Context, root string) (string, error) {
+	out, err := Command(ctx, root, "for-each-ref", "--format=%(refname)%00%(objectname)%00%(symref)", "refs/heads", "refs/remotes", "refs/tags")
+	return string(out), err
+}
+
 // Remotes lists the repository's remotes, origin first.
 func Remotes(ctx context.Context, root string) []string {
 	out, err := Command(ctx, root, "remote")
