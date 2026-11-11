@@ -17,6 +17,7 @@ import (
 // side by side: each shows its documents in editors of its own, which
 // keep their own place, over the buffers all groups share.
 type group struct {
+	videos          map[string]*videoPreview
 	id              int
 	order           []string // the tabs, left to right
 	mru             []string // most recently active last
@@ -170,6 +171,9 @@ func (a *App) removeGroup(g *group) {
 	if leaf == nil || leaf.parent == nil {
 		return
 	}
+	for path := range g.videos {
+		g.closeVideo(path)
+	}
 	p := leaf.parent
 	sib := p.a
 	if sib == leaf {
@@ -244,6 +248,7 @@ func (a *App) closeTab(g *group, path string) {
 	g.order = slices.DeleteFunc(g.order, func(p string) bool { return p == path })
 	g.mru = slices.DeleteFunc(g.mru, func(p string) bool { return p == path })
 	if !g.hasDocument(docPath) {
+		g.closeVideo(docPath)
 		delete(g.eds, docPath)
 		delete(g.pending, docPath)
 		delete(g.markdownPreview, docPath)
@@ -370,6 +375,17 @@ func (a *App) moveTab(from *group, path string, to *group, s side, at int) {
 	hexList := from.hexLists[path]
 	hexCtl := from.hexControls[path]
 	alreadyOpen := to.has(path)
+	if v := from.videos[path]; v != nil {
+		if !alreadyOpen {
+			if to.videos == nil {
+				to.videos = map[string]*videoPreview{}
+			}
+			to.videos[path] = v
+			delete(from.videos, path)
+		} else {
+			from.closeVideo(path)
+		}
+	}
 	pend, hasPend := from.pending[path]
 	if to.has(path) {
 		ed = to.eds[path] // it shows there already: keep that one

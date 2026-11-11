@@ -19,11 +19,11 @@ var cmakeLanguage = &editor.Language{
 	Tokenizer:      editor.TokenizerFunc(cmakeTokenize),
 }
 
-func languageFor(name string) *editor.Language {
+func languageFor(name, text string) *editor.Language {
 	if filepath.Base(name) == "CMakeLists.txt" || strings.EqualFold(filepath.Ext(name), ".cmake") {
 		return cmakeLanguage
 	}
-	return editor.LanguageFor(name)
+	return editor.LanguageForText(name, text)
 }
 
 // CMake bracket arguments and comments carry their delimiter length across lines.

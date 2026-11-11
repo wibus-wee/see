@@ -394,6 +394,11 @@ func (a *App) treeItem(c *ui.Context, p string) {
 		if m.Item("Copy Path").Chosen() {
 			services.WriteClipboard(p)
 		}
+		if runtime.GOOS == "darwin" && !e.Dir && m.Item(locales.QuickLook()).Chosen() {
+			if err := a.host.PreviewItem(p); err != nil {
+				a.note(locales.MsgCouldNotPreviewFile()+err.Error(), true)
+			}
+		}
 		if m.Item("Show in Finder").Chosen() {
 			mygo.Shell.ShowItemInFolder(p)
 		}

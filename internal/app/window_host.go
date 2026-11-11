@@ -108,6 +108,7 @@ func (h *windowHost) ConfirmDirty(message string) (int, error) {
 	return result.Button, err
 }
 
+func (h *windowHost) PreviewItem(path string) error   { return mygo.Shell.PreviewItem(path) }
 func (h *windowHost) TrashItem(path string) error     { return mygo.Shell.TrashItem(path) }
 func (h *windowHost) CopyFiles(paths ...string) error { return mygo.Clipboard.WriteFiles(paths...) }
 func (h *windowHost) CopyImage(png []byte) error      { return mygo.Clipboard.WriteImage(png) }
