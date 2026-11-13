@@ -44,6 +44,8 @@ type Desktop interface {
 	// Save, Don't Save or Cancel. ErrNoDialog has the app ask in the window.
 	ConfirmDirty(message string) (int, error)
 
+	// PreviewItem opens the on-disk file in macOS Quick Look.
+	PreviewItem(path string) error
 	TrashItem(path string) error
 	CopyFiles(paths ...string) error
 	CopyImage(png []byte) error
@@ -81,6 +83,7 @@ func (NoDesktop) PickFolder() (string, error)          { return "", nil }
 func (NoDesktop) PickFile() (string, error)            { return "", nil }
 func (NoDesktop) PickNewFile(string) (string, error)   { return "", nil }
 func (NoDesktop) ConfirmDirty(string) (int, error)     { return 0, ErrNoDialog }
+func (NoDesktop) PreviewItem(string) error             { return ErrNoDialog }
 func (NoDesktop) TrashItem(string) error               { return ErrNoDialog }
 func (NoDesktop) CopyFiles(...string) error            { return ErrNoDialog }
 func (NoDesktop) CopyImage([]byte) error               { return ErrNoDialog }

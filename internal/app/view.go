@@ -68,6 +68,7 @@ func (a *App) view(c *ui.Context) {
 		startTrace = false
 		a.logf("startup: first frame built %v after process start", time.Since(startTime).Round(time.Millisecond))
 	}
+	a.pauseHiddenVideos()
 	a.applyAppearance(c)
 	a.modifiers = c.Modifiers()
 	c.SetTheme(a.theme)

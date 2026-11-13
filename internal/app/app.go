@@ -162,6 +162,7 @@ type doc struct {
 	cache           *draftCache
 	saving          bool
 	buf             *editor.Buffer
+	video           bool
 	image           *ui.Bitmap
 	markdownOptions *markdown.Options
 	markdownText    string
@@ -378,6 +379,11 @@ func (a *App) closeWorkspace() {
 	a.task = nil
 	a.taskList = ui.ListState{}
 	a.closeTerminals()
+	for _, g := range a.groups() {
+		for path := range g.videos {
+			g.closeVideo(path)
+		}
+	}
 	if a.lsp != nil {
 		a.lsp.Stop()
 		a.lsp = nil
@@ -710,13 +716,14 @@ func (a *App) loadDoc(d *doc) {
 	d.seq++
 	seq, gen := d.seq, a.gen
 	lossy, needBuf, stamp, untitled := d.lossy, d.buf == nil, d.stamp, d.untitled
+	checkStamp := !needBuf || d.video
 	path, root, name := d.path, a.root, d.name
 	var snap editor.Snapshot
 	if !needBuf {
 		snap = d.buf.Snapshot() // cheap: a version of the rope
 	}
 	go func() {
-		if !needBuf {
+		if checkStamp {
 			// A reload: skip files whose size and time are as they were,
 			// without reading them.
 			if fi, err := os.Stat(path); err == nil && (fileStamp{fi.Size(), fi.ModTime()}) == stamp {
@@ -728,7 +735,7 @@ func (a *App) loadDoc(d *doc) {
 				return
 			}
 		}
-		f, err := workspace.ReadFile(path)
+		f, err := readDocumentFile(path)
 		var recovery *recoveryRecord
 		if needBuf && !untitled {
 			recovery = readRecovery(root, path)
@@ -750,7 +757,7 @@ func (a *App) loadDoc(d *doc) {
 				buf.Set(f.Text)
 			}
 			if !f.Plain {
-				buf.SetLanguage(languageFor(name))
+				buf.SetLanguage(languageFor(name, f.Text))
 			}
 		}
 		// Compare with what is shown here, off the UI thread, so the UI
@@ -764,6 +771,9 @@ func (a *App) loadDoc(d *doc) {
 				d.loading = false
 				a.reloadDoc(d)
 				return
+			}
+			if d.video {
+				a.closeDocumentVideos(d.path)
 			}
 			if picture != nil {
 				f.Kind = workspace.Binary
@@ -779,6 +789,9 @@ func (a *App) loadDoc(d *doc) {
 				}
 				if recovery.Text != f.Text || err != nil {
 					buf.Set(recovery.Text)
+				}
+				if !f.Plain {
+					buf.SetLanguage(languageFor(name, recovery.Text))
 				}
 				a.loaded(d, f, buf, false, nil)
 				d.diskText, d.bom = recovery.Base, recovery.BOM
@@ -815,6 +828,7 @@ func (a *App) loaded(d *doc, f workspace.File, buf *editor.Buffer, same bool, er
 	d.err, d.gone, d.conflict = nil, false, false
 	d.bom, d.diskText = f.BOM, f.Text
 	d.kind, d.size, d.plain = f.Kind, f.Size, f.Plain
+	d.video = isVideoPath(d.path) && f.Kind == workspace.Binary
 	d.stamp = fileStamp{f.Size, f.ModTime}
 	if f.Kind != workspace.Text {
 		return
@@ -835,8 +849,8 @@ func (a *App) loaded(d *doc, f workspace.File, buf *editor.Buffer, same bool, er
 			}
 		}
 		d.buf.Reset(f.Text)
-		if !f.Plain && d.buf.Language() == nil {
-			d.buf.SetLanguage(languageFor(d.name))
+		if !f.Plain {
+			d.buf.SetLanguage(languageFor(d.name, f.Text))
 		}
 		for st, p := range places {
 			st.GoTo(clampPos(d.buf, p.pos))
@@ -1416,7 +1430,7 @@ func (a *App) loadRelatedPreviews(ch *defChoices) {
 			if snap, ok := snapshots[t.path]; ok {
 				if buffers[t.path] == nil {
 					buffers[t.path] = editor.NewBuffer(snap.String())
-					buffers[t.path].SetLanguage(languageFor(t.path))
+					buffers[t.path].SetLanguage(languageFor(t.path, snap.Line(0)))
 				}
 				if t.pos.Line >= 0 && t.pos.Line < snap.LineCount() {
 					t.previewStart = max(0, t.pos.Line-2)
@@ -1431,7 +1445,7 @@ func (a *App) loadRelatedPreviews(ch *defChoices) {
 				if f, err := workspace.ReadFile(t.path); err == nil && f.Kind == workspace.Text {
 					lines = strings.Split(f.Text, "\n")
 					buffers[t.path] = editor.NewBuffer(f.Text)
-					buffers[t.path].SetLanguage(languageFor(t.path))
+					buffers[t.path].SetLanguage(languageFor(t.path, f.Text))
 				}
 				files[t.path] = lines
 			}

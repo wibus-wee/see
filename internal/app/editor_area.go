@@ -228,6 +228,8 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 			ui.Spinner(c)
 			ui.Text(c, locales.MsgLoading2()+d.name+"…").TextColor(colors(c).Muted)
 		})
+	case !g.hexPreview[d.path] && d.video:
+		a.videoPreview(c, g, d)
 	case g.hexPreview[d.path] || d.kind == workspace.Binary && d.image == nil:
 		a.hexView(c, g, d)
 	case d.image != nil:

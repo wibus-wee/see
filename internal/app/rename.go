@@ -115,14 +115,19 @@ func (a *App) renamed(old, dst string) {
 		delete(a.docs, path)
 		d.seq++
 		d.loading = false
+		mediaChanged := isVideoPath(path) != isVideoPath(next)
+		a.closeDocumentVideos(path)
 		d.path, d.uri, d.name = next, uriOf(next), filepath.Base(next)
 		d.gone = false
 		d.markdownOptions = nil
 		d.hex = nil
 		if d.buf != nil {
-			d.buf.SetLanguage(languageFor(d.name))
+			d.buf.SetLanguage(languageFor(d.name, d.buf.Snapshot().Line(0)))
 		}
 		a.docs[next] = d
+		if mediaChanged && (d.buf == nil || !d.buf.Modified()) {
+			d.stamp = fileStamp{}
+		}
 		for _, g := range a.groups() {
 			for i, p := range g.order {
 				if p == path {
@@ -178,7 +183,7 @@ func (a *App) renamed(old, dst string) {
 				g.markdownPreview[next] = v
 			}
 		}
-		if d.buf == nil {
+		if d.buf == nil || mediaChanged && !d.buf.Modified() {
 			a.loadDoc(d)
 		} else {
 			if d.buf.Modified() {

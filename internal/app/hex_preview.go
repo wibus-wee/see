@@ -25,7 +25,7 @@ type hexState struct {
 
 func (a *App) canViewBytes(path string) bool {
 	d := a.docs[path]
-	return d != nil && !d.untitled && !d.loading && d.err == nil && !(d.kind == workspace.Binary && d.image == nil)
+	return d != nil && !d.untitled && !d.loading && d.err == nil && !(d.kind == workspace.Binary && d.image == nil && !d.video)
 }
 
 func (a *App) hexView(c *ui.Context, g *group, d *doc) {

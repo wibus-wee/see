@@ -293,7 +293,7 @@ func (a *App) saveUntitled(d *doc, done func(bool)) {
 					if d.buf.Version() == snap.Version() {
 						d.buf.MarkSaved()
 					}
-					d.buf.SetLanguage(languageFor(d.name))
+					d.buf.SetLanguage(languageFor(d.name, d.buf.Snapshot().Line(0)))
 					if fi, e := os.Stat(path); e == nil {
 						d.stamp = fileStamp{fi.Size(), fi.ModTime()}
 					}

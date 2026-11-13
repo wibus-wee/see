@@ -58,7 +58,7 @@ Use `see` or `see .` for the current folder, `see /path/to/project` to open a fo
 - **History** — browse the branch and its upstream, or every branch, as a graph; open a commit to read its message and files, and a file as a diff. Incoming commits carry ↓ and outgoing commits ↑. **Git: Show Log** opens a table with separate branch/tag and graph columns, aligned commit messages, authors, dates and hashes, plus the chosen commit's diffs below. Narrow editors keep the message and date visible; dense graphs scroll horizontally. Filtering hides graph connections until cleared, and older commits remain available through **Load More Commits**.
 - **Branch and sync** — switch or create branches from the branch name in the toolbar, and fetch, pull and push, with incoming and outgoing commits counted. Local status refreshes every five seconds. See fetches on opening a repository and every two minutes afterward; fetching updates remote references without changing your files. External pushes, fetches and tags also refresh the history on the next local status check.
 - **Link** — copy a reference to the selected lines, or their link on GitHub, GitLab and similar hosts.
-- **Preview** — Markdown rendered natively, and any file as hexadecimal bytes when text is not an option.
+- **Preview** — Markdown, images, and native video playback, plus hexadecimal bytes for saved files. macOS also offers Quick Look from the file navigator.
 - **Run** — a terminal with tabs and split panes, rooted in the open workspace.
 - **Settle in** — system, light, or dark appearance, editor and terminal preferences, recent folders, and a notice when files change on disk.
 
@@ -92,9 +92,15 @@ For a Markdown file, use the preview button in the editor bar or **Cmd+Shift+V**
 
 Images in their own paragraph can use Markdown image syntax or a standalone HTML `<img>` tag. Remote HTTP and HTTPS images are fetched when the preview opens, so their host can see the request. Other HTML blocks display as source.
 
+### Video preview
+
+Open a local MP4, M4V, MOV, WebM, MKV, AVI, or WMV file to play it with the system media engine. Controls provide play/pause, seeking, mute, volume, and looping. Switching away from a video pauses it; return and press Play to resume. Split editors keep separate playback positions, and closing a view releases its player. Use **Show File Bytes** to inspect the file instead.
+
+Codec support depends on the operating system. Linux requires GStreamer 1.x, its base plugins, and the plugins for the codecs in the file. Unsupported or damaged media shows an error with Retry. Videos stream from disk without the source editor's file-size limit. On macOS, right-click a file in the navigator and choose **Quick Look** for a system preview of the saved file.
+
 ### Binary files
 
-Binary files open as a read-only hexadecimal view with offsets and printable ASCII, including files too large to open as text. Use **Show File Bytes** in the editor bar to inspect the bytes of any saved file; the view reads from disk, so unsaved edits are not shown there.
+Other binary files open as a read-only hexadecimal view with offsets and printable ASCII, including files too large to open as text. Use **Show File Bytes** in the editor bar to inspect the bytes of any saved file; the view reads from disk, so unsaved edits are not shown there.
 
 Click a byte and Shift-click, or hold Shift with the arrow keys, to select a range. **Copy Hex** copies up to 1 MiB. Enter a hexadecimal offset to jump, or search for text or a byte sequence prefixed with `hex:` — for example, `hex: 00 FF`.
 
