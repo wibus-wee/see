@@ -53,6 +53,7 @@ func Main() {
 		varSetMenu     func()
 		createProject  func(string)
 		openProject    func(string) *projectWindow
+		revealOpenFile func(*App, string) bool
 		openFromSystem func(string)
 		pendingOpen    []string
 	)
@@ -131,6 +132,19 @@ func Main() {
 				varSetMenu()
 			}
 		}
+		revealOpenFile = func(requester *App, path string) bool {
+			path = workspace.DocPath("", "", path)
+			for _, p := range projects {
+				if p.app == requester || p.app.root != "" || standaloneDocForPath(p.app, path) == nil || (p.win != nil && p.win.IsDestroyed()) {
+					continue
+				}
+				p.win.Show()
+				p.win.Focus()
+				activate(p)
+				return true
+			}
+			return false
+		}
 		win.OnFocus(func() { activate(primary) })
 		welcome.OnFocus(func() { activate(primary) })
 		createProject = func(path string) { openProject(path) }
@@ -149,6 +163,7 @@ func Main() {
 				}
 			}
 			child := newApp(cfg)
+			child.ownsStandaloneSession = false
 			child.version = a.version
 			child.hasWelcome = true
 			child.showWelcome = path == ""
@@ -174,6 +189,7 @@ func Main() {
 				childWin.SetMaximizable(false)
 			}
 			host.createProject = createProject
+			host.revealOpenFile = func(path string) bool { return revealOpenFile(child, path) }
 			host.setMenu = func() {
 				if varSetMenu != nil {
 					varSetMenu()
@@ -225,6 +241,7 @@ func Main() {
 		host := newWindowHost(a, win)
 		host.wins, host.welcome = wins, welcome
 		host.createProject = createProject
+		host.revealOpenFile = func(path string) bool { return revealOpenFile(a, path) }
 		a.host = host
 
 		// openPath opens what the system hands the app, as a file or folder
@@ -408,8 +425,17 @@ func Main() {
 		case cfg.LastWorkspace != "" && cfg.ReopenLast:
 			if _, err := os.Stat(cfg.LastWorkspace); err != nil {
 				a.welcomeNote = "The last folder, " + cfg.LastWorkspace + ", is no longer there."
+				a.restoreSession()
+				if len(a.docs) != 0 {
+					a.showWelcome = false
+				}
 			} else {
 				a.openWorkspace(cfg.LastWorkspace)
+			}
+		default:
+			a.restoreSession()
+			if len(a.docs) != 0 {
+				a.showWelcome = false
 			}
 		}
 	})
@@ -442,6 +468,15 @@ func Main() {
 // projectHolding is the open window whose folder holds path, the
 // innermost when folders nest.
 func projectHolding(projects []*projectWindow, path string) *projectWindow {
+	path = workspace.DocPath("", "", path)
+	for _, p := range projects {
+		if p.win != nil && p.win.IsDestroyed() {
+			continue
+		}
+		if p.app.docs[path] != nil || (p.app.root == "" && standaloneDocForPath(p.app, path) != nil) {
+			return p
+		}
+	}
 	var best *projectWindow
 	for _, p := range projects {
 		root := p.app.root

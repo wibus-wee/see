@@ -10,7 +10,7 @@ func TestNoDesktopShowsNothingAndAsksNothing(t *testing.T) {
 	if p, err := d.PickFolder(); p != "" || err != nil {
 		t.Fatalf("PickFolder = %q, %v", p, err)
 	}
-	if p, err := d.PickNewFile("/w"); p != "" || err != nil {
+	if p, err := d.PickNewFile("/w", "Untitled"); p != "" || err != nil {
 		t.Fatalf("PickNewFile = %q, %v", p, err)
 	}
 	// Dialogs and the system's trash say they are not there, so the app

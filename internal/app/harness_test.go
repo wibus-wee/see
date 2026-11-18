@@ -76,6 +76,7 @@ func newHarness(t *testing.T, root string) *harness {
 	t.Helper()
 	h := &harness{t: t, q: make(chan func(), 1024), fc: &fakeClient{enc: lsp.UTF16}, host: &fakeHost{}}
 	h.a = newApp(&config.Config{})
+	t.Cleanup(func() { releaseStandalonePaths(h.a) })
 	h.a.hasWelcome = true
 	h.a.host = h.host
 	h.a.post = platform.SchedulerFunc(func(fn func()) { h.q <- fn })
@@ -227,13 +228,14 @@ func serverOf(root string, c langserver.Client) *langserver.Server {
 // gives it to see what the app asks.
 type fakeHost struct {
 	platform.NoDesktop
-	newFile     func(root string) (string, error)
+	newFile     func(root, name string) (string, error)
 	pickFile    func() (string, error)
 	openFile    func() (string, error)
 	confirm     func(message string) (int, error)
 	trash       func(path string) error
 	copy        func(paths ...string) error
 	copyPNG     func(png []byte) error
+	revealFile  func(path string) bool
 	openProject func(path string) bool
 	resize      func(width, height int)
 	appearance  func(string)
@@ -243,11 +245,11 @@ type fakeHost struct {
 
 func (f *fakeHost) CloseWindow() { f.closed++ }
 
-func (f *fakeHost) PickNewFile(root string) (string, error) {
+func (f *fakeHost) PickNewFile(root, name string) (string, error) {
 	if f.newFile == nil {
-		return f.NoDesktop.PickNewFile(root)
+		return f.NoDesktop.PickNewFile(root, name)
 	}
-	return f.newFile(root)
+	return f.newFile(root, name)
 }
 
 func (f *fakeHost) ConfirmDirty(message string) (int, error) {
@@ -276,6 +278,10 @@ func (f *fakeHost) CopyImage(png []byte) error {
 		return f.NoDesktop.CopyImage(png)
 	}
 	return f.copyPNG(png)
+}
+
+func (f *fakeHost) RevealOpenFile(path string) bool {
+	return f.revealFile != nil && f.revealFile(path)
 }
 
 func (f *fakeHost) OpenProjectWindow(path string) bool {

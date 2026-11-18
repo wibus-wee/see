@@ -109,6 +109,8 @@ func (a *App) welcomeView(c *ui.Context) {
 	switch {
 	case c.Shortcut(ui.Cmd|ui.Shift, ui.KeyN):
 		a.host.OpenProjectWindow("")
+	case c.Shortcut(ui.Cmd, ui.KeyN):
+		a.newFile()
 	case c.Shortcut(ui.Cmd, ui.KeyO):
 		a.openFolderDialog()
 	case c.Shortcut(ui.Cmd, ui.KeyComma):

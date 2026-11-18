@@ -3,10 +3,14 @@ package app
 import (
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"see/locales"
+
+	"see/internal/workspace"
 )
 
 type recoveryRecord struct {
@@ -37,6 +41,27 @@ func readRecovery(root, path string) *recoveryRecord {
 		return nil
 	}
 	return &r
+}
+
+// pendingStandaloneRecovery filters a saved-file recovery before restoring its
+// tab. A process may die after writing the file but before deleting the record;
+// if the record already equals disk there is no unsaved work to reopen.
+func pendingStandaloneRecovery(path string) *recoveryRecord {
+	r := readRecovery("", path)
+	if r == nil {
+		return nil
+	}
+	f, err := workspace.ReadFile(path)
+	if err == nil && f.Kind == workspace.Text && r.Text == f.Text {
+		if name, pathErr := recoveryPath("", path); pathErr == nil {
+			_ = os.Remove(name)
+		}
+		return nil
+	}
+	if err == nil && f.Kind != workspace.Text || err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	return r
 }
 
 func (a *App) cacheRecovery(d *doc) {

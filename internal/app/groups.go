@@ -290,6 +290,9 @@ func (a *App) releaseIfUnused(path string) {
 		return
 	}
 	delete(a.docs, path)
+	if a.root == "" && !d.untitled {
+		releaseStandalonePathIfIdle(a, d, path)
+	}
 	if d.untitled {
 		removeDraft(d)
 	} else {

@@ -37,9 +37,9 @@ type Desktop interface {
 	SetWorkspaceSize(width, height int)
 	PopupMenu(x, y int, items []*mygo.MenuItem)
 
-	PickFolder() (string, error)             // "" when canceled
-	PickFile() (string, error)               // "" when canceled
-	PickNewFile(root string) (string, error) // "" when canceled
+	PickFolder() (string, error)                   // "" when canceled
+	PickFile() (string, error)                     // "" when canceled
+	PickNewFile(root, name string) (string, error) // "" when canceled
 	// ConfirmDirty asks what to do with unsaved changes: the index of
 	// Save, Don't Save or Cancel. ErrNoDialog has the app ask in the window.
 	ConfirmDirty(message string) (int, error)
@@ -50,6 +50,9 @@ type Desktop interface {
 	CopyFiles(paths ...string) error
 	CopyImage(png []byte) error
 
+	// RevealOpenFile brings another window that already owns path forward and
+	// reports whether the caller should not open a duplicate folderless editor.
+	RevealOpenFile(path string) bool
 	// OpenProjectWindow opens path in a window of its own, "" an empty one,
 	// and reports whether it could.
 	OpenProjectWindow(path string) bool
@@ -76,25 +79,26 @@ var ErrNoDialog = errors.New("no dialog")
 // window and dialogs are canceled.
 type NoDesktop struct{}
 
-func (NoDesktop) SetTitle(string)                      {}
-func (NoDesktop) SetWorkspaceSize(int, int)            {}
-func (NoDesktop) PopupMenu(int, int, []*mygo.MenuItem) {}
-func (NoDesktop) PickFolder() (string, error)          { return "", nil }
-func (NoDesktop) PickFile() (string, error)            { return "", nil }
-func (NoDesktop) PickNewFile(string) (string, error)   { return "", nil }
-func (NoDesktop) ConfirmDirty(string) (int, error)     { return 0, ErrNoDialog }
-func (NoDesktop) PreviewItem(string) error             { return ErrNoDialog }
-func (NoDesktop) TrashItem(string) error               { return ErrNoDialog }
-func (NoDesktop) CopyFiles(...string) error            { return ErrNoDialog }
-func (NoDesktop) CopyImage([]byte) error               { return ErrNoDialog }
-func (NoDesktop) OpenProjectWindow(string) bool        { return false }
-func (NoDesktop) CloseWindow()                         {}
-func (NoDesktop) RefreshMenu()                         {}
-func (NoDesktop) SetAppearance(string)                 {}
-func (NoDesktop) OpenSettings()                        {}
-func (NoDesktop) CloseSettings()                       {}
-func (NoDesktop) RefreshSettings()                     {}
-func (NoDesktop) OpenFontPopover(ui.Rect, bool)        {}
-func (NoDesktop) CloseFontPopover()                    {}
-func (NoDesktop) PickTerminalApp()                     {}
-func (NoDesktop) LoadTerminalIcon(string)              {}
+func (NoDesktop) SetTitle(string)                            {}
+func (NoDesktop) SetWorkspaceSize(int, int)                  {}
+func (NoDesktop) PopupMenu(int, int, []*mygo.MenuItem)       {}
+func (NoDesktop) PickFolder() (string, error)                { return "", nil }
+func (NoDesktop) PickFile() (string, error)                  { return "", nil }
+func (NoDesktop) PickNewFile(string, string) (string, error) { return "", nil }
+func (NoDesktop) ConfirmDirty(string) (int, error)           { return 0, ErrNoDialog }
+func (NoDesktop) PreviewItem(string) error                   { return ErrNoDialog }
+func (NoDesktop) TrashItem(string) error                     { return ErrNoDialog }
+func (NoDesktop) CopyFiles(...string) error                  { return ErrNoDialog }
+func (NoDesktop) CopyImage([]byte) error                     { return ErrNoDialog }
+func (NoDesktop) RevealOpenFile(string) bool                 { return false }
+func (NoDesktop) OpenProjectWindow(string) bool              { return false }
+func (NoDesktop) CloseWindow()                               {}
+func (NoDesktop) RefreshMenu()                               {}
+func (NoDesktop) SetAppearance(string)                       {}
+func (NoDesktop) OpenSettings()                              {}
+func (NoDesktop) CloseSettings()                             {}
+func (NoDesktop) RefreshSettings()                           {}
+func (NoDesktop) OpenFontPopover(ui.Rect, bool)              {}
+func (NoDesktop) CloseFontPopover()                          {}
+func (NoDesktop) PickTerminalApp()                           {}
+func (NoDesktop) LoadTerminalIcon(string)                    {}

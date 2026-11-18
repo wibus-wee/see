@@ -1,6 +1,8 @@
 package app
 
 import (
+	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
@@ -56,7 +58,7 @@ func TestUntitledSaveKeepsEditsMadeBeforeCompletion(t *testing.T) {
 	right := h.a.focus
 	leftEditor, rightEditor := left.eds[old], right.eds[old]
 	destination := filepath.Join(h.a.root, "saved.txt")
-	h.host.newFile = func(string) (string, error) { return destination, nil }
+	h.host.newFile = func(string, string) (string, error) { return destination, nil }
 	edited := false
 	h.tt.Frame()
 	h.tt.Key(ui.Cmd, ui.KeyS)
@@ -68,6 +70,7 @@ func TestUntitledSaveKeepsEditsMadeBeforeCompletion(t *testing.T) {
 			disk, err := os.ReadFile(destination)
 			if !edited && draft.untitled && err == nil && string(disk) == "first snapshot" {
 				draft.buf.Set("later unsaved edit")
+				h.tt.Frame() // caches this version while the draft still has its old path
 				edited = true
 			}
 			complete()
@@ -76,6 +79,10 @@ func TestUntitledSaveKeepsEditsMadeBeforeCompletion(t *testing.T) {
 		}
 	}
 	h.tt.Frame()
+	h.settle(func() bool {
+		r := readRecovery(h.a.root, destination)
+		return r != nil && r.Base == "first snapshot" && r.Text == "later unsaved edit"
+	})
 
 	disk, err := os.ReadFile(destination)
 	if !edited || err != nil || string(disk) != "first snapshot" || draft.buf.String() != "later unsaved edit" || !draft.buf.Modified() {
@@ -94,6 +101,57 @@ func TestUntitledSaveKeepsEditsMadeBeforeCompletion(t *testing.T) {
 	disk, err = os.ReadFile(destination)
 	if err != nil || string(disk) != "later unsaved edit" || draft.buf.Modified() {
 		t.Fatalf("second Save did not persist newer edit: %q dirty=%v err=%v", disk, draft.buf.Modified(), err)
+	}
+}
+
+func TestUntitledSaveOverwritesNativePanelDestination(t *testing.T) {
+	h := newHarness(t, writeTree(t, map[string]string{"existing.txt": "old contents"}))
+	h.a.newFile()
+	draft := h.a.docs[h.a.activePath()]
+	draft.buf.Set("approved replacement")
+	destination := filepath.Join(h.a.root, "existing.txt")
+	h.host.newFile = func(string, string) (string, error) { return destination, nil }
+
+	h.a.saveActive()
+	h.settle(func() bool { return !draft.saving && !draft.untitled })
+	data, err := os.ReadFile(destination)
+	if err != nil || string(data) != "approved replacement" || draft.path != destination || draft.buf.Modified() {
+		t.Fatalf("overwrite save: data=%q path=%q modified=%v err=%v", data, draft.path, draft.buf.Modified(), err)
+	}
+}
+
+func TestAtomicWriteFailureLeavesNoPartialDestination(t *testing.T) {
+	wantErr := errors.New("write stopped")
+	for _, test := range []struct {
+		name     string
+		existing bool
+	}{
+		{name: "existing", existing: true},
+		{name: "new"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "destination.txt")
+			if test.existing {
+				if err := os.WriteFile(path, []byte("original"), 0644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			err := writeFileAtomically(path, func(w io.Writer) error {
+				_, _ = io.WriteString(w, "partial")
+				return wantErr
+			})
+			if !errors.Is(err, wantErr) {
+				t.Fatalf("write error = %v, want %v", err, wantErr)
+			}
+			data, readErr := os.ReadFile(path)
+			if test.existing {
+				if readErr != nil || string(data) != "original" {
+					t.Fatalf("failed write changed destination: data=%q err=%v", data, readErr)
+				}
+			} else if !os.IsNotExist(readErr) {
+				t.Fatalf("failed write left new destination: data=%q err=%v", data, readErr)
+			}
+		})
 	}
 }
 

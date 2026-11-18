@@ -5,12 +5,14 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"see/locales"
 	"strings"
 
 	"github.com/egoist/mygo/ui/editor"
+	"see/internal/config"
 	"see/internal/platform"
 	"see/internal/workspace"
 )
@@ -37,23 +39,32 @@ func (a *App) openFileDialog() {
 }
 
 func (a *App) newFile() {
-	if a.root == "" && a.showWelcome {
-		return
-	}
-	if a.root == "" {
-		a.showWelcome = false
-	}
 	dir, err := draftDir()
 	if err != nil {
-		a.note(locales.MsgCouldNotCreateRecoveryCache()+err.Error(), true)
+		a.newFileError(locales.MsgCouldNotCreateRecoveryCache() + err.Error())
 		return
 	}
-	var id [16]byte
-	if _, err = rand.Read(id[:]); err != nil {
-		a.note(locales.MsgCouldNotCreateFile()+err.Error(), true)
+	if err = os.MkdirAll(dir, 0700); err != nil {
+		a.newFileError(locales.MsgCouldNotCreateRecoveryCache() + err.Error())
 		return
 	}
-	path := filepath.Join(dir, fmt.Sprintf("%x", id))
+	var path string
+	for {
+		var id [16]byte
+		if _, err = rand.Read(id[:]); err != nil {
+			a.newFileError(locales.MsgCouldNotCreateFile() + err.Error())
+			return
+		}
+		path = filepath.Join(dir, fmt.Sprintf("%x", id))
+		err = createDraft(path)
+		if !os.IsExist(err) {
+			break
+		}
+	}
+	if err != nil {
+		a.newFileError(locales.MsgCouldNotCacheUnsavedFile() + err.Error())
+		return
+	}
 	name := "Untitled"
 	for n := 1; ; n++ {
 		used := false
@@ -68,12 +79,87 @@ func (a *App) newFile() {
 		}
 		name = fmt.Sprintf("Untitled-%d", n)
 	}
+	if a.root == "" && len(a.docs) == 0 {
+		a.host.SetWorkspaceSize(config.DefaultWindowWidth, config.DefaultWindowHeight)
+	}
 	d := &doc{path: path, uri: uriOf(path), name: name, untitled: true, cache: &draftCache{}, buf: editor.NewBuffer(""), kind: workspace.Text}
 	a.docs[path] = d
 	a.openFile(path, nil)
 	a.focusEditor = a.focus.eds[path]
-	a.cacheDraft(d)
+	a.welcomeNote = ""
+	a.showWelcome = false
 	a.saveConfig()
+}
+
+func (a *App) newFileError(msg string) {
+	a.note(msg, true)
+	if a.showWelcome {
+		a.welcomeNote = msg
+	}
+}
+
+// createDraft makes the initial recovery cache before the welcome window is
+// dismissed. Later edits replace this file through cacheDraft.
+func createDraft(path string) error {
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		return err
+	}
+	if err := f.Close(); err != nil {
+		_ = os.Remove(path)
+		return err
+	}
+	return nil
+}
+
+// writeFileAtomically writes to a sibling and only moves it into place after
+// the contents are complete and closed. Rename deliberately replaces an
+// existing destination: the native save panel has already asked the user to
+// approve that overwrite.
+func writeFileAtomically(path string, write func(io.Writer) error) error {
+	if real, err := filepath.EvalSymlinks(path); err == nil {
+		path = real
+	}
+	dir, base := filepath.Split(path)
+	var tmp *os.File
+	for range 10 {
+		var id [8]byte
+		if _, err := rand.Read(id[:]); err != nil {
+			return err
+		}
+		name := filepath.Join(dir, fmt.Sprintf(".%s.%x.tmp", base, id))
+		f, err := os.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0666)
+		if os.IsExist(err) {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		tmp = f
+		break
+	}
+	if tmp == nil {
+		return fmt.Errorf("could not create a temporary file next to %s", path)
+	}
+	name := tmp.Name()
+	defer os.Remove(name)
+	if info, err := os.Stat(path); err == nil {
+		if err := tmp.Chmod(info.Mode().Perm()); err != nil {
+			_ = tmp.Close()
+			return err
+		}
+	}
+	err := write(tmp)
+	if err == nil {
+		err = tmp.Sync()
+	}
+	if closeErr := tmp.Close(); err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		return err
+	}
+	return os.Rename(name, path)
 }
 
 func draftDir() (string, error) {
@@ -172,12 +258,16 @@ func (a *App) guardDirty(docs []*doc, proceed func()) bool {
 		{locales.DiscardChanges(), func() {
 			a.confirm = nil
 			for _, d := range docs {
+				a.discardedSessionDocs[d.path] = struct{}{}
 				if d.untitled {
 					removeDraft(d)
 				} else {
 					a.removeRecovery(d)
 				}
 			}
+			// The destructive action may clear the document map (workspace
+			// transition) or quit immediately. Persist the exclusion now.
+			a.saveConfig()
 			a.allowDirty = true
 			defer func() { a.allowDirty = false }()
 			proceed()
@@ -244,9 +334,9 @@ func (a *App) saveUntitled(d *doc, done func(bool)) {
 		return
 	}
 	d.saving = true
-	root, gen, pick := a.root, a.gen, a.host.PickNewFile
+	root, name, gen, pick := a.root, d.name, a.gen, a.host.PickNewFile
 	go func() {
-		path, err := pick(root)
+		path, err := pick(root, name)
 		a.post.Post(func() {
 			if a.gen != gen || a.docs[d.path] != d {
 				return
@@ -260,30 +350,48 @@ func (a *App) saveUntitled(d *doc, done func(bool)) {
 				return
 			}
 			path = workspace.DocPath(a.root, a.realRoot, path)
-			if a.docs[path] != nil {
+			alreadyOpen := a.docs[path]
+			if alreadyOpen == nil && a.root == "" {
+				alreadyOpen = standaloneDocForPath(a, path)
+			}
+			if alreadyOpen != nil {
 				d.saving = false
+				a.note(locales.MsgThatFileIsAlreadyOpen(), true)
+				done(false)
+				return
+			}
+			claimed := a.root == ""
+			if claimed && !reserveStandalonePath(a, d, path) {
+				d.saving = false
+				a.host.RevealOpenFile(path)
 				a.note(locales.MsgThatFileIsAlreadyOpen(), true)
 				done(false)
 				return
 			}
 			snap := d.buf.Snapshot()
 			go func() {
-				f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0666)
-				if err == nil {
-					_, err = snap.WriteTo(f)
-					if e := f.Close(); err == nil {
-						err = e
-					}
-				}
+				err := writeFileAtomically(path, func(w io.Writer) error {
+					_, err := snap.WriteTo(w)
+					return err
+				})
 				a.post.Post(func() {
 					if a.gen != gen || a.docs[d.path] != d {
+						if claimed {
+							releaseStandalonePath(a, d, path)
+						}
 						return
 					}
 					d.saving = false
 					if err != nil {
+						if claimed {
+							releaseStandalonePath(a, d, path)
+						}
 						a.note(locales.MsgCouldNotSaveFile()+err.Error(), true)
 						done(false)
 						return
+					}
+					if claimed {
+						finishStandalonePathWrite(a, d, path)
 					}
 					old := d.path
 					removeDraft(d)
@@ -292,6 +400,8 @@ func (a *App) saveUntitled(d *doc, done func(bool)) {
 					d.diskText = snap.String()
 					if d.buf.Version() == snap.Version() {
 						d.buf.MarkSaved()
+					} else {
+						a.cacheRecovery(d)
 					}
 					d.buf.SetLanguage(languageFor(d.name, d.buf.Snapshot().Line(0)))
 					if fi, e := os.Stat(path); e == nil {
@@ -388,6 +498,10 @@ func (a *App) saveDoc(d *doc, overwrite bool) bool {
 		d.stamp = fileStamp{fi.Size(), fi.ModTime()}
 	}
 	d.gone, d.conflict = false, false
+	if a.root == "" {
+		// A clean saved file is no longer crash-recovery state.
+		a.saveConfig()
+	}
 	a.note(locales.MsgSaved()+d.name, false)
 	return true
 }

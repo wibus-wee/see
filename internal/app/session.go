@@ -37,13 +37,26 @@ func (a *App) captureSession() {
 			s.Active = g.active
 		}
 		for _, key := range g.order {
+			path := tabPath(key)
+			if _, discarded := a.discardedSessionDocs[path]; discarded {
+				continue
+			}
+			if a.root == "" {
+				d := a.docs[path]
+				_, recovering := a.standaloneSessionDocs[path]
+				// A standalone session is crash recovery, not a recent-files
+				// list: keep untitled drafts and saved files with unsaved edits.
+				// Keep a restored entry while its recovery record is still loading.
+				if d == nil || (!d.untitled && (d.buf == nil || !d.buf.Modified()) && !(recovering && d.loading)) {
+					continue
+				}
+			}
 			if isDiffTab(key) {
 				if spec := diffTabSpec(g.diffs[key]); spec != nil {
 					s.Tabs = append(s.Tabs, config.Tab{Diff: spec})
 				}
 				continue
 			}
-			path := tabPath(key)
 			tab := config.Tab{Path: path, MarkdownPreview: !isMarkdownTab(key) && g.markdownPreview[path], PreviewTab: isMarkdownTab(key)}
 			if d := a.docs[path]; d != nil && d.untitled {
 				tab.Untitled, tab.Name = true, d.name
@@ -61,10 +74,97 @@ func (a *App) captureSession() {
 	if a.cfg.Workspaces == nil {
 		a.cfg.Workspaces = make(map[string]config.Workspace)
 	}
-	a.cfg.Workspaces[a.root] = config.Workspace{Layout: snapshot(a.layout), SidebarHidden: a.sidebarOff, Navigator: a.navigator, ChangesClosed: a.git.changesClosed, HistoryClosed: a.git.historyClosed, GitSplit: a.git.split, GitLogSplit: a.git.logSplit, WindowWidth: a.windowWidth, WindowHeight: a.windowHeight}
+	workspace := config.Workspace{Layout: snapshot(a.layout), SidebarHidden: a.sidebarOff, Navigator: a.navigator, ChangesClosed: a.git.changesClosed, HistoryClosed: a.git.historyClosed, GitSplit: a.git.split, GitLogSplit: a.git.logSplit, WindowWidth: a.windowWidth, WindowHeight: a.windowHeight}
+	if a.root == "" {
+		a.mergeStandaloneSession(workspace)
+		return
+	}
+	a.cfg.Workspaces[a.root] = workspace
+}
+
+// mergeStandaloneSession merges this window's recovery tabs into the one
+// schema slot available for folderless windows. Paths previously contributed
+// by this window are replaced; paths belonging to other windows are retained.
+// The merged session is deliberately one group so the primary can recover all
+// documents after a restart.
+func (a *App) mergeStandaloneSession(current config.Workspace) {
+	previous := a.cfg.Workspaces[""]
+	var merged []config.Tab
+	seen := make(map[string]bool)
+	appendTab := func(tab config.Tab) {
+		key := tab.Path
+		if tab.PreviewTab {
+			key += "\x00preview"
+		}
+		if tab.Diff != nil || tab.Path == "" || seen[key] {
+			return
+		}
+		seen[key] = true
+		merged = append(merged, tab)
+	}
+	walkSessionTabs(previous.Layout, func(tab config.Tab) {
+		_, owned := a.standaloneSessionDocs[tab.Path]
+		_, discarded := a.discardedSessionDocs[tab.Path]
+		if !owned && !discarded {
+			appendTab(tab)
+		}
+	})
+	var active string
+	var activePreview bool
+	walkSessionTabs(current.Layout, func(tab config.Tab) {
+		a.standaloneSessionDocs[tab.Path] = struct{}{}
+		appendTab(tab)
+	})
+	if current.Layout != nil {
+		active, activePreview = standaloneActive(current.Layout)
+	}
+
+	if len(merged) == 0 {
+		previous.Layout = nil
+	} else {
+		if active == "" {
+			active, activePreview = standaloneActive(previous.Layout)
+		}
+		previous.Layout = &config.Layout{Tabs: merged, Active: active, ActivePreview: activePreview, Focused: true}
+	}
+	if current.Layout != nil {
+		previous.SidebarHidden, previous.Navigator = current.SidebarHidden, current.Navigator
+		previous.WindowWidth, previous.WindowHeight = current.WindowWidth, current.WindowHeight
+	}
+	a.cfg.Workspaces[""] = previous
+}
+
+func walkSessionTabs(layout *config.Layout, fn func(config.Tab)) {
+	if layout == nil {
+		return
+	}
+	for _, tab := range layout.Tabs {
+		fn(tab)
+	}
+	walkSessionTabs(layout.First, fn)
+	walkSessionTabs(layout.Second, fn)
+}
+
+func standaloneActive(layout *config.Layout) (string, bool) {
+	if layout == nil {
+		return "", false
+	}
+	if layout.Focused && layout.Active != "" {
+		return layout.Active, layout.ActivePreview
+	}
+	if active, preview := standaloneActive(layout.First); active != "" {
+		return active, preview
+	}
+	if active, preview := standaloneActive(layout.Second); active != "" {
+		return active, preview
+	}
+	return layout.Active, layout.ActivePreview
 }
 
 func (a *App) restoreSession() {
+	if a.root == "" && !a.ownsStandaloneSession {
+		return
+	}
 	s, ok := a.cfg.Workspaces[a.root]
 	if !ok || s.Layout == nil {
 		return
@@ -105,6 +205,15 @@ func (a *App) restoreSession() {
 				key = markdownTab(tab.Path)
 			}
 			if !filepath.IsAbs(tab.Path) || g.has(key) || (tab.PreviewTab && !isMarkdown(tab.Path)) {
+				continue
+			}
+			if a.root == "" {
+				a.standaloneSessionDocs[tab.Path] = struct{}{}
+			}
+			// Saved standalone tabs exist only to reach their recovery record.
+			// If a save removed that record before the session update made it
+			// to disk, do not turn the stale entry into a recent-files reopen.
+			if a.root == "" && !tab.Untitled && pendingStandaloneRecovery(tab.Path) == nil {
 				continue
 			}
 			pos := editor.Pos{Line: max(tab.Line, 0), Col: max(tab.Column, 0)}

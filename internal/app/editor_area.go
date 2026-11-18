@@ -247,6 +247,11 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 		if v := d.buf.Version(); v != d.lspVersion {
 			a.invalidateHover()
 			d.lspVersion = v
+			if a.root == "" {
+				// Make a saved file's recovery record reachable from the shared
+				// standalone session if the process crashes.
+				a.saveConfigSoon()
+			}
 			if d.untitled {
 				a.cacheDraft(d)
 			} else if !d.lossy {

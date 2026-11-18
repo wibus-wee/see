@@ -93,7 +93,7 @@ func TestBulkCloseSavesUntitledCandidate(t *testing.T) {
 	draft := h.a.docs[h.a.activePath()]
 	draft.buf.Set("draft contents")
 	destination := filepath.Join(h.a.root, "saved.txt")
-	h.host.newFile = func(string) (string, error) { return destination, nil }
+	h.host.newFile = func(string, string) (string, error) { return destination, nil }
 	h.host.confirm = func(string) (int, error) { return 0, nil }
 	g := h.a.focus
 	h.a.closeTabs(g, keep.path, closeOtherTabs)

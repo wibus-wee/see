@@ -1,6 +1,7 @@
 package app
 
 import (
+	"path/filepath"
 	"see/internal/config"
 	"see/locales"
 
@@ -22,6 +23,8 @@ type windowHost struct {
 	welcomeSized bool
 	wins         *windows
 	welcome      *mygo.Window
+	// revealOpenFile brings forward another window that already has a file.
+	revealOpenFile func(path string) bool
 	// createProject opens a project window; setMenu builds the menu bar.
 	createProject func(path string)
 	setMenu       func()
@@ -95,8 +98,14 @@ func (h *windowHost) PickFile() (string, error) {
 	return paths[0], nil
 }
 
-func (h *windowHost) PickNewFile(root string) (string, error) {
-	return mygo.Dialog.Save(mygo.SaveDialogOptions{Parent: h.win, Title: locales.MsgNewFile2(), DefaultPath: root, ButtonLabel: "Create"})
+func (h *windowHost) PickNewFile(root, name string) (string, error) {
+	return mygo.Dialog.Save(newFileSaveOptions(h.win, root, name))
+}
+
+func newFileSaveOptions(parent *mygo.Window, root, name string) mygo.SaveDialogOptions {
+	return mygo.SaveDialogOptions{
+		Parent: parent, Title: locales.MsgSave(), DefaultPath: filepath.Join(root, name), ButtonLabel: locales.MsgSave(),
+	}
 }
 
 func (h *windowHost) ConfirmDirty(message string) (int, error) {
@@ -113,6 +122,10 @@ func (h *windowHost) TrashItem(path string) error     { return mygo.Shell.TrashI
 func (h *windowHost) CopyFiles(paths ...string) error { return mygo.Clipboard.WriteFiles(paths...) }
 func (h *windowHost) CopyImage(png []byte) error      { return mygo.Clipboard.WriteImage(png) }
 func (h *windowHost) SetAppearance(appearance string) { mygo.Theme.SetSource(themeSource(appearance)) }
+
+func (h *windowHost) RevealOpenFile(path string) bool {
+	return h.revealOpenFile != nil && h.revealOpenFile(path)
+}
 
 func (h *windowHost) OpenProjectWindow(path string) bool {
 	if h.createProject == nil {

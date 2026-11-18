@@ -6,6 +6,7 @@ import (
 	"see/locales"
 	"strings"
 
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 
 	"see/internal/assets"
@@ -16,10 +17,11 @@ import (
 // the left, the folders opened lately on the right.
 
 var (
-	appIcon    = assets.Icon
-	folderIcon = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h3.6l2 2.2h7.4A2.5 2.5 0 0 1 21 9.7v7.8a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"/></svg>`))
-	openIcon   = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h3.6l2 2.2h7.4A2.5 2.5 0 0 1 21 9.7V11"/><path d="M3 7.5v10A2.5 2.5 0 0 0 5.5 20h12.2a2 2 0 0 0 1.9-1.4l1.8-5.6a1.5 1.5 0 0 0-1.4-2H8.3a2 2 0 0 0-1.9 1.4L4 19.5"/></svg>`))
-	reopenIcon = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>`))
+	appIcon      = assets.Icon
+	folderIcon   = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h3.6l2 2.2h7.4A2.5 2.5 0 0 1 21 9.7v7.8a2.5 2.5 0 0 1-2.5 2.5h-13A2.5 2.5 0 0 1 3 17.5z"/></svg>`))
+	documentIcon = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6.5A2.5 2.5 0 0 0 4 5.5v13A2.5 2.5 0 0 0 6.5 21h11a2.5 2.5 0 0 0 2.5-2.5V9z"/><path d="M14 3v6h6M12 12v6M9 15h6"/></svg>`))
+	openIcon     = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5h3.6l2 2.2h7.4A2.5 2.5 0 0 1 21 9.7V11"/><path d="M3 7.5v10A2.5 2.5 0 0 0 5.5 20h12.2a2 2 0 0 0 1.9-1.4l1.8-5.6a1.5 1.5 0 0 0-1.4-2H8.3a2 2 0 0 0-1.9 1.4L4 19.5"/></svg>`))
+	reopenIcon   = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>`))
 )
 
 // welcomeWindow fills the welcome window (welcomeWindowSize), its title
@@ -31,6 +33,10 @@ func (a *App) welcomeWindow(c *ui.Context) {
 	})
 }
 
+// welcomeText gets welcome-window copy from the catalog without requiring the
+// generated convenience methods, which may lag newly added catalog entries.
+func welcomeText(key string) string { return locales.Catalog.Format(i18n.Locale(), key, nil) }
+
 // The welcome window's size, which does not change, as Xcode's.
 const welcomeWidth, welcomeHeight = 740, 440
 
@@ -40,17 +46,18 @@ func (a *App) welcomeIntro(c *ui.Context) {
 	ui.Column(c).Grow(1).Shrink(1).FillHeight().Background(colors(c).WelcomeLeft).Padding(16, 28, 18, 28).Children(func() {
 		ui.Box(c).Height(26) // under the window's buttons
 		ui.Column(c).Grow(1).FillWidth().AlignItems(ui.Center).Gap(6).Children(func() {
-			ui.Image(c, appIcon).Size(120, 120)
+			ui.Image(c, appIcon).Size(96, 96)
 			ui.Text(c, "See").FontSize(28).Bold().TextColor(colors(c).Text).TextAlign(ui.Center)
 			if a.version != "" {
 				ui.Text(c, locales.MsgVersion()+a.version).FontSize(13).TextColor(colors(c).Muted)
 			}
 			ui.Box(c).Height(12)
 			ui.Column(c).Gap(2).Width(300).Children(func() {
-				a.welcomeAction(c, openIcon, "Open Folder…", "Read the source of a folder", shortcutLabel("O"), a.openFolderDialog)
-				a.welcomeAction(c, openIcon, "Open File…", "Read a single file", "", a.openFileDialog)
+				a.welcomeAction(c, documentIcon, locales.MsgNewFile2(), welcomeText("welcomeNewFileDetail"), shortcutLabel("N"), true, a.newFile)
+				a.welcomeAction(c, openIcon, locales.MsgOpenFile2(), welcomeText("welcomeOpenFileDetail"), "", false, a.openFileDialog)
+				a.welcomeAction(c, openIcon, locales.MsgOpenFolder2(), welcomeText("welcomeOpenFolderDetail"), shortcutLabel("O"), false, a.openFolderDialog)
 				if last := a.lastFolder(); last != "" {
-					a.welcomeAction(c, reopenIcon, "Reopen "+filepath.Base(last), tildePath(last), "", func() { a.openRecent(last) })
+					a.welcomeAction(c, reopenIcon, welcomeText("welcomeReopenRecent"), filepath.Base(last)+" — "+tildePath(last), "", false, func() { a.openRecent(last) })
 				}
 			})
 			if a.welcomeNote != "" {
@@ -73,8 +80,11 @@ func (a *App) lastFolder() string {
 	return a.cfg.Recent[0]
 }
 
-func (a *App) welcomeAction(c *ui.Context, icon *ui.SVG, title, detail, shortcut string, fn func()) {
-	row := ui.Row(c).FillWidth().Padding(6, 8).Gap(10).AlignItems(ui.Center).Radius(8).Cursor(ui.CursorPointer).Label(title)
+func (a *App) welcomeAction(c *ui.Context, icon *ui.SVG, title, detail, shortcut string, autofocus bool, fn func()) {
+	row := ui.ButtonBase(c).FillWidth().Padding(6, 8).Gap(10).AlignItems(ui.Center).Radius(8).Label(title)
+	if autofocus {
+		row.AutoFocus()
+	}
 	if row.Hovered() {
 		row.Background(colors(c).WelcomeHover)
 	}
@@ -89,6 +99,9 @@ func (a *App) welcomeAction(c *ui.Context, icon *ui.SVG, title, detail, shortcut
 			ui.Text(c, title).FontSize(13).Bold().TextColor(colors(c).Text).SingleLine()
 			ui.Text(c, detail).FontSize(11).TextColor(colors(c).Muted).SingleLine()
 		})
+		if shortcut != "" {
+			ui.Text(c, shortcut).FontSize(11).TextColor(colors(c).Dim).Shrink(0)
+		}
 	})
 }
 
@@ -99,8 +112,9 @@ func (a *App) welcomeRecent(c *ui.Context) {
 		BorderWidth(0, 0, 0, 1).BorderColor(colors(c).Separator).Padding(10, 8).Children(func() {
 		recent := a.cfg.Recent
 		if len(recent) == 0 {
-			ui.Column(c).Grow(1).FillWidth().Center().Children(func() {
+			ui.Column(c).Grow(1).FillWidth().Center().Gap(4).Children(func() {
 				ui.Text(c, locales.MsgNoRecentFolders()).FontSize(13).TextColor(colors(c).Dim)
+				ui.Text(c, welcomeText("welcomeNoRecentFoldersDetail")).FontSize(11).TextColor(colors(c).Muted)
 			})
 			return
 		}

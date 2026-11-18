@@ -87,6 +87,8 @@ func (a *App) view(c *ui.Context) {
 		// window and folderless project windows show these actions.
 		if c.Shortcut(ui.Cmd|ui.Shift, ui.KeyN) {
 			a.host.OpenProjectWindow("")
+		} else if c.Shortcut(ui.Cmd, ui.KeyN) {
+			a.newFile()
 		} else if c.Shortcut(ui.Cmd, ui.KeyO) {
 			a.openFolderDialog()
 		} else if c.Shortcut(ui.Cmd, ui.KeyW) {

@@ -115,25 +115,28 @@ type App struct {
 	allowDirty    bool
 	quitApproved  bool
 
-	navigator        int // the sidebar's navigator
-	sidebarOff       bool
-	titleButton      ui.Handle // the toolbar's project name, over which its menu shows
-	titleOpen        bool
-	avatars          map[string]*avatarEntry // authors' pictures, by email
-	services         ui.Services             // the window's clipboard and browser, for menus built without a context
-	branchHandle     ui.Handle               // the toolbar's branch, under which the branch picker shows
-	welcomeNote      string
-	showWelcome      bool   // the welcome window over an open workspace
-	hasWelcome       bool   // this app owns the welcome window
-	version          string // the app's, shown on the welcome window
-	sidebarW         float32
-	saveTimer        *time.Timer // a settings save waiting for changes to stop
-	restoringSession bool
-	theme            *ui.Theme
-	modifiers        ui.Modifiers // keyboard modifiers held this frame
-	edTheme          *editor.Theme
-	themeDark        bool
-	themeAccent      ui.Color
+	navigator             int // the sidebar's navigator
+	sidebarOff            bool
+	titleButton           ui.Handle // the toolbar's project name, over which its menu shows
+	titleOpen             bool
+	avatars               map[string]*avatarEntry // authors' pictures, by email
+	services              ui.Services             // the window's clipboard and browser, for menus built without a context
+	branchHandle          ui.Handle               // the toolbar's branch, under which the branch picker shows
+	welcomeNote           string
+	showWelcome           bool   // the welcome window over an open workspace
+	hasWelcome            bool   // this app owns the welcome window
+	version               string // the app's, shown on the welcome window
+	sidebarW              float32
+	saveTimer             *time.Timer // a settings save waiting for changes to stop
+	restoringSession      bool
+	ownsStandaloneSession bool                // the primary window alone restores the empty-root session
+	standaloneSessionDocs map[string]struct{} // recovery entries this window owns in the shared empty-root session
+	discardedSessionDocs  map[string]struct{} // documents approved for discard until their workspace is gone
+	theme                 *ui.Theme
+	modifiers             ui.Modifiers // keyboard modifiers held this frame
+	edTheme               *editor.Theme
+	themeDark             bool
+	themeAccent           ui.Color
 	// setAppearance forces light or dark, or "" the system's; the app's
 	// windows follow it.
 }
@@ -228,15 +231,18 @@ type target struct {
 
 func newApp(cfg *config.Config) *App {
 	a := &App{
-		cfg:      cfg,
-		docs:     map[string]*doc{},
-		dirs:     map[string]*dirState{},
-		post:     platform.SchedulerFunc(func(fn func()) { fn() }),
-		host:     platform.NoDesktop{},
-		startLSP: languages.StartGopls,
-		logf:     log.Printf,
-		treeRow:  -1,
-		sidebarW: 260,
+		cfg:                   cfg,
+		docs:                  map[string]*doc{},
+		dirs:                  map[string]*dirState{},
+		post:                  platform.SchedulerFunc(func(fn func()) { fn() }),
+		host:                  platform.NoDesktop{},
+		startLSP:              languages.StartGopls,
+		logf:                  log.Printf,
+		treeRow:               -1,
+		sidebarW:              260,
+		ownsStandaloneSession: true,
+		standaloneSessionDocs: make(map[string]struct{}),
+		discardedSessionDocs:  make(map[string]struct{}),
 	}
 	if cfg.SidebarWidth >= 160 {
 		a.sidebarW = cfg.SidebarWidth
@@ -367,9 +373,9 @@ func (a *App) closeWorkspace() {
 	a.createEntry = nil
 	a.renameEntry = nil
 	a.deleteConfirm = nil
-	if a.root != "" {
-		a.saveConfig()
-	}
+	// Persist the session before throwing its documents away. In particular,
+	// a standalone window may own entries in the shared empty-root session.
+	a.saveConfig()
 	a.gen++
 	if a.wsCancel != nil {
 		a.wsCancel()
@@ -425,6 +431,9 @@ func (a *App) closeWorkspace() {
 	a.find.reset()
 	a.quick = quickOpen{}
 	a.problems = problemsState{}
+	releaseStandalonePaths(a)
+	a.standaloneSessionDocs = make(map[string]struct{})
+	a.discardedSessionDocs = make(map[string]struct{})
 	a.host.SetTitle("See")
 }
 
@@ -440,12 +449,18 @@ func (a *App) saveConfigSoon() {
 	a.saveTimer = time.AfterFunc(500*time.Millisecond, func() { a.post.Post(a.saveConfig) })
 }
 
+var configSaveMu sync.Mutex
+
 func (a *App) saveConfig() {
+	// All windows share Config. Keep capture-and-save atomic so standalone
+	// windows can merge their recovery entries without losing one another's.
+	configSaveMu.Lock()
+	defer configSaveMu.Unlock()
 	if a.saveTimer != nil {
 		a.saveTimer.Stop()
 		a.saveTimer = nil
 	}
-	if a.root != "" && !a.restoringSession {
+	if !a.restoringSession {
 		a.captureSession()
 	}
 	if err := a.cfg.Save(); err != nil {
@@ -622,6 +637,110 @@ func (a *App) revealInTree(p string) {
 
 // ----- Documents -----
 
+type standalonePathOwner struct {
+	app      *App
+	doc      *doc
+	inFlight bool
+}
+
+var standalonePathRegistry = struct {
+	sync.Mutex
+	owners map[string]standalonePathOwner
+}{owners: make(map[string]standalonePathOwner)}
+
+// standalonePathKey identifies the file a standalone path reaches rather than
+// only the spelling used to reach it. Existing files resolve fully; for a new
+// Save As destination the parent resolves so aliases such as /tmp and
+// /private/tmp still share one owner.
+func standalonePathKey(path string) string {
+	if abs, err := filepath.Abs(path); err == nil {
+		path = abs
+	}
+	if real, err := filepath.EvalSymlinks(path); err == nil {
+		return filepath.Clean(real)
+	}
+	if realParent, err := filepath.EvalSymlinks(filepath.Dir(path)); err == nil {
+		path = filepath.Join(realParent, filepath.Base(path))
+	}
+	return filepath.Clean(path)
+}
+
+// claimStandalonePath gives one document process-wide ownership of a saved
+// path while it is open. Folderless windows share one recovery namespace, so
+// two buffers must never write the same record.
+func claimStandalonePath(a *App, d *doc, path string) bool {
+	return claimStandalonePathForWrite(a, d, path, false)
+}
+
+// reserveStandalonePath gives a first save exclusive ownership until its
+// asynchronous write completes, even if its window closes in the meantime.
+func reserveStandalonePath(a *App, d *doc, path string) bool {
+	return claimStandalonePathForWrite(a, d, path, true)
+}
+
+func claimStandalonePathForWrite(a *App, d *doc, path string, inFlight bool) bool {
+	key := standalonePathKey(path)
+	standalonePathRegistry.Lock()
+	defer standalonePathRegistry.Unlock()
+	if owner, ok := standalonePathRegistry.owners[key]; ok {
+		if owner.app != a || owner.doc != d {
+			return false
+		}
+		inFlight = inFlight || owner.inFlight
+	}
+	standalonePathRegistry.owners[key] = standalonePathOwner{app: a, doc: d, inFlight: inFlight}
+	return true
+}
+
+// finishStandalonePathWrite turns a completed first-save reservation into the
+// ordinary ownership held by its now-saved document.
+func finishStandalonePathWrite(a *App, d *doc, path string) {
+	key := standalonePathKey(path)
+	standalonePathRegistry.Lock()
+	defer standalonePathRegistry.Unlock()
+	if owner, ok := standalonePathRegistry.owners[key]; ok && owner.app == a && owner.doc == d {
+		owner.inFlight = false
+		standalonePathRegistry.owners[key] = owner
+	}
+}
+
+func releaseStandalonePath(a *App, d *doc, path string) {
+	releaseStandalonePathWhen(a, d, path, true)
+}
+
+func releaseStandalonePathIfIdle(a *App, d *doc, path string) {
+	releaseStandalonePathWhen(a, d, path, false)
+}
+
+func releaseStandalonePathWhen(a *App, d *doc, path string, includeInFlight bool) {
+	key := standalonePathKey(path)
+	standalonePathRegistry.Lock()
+	defer standalonePathRegistry.Unlock()
+	if owner, ok := standalonePathRegistry.owners[key]; ok && owner.app == a && owner.doc == d && (includeInFlight || !owner.inFlight) {
+		delete(standalonePathRegistry.owners, key)
+	}
+}
+
+func releaseStandalonePaths(a *App) {
+	standalonePathRegistry.Lock()
+	defer standalonePathRegistry.Unlock()
+	for path, owner := range standalonePathRegistry.owners {
+		if owner.app == a && !owner.inFlight {
+			delete(standalonePathRegistry.owners, path)
+		}
+	}
+}
+
+func standaloneDocForPath(a *App, path string) *doc {
+	key := standalonePathKey(path)
+	for _, d := range a.docs {
+		if !d.untitled && standalonePathKey(d.path) == key {
+			return d
+		}
+	}
+	return nil
+}
+
 // openFile shows the document of path in the focused group, opening it
 // if needed, at pos when given.
 func (a *App) openFile(path string, pos *editor.Pos) *doc {
@@ -638,8 +757,22 @@ func (a *App) openIn(g *group, path string, to goTo) *doc {
 	a.git.peek = nil
 	path = workspace.DocPath(a.root, a.realRoot, path)
 	d := a.docs[path]
+	if d == nil && a.root == "" {
+		d = standaloneDocForPath(a, path)
+		if d != nil {
+			path = d.path
+		}
+	}
 	if d == nil {
 		d = &doc{path: path, uri: uriOf(path), name: filepath.Base(path)}
+		if a.root == "" && !claimStandalonePath(a, d, path) {
+			a.host.RevealOpenFile(path)
+			a.note(locales.MsgThatFileIsAlreadyOpen(), true)
+			return nil
+		}
+		// A previously discarded document can be opened and edited again in
+		// the same folderless window; it then owns fresh recovery state.
+		delete(a.discardedSessionDocs, path)
 		a.docs[path] = d
 		a.loadDoc(d)
 	}
