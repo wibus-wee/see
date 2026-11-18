@@ -57,7 +57,7 @@ func (a *App) fileMenu(run func(func())) *mygo.MenuItem {
 		{Label: locales.MsgOpenRecent(), Submenu: recent},
 		{Label: locales.MsgSave(), Click: do(a.saveActive)},
 		mygo.Separator(),
-		{Label: locales.MsgCloseFolder(), Accelerator: closeKey, Click: do(a.closeFolder)},
+		{Label: locales.MsgCloseFolder(), Accelerator: closeKey, Disabled: a.root == "", Click: do(a.closeFolder)},
 		mygo.Separator(),
 		{Label: locales.MsgWelcomeToSee(), Click: do(func() { a.showWelcome = true })},
 	}}
@@ -68,7 +68,11 @@ func (a *App) closeFolder() {
 	if a.root == "" {
 		return
 	}
-	if a.guardDirty(a.dirtyDocs(), a.closeFolder) {
+	a.closeEditorWindow()
+}
+
+func (a *App) closeEditorWindow() {
+	if a.guardDirty(a.dirtyDocs(), a.closeEditorWindow) {
 		return
 	}
 	a.closeWorkspace()

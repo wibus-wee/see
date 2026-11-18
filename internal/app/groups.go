@@ -9,6 +9,7 @@ import (
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 
+	"see/internal/config"
 	"see/internal/lsp"
 	"see/internal/workspace"
 )
@@ -210,6 +211,11 @@ func (a *App) activateIn(g *group, path string) {
 	if !g.has(path) {
 		return
 	}
+	if a.root == "" && !a.standaloneOpen {
+		a.standaloneOpen = true
+		a.showWelcome = false
+		a.host.SetWorkspaceSize(config.DefaultWindowWidth, config.DefaultWindowHeight)
+	}
 	a.focus = g
 	g.active = path
 	g.mru = slices.DeleteFunc(g.mru, func(p string) bool { return p == path })
@@ -266,9 +272,6 @@ func (a *App) closeTab(g *group, path string) {
 		}
 	}
 	a.releaseIfUnused(docPath)
-	if a.root == "" && len(a.docs) == 0 {
-		a.host.SetTitle("See")
-	}
 	if len(g.order) == 0 && len(a.groups()) > 1 {
 		a.removeGroup(g)
 	}

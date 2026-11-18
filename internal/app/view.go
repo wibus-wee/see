@@ -82,9 +82,7 @@ func (a *App) view(c *ui.Context) {
 	if !a.hover.cmd {
 		a.hideLink()
 	}
-	if a.root == "" && a.hasWelcome && len(a.docs) == 0 {
-		// The primary main window hides without a folder; its welcome
-		// window and folderless project windows show these actions.
+	if a.hasWelcome && !a.hasEditorWindow() {
 		if c.Shortcut(ui.Cmd|ui.Shift, ui.KeyN) {
 			a.host.OpenProjectWindow("")
 		} else if c.Shortcut(ui.Cmd, ui.KeyN) {
@@ -99,13 +97,20 @@ func (a *App) view(c *ui.Context) {
 	}
 	a.shortcuts(c)
 	root := ui.Column(c).Fill()
-	target := float32(1)
-	if a.sidebarOff || a.root == "" {
-		target = 0
+	var progress float32
+	if a.root != "" {
+		target := float32(1)
+		if a.sidebarOff {
+			target = 0
+		}
+		progress = min(max(root.AnimateTo("sidebar", target, ui.Animation{Spring: ui.SpringOptions{Duration: 250 * time.Millisecond}}), 0), 1)
 	}
-	progress := min(max(root.AnimateTo("sidebar", target, ui.Animation{Spring: ui.SpringOptions{Duration: 250 * time.Millisecond}}), 0), 1)
 	root.Children(func() {
-		a.toolbar(c, progress, vibrant)
+		if a.root != "" {
+			a.toolbar(c, progress, vibrant)
+		} else {
+			a.standaloneToolbar(c)
+		}
 		if a.confirm != nil && a.confirm.inWindow {
 			q := a.confirm
 			a.banner(c, colors(c).WarnBg, q.message, q.actions)
@@ -147,7 +152,7 @@ func (a *App) shortcuts(c *ui.Context) {
 		a.showWelcome = true
 	case c.Shortcut(ui.Cmd, ui.KeyP):
 		a.openQuickly()
-	case c.Shortcut(ui.Cmd, ui.Key0):
+	case a.root != "" && c.Shortcut(ui.Cmd, ui.Key0):
 		a.sidebarOff = !a.sidebarOff
 	case c.Shortcut(ui.Ctrl, ui.KeyBackquote):
 		a.toggleTerminal()
@@ -160,7 +165,7 @@ func (a *App) shortcuts(c *ui.Context) {
 	case c.Shortcut(ui.Cmd|ui.Shift, ui.KeyBackslash):
 		a.splitActive(sideBottom)
 	}
-	for _, cmd := range commands() {
+	for _, cmd := range commands(a.root != "") {
 		if cmd.shortcutKey == 0 || (inTerm && ((cmd.shortcutMods&ui.Ctrl != 0 && cmd.shortcutKey != ui.KeyBackquote) || cmd.shortcutKey == ui.KeyW)) {
 			continue
 		}

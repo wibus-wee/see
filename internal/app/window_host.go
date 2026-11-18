@@ -16,7 +16,7 @@ type windowHost struct {
 	app *App
 	win *mygo.Window
 	// own is set for a project window of its own, which takes the
-	// welcome window's size while it has no folder. The first window
+	// welcome window's size until the editor opens. The first window
 	// leaves that to the welcome window of its own, which wins tells
 	// when it shows over it.
 	own          bool
@@ -40,7 +40,7 @@ func (h *windowHost) SetTitle(title string) {
 	if !h.own {
 		return
 	}
-	if want := h.app.root == "" && len(h.app.docs) == 0; want != h.welcomeSized {
+	if want := !h.app.hasEditorWindow(); want != h.welcomeSized {
 		h.welcomeSized = want
 		if want {
 			h.win.SetSize(welcomeWidth, welcomeHeight)

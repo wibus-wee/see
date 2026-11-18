@@ -7,10 +7,8 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
-// The app's two windows, as Xcode's: the main window while a folder is
-// open, and the welcome window, which shows at launch, over the main
-// window when asked for (⇧⌘1), and again once the folder closes. Closing
-// the welcome window leaves the app running in the background.
+// The primary editor and welcome windows can show independently. The
+// welcome window appears at launch, on request, or when the editor closes.
 
 // window is what windows does with a window: *mygo.Window, or a fake in
 // tests.
@@ -28,15 +26,14 @@ type windows struct {
 	welcomeUp               atomic.Bool // the welcome window shows, for other goroutines
 }
 
+func (a *App) hasEditorWindow() bool { return a.root != "" || a.standaloneOpen }
+
 // sync shows and hides the windows as the app's state says: run it after
 // whatever may change the state, as each window's frame and the results
 // of background work. from is the window that drew just now, or nil.
 func (w *windows) sync(from window) {
 	a := w.a
-	// A folder or an open file makes the main window, with or without the
-	// welcome window over it. Otherwise closing the welcome window leaves
-	// the app with no window up, as Xcode does, rather than an empty one.
-	wantMain := a.root != "" || len(a.docs) > 0
+	wantMain := a.hasEditorWindow()
 	wantWelcome := a.showWelcome
 	// Show before hiding, so that the app always has a window up while it
 	// switches from one to the other.
@@ -81,20 +78,19 @@ func (w *windows) state() string {
 func (w *windows) closeWelcome(keepRunning bool) (quit bool) {
 	w.a.showWelcome = false
 	w.sync(nil)
-	return w.a.root == "" && !keepRunning
+	return !w.a.hasEditorWindow() && !keepRunning
 }
 
-// closeMain is the main window's close button: it closes the folder and
-// goes back to the welcome window.
+// closeMain returns to the welcome window after the editor can close.
 func (w *windows) closeMain() {
-	w.a.closeFolder()
+	w.a.closeEditorWindow()
 	w.sync(nil)
 }
 
 // reopen brings a window back when the app is activated with none showing,
 // as by a click on its Dock icon.
 func (w *windows) reopen() {
-	if w.a.root == "" {
+	if !w.a.hasEditorWindow() {
 		w.a.showWelcome = true
 	} else {
 		w.mainShown = false // shown again
@@ -115,7 +111,7 @@ func (a *App) welcomeView(c *ui.Context) {
 		a.openFolderDialog()
 	case c.Shortcut(ui.Cmd, ui.KeyComma):
 		a.host.OpenSettings()
-	case a.root != "" && c.Shortcut(0, ui.KeyEscape):
+	case a.hasEditorWindow() && c.Shortcut(0, ui.KeyEscape):
 		a.showWelcome = false
 	}
 	a.welcomeWindow(c)

@@ -38,6 +38,7 @@ type termPanel struct {
 	nextID    int
 	loading   bool  // the emulator's library is loading
 	loadErr   error // it could not
+	startErr  error
 	focus     *termPane
 	focused   bool // a terminal had the keyboard in the last frame
 }
@@ -53,19 +54,31 @@ type termTab struct {
 type termPane struct {
 	id     int
 	term   *terminal.Terminal
+	dir    string
 	title  string
 	handle ui.Handle
 	pct    float32 // its share of the room it splits with those after it
 }
 
-// newTerm makes a terminal running the user's shell in the workspace.
+func (a *App) terminalDir() string {
+	if a.root != "" {
+		return a.root
+	}
+	if d := a.docs[a.activePath()]; d != nil && !d.untitled {
+		return filepath.Dir(d.path)
+	}
+	home, _ := os.UserHomeDir()
+	return home
+}
+
+// newTerm runs the user's shell in the pane's starting directory.
 // Its callbacks come from the terminal's goroutines: they go through
 // post, and are dropped once the pane or the workspace is gone.
 func (a *App) newTerm(p *termPane) error {
 	gen := a.gen
 	var t *terminal.Terminal
 	t, err := terminal.New(terminal.Options{
-		Dir: a.root,
+		Dir: p.dir,
 		Command: func() []string {
 			if a.cfg.TermShell == "" {
 				return nil
@@ -157,15 +170,16 @@ func (a *App) withTerminal(fn func()) {
 	go func() {
 		err := terminal.Load()
 		a.post.Post(func() {
+			if a.gen != gen {
+				return
+			}
 			tp.loading = false
 			if err != nil {
 				tp.loadErr = err
 				return
 			}
 			termLoaded = true
-			if a.gen == gen {
-				fn()
-			}
+			fn()
 		})
 	}()
 }
@@ -196,23 +210,27 @@ func (a *App) toggleTerminal() {
 
 // newTerminalTab opens a tab with a new terminal.
 func (a *App) newTerminalTab() {
-	if a.root == "" {
-		return
-	}
+	dir := a.terminalDir()
 	a.term.open = true
 	a.term.view = panelTerminal
 	a.focusEditor = nil
 	a.withTerminal(func() {
 		tp := &a.term
 		tp.nextID++
-		p := &termPane{id: tp.nextID, title: shellName()}
-		if err := a.newTerm(p); err != nil {
-			a.note(locales.MsgCouldNotStartATerminal()+err.Error(), true)
+		p := &termPane{id: tp.nextID, dir: dir, title: shellName()}
+		tp.startErr = a.newTerm(p)
+		if tp.startErr != nil {
+			if tp.active != nil {
+				a.note(locales.MsgCouldNotStartATerminal()+tp.startErr.Error(), true)
+			}
 			return
 		}
 		tab := &termTab{id: tp.nextID, panes: []*termPane{p}, active: p}
 		tp.tabs = append(tp.tabs, tab)
-		tp.active, tp.focus = tab, p
+		tp.active = tab
+		if tp.open && tp.view == panelTerminal {
+			tp.focus = p
+		}
 	})
 }
 
@@ -224,9 +242,10 @@ func (a *App) splitTerminal() {
 		a.newTerminalTab()
 		return
 	}
+	dir := a.terminalDir()
 	a.withTerminal(func() {
 		tp.nextID++
-		p := &termPane{id: tp.nextID, title: shellName()}
+		p := &termPane{id: tp.nextID, dir: dir, title: shellName()}
 		if err := a.newTerm(p); err != nil {
 			a.note(locales.MsgCouldNotStartATerminal()+err.Error(), true)
 			return
@@ -325,9 +344,11 @@ func (a *App) openTermLink(p *termPane, link string) bool {
 		}
 	}
 	if !filepath.IsAbs(path) {
-		dir := a.root
-		if p.term != nil && p.term.Dir() != "" {
-			dir = p.term.Dir()
+		dir := p.dir
+		if p.term != nil {
+			if current := p.term.Dir(); current != "" {
+				dir = current
+			}
 		}
 		path = filepath.Join(dir, path)
 	}
@@ -390,6 +411,12 @@ func (a *App) terminalPanel(c *ui.Context) {
 				})
 			case tp.active != nil:
 				a.paneSplit(c, tp.active, tp.active.panes)
+			case tp.startErr != nil:
+				a.message(c, locales.TerminalUnavailable(), tp.startErr.Error(), locales.Retry(), a.newTerminalTab)
+			default:
+				ui.Row(c).Grow(1).FillWidth().Center().Children(func() {
+					ui.Button(c, locales.CommandNewTerminal()).OnClick(a.newTerminalTab)
+				})
 			}
 		})
 		a.termTabList(c)
@@ -470,12 +497,14 @@ func (a *App) termTabList(c *ui.Context) {
 				}
 				row.OnClick(func() { tp.view = panelOutput; tp.focus = nil })
 				row.Children(func() { symbolIcon(c, icLines, 16, colors(c).Muted); ui.Text(c, locales.MsgOutput()).FontSize(12) })
-				taskRow := ui.Row(c.Key("tasks")).FillWidth().Height(24).Padding(0, 6).Radius(5).AlignItems(ui.Center)
-				if tp.view == panelTasks {
-					taskRow.Background(colors(c).SelectedRow)
+				if a.root != "" {
+					taskRow := ui.Row(c.Key("tasks")).FillWidth().Height(24).Padding(0, 6).Radius(5).AlignItems(ui.Center)
+					if tp.view == panelTasks {
+						taskRow.Background(colors(c).SelectedRow)
+					}
+					taskRow.OnClick(a.showTasks)
+					taskRow.Children(func() { ui.Text(c, taskMessage("tasksTitle")).FontSize(12) })
 				}
-				taskRow.OnClick(a.showTasks)
-				taskRow.Children(func() { ui.Text(c, taskMessage("tasksTitle")).FontSize(12) })
 				for i, tab := range tp.tabs {
 					a.termTabRow(c, i, tab)
 				}

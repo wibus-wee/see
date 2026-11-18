@@ -26,6 +26,7 @@ var commandMessages = map[string]string{
 	"New File":                   "msgNewFile2",
 	"Command Palette":            "commandCommandPalette",
 	"New Window":                 "msgNewWindow",
+	"Open File":                  "msgOpenFile2",
 	"Open Folder":                "msgOpenFolder2",
 	"Open Quickly":               "msgOpenQuickly",
 	"Search Workspace Symbols":   "commandSearchWorkspaceSymbols",

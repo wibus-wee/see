@@ -345,6 +345,7 @@
   "msgFindResults": "Find results",
   "msgSwitchProject": "Switch Project",
   "msgOpenFolder": "Open Folder…",
+  "msgNoFolderOpen": "No Folder Open",
   "msgNotWatchingForChanges": "Not watching for changes",
   "msgReady": "Ready",
   "msgFilterCommits": "Filter Commits",

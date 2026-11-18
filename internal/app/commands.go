@@ -19,46 +19,22 @@ type command struct {
 	run             func(*App)
 }
 
-func commands() []command {
+func commands(inWorkspace bool) []command {
 	cmds := []command{
 		{"New File", "Cmd+", "N", ui.Cmd, ui.KeyN, func(a *App) { a.newFile() }},
 		{"Command Palette", "Cmd+Shift+", "P", ui.Cmd | ui.Shift, ui.KeyP, func(a *App) { a.openPalette() }},
 		{"New Window", "Cmd+Shift+", "N", ui.Cmd | ui.Shift, ui.KeyN, func(a *App) {
 			a.host.OpenProjectWindow("")
 		}},
+		{"Open File", "", "", 0, 0, func(a *App) { a.openFileDialog() }},
 		{"Open Folder", "Cmd+", "O", ui.Cmd, ui.KeyO, func(a *App) { a.openFolderDialog() }},
 		{"Open Quickly", "Cmd+Shift+", "O", ui.Cmd | ui.Shift, ui.KeyO, func(a *App) { a.openQuickly() }},
-		{"Show Problems", "Cmd+Shift+", "M", ui.Cmd | ui.Shift, ui.KeyM, func(a *App) { a.sidebarOff, a.navigator = false, navProblems }},
-		{"Next Problem", "", "F8", 0, ui.KeyF8, func(a *App) { a.goToProblem(1) }},
-		{"Previous Problem", "Shift+", "F8", ui.Shift, ui.KeyF8, func(a *App) { a.goToProblem(-1) }},
 		{"Go to Line", "Ctrl+", "G", ui.Ctrl, ui.KeyG, func(a *App) {
 			if a.activeEditor() != nil {
 				a.openQuickPanel(":")
 			}
 		}},
-		{"Search File Symbols", "Alt+Cmd+", "O", ui.Alt | ui.Cmd, ui.KeyO, func(a *App) { a.openQuickPanel("@") }},
-		{"Search Workspace Symbols", "Cmd+", "T", ui.Cmd, ui.KeyT, func(a *App) { a.openQuickPanel("#") }},
 		{"Open Markdown Preview", "Cmd+Shift+", "V", ui.Cmd | ui.Shift, ui.KeyV, func(a *App) { a.openMarkdownTab(a.focus) }},
-		{"Find in Workspace", "Cmd+Shift+", "F", ui.Cmd | ui.Shift, ui.KeyF, func(a *App) {
-			a.sidebarOff, a.navigator, a.find.focus = false, navFind, true
-		}},
-		{"Show Git", "", "", 0, 0, func(a *App) { a.sidebarOff, a.navigator = false, navGit; a.refreshGit() }},
-		{"Git: Show History", "", "", 0, 0, func(a *App) {
-			a.sidebarOff, a.navigator, a.git.historyClosed = false, navGit, false
-			a.refreshGit()
-		}},
-		{"Git: Show Log", "", "", 0, 0, func(a *App) { a.openGitLog() }},
-		{"Toggle Inline Diff", "", "", 0, 0, func(a *App) { a.toggleDiffLayout() }},
-		{"Next Change", "", "", 0, 0, func(a *App) { a.goToChange(1) }},
-		{"Previous Change", "", "", 0, 0, func(a *App) { a.goToChange(-1) }},
-		{"Git: Fetch", "", "", 0, 0, func(a *App) { a.gitFetch() }},
-		{"Git: Pull", "", "", 0, 0, func(a *App) { a.gitPull() }},
-		{"Git: Push", "", "", 0, 0, func(a *App) { a.gitPush() }},
-		{"Git: Switch Branch…", "", "", 0, 0, func(a *App) { a.openBranchPicker(a.git.picker.anchor) }},
-		{"Filter Files", "Alt+Cmd+", "J", ui.Alt | ui.Cmd, ui.KeyJ, func(a *App) {
-			a.sidebarOff, a.navigator, a.filter.focus = false, navFiles, true
-		}},
-		{"Show or Hide the Navigator", "Cmd+", "B", ui.Cmd, ui.KeyB, func(a *App) { a.sidebarOff = !a.sidebarOff }},
 		{"Go Back", "Ctrl+", "-", ui.Ctrl, ui.KeyMinus, func(a *App) { a.goBack() }},
 		{"Go Forward", "Ctrl+Shift+", "-", ui.Ctrl | ui.Shift, ui.KeyMinus, func(a *App) { a.goForward() }},
 		{"Focus Next Editor", "", "F6", 0, ui.KeyF6, func(a *App) { a.cycleEditorGroup(1) }},
@@ -82,10 +58,6 @@ func commands() []command {
 		{"Add Editor on Right", "Cmd+", "D", ui.Cmd, ui.KeyD, func(a *App) { a.splitActive(sideRight) }},
 		{"Add Editor Below", "Cmd+Shift+", "D", ui.Cmd | ui.Shift, ui.KeyD, func(a *App) { a.splitActive(sideBottom) }},
 		{"Show or Hide the Terminal", "Cmd+Shift+", "Y", ui.Cmd | ui.Shift, ui.KeyY, func(a *App) { a.toggleTerminal() }},
-		{"Go: Build Workspace", "Cmd+Shift+", "B", ui.Cmd | ui.Shift, ui.KeyB, func(a *App) { a.runGoTask(tasks.Build) }},
-		{"Go: Test Workspace", "", "", 0, 0, func(a *App) { a.runGoTask(tasks.Test) }},
-		{"Tasks: Show", "", "", 0, 0, func(a *App) { a.showTasks() }},
-		{"Tasks: Stop", "", "", 0, 0, func(a *App) { a.stopGoTask() }},
 		{"Show Output", "", "", 0, 0, func(a *App) { a.term.open = true; a.term.view = panelOutput; a.term.focus = nil }},
 		{"New Terminal", "Ctrl+Shift+", "`", ui.Ctrl | ui.Shift, ui.KeyBackquote, func(a *App) { a.newTerminalTab() }},
 		{"Open in External Terminal", "Cmd+Shift+", "C", ui.Cmd | ui.Shift, ui.KeyC, func(a *App) { a.openExternalTerminal() }},
@@ -100,14 +72,15 @@ func commands() []command {
 		{"Shell Command: Install 'see' Command in PATH", "", "", 0, 0, func(a *App) { a.installSee() }},
 		{"Shell Command: Uninstall 'see' Command from PATH", "", "", 0, 0, func(a *App) { a.uninstallSee() }},
 	}
+	if inWorkspace {
+		cmds = append(cmds, workspaceCommands()...)
+	}
 	cmds = append(cmds,
 		command{"Find in File", "Cmd+", "F", 0, 0, func(a *App) {
 			if st := a.activeEditor(); st != nil {
 				st.Run(editor.Find)
 			}
 		}},
-		command{"Find References", "Shift+", "F12", ui.Shift, ui.KeyF12, func(a *App) { a.findUsages(false) }},
-		command{"Find Callers", "", "", 0, 0, func(a *App) { a.findUsages(true) }},
 		command{"Go to Definition", "", "F12", 0, 0, func(a *App) {
 			if st := a.activeEditor(); st != nil && st.OnDefinition != nil {
 				st.OnDefinition(st.Buffer.Offset(st.CursorPos()))
@@ -122,7 +95,42 @@ func commands() []command {
 		cmds = append(cmds, command{label, "Cmd+", fmt.Sprint(n), ui.Cmd, ui.Key1 + ui.Key(n-1), func(a *App) { a.activateTabNumber(n) }})
 	}
 	return cmds
+}
 
+func workspaceCommands() []command {
+	return []command{
+		{"Show Problems", "Cmd+Shift+", "M", ui.Cmd | ui.Shift, ui.KeyM, func(a *App) { a.sidebarOff, a.navigator = false, navProblems }},
+		{"Next Problem", "", "F8", 0, ui.KeyF8, func(a *App) { a.goToProblem(1) }},
+		{"Previous Problem", "Shift+", "F8", ui.Shift, ui.KeyF8, func(a *App) { a.goToProblem(-1) }},
+		{"Search File Symbols", "Alt+Cmd+", "O", ui.Alt | ui.Cmd, ui.KeyO, func(a *App) { a.openQuickPanel("@") }},
+		{"Search Workspace Symbols", "Cmd+", "T", ui.Cmd, ui.KeyT, func(a *App) { a.openQuickPanel("#") }},
+		{"Find References", "Shift+", "F12", ui.Shift, ui.KeyF12, func(a *App) { a.findUsages(false) }},
+		{"Find Callers", "", "", 0, 0, func(a *App) { a.findUsages(true) }},
+		{"Find in Workspace", "Cmd+Shift+", "F", ui.Cmd | ui.Shift, ui.KeyF, func(a *App) {
+			a.sidebarOff, a.navigator, a.find.focus = false, navFind, true
+		}},
+		{"Show Git", "", "", 0, 0, func(a *App) { a.sidebarOff, a.navigator = false, navGit; a.refreshGit() }},
+		{"Git: Show History", "", "", 0, 0, func(a *App) {
+			a.sidebarOff, a.navigator, a.git.historyClosed = false, navGit, false
+			a.refreshGit()
+		}},
+		{"Git: Show Log", "", "", 0, 0, func(a *App) { a.openGitLog() }},
+		{"Toggle Inline Diff", "", "", 0, 0, func(a *App) { a.toggleDiffLayout() }},
+		{"Next Change", "", "", 0, 0, func(a *App) { a.goToChange(1) }},
+		{"Previous Change", "", "", 0, 0, func(a *App) { a.goToChange(-1) }},
+		{"Git: Fetch", "", "", 0, 0, func(a *App) { a.gitFetch() }},
+		{"Git: Pull", "", "", 0, 0, func(a *App) { a.gitPull() }},
+		{"Git: Push", "", "", 0, 0, func(a *App) { a.gitPush() }},
+		{"Git: Switch Branch…", "", "", 0, 0, func(a *App) { a.openBranchPicker(a.git.picker.anchor) }},
+		{"Filter Files", "Alt+Cmd+", "J", ui.Alt | ui.Cmd, ui.KeyJ, func(a *App) {
+			a.sidebarOff, a.navigator, a.filter.focus = false, navFiles, true
+		}},
+		{"Show or Hide the Navigator", "Cmd+", "B", ui.Cmd, ui.KeyB, func(a *App) { a.sidebarOff = !a.sidebarOff }},
+		{"Go: Build Workspace", "Cmd+Shift+", "B", ui.Cmd | ui.Shift, ui.KeyB, func(a *App) { a.runGoTask(tasks.Build) }},
+		{"Go: Test Workspace", "", "", 0, 0, func(a *App) { a.runGoTask(tasks.Test) }},
+		{"Tasks: Show", "", "", 0, 0, func(a *App) { a.showTasks() }},
+		{"Tasks: Stop", "", "", 0, 0, func(a *App) { a.stopGoTask() }},
+	}
 }
 
 func (a *App) openPalette() {

@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/egoist/mygo/ui/editor"
-	"see/internal/config"
 	"see/internal/platform"
 	"see/internal/workspace"
 )
@@ -78,9 +77,6 @@ func (a *App) newFile() {
 			break
 		}
 		name = fmt.Sprintf("Untitled-%d", n)
-	}
-	if a.root == "" && len(a.docs) == 0 {
-		a.host.SetWorkspaceSize(config.DefaultWindowWidth, config.DefaultWindowHeight)
 	}
 	d := &doc{path: path, uri: uriOf(path), name: name, untitled: true, cache: &draftCache{}, buf: editor.NewBuffer(""), kind: workspace.Text}
 	a.docs[path] = d

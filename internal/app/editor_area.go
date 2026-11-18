@@ -211,7 +211,14 @@ func (a *App) groupContent(c *ui.Context, g *group) {
 	if d == nil {
 		ui.Column(c).Grow(1).FillWidth().Center().Gap(6).Children(func() {
 			ui.Text(c, locales.MsgNoEditor()).FontSize(20).TextColor(colors(c).Dim)
-			ui.Text(c, locales.MsgChooseAFileInTheNavigatorOrPress()+keyLabel("Cmd+Shift+", "O")+locales.MsgToOpenOneQuickly()).FontSize(12).TextColor(colors(c).Dim)
+			if a.root == "" {
+				ui.Row(c).Gap(8).Children(func() {
+					ui.Button(c, locales.MsgNewFile2()).OnClick(a.newFile)
+					ui.Button(c, locales.MsgOpenFile()).OnClick(a.openFileDialog)
+				})
+			} else {
+				ui.Text(c, locales.MsgChooseAFileInTheNavigatorOrPress()+keyLabel("Cmd+Shift+", "O")+locales.MsgToOpenOneQuickly()).FontSize(12).TextColor(colors(c).Dim)
+			}
 		})
 		return
 	}

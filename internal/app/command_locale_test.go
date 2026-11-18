@@ -6,7 +6,7 @@ import (
 )
 
 func TestCommandTranslations(t *testing.T) {
-	for _, cmd := range commands() {
+	for _, cmd := range commands(true) {
 		key := commandMessages[cmd.name]
 		if key == "" {
 			// Numbered tab commands are generated dynamically.

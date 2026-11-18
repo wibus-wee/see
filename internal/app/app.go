@@ -123,7 +123,8 @@ type App struct {
 	services              ui.Services             // the window's clipboard and browser, for menus built without a context
 	branchHandle          ui.Handle               // the toolbar's branch, under which the branch picker shows
 	welcomeNote           string
-	showWelcome           bool   // the welcome window over an open workspace
+	showWelcome           bool   // the welcome window shows independently of the main window
+	standaloneOpen        bool   // a folderless editor window stays open after its last tab closes
 	hasWelcome            bool   // this app owns the welcome window
 	version               string // the app's, shown on the welcome window
 	sidebarW              float32
@@ -365,6 +366,7 @@ func (a *App) openWorkspace(dir string) {
 	a.cfg.AddRecent(root)
 	a.saveConfig()
 	a.host.SetTitle(filepath.Base(root))
+	a.host.RefreshMenu()
 }
 
 // closeWorkspace forgets the workspace: its tabs, caches, searches, watch
@@ -410,6 +412,7 @@ func (a *App) closeWorkspace() {
 	}
 	a.cmakeState, a.cmakeErr = langserver.Off, nil
 	a.root, a.realRoot = "", ""
+	a.standaloneOpen = false
 	a.dirs = map[string]*dirState{}
 	a.tree = ui.OutlineState[string]{}
 	a.treeRow = -1
@@ -435,6 +438,7 @@ func (a *App) closeWorkspace() {
 	a.standaloneSessionDocs = make(map[string]struct{})
 	a.discardedSessionDocs = make(map[string]struct{})
 	a.host.SetTitle("See")
+	a.host.RefreshMenu()
 }
 
 // saveConfigSoon saves the settings once they stop changing for a
@@ -749,9 +753,6 @@ func (a *App) openFile(path string, pos *editor.Pos) *doc {
 
 // openIn shows path in g, at the place to says, if any.
 func (a *App) openIn(g *group, path string, to goTo) *doc {
-	if a.root == "" && len(a.docs) == 0 {
-		a.host.SetWorkspaceSize(config.DefaultWindowWidth, config.DefaultWindowHeight)
-	}
 	a.term.maximized = false
 	a.git.diffSeq++
 	a.git.peek = nil
@@ -1631,7 +1632,7 @@ func (a *App) selectRelated(ch *defChoices, index int) {
 }
 
 func (a *App) openProject(path string) {
-	if a.root != "" && a.host.OpenProjectWindow(path) {
+	if a.hasEditorWindow() && a.host.OpenProjectWindow(path) {
 		return
 	}
 	a.openWorkspace(path)

@@ -317,7 +317,7 @@ func (a *App) rankQuick() {
 			q.results = []search.Scored{{Path: fmt.Sprintf("%s %d:%d", commandLabel("Go to Line"), line, max(col, 1))}}
 		}
 	} else if strings.HasPrefix(q.query, ">") {
-		all := commands()
+		all := commands(a.root != "")
 		names := make([]string, len(all))
 		for i, cmd := range all {
 			names[i] = commandLabel(cmd.name)
@@ -471,7 +471,7 @@ func (a *App) chooseQuick(i int) {
 		return
 	}
 	if strings.HasPrefix(q.query, ">") {
-		for _, cmd := range commands() {
+		for _, cmd := range commands(a.root != "") {
 			if commandLabel(cmd.name) == p {
 				cmd.run(a)
 				return

@@ -70,17 +70,28 @@ func TestNewWindowShortcutFromWelcome(t *testing.T) {
 	}
 }
 
-// A folderless window with a file open is a real window, and stays up.
-func TestFolderlessDocumentShowsMainWindow(t *testing.T) {
-	a, w, mainWin, welcomeWin := newTestWindows(t)
-	a.showWelcome = false
-	a.docs["/tmp/note.txt"] = &doc{path: "/tmp/note.txt"}
-
+func TestStandaloneWindowStaysOpenUntilEditorCloses(t *testing.T) {
+	h := newHarness(t, "")
+	mainWin, welcomeWin := &testWindow{}, &testWindow{}
+	w := &windows{a: h.a, main: mainWin, welcome: welcomeWin}
+	h.a.showWelcome = true
 	w.sync(nil)
-	if !mainWin.shown {
-		t.Error("a folderless window with a file open stayed hidden")
+	h.a.newFile()
+	w.sync(nil)
+	if !mainWin.shown || welcomeWin.shown {
+		t.Fatal("the draft did not replace the welcome window")
 	}
-	if welcomeWin.shown {
-		t.Error("the welcome window stayed up over the file")
+
+	h.tt.Frame()
+	h.tt.Key(ui.Cmd, ui.KeyW)
+	h.tt.Frame()
+	w.sync(nil)
+	if !mainWin.shown || welcomeWin.shown || !h.tt.HasText("Open File…") {
+		t.Fatal("closing the last tab did not leave an empty standalone editor")
+	}
+
+	w.closeMain()
+	if mainWin.shown || !welcomeWin.shown {
+		t.Fatal("closing the standalone window did not return to welcome")
 	}
 }

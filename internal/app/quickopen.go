@@ -57,7 +57,15 @@ func (a *App) quickOpenPanel(c *ui.Context) {
 				case lineMode && len(q.results) == 0:
 					ui.Text(c, locales.Catalog.Format(i18n.Locale(), "goToLineHint", nil)).TextColor(colors(c).Muted).Padding(8)
 				case !commandMode && !lineMode && a.root == "":
-					ui.Text(c, locales.MsgOpenAFolderToSearchFilesOrType()).TextColor(colors(c).Muted).Padding(8)
+					ui.Column(c).Padding(8).Gap(8).AlignItems(ui.Start).Children(func() {
+						ui.Text(c, locales.MsgOpenAFolderToSearchFilesOrType()).TextColor(colors(c).Muted)
+						if !symbolMode {
+							ui.Button(c, locales.MsgOpenFile()).OnClick(func() {
+								q.open = false
+								a.openFileDialog()
+							})
+						}
+					})
 				case symbolMode && !a.cfg.IsTrusted(a.root):
 					if ui.Button(c, locales.MsgTrustFolderToSearchSymbols()).Clicked() {
 						query := q.query
@@ -122,7 +130,7 @@ func (a *App) quickRow(c *ui.Context, i int) {
 		row.OnClick(func() { a.chooseQuick(i) })
 		row.Children(func() {
 			ui.Text(c, r.Path).Grow(1).SingleLine()
-			for _, cmd := range commands() {
+			for _, cmd := range commands(a.root != "") {
 				if commandLabel(cmd.name) == r.Path && cmd.key != "" {
 					ui.Text(c, keyLabel(cmd.mods, cmd.key)).TextColor(colors(c).Muted)
 					break

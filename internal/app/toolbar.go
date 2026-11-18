@@ -19,12 +19,7 @@ const toolbarHeight = 48
 // document navigation and editor actions over the workspace.
 func (a *App) toolbar(c *ui.Context, sidebarProgress float32, vibrant bool) {
 	bar := c.TitleBar()
-	// A folderless window has no sidebar: its header leaves only room for
-	// the window buttons, without the toggle.
-	headerWidth := float32(44)
-	if a.root == "" {
-		headerWidth = 12
-	}
+	const headerWidth = 44
 	closedWidth := max(bar.Left, 8) + headerWidth
 	// Split places its one-point divider after the sidebar; include it in
 	// the header so both divider lines share the same x position.
@@ -42,13 +37,13 @@ func (a *App) toolbar(c *ui.Context, sidebarProgress float32, vibrant bool) {
 	row.Children(func() {
 		sidebarHeader := ui.Row(c).Width(width).MinWidth(max(bar.Left, 8)+headerWidth).Shrink(1).FillHeight().Padding(0, 0, 0, max(bar.Left, 8)+12).
 			AlignItems(ui.Center)
-		if a.root != "" && !a.sidebarOff {
+		if !a.sidebarOff {
 			sidebarHeader.Background(sidebarColor(c, vibrant)).BorderWidth(0, 1, 0, 0).BorderColor(colors(c).Separator)
 		} else {
 			sidebarHeader.Background(colors(c).Toolbar).BorderWidth(0, 0, 1, 0).BorderColor(colors(c).Hairline)
 		}
 		sidebarHeader.Children(func() {
-			if a.root != "" && glassToolbarButton(c, icSidebar, "Show Navigator", "Hide or Show the Navigator", !a.sidebarOff).Clicked() {
+			if glassToolbarButton(c, icSidebar, "Show Navigator", "Hide or Show the Navigator", !a.sidebarOff).Clicked() {
 				a.sidebarOff = !a.sidebarOff
 			}
 		})
@@ -81,22 +76,48 @@ func (a *App) toolbar(c *ui.Context, sidebarProgress float32, vibrant bool) {
 				a.quickButton(c, false, 0, 0)
 			}
 			ui.Box(c).Grow(1)
-			ui.Row(c).Height(32).Radius(16).Padding(0, 3).AlignItems(ui.Center).Material(glass.Glass{}).Children(func() {
-				if iconButton(c, icSplitH, "Split Right", "Add Editor on Right ("+keyLabel("Cmd+", "D")+")", false).Clicked() {
-					a.splitActive(sideRight)
-				}
-				if iconButton(c, icSplitV, "Split Down", "Add Editor Below ("+keyLabel("Cmd+Shift+", "D")+")", false).Clicked() {
-					a.splitActive(sideBottom)
-				}
-			})
-			if glassToolbarButton(c, icPanel, "Show Terminal", "Hide or Show the Terminal ("+keyLabel("Cmd+Shift+", "Y")+")", a.term.open).Clicked() {
-				a.toggleTerminal()
-			}
+			a.editorToolbarActions(c)
 		})
 		if centerQuick {
 			a.quickButton(c, true, center-quickWidth/2, (max(bar.Height, toolbarHeight)-32)/2)
 		}
 	})
+}
+
+func (a *App) standaloneToolbar(c *ui.Context) {
+	bar := c.TitleBar()
+	ui.Row(c).FillWidth().Height(max(bar.Height, toolbarHeight)).Padding(0, bar.Right+8, 0, max(bar.Left, 8)+12).
+		Gap(8).AlignItems(ui.Center).DragWindow().Background(colors(c).Toolbar).
+		BorderWidth(0, 0, 1, 0).BorderColor(colors(c).Hairline).Children(func() {
+		ui.Column(c).Grow(1).Shrink(1).Justify(ui.Center).Children(func() {
+			ui.Text(c, locales.MsgNoFolderOpen()).FontSize(12).TextColor(colors(c).Muted).SingleLine()
+			if a.notice != "" {
+				a.activityView(c)
+			}
+		})
+		label := locales.MsgOpenFolder()
+		button := ui.ButtonBase(c).Label(label).Height(32).Padding(0, 12).Radius(16).KeepFocus().Center().
+			Tooltip(label + " (" + shortcutLabel("O") + ")").Material(glass.Glass{Interactive: true}).OnClick(a.openFolderDialog)
+		button.Children(func() {
+			ui.Row(c).Gap(7).AlignItems(ui.Center).Children(func() {
+				symbolIcon(c, icFolder, 15, colors(c).Muted)
+				ui.Text(c, label).FontSize(12).SingleLine()
+			})
+		})
+		a.editorToolbarActions(c)
+	})
+}
+
+func (a *App) editorToolbarActions(c *ui.Context) {
+	ui.Row(c).Height(32).Radius(16).Padding(0, 3).AlignItems(ui.Center).Material(glass.Glass{}).Children(func() {
+		iconButton(c, icSplitH, "Split Right", "Add Editor on Right ("+keyLabel("Cmd+", "D")+")", false).
+			OnClick(func() { a.splitActive(sideRight) })
+		iconButton(c, icSplitV, "Split Down", "Add Editor Below ("+keyLabel("Cmd+Shift+", "D")+")", false).
+			OnClick(func() { a.splitActive(sideBottom) })
+	})
+	label := locales.CommandShowOrHideTheTerminal()
+	tip := label + " (" + keyLabel("Cmd+Shift+", "Y") + ")"
+	glassToolbarButton(c, icPanel, label, tip, a.term.open).OnClick(a.toggleTerminal)
 }
 
 func (a *App) quickButton(c *ui.Context, centered bool, x, y float32) {

@@ -345,6 +345,7 @@
   "msgFindResults": "查找结果",
   "msgSwitchProject": "切换项目",
   "msgOpenFolder": "打开文件夹…",
+  "msgNoFolderOpen": "未打开文件夹",
   "msgNotWatchingForChanges": "未监视更改",
   "msgReady": "就绪",
   "msgFilterCommits": "筛选提交",

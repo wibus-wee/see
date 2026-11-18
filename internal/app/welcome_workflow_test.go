@@ -2,6 +2,7 @@ package app
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -67,8 +68,46 @@ func TestNewFileShortcutFromFolderlessWelcome(t *testing.T) {
 	if !h.tt.Focused("Untitled") {
 		t.Fatal("new draft editor is not keyboard-focused")
 	}
+	if !h.tt.HasText("No Folder Open") || !h.tt.HasText("Open Folder…") || h.tt.HasText(".") || h.tt.HasText("Open Quickly") {
+		t.Fatalf("unexpected standalone editor chrome: %v", h.tt.Texts())
+	}
 	if resized != 1 {
 		t.Fatalf("folderless welcome resized to a workspace %d times, want one", resized)
+	}
+}
+
+func TestOpenFolderFromStandaloneEditorKeepsDraft(t *testing.T) {
+	h := newHarness(t, "")
+	root := writeTree(t, map[string]string{"file.txt": "project file"})
+	h.host.pickFolder = func() (string, error) { return root, nil }
+	var opened string
+	h.host.openProject = func(path string) bool {
+		opened = path
+		return true
+	}
+	h.a.newFile()
+	st := h.a.activeEditor()
+	st.Buffer.Set("unsaved notes")
+	h.tt.Frame()
+	if err := h.tt.Click("Open Folder…"); err != nil {
+		t.Fatal(err)
+	}
+	h.settle(func() bool { return opened != "" })
+	if opened != root || h.a.root != "" || h.a.activeEditor() != st || st.Buffer.String() != "unsaved notes" {
+		t.Fatalf("opening %q did not keep the standalone draft: %v", opened, h.tt.Texts())
+	}
+}
+
+func TestStandaloneNewTerminalShortcutShowsLoadError(t *testing.T) {
+	h := newHarness(t, "")
+	h.a.newFile()
+	h.a.term.loadErr = errors.New("terminal library unavailable")
+	h.tt.Frame()
+	h.tt.Key(ui.Ctrl|ui.Shift, ui.KeyBackquote)
+	h.tt.Frame()
+
+	if !h.tt.HasText("terminal library unavailable") || h.tt.HasText("Tasks") {
+		t.Fatalf("unexpected standalone terminal panel: %v", h.tt.Texts())
 	}
 }
 
@@ -89,6 +128,9 @@ func TestNewFileShortcutFromStandaloneWelcome(t *testing.T) {
 func TestNewFileFromWorkspaceWelcomeOverlay(t *testing.T) {
 	h := newHarness(t, writeTree(t, map[string]string{"keep.txt": "keep"}))
 	h.tt.Frame()
+	if !h.tt.HasText(filepath.Base(h.a.root)) || !h.tt.HasText("Open Quickly") || h.tt.HasText("No Folder Open") {
+		t.Fatalf("unexpected project editor chrome: %v", h.tt.Texts())
+	}
 	h.tt.Key(ui.Cmd|ui.Shift, ui.Key1)
 	h.tt.Frame()
 	if !h.a.showWelcome {

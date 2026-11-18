@@ -100,7 +100,7 @@ func Main() {
 			TitleBarHeight:       toolbarHeight,
 			TrafficLightPosition: &mygo.Point{X: 20, Y: (toolbarHeight - trafficLightSize) / 2},
 			Vibrancy:             mygo.VibrancySidebar,
-			Hidden:               true, // until a folder opens (windows.sync)
+			Hidden:               true, // until the editor opens (windows.sync)
 			Content:              ui.View(func(c *ui.Context) { a.view(c); wins.sync(win) }),
 		})
 		// The welcome window, as Xcode's: of its own, of one size, its
@@ -223,7 +223,7 @@ func Main() {
 						if active == p {
 							activate(primary)
 						}
-						if len(projects) == 1 && a.root == "" {
+						if len(projects) == 1 && !a.hasEditorWindow() {
 							wins.reopen()
 						}
 					}
@@ -246,8 +246,8 @@ func Main() {
 
 		// openPath opens what the system hands the app, as a file or folder
 		// dropped on its Dock icon: in the window that has it open, else a
-		// folder in the first window while it has no folder, else a window
-		// of its own. A file opens as a file, not as its folder.
+		// folder in the first window if its editor is closed, else a window
+		// of its own. A file opens directly in the editor.
 		openPath := func(path string) {
 			if p := projectHolding(projects, path); p != nil {
 				p.app.revealCLIPath(path)
@@ -258,7 +258,7 @@ func Main() {
 				return
 			}
 			if fi, err := os.Stat(path); err == nil && fi.IsDir() {
-				if a.root == "" {
+				if !a.hasEditorWindow() {
 					a.openWorkspace(path)
 					wins.sync(nil)
 					win.Focus()
@@ -304,7 +304,7 @@ func Main() {
 			})
 		})
 		// Closing either window hides it, unless the app is quitting: the
-		// main window's closes the folder and goes back to the welcome
+		// main window's closes the editor and goes back to the welcome
 		// window, and the welcome window's leaves the app running, as
 		// Xcode does, on macOS; elsewhere, with no Dock to come back
 		// from, the app quits with no folder open.
@@ -357,7 +357,7 @@ func Main() {
 					p.win.Update(func() {}) // draws the file
 					return
 				}
-				if a.root == "" {
+				if !a.hasEditorWindow() {
 					a.openCLIPath(path)
 					wins.sync(nil)
 					win.Focus()
@@ -426,17 +426,11 @@ func Main() {
 			if _, err := os.Stat(cfg.LastWorkspace); err != nil {
 				a.welcomeNote = "The last folder, " + cfg.LastWorkspace + ", is no longer there."
 				a.restoreSession()
-				if len(a.docs) != 0 {
-					a.showWelcome = false
-				}
 			} else {
 				a.openWorkspace(cfg.LastWorkspace)
 			}
 		default:
 			a.restoreSession()
-			if len(a.docs) != 0 {
-				a.showWelcome = false
-			}
 		}
 	})
 	mygo.App.OnWillQuit(func(*mygo.QuitEvent) {

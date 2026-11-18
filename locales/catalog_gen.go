@@ -3564,6 +3564,16 @@ func (msgs Messages) MsgOpenFolder() string {
 	return Catalog.Format(msgs.locale, "msgOpenFolder", nil)
 }
 
+// MsgNoFolderOpen says "No Folder Open"
+// in the language the app shows.
+func MsgNoFolderOpen() string { return In(i18n.Locale()).MsgNoFolderOpen() }
+
+// MsgNoFolderOpen says "No Folder Open"
+// in the language of msgs.
+func (msgs Messages) MsgNoFolderOpen() string {
+	return Catalog.Format(msgs.locale, "msgNoFolderOpen", nil)
+}
+
 // MsgNotWatchingForChanges says "Not watching for changes"
 // in the language the app shows.
 func MsgNotWatchingForChanges() string { return In(i18n.Locale()).MsgNotWatchingForChanges() }

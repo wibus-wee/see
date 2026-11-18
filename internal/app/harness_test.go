@@ -229,6 +229,7 @@ func serverOf(root string, c langserver.Client) *langserver.Server {
 type fakeHost struct {
 	platform.NoDesktop
 	newFile     func(root, name string) (string, error)
+	pickFolder  func() (string, error)
 	pickFile    func() (string, error)
 	openFile    func() (string, error)
 	confirm     func(message string) (int, error)
@@ -286,6 +287,13 @@ func (f *fakeHost) RevealOpenFile(path string) bool {
 
 func (f *fakeHost) OpenProjectWindow(path string) bool {
 	return f.openProject != nil && f.openProject(path)
+}
+
+func (f *fakeHost) PickFolder() (string, error) {
+	if f.pickFolder != nil {
+		return f.pickFolder()
+	}
+	return f.NoDesktop.PickFolder()
 }
 
 func (f *fakeHost) PickFile() (string, error) {

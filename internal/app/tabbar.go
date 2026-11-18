@@ -198,38 +198,37 @@ func (a *App) jumpBar(c *ui.Context, g *group) {
 	}
 	ui.Row(c).FillWidth().Height(26).Padding(0, 6).Gap(2).AlignItems(ui.Center).Background(colors(c).Editor).
 		BorderWidth(0, 0, 1, 0).BorderColor(colors(c).Separator).Children(func() {
-		g.relatedBounds = g.relatedHandle.Bounds(c)
-		related := ui.ButtonBase(c.Key("related-items")).Label(locales.MsgRelatedItems()).Tooltip(locales.MsgRelatedItems()).Size(22, 22).Radius(4).Center().Bind(&g.relatedHandle)
-		if related.Hovered() || related.Pressed() {
-			related.Background(colors(c).Pill)
-		}
-		related.Children(func() { symbolIcon(c, icRelated, 14, colors(c).Muted) })
-		related.Menu(func(menu *ui.Menu) {
-			if menu.Item("Callers").Chosen() {
-				a.focus = g
-				a.findUsagesAt(true, ui.Point{X: g.relatedBounds.X, Y: g.relatedBounds.Y + g.relatedBounds.H}, true)
+		if a.root != "" {
+			g.relatedBounds = g.relatedHandle.Bounds(c)
+			related := ui.ButtonBase(c.Key("related-items")).Label(locales.MsgRelatedItems()).Tooltip(locales.MsgRelatedItems()).Size(22, 22).Radius(4).Center().Bind(&g.relatedHandle)
+			if related.Hovered() || related.Pressed() {
+				related.Background(colors(c).Pill)
 			}
-			if menu.Item("References").Chosen() {
-				a.focus = g
-				a.findUsagesAt(false, ui.Point{X: g.relatedBounds.X, Y: g.relatedBounds.Y + g.relatedBounds.H}, true)
-			}
-		})
-		outside := !workspace.Within(a.root, p)
-		if d := a.docs[p]; d != nil && d.untitled {
-			outside = false
+			related.Children(func() { symbolIcon(c, icRelated, 14, colors(c).Muted) })
+			related.Menu(func(menu *ui.Menu) {
+				if menu.Item("Callers").Chosen() {
+					a.focus = g
+					a.findUsagesAt(true, ui.Point{X: g.relatedBounds.X, Y: g.relatedBounds.Y + g.relatedBounds.H}, true)
+				}
+				if menu.Item("References").Chosen() {
+					a.focus = g
+					a.findUsagesAt(false, ui.Point{X: g.relatedBounds.X, Y: g.relatedBounds.Y + g.relatedBounds.H}, true)
+				}
+			})
 		}
-		folderGlyph(c, false, 13)
-		if outside {
-			ui.Text(c, tildePath(filepath.Dir(p))).FontSize(12).TextColor(colors(c).Muted).SingleLine().Shrink(1)
+		d := a.docs[p]
+		parts := []string{filepath.Base(p)}
+		if d != nil && d.untitled {
+			parts[0] = d.name
 		} else {
-			ui.Text(c, filepath.Base(a.root)).FontSize(12).TextColor(colors(c).Muted).SingleLine()
-		}
-		symbolIcon(c, icChevron, 9, colors(c).Dim)
-		parts := strings.Split(workspace.RelPath(a.root, p), "/")
-		if d := a.docs[p]; d != nil && d.untitled {
-			parts = []string{d.name}
-		} else if outside {
-			parts = []string{filepath.Base(p)}
+			folder := tildePath(filepath.Dir(p))
+			if a.root != "" && workspace.Within(a.root, p) {
+				folder = filepath.Base(a.root)
+				parts = strings.Split(workspace.RelPath(a.root, p), "/")
+			}
+			folderGlyph(c, false, 13)
+			ui.Text(c, folder).FontSize(12).TextColor(colors(c).Muted).SingleLine().Shrink(1)
+			symbolIcon(c, icChevron, 9, colors(c).Dim)
 		}
 		for i, part := range parts {
 			if i > 0 {
@@ -250,7 +249,7 @@ func (a *App) jumpBar(c *ui.Context, g *group) {
 					if g.preview == p {
 						t.Italic()
 					}
-					if d := a.docs[p]; d != nil && d.buf != nil && d.buf.Modified() {
+					if d != nil && d.buf != nil && d.buf.Modified() {
 						ui.Text(c, "●").FontSize(9).TextColor(c.Theme().Accent)
 					}
 				}
@@ -276,7 +275,7 @@ func (a *App) jumpBar(c *ui.Context, g *group) {
 		}
 		if showClose {
 			name := filepath.Base(p)
-			if d := a.docs[p]; d != nil {
+			if d != nil {
 				name = d.name
 			}
 			if isMarkdownTab(tab) {
