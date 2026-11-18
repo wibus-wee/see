@@ -140,6 +140,7 @@ These are the macOS shortcuts; on other platforms, use Ctrl in place of Cmd. The
 | --- | --- |
 | Command palette | Cmd+Shift+P |
 | Open folder | Cmd+O |
+| New file | Cmd+N |
 | New window | Cmd+Shift+N |
 | Save / Save all | Cmd+S / Cmd+Shift+S |
 | Open Quickly | Cmd+Shift+O or Cmd+P |

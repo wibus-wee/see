@@ -2,6 +2,13 @@
 
 User-facing changes are grouped by release. Earlier releases are documented on the [Releases page](https://github.com/wibus-wee/see/releases).
 
+## 0.2.4
+
+### Added
+
+- Preview local videos with native playback controls, and open saved files in Quick Look from the macOS file navigator.
+- Create untitled text files with Cmd+N, including from the Welcome screen.
+
 ## 0.2.3
 
 ### Added
