@@ -117,6 +117,58 @@ func TestInstallRipgrepInstallsReleaseBinary(t *testing.T) {
 	}
 }
 
+// certUtilChecksum is a checksum file as ripgrep's Windows releases ship
+// it: CertUtil's output, with CRLF line endings.
+func certUtilChecksum(data []byte, name string) string {
+	return "SHA256 hash of " + name + ":\r\n" + checksum(data) + "\r\nCertUtil: -hashfile command completed successfully.\r\n"
+}
+
+func TestInstallRipgrepAcceptsCertUtilChecksum(t *testing.T) {
+	asset, err := ripgrepAsset()
+	if err != nil {
+		t.Skip(err)
+	}
+	archive := ripgrepArchive(t, asset)
+	serveRipgrepRelease(t, archive, certUtilChecksum(archive, "ripgrep-"+ripgrepVersion+"-"+asset))
+	dest := filepath.Join(t.TempDir(), "ripgrep")
+	if err := installRipgrep(context.Background(), dest); err != nil {
+		t.Fatal(err)
+	}
+	if !regularFile(filepath.Join(dest, toolExe("rg"))) {
+		t.Fatal("rg was not installed")
+	}
+}
+
+func TestVerifyChecksumFormats(t *testing.T) {
+	data := []byte("ripgrep")
+	sum := checksum(data)
+	spaced := ""
+	for i := 0; i < len(sum); i += 2 {
+		spaced += sum[i:i+2] + " "
+	}
+	other := checksum([]byte("something else"))
+	for _, tc := range []struct {
+		name, file string
+		ok         bool
+	}{
+		{"unix", sum + "  ripgrep.tar.gz\n", true},
+		{"uppercase", strings.ToUpper(sum) + "  ripgrep.tar.gz\n", true},
+		{"certutil", certUtilChecksum(data, "ripgrep.zip"), true},
+		{"certutil bytes", "SHA256 hash of file ripgrep.zip:\r\n" + spaced + "\r\nCertUtil: -hashfile command completed successfully.\r\n", true},
+		{"another hash", other + "  ripgrep.tar.gz\n", false},
+		{"certutil another hash", certUtilChecksum([]byte("something else"), "ripgrep.zip"), false},
+		{"empty", "", false},
+		{"no hash", "SHA256 hash of ripgrep.zip:\r\nCertUtil: -hashfile command failed\r\n", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := verifyChecksum(data, []byte(tc.file))
+			if (err == nil) != tc.ok {
+				t.Fatalf("verifyChecksum = %v, want ok=%v", err, tc.ok)
+			}
+		})
+	}
+}
+
 func TestInstallRipgrepRejectsAnotherChecksum(t *testing.T) {
 	asset, err := ripgrepAsset()
 	if err != nil {

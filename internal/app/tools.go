@@ -370,18 +370,47 @@ func readLimited(r io.Reader) ([]byte, error) {
 	return b, nil
 }
 
-// verifyChecksum compares a download with the release's "<sha256>  <name>"
-// line, so a truncated or replaced download is not installed.
+// verifyChecksum compares a download with the release's checksum file. The
+// Unix releases hold a "<sha256>  <name>" line; the Windows ones hold
+// CertUtil's output, where the hash is a line of its own between a heading
+// and a status line, and may be split into bytes. Either way a truncated or
+// replaced download is not installed.
 func verifyChecksum(data, sum []byte) error {
-	fields := strings.Fields(string(sum))
-	if len(fields) == 0 {
+	want := releaseSHA256(string(sum))
+	if want == "" {
 		return errors.New("the release had no checksum")
 	}
 	got := sha256.Sum256(data)
-	if !strings.EqualFold(fields[0], hex.EncodeToString(got[:])) {
+	if !strings.EqualFold(want, hex.EncodeToString(got[:])) {
 		return errors.New("the download did not match its checksum")
 	}
 	return nil
+}
+
+// releaseSHA256 finds the SHA-256 hash in a checksum file: the first line
+// that starts with one, or that is one once its spaces are removed.
+func releaseSHA256(sum string) string {
+	for _, line := range strings.Split(sum, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 0 {
+			continue
+		}
+		if isSHA256(fields[0]) {
+			return fields[0]
+		}
+		if joined := strings.Join(fields, ""); isSHA256(joined) {
+			return joined
+		}
+	}
+	return ""
+}
+
+func isSHA256(s string) bool {
+	if len(s) != sha256.Size*2 {
+		return false
+	}
+	_, err := hex.DecodeString(s)
+	return err == nil
 }
 
 // runInstallJob runs fn off the UI thread, marks the tool's row as working,
