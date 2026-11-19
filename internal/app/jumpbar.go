@@ -89,8 +89,9 @@ func (a *App) jumpFilesMenu(m *ui.Menu, g *group, dir, current string, nested bo
 			})
 		}
 		if e.Dir && !nested {
-			m.Submenu(e.Name, func(m *ui.Menu) { a.jumpFilesMenu(m, g, p, current, true) }).ID(p).
-				Checked(strings.HasPrefix(current, p+string(filepath.Separator))).Content(content)
+			// MyGo draws no check mark on a submenu, so the folder holding
+			// the file shows it in its submenu instead.
+			m.Submenu(e.Name, func(m *ui.Menu) { a.jumpFilesMenu(m, g, p, current, true) }).ID(p).Content(content)
 			continue
 		}
 		it := m.Item(e.Name).ID(p).Checked(p == current || strings.HasPrefix(current, p+string(filepath.Separator))).Content(content)
