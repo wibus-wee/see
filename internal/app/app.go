@@ -755,9 +755,24 @@ func standaloneDocForPath(a *App, path string) *doc {
 }
 
 // openFile shows the document of path in the focused group, opening it
-// if needed, at pos when given.
+// if needed, at pos when given. When another group already shows the
+// document it shows there instead, so jumps like Go Back never open a
+// second tab of it.
 func (a *App) openFile(path string, pos *editor.Pos) *doc {
-	return a.openIn(a.focus, path, goTo{pos: pos})
+	g := a.focus
+	docPath := workspace.DocPath(a.root, a.realRoot, path)
+	if d := a.docs[docPath]; d != nil {
+		docPath = d.path
+	}
+	if !g.hasDocument(docPath) {
+		for _, other := range a.groups() {
+			if other != g && other.hasDocument(docPath) {
+				g = other
+				break
+			}
+		}
+	}
+	return a.openIn(g, path, goTo{pos: pos})
 }
 
 // openIn shows path in g, at the place to says, if any.
