@@ -531,6 +531,7 @@
   "commandPreviousTab": "上一个标签页",
   "commandSaveAll": "全部保存",
   "commandCloseTab": "关闭标签页",
+  "commandReopenClosedTab": "重新打开已关闭的标签页",
   "commandAddEditorOnRight": "在右侧添加编辑器",
   "commandAddEditorBelow": "在下方添加编辑器",
   "commandShowOrHideTheTerminal": "显示或隐藏终端",

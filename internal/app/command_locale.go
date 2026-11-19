@@ -71,6 +71,7 @@ var commandMessages = map[string]string{
 	"Save":                       "msgSave",
 	"Save All":                   "commandSaveAll",
 	"Close Tab":                  "commandCloseTab",
+	"Reopen Closed Tab":          "commandReopenClosedTab",
 	"Add Editor on Right":        "commandAddEditorOnRight",
 	"Add Editor Below":           "commandAddEditorBelow",
 	"Show or Hide the Terminal":  "commandShowOrHideTheTerminal",

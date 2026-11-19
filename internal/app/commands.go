@@ -80,6 +80,7 @@ func commands() []command {
 		{"Previous Tab", "Ctrl+Shift+", "Tab", ui.Ctrl | ui.Shift, ui.KeyTab, func(a *App) { a.cycleTab(-1) }},
 		{"Save", "Cmd+", "S", ui.Cmd, ui.KeyS, func(a *App) { a.saveActive() }},
 		{"Save All", "Cmd+Shift+", "S", ui.Cmd | ui.Shift, ui.KeyS, func(a *App) { a.saveAll() }},
+		{"Reopen Closed Tab", "Cmd+Shift+", "T", ui.Cmd | ui.Shift, ui.KeyT, func(a *App) { a.reopenClosedTab() }},
 		{"Close Tab", "Cmd+", "W", ui.Cmd, ui.KeyW, func(a *App) {
 			// As Xcode: the tab, and the window once no tab is left.
 			if p := a.focus.active; p != "" {

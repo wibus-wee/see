@@ -37,6 +37,7 @@ type group struct {
 	relatedBounds   ui.Rect
 	// jumpFiles and jumpSymbols open the jump bar's file and symbol menus.
 	jumpFiles, jumpSymbols bool
+	closing                bool // its tabs are going away with the group
 	pointerAnchor          ui.Point
 	pointerInEditor        bool
 	// changeBars are the Git change bars the editor shows, in the window,
@@ -224,6 +225,84 @@ func (a *App) activateIn(g *group, path string) {
 	a.saveConfigSoon()
 }
 
+// closedTab is a closed file tab Reopen Closed Tab brings back, its
+// place in the text kept when its group's editor had one.
+type closedTab struct {
+	path     string
+	pos      *editor.Pos
+	scrollY  float64
+	preview  bool
+	markdown bool
+}
+
+// maxClosedTabs is how many closed tabs a window remembers.
+const maxClosedTabs = 20
+
+// recordClosedTab remembers a file tab of g for Reopen Closed Tab; a
+// Git tab or a markdown preview's own tab is left out, as is a file
+// with unsaved edits: its unsaved text would reopen as its saved text.
+func (a *App) recordClosedTab(g *group, path string) {
+	if isDiffTab(path) {
+		return
+	}
+	e := closedTab{path: tabPath(path), preview: g.preview == path, markdown: isMarkdownTab(path)}
+	if d := a.docs[e.path]; d == nil || d.untitled || (d.buf != nil && d.buf.Modified()) {
+		return
+	}
+	if !e.markdown {
+		if st := g.eds[e.path]; st != nil {
+			p, y := st.CursorPos(), st.ScrollY()
+			e.pos, e.scrollY = &p, y
+		} else if p := g.pending[e.path].pos; p != nil {
+			pos := *p
+			e.pos = &pos
+		}
+	}
+	a.closed = slices.DeleteFunc(a.closed, func(t closedTab) bool { return t.path == e.path && t.markdown == e.markdown })
+	a.closed = append(a.closed, e)
+	if len(a.closed) > maxClosedTabs {
+		a.closed = a.closed[len(a.closed)-maxClosedTabs:]
+	}
+}
+
+// reopenClosedTab opens the last closed tab again, in its group when it
+// is still there, as browsers do.
+func (a *App) reopenClosedTab() {
+	if len(a.closed) == 0 {
+		return
+	}
+	e := a.closed[len(a.closed)-1]
+	a.closed = a.closed[:len(a.closed)-1]
+	g := a.focus
+	if g == nil {
+		return
+	}
+	key := e.path
+	if e.markdown {
+		key = markdownTab(e.path)
+	}
+	if g.has(key) {
+		a.activateIn(g, key)
+		return
+	}
+	if e.markdown {
+		d := a.openIn(g, e.path, goTo{})
+		if d != nil {
+			a.openMarkdownTab(g)
+		}
+		return
+	}
+	a.openIn(g, e.path, goTo{pos: e.pos})
+	if e.scrollY > 0 {
+		if st := g.eds[e.path]; st != nil {
+			st.SetScrollY(e.scrollY)
+		}
+	}
+	if e.preview && g.preview == "" && slices.Contains(g.order, e.path) {
+		g.preview = e.path
+	}
+}
+
 // closeTab closes a tab of g. A document no group shows any more is let
 // go; a group left without tabs goes, unless it is the last.
 func (a *App) closeTab(g *group, path string) {
@@ -245,6 +324,9 @@ func (a *App) closeTab(g *group, path string) {
 		if last && a.guardDirty([]*doc{d}, func() { a.closeTab(g, path) }) {
 			return
 		}
+	}
+	if !g.closing {
+		a.recordClosedTab(g, path)
 	}
 	if g.preview == path {
 		g.preview = ""

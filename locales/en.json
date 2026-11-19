@@ -531,6 +531,7 @@
   "commandPreviousTab": "Previous Tab",
   "commandSaveAll": "Save All",
   "commandCloseTab": "Close Tab",
+  "commandReopenClosedTab": "Reopen Closed Tab",
   "commandAddEditorOnRight": "Add Editor on Right",
   "commandAddEditorBelow": "Add Editor Below",
   "commandShowOrHideTheTerminal": "Show or Hide the Terminal",

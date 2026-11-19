@@ -77,6 +77,7 @@ func (a *App) captureSession() {
 		a.cfg.Workspaces = make(map[string]config.Workspace)
 	}
 	workspace := config.Workspace{Layout: snapshot(a.layout), SidebarHidden: a.sidebarOff, Navigator: a.navigator, ChangesClosed: a.git.changesClosed, HistoryClosed: a.git.historyClosed, GitSplit: a.git.split, GitLogSplit: a.git.logSplit, WindowWidth: a.windowWidth, WindowHeight: a.windowHeight}
+	workspace.Terminals, workspace.ActiveTerminal, workspace.PanelOpen = a.termSession()
 	if a.root == "" {
 		a.mergeStandaloneSession(workspace)
 		return
@@ -178,6 +179,7 @@ func (a *App) restoreSession() {
 		a.navigator = s.Navigator
 	}
 	a.git.changesClosed, a.git.historyClosed, a.git.split, a.git.logSplit = s.ChangesClosed, s.HistoryClosed, s.GitSplit, s.GitLogSplit
+	a.openRestoredTerminals(s)
 	var focused *group
 	var restore func(*config.Layout, *layout, int) *layout
 	restore = func(saved *config.Layout, parent *layout, depth int) *layout {

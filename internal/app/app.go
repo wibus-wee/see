@@ -69,6 +69,7 @@ type App struct {
 	nextGroup        int
 	focusEditor      *editor.State // an editor to give the keyboard to
 	focusImage       string        // an image preview to give the keyboard to once loaded
+	closed           []closedTab   // tabs Reopen Closed Tab can bring back, most recent last
 
 	// Navigation.
 	hist                nav.History
@@ -429,6 +430,7 @@ func (a *App) closeWorkspace() {
 	a.reveal = ""
 	a.filter = treeFilter{}
 	a.docs = map[string]*doc{}
+	a.closed = nil
 	a.resetLayout()
 	a.hist.Clear()
 	a.choices = nil
