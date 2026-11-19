@@ -894,6 +894,36 @@ func (msgs Messages) CommandShowOutline() string {
 	return Catalog.Format(msgs.locale, "commandShowOutline", nil)
 }
 
+// CommandShowDocumentItems says "Show Document Items"
+// in the language the app shows.
+func CommandShowDocumentItems() string { return In(i18n.Locale()).CommandShowDocumentItems() }
+
+// CommandShowDocumentItems says "Show Document Items"
+// in the language of msgs.
+func (msgs Messages) CommandShowDocumentItems() string {
+	return Catalog.Format(msgs.locale, "commandShowDocumentItems", nil)
+}
+
+// CommandShowGroupFiles says "Show Group Files"
+// in the language the app shows.
+func CommandShowGroupFiles() string { return In(i18n.Locale()).CommandShowGroupFiles() }
+
+// CommandShowGroupFiles says "Show Group Files"
+// in the language of msgs.
+func (msgs Messages) CommandShowGroupFiles() string {
+	return Catalog.Format(msgs.locale, "commandShowGroupFiles", nil)
+}
+
+// JumpNoSelection says "No Selection"
+// in the language the app shows.
+func JumpNoSelection() string { return In(i18n.Locale()).JumpNoSelection() }
+
+// JumpNoSelection says "No Selection"
+// in the language of msgs.
+func (msgs Messages) JumpNoSelection() string {
+	return Catalog.Format(msgs.locale, "jumpNoSelection", nil)
+}
+
 // OutlineTitle says "Outline"
 // in the language the app shows.
 func OutlineTitle() string { return In(i18n.Locale()).OutlineTitle() }
@@ -2152,6 +2182,28 @@ func MsgCouldNotMoveToTrash() string { return In(i18n.Locale()).MsgCouldNotMoveT
 // in the language of msgs.
 func (msgs Messages) MsgCouldNotMoveToTrash() string {
 	return Catalog.Format(msgs.locale, "msgCouldNotMoveToTrash", nil)
+}
+
+// MsgEnterARelativePathWithinThisFolder says "Enter a relative path within this folder."
+// in the language the app shows.
+func MsgEnterARelativePathWithinThisFolder() string {
+	return In(i18n.Locale()).MsgEnterARelativePathWithinThisFolder()
+}
+
+// MsgEnterARelativePathWithinThisFolder says "Enter a relative path within this folder."
+// in the language of msgs.
+func (msgs Messages) MsgEnterARelativePathWithinThisFolder() string {
+	return Catalog.Format(msgs.locale, "msgEnterARelativePathWithinThisFolder", nil)
+}
+
+// MsgCouldNotCreateV says "Could not create: %v"
+// in the language the app shows.
+func MsgCouldNotCreateV() string { return In(i18n.Locale()).MsgCouldNotCreateV() }
+
+// MsgCouldNotCreateV says "Could not create: %v"
+// in the language of msgs.
+func (msgs Messages) MsgCouldNotCreateV() string {
+	return Catalog.Format(msgs.locale, "msgCouldNotCreateV", nil)
 }
 
 // MsgPath says "Path"
@@ -5848,6 +5900,76 @@ func MsgNoCommitsMatch() string { return In(i18n.Locale()).MsgNoCommitsMatch() }
 // in the language of msgs.
 func (msgs Messages) MsgNoCommitsMatch() string {
 	return Catalog.Format(msgs.locale, "msgNoCommitsMatch", nil)
+}
+
+// MsgNoChangesToShow says "No changes to show"
+// in the language the app shows.
+func MsgNoChangesToShow() string { return In(i18n.Locale()).MsgNoChangesToShow() }
+
+// MsgNoChangesToShow says "No changes to show"
+// in the language of msgs.
+func (msgs Messages) MsgNoChangesToShow() string {
+	return Catalog.Format(msgs.locale, "msgNoChangesToShow", nil)
+}
+
+// MsgBinaryFileNotShown says "Binary file not shown"
+// in the language the app shows.
+func MsgBinaryFileNotShown() string { return In(i18n.Locale()).MsgBinaryFileNotShown() }
+
+// MsgBinaryFileNotShown says "Binary file not shown"
+// in the language of msgs.
+func (msgs Messages) MsgBinaryFileNotShown() string {
+	return Catalog.Format(msgs.locale, "msgBinaryFileNotShown", nil)
+}
+
+// MsgShowEveryBranch says "Show Every Branch"
+// in the language the app shows.
+func MsgShowEveryBranch() string { return In(i18n.Locale()).MsgShowEveryBranch() }
+
+// MsgShowEveryBranch says "Show Every Branch"
+// in the language of msgs.
+func (msgs Messages) MsgShowEveryBranch() string {
+	return Catalog.Format(msgs.locale, "msgShowEveryBranch", nil)
+}
+
+// MsgShowOnlySAndUpstream says "Show Only %s and Upstream"
+// in the language the app shows.
+func MsgShowOnlySAndUpstream() string { return In(i18n.Locale()).MsgShowOnlySAndUpstream() }
+
+// MsgShowOnlySAndUpstream says "Show Only %s and Upstream"
+// in the language of msgs.
+func (msgs Messages) MsgShowOnlySAndUpstream() string {
+	return Catalog.Format(msgs.locale, "msgShowOnlySAndUpstream", nil)
+}
+
+// MsgDCommitS says "{count, plural, one {# commit} other {# commits}}"
+// in the language the app shows.
+func MsgDCommitS(count int) string { return In(i18n.Locale()).MsgDCommitS(count) }
+
+// MsgDCommitS says "{count, plural, one {# commit} other {# commits}}"
+// in the language of msgs.
+func (msgs Messages) MsgDCommitS(count int) string {
+	return Catalog.Format(msgs.locale, "msgDCommitS", map[string]any{"count": count})
+}
+
+// MsgDOfTheFirstDCommits says "%d of the first %d commits"
+// in the language the app shows.
+func MsgDOfTheFirstDCommits() string { return In(i18n.Locale()).MsgDOfTheFirstDCommits() }
+
+// MsgDOfTheFirstDCommits says "%d of the first %d commits"
+// in the language of msgs.
+func (msgs Messages) MsgDOfTheFirstDCommits() string {
+	return Catalog.Format(msgs.locale, "msgDOfTheFirstDCommits", nil)
+}
+
+// MsgDPlusCommits says "%d+ commits"
+// in the language the app shows.
+func MsgDPlusCommits() string { return In(i18n.Locale()).MsgDPlusCommits() }
+
+// MsgDPlusCommits says "%d+ commits"
+// in the language of msgs.
+func (msgs Messages) MsgDPlusCommits() string {
+	return Catalog.Format(msgs.locale, "msgDPlusCommits", nil)
 }
 
 // MsgDFileSChanged says "{count, plural, one {# file changed} other {# files changed}}"

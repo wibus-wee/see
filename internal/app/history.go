@@ -144,9 +144,9 @@ func (a *App) gitHistoryHeader(c *ui.Context) {
 		if h.loading {
 			ui.Spinner(c).FontSize(10)
 		}
-		tip := "Show Every Branch"
+		tip := locales.MsgShowEveryBranch()
 		if h.all {
-			tip = "Show Only " + a.git.branch + " and Upstream"
+			tip = fmt.Sprintf(locales.MsgShowOnlySAndUpstream(), a.git.branch)
 		}
 		if glyphButton(c, icBranches, "All Branches", tip, h.all, false).Clicked() {
 			h.all, h.stale = !h.all, true

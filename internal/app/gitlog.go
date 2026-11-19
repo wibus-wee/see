@@ -184,11 +184,11 @@ func (a *App) gitLogContent(c *ui.Context, g *group, v *gitLogView) {
 			BorderWidth(0, 0, 1, 0).BorderColor(colors(c).Separator).Children(func() {
 			ui.TextInput(c, &v.query).Label(locales.MsgFilterCommits()).Placeholder(locales.MsgFilterBySubjectAuthorBranchOrHash()).
 				Grow(1).MaxWidth(420).Height(24).Padding(0, 8).FontSize(12)
-			count := fmt.Sprintf("%d commit%s", len(rows), plural(len(rows)))
+			count := locales.MsgDCommitS(len(rows))
 			if !h.done {
-				count = fmt.Sprintf("%d of the first %d commits", len(rows), len(h.commits))
+				count = fmt.Sprintf(locales.MsgDOfTheFirstDCommits(), len(rows), len(h.commits))
 				if v.query == "" {
-					count = fmt.Sprintf("%d+ commits", len(h.commits))
+					count = fmt.Sprintf(locales.MsgDPlusCommits(), len(h.commits))
 				}
 			}
 			ui.Text(c, count).FontSize(11).TextColor(colors(c).Muted).SingleLine()
@@ -196,9 +196,9 @@ func (a *App) gitLogContent(c *ui.Context, g *group, v *gitLogView) {
 			if h.loading {
 				ui.Spinner(c).FontSize(10)
 			}
-			tip := "Show Every Branch"
+			tip := locales.MsgShowEveryBranch()
 			if h.all {
-				tip = "Show Only " + a.git.branch + " and Upstream"
+				tip = fmt.Sprintf(locales.MsgShowOnlySAndUpstream(), a.git.branch)
 			}
 			if glyphButton(c, icBranches, "All Branches", tip, h.all, false).Clicked() {
 				h.all, h.stale = !h.all, true
@@ -461,9 +461,9 @@ func (a *App) logCommitFiles(c *ui.Context, g *group, lc *logCommit) {
 				ui.Text(c, fmt.Sprintf("−%d", f.deleted)).FontSize(11).TextColor(a.gitStatusColor('D'))
 			})
 			if f.diff == nil {
-				what := "No changes to show"
+				what := locales.MsgNoChangesToShow()
 				if f.added < 0 {
-					what = "Binary file not shown"
+					what = locales.MsgBinaryFileNotShown()
 				}
 				ui.Text(c, what).FontSize(12).TextColor(colors(c).Muted).Padding(10, 12)
 				return

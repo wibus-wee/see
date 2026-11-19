@@ -137,7 +137,7 @@ func (a *App) submitEntry(q *entryPrompt) {
 	name := strings.TrimSpace(q.name)
 	clean := filepath.Clean(name)
 	if name == "" || filepath.IsAbs(name) || clean == "." || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
-		q.err = "Enter a relative path within this folder."
+		q.err = locales.MsgEnterARelativePathWithinThisFolder()
 		return
 	}
 	path, gen, post := filepath.Join(q.dir, clean), a.gen, a.post.Post
@@ -159,7 +159,7 @@ func (a *App) submitEntry(q *entryPrompt) {
 				return
 			}
 			if err != nil {
-				q.err = "Could not create: " + err.Error()
+				q.err = fmt.Sprintf(locales.MsgCouldNotCreateV(), err)
 				if a.createEntry == nil {
 					a.createEntry = q
 				} else {
