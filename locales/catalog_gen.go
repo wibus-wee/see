@@ -34,6 +34,136 @@ type Messages struct{ locale string }
 // source language.
 func In(locale string) Messages { return Messages{locale} }
 
+// RelativeJustNow says "Just now"
+// in the language the app shows.
+func RelativeJustNow() string { return In(i18n.Locale()).RelativeJustNow() }
+
+// RelativeJustNow says "Just now"
+// in the language of msgs.
+func (msgs Messages) RelativeJustNow() string {
+	return Catalog.Format(msgs.locale, "relativeJustNow", nil)
+}
+
+// RelativeMinutesAgo says "%d min ago"
+// in the language the app shows.
+func RelativeMinutesAgo() string { return In(i18n.Locale()).RelativeMinutesAgo() }
+
+// RelativeMinutesAgo says "%d min ago"
+// in the language of msgs.
+func (msgs Messages) RelativeMinutesAgo() string {
+	return Catalog.Format(msgs.locale, "relativeMinutesAgo", nil)
+}
+
+// RelativeHoursAgo says "%d hr ago"
+// in the language the app shows.
+func RelativeHoursAgo() string { return In(i18n.Locale()).RelativeHoursAgo() }
+
+// RelativeHoursAgo says "%d hr ago"
+// in the language of msgs.
+func (msgs Messages) RelativeHoursAgo() string {
+	return Catalog.Format(msgs.locale, "relativeHoursAgo", nil)
+}
+
+// RelativeYesterday says "Yesterday"
+// in the language the app shows.
+func RelativeYesterday() string { return In(i18n.Locale()).RelativeYesterday() }
+
+// RelativeYesterday says "Yesterday"
+// in the language of msgs.
+func (msgs Messages) RelativeYesterday() string {
+	return Catalog.Format(msgs.locale, "relativeYesterday", nil)
+}
+
+// RelativeSunday says "Sunday"
+// in the language the app shows.
+func RelativeSunday() string { return In(i18n.Locale()).RelativeSunday() }
+
+// RelativeSunday says "Sunday"
+// in the language of msgs.
+func (msgs Messages) RelativeSunday() string {
+	return Catalog.Format(msgs.locale, "relativeSunday", nil)
+}
+
+// RelativeMonday says "Monday"
+// in the language the app shows.
+func RelativeMonday() string { return In(i18n.Locale()).RelativeMonday() }
+
+// RelativeMonday says "Monday"
+// in the language of msgs.
+func (msgs Messages) RelativeMonday() string {
+	return Catalog.Format(msgs.locale, "relativeMonday", nil)
+}
+
+// RelativeTuesday says "Tuesday"
+// in the language the app shows.
+func RelativeTuesday() string { return In(i18n.Locale()).RelativeTuesday() }
+
+// RelativeTuesday says "Tuesday"
+// in the language of msgs.
+func (msgs Messages) RelativeTuesday() string {
+	return Catalog.Format(msgs.locale, "relativeTuesday", nil)
+}
+
+// RelativeWednesday says "Wednesday"
+// in the language the app shows.
+func RelativeWednesday() string { return In(i18n.Locale()).RelativeWednesday() }
+
+// RelativeWednesday says "Wednesday"
+// in the language of msgs.
+func (msgs Messages) RelativeWednesday() string {
+	return Catalog.Format(msgs.locale, "relativeWednesday", nil)
+}
+
+// RelativeThursday says "Thursday"
+// in the language the app shows.
+func RelativeThursday() string { return In(i18n.Locale()).RelativeThursday() }
+
+// RelativeThursday says "Thursday"
+// in the language of msgs.
+func (msgs Messages) RelativeThursday() string {
+	return Catalog.Format(msgs.locale, "relativeThursday", nil)
+}
+
+// RelativeFriday says "Friday"
+// in the language the app shows.
+func RelativeFriday() string { return In(i18n.Locale()).RelativeFriday() }
+
+// RelativeFriday says "Friday"
+// in the language of msgs.
+func (msgs Messages) RelativeFriday() string {
+	return Catalog.Format(msgs.locale, "relativeFriday", nil)
+}
+
+// RelativeSaturday says "Saturday"
+// in the language the app shows.
+func RelativeSaturday() string { return In(i18n.Locale()).RelativeSaturday() }
+
+// RelativeSaturday says "Saturday"
+// in the language of msgs.
+func (msgs Messages) RelativeSaturday() string {
+	return Catalog.Format(msgs.locale, "relativeSaturday", nil)
+}
+
+// RelativeDateThisYear says "Jan 2"
+// in the language the app shows.
+func RelativeDateThisYear() string { return In(i18n.Locale()).RelativeDateThisYear() }
+
+// RelativeDateThisYear says "Jan 2"
+// in the language of msgs.
+func (msgs Messages) RelativeDateThisYear() string {
+	return Catalog.Format(msgs.locale, "relativeDateThisYear", nil)
+}
+
+// RelativeDateWithYear says "Jan 2, 2006"
+// in the language the app shows.
+func RelativeDateWithYear() string { return In(i18n.Locale()).RelativeDateWithYear() }
+
+// RelativeDateWithYear says "Jan 2, 2006"
+// in the language of msgs.
+func (msgs Messages) RelativeDateWithYear() string {
+	return Catalog.Format(msgs.locale, "relativeDateWithYear", nil)
+}
+
 // CommandGoToImplementation says "Go to Implementation"
 // in the language the app shows.
 func CommandGoToImplementation() string { return In(i18n.Locale()).CommandGoToImplementation() }

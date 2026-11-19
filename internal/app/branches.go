@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/plugins/glass"
 	"github.com/egoist/mygo/ui"
 
@@ -311,20 +312,25 @@ func (a *App) branchRow(c *ui.Context, items []branchItem, i int) {
 // relativeTime tells how long ago t was, as Xcode's source control
 // navigator: "5 min ago", "Yesterday", or the date.
 func relativeTime(t, now time.Time) string {
+	return relativeTimeIn(t, now, i18n.Locale())
+}
+
+func relativeTimeIn(t, now time.Time, locale string) string {
+	text := func(key string) string { return locales.Catalog.Format(locale, key, nil) }
 	d := now.Sub(t)
 	switch {
 	case d < time.Minute:
-		return "Just now"
+		return text("relativeJustNow")
 	case d < time.Hour:
-		return fmt.Sprintf("%d min ago", int(d/time.Minute))
+		return fmt.Sprintf(text("relativeMinutesAgo"), int(d/time.Minute))
 	case d < 24*time.Hour && t.Day() == now.Day():
-		return fmt.Sprintf("%d hr ago", int(d/time.Hour))
+		return fmt.Sprintf(text("relativeHoursAgo"), int(d/time.Hour))
 	case d < 48*time.Hour && t.Day() == now.AddDate(0, 0, -1).Day():
-		return "Yesterday"
+		return text("relativeYesterday")
 	case d < 7*24*time.Hour:
-		return t.Format("Monday")
+		return text("relative" + t.Weekday().String())
 	case t.Year() == now.Year():
-		return t.Format("Jan 2")
+		return t.Format(text("relativeDateThisYear"))
 	}
-	return t.Format("Jan 2, 2006")
+	return t.Format(text("relativeDateWithYear"))
 }
