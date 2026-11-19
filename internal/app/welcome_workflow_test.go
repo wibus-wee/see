@@ -43,6 +43,29 @@ func TestWelcomeActionsAndEmptyState(t *testing.T) {
 	}
 }
 
+func TestWelcomeReopenStaysAboveLaunchCheckbox(t *testing.T) {
+	h := newHarness(t, "")
+	h.a.version = "0.3.0"
+	h.a.cfg.Recent = []string{"/previous/project", "/older/project"}
+	tt := ui.NewTester(h.a.welcomeView, welcomeWidth, welcomeHeight)
+	tt.Frame()
+
+	reopen, ok := tt.Find(welcomeText("welcomeReopenRecent"))
+	if !ok {
+		t.Fatal("reopen action is missing")
+	}
+	checkbox, ok := tt.Find("Show this window when See launches")
+	if !ok {
+		t.Fatal("launch checkbox is missing")
+	}
+	if reopen.Y+reopen.H > checkbox.Y {
+		t.Fatalf("reopen action (bottom %v) overlaps the launch checkbox (top %v)", reopen.Y+reopen.H, checkbox.Y)
+	}
+	if checkbox.Y+checkbox.H > float32(welcomeHeight) {
+		t.Fatalf("launch checkbox (bottom %v) runs past the window's height %v", checkbox.Y+checkbox.H, welcomeHeight)
+	}
+}
+
 func TestNewFileShortcutFromFolderlessWelcome(t *testing.T) {
 	h := newHarness(t, "")
 	h.a.showWelcome = true

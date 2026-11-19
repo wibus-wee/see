@@ -69,34 +69,38 @@ func showInFolderLabel() string {
 }
 
 // The welcome window's size, which does not change, as Xcode's.
-const welcomeWidth, welcomeHeight = 740, 440
+const welcomeWidth, welcomeHeight = 740, 480
 
 // welcomeIntro is the left side: the icon, the name, the version and what
 // to do.
 func (a *App) welcomeIntro(c *ui.Context) {
 	ui.Column(c).Grow(1).Shrink(1).FillHeight().Background(colors(c).WelcomeLeft).Padding(16, 28, 18, 28).Children(func() {
 		ui.Box(c).Height(26) // under the window's buttons
-		ui.Column(c).Grow(1).FillWidth().AlignItems(ui.Center).Gap(6).Children(func() {
-			ui.Image(c, appIcon).Size(96, 96)
-			ui.Text(c, "See").FontSize(28).Bold().TextColor(colors(c).Text).TextAlign(ui.Center)
-			if a.version != "" {
-				ui.Text(c, locales.MsgVersion()+a.version).FontSize(13).TextColor(colors(c).Muted)
-			}
-			ui.Box(c).Height(12)
-			ui.Column(c).Gap(2).Width(300).Children(func() {
-				a.welcomeAction(c, documentIcon, locales.MsgNewFile2(), welcomeText("welcomeNewFileDetail"), shortcutLabel("N"), true, a.newFile)
-				a.welcomeAction(c, openIcon, locales.MsgOpenFile2(), welcomeText("welcomeOpenFileDetail"), "", false, a.openFileDialog)
-				a.welcomeAction(c, openIcon, locales.MsgOpenFolder2(), welcomeText("welcomeOpenFolderDetail"), shortcutLabel("O"), false, a.openFolderDialog)
-				a.welcomeAction(c, cloneIcon, welcomeText("welcomeCloneRepository"), welcomeText("welcomeCloneDetail"), "", false, func() {
-					a.clone = welcomeClone{open: true}
+		// The center scrolls rather than run into the checkbox below when the
+		// actions and the note outgrow the window.
+		ui.Scroll(c).Grow(1).Shrink(1).FillWidth().Children(func() {
+			ui.Column(c).FillWidth().AlignItems(ui.Center).Gap(5).Children(func() {
+				ui.Image(c, appIcon).Size(96, 96)
+				ui.Text(c, "See").FontSize(28).Bold().TextColor(colors(c).Text).TextAlign(ui.Center)
+				if a.version != "" {
+					ui.Text(c, locales.MsgVersion()+a.version).FontSize(13).TextColor(colors(c).Muted)
+				}
+				ui.Box(c).Height(6)
+				ui.Column(c).Gap(2).Width(300).Children(func() {
+					a.welcomeAction(c, documentIcon, locales.MsgNewFile2(), welcomeText("welcomeNewFileDetail"), shortcutLabel("N"), true, a.newFile)
+					a.welcomeAction(c, openIcon, locales.MsgOpenFile2(), welcomeText("welcomeOpenFileDetail"), "", false, a.openFileDialog)
+					a.welcomeAction(c, openIcon, locales.MsgOpenFolder2(), welcomeText("welcomeOpenFolderDetail"), shortcutLabel("O"), false, a.openFolderDialog)
+					a.welcomeAction(c, cloneIcon, welcomeText("welcomeCloneRepository"), welcomeText("welcomeCloneDetail"), "", false, func() {
+						a.clone = welcomeClone{open: true}
+					})
+					if last := a.lastFolder(); last != "" {
+						a.welcomeAction(c, reopenIcon, welcomeText("welcomeReopenRecent"), filepath.Base(last)+" — "+tildePath(last), "", false, func() { a.openRecent(last) })
+					}
 				})
-				if last := a.lastFolder(); last != "" {
-					a.welcomeAction(c, reopenIcon, welcomeText("welcomeReopenRecent"), filepath.Base(last)+" — "+tildePath(last), "", false, func() { a.openRecent(last) })
+				if a.welcomeNote != "" {
+					ui.Text(c, a.welcomeNote).FontSize(12).TextColor(colors(c).Err).MaxWidth(380).TextAlign(ui.Center).Padding(8, 0, 0, 0)
 				}
 			})
-			if a.welcomeNote != "" {
-				ui.Text(c, a.welcomeNote).FontSize(12).TextColor(colors(c).Err).MaxWidth(380).TextAlign(ui.Center).Padding(8, 0, 0, 0)
-			}
 		})
 		showWelcome := !a.cfg.ReopenLast
 		ui.Checkbox(c, &showWelcome, "Show this window when See launches").FontSize(12).TextColor(colors(c).Muted).OnClick(func() {
@@ -144,22 +148,16 @@ func (a *App) welcomeAction(c *ui.Context, icon *ui.SVG, title, detail, shortcut
 func (a *App) welcomeRecent(c *ui.Context) {
 	ui.Column(c).Width(280).Shrink(0).FillHeight().Background(colors(c).WelcomeRight).
 		BorderWidth(0, 0, 0, 1).BorderColor(colors(c).Separator).Padding(10, 8).Children(func() {
+		// The window's buttons sit over the top-right on Linux and
+		// Windows; keep the first row clear of them.
+		if bar := c.TitleBar(); bar.Right > 0 {
+			ui.Box(c).Height(max(bar.Bottom-10, 0))
+		}
 		recent := a.cfg.Recent
 		if len(recent) == 0 {
 			ui.Column(c).Grow(1).FillWidth().Center().Gap(4).Children(func() {
 				ui.Text(c, locales.MsgNoRecentFolders()).FontSize(13).TextColor(colors(c).Dim)
 				ui.Text(c, welcomeText("welcomeNoRecentFoldersDetail")).FontSize(11).TextColor(colors(c).Muted)
-			})
-			return
-		}
-		// A filter appears once the list is longer than a screen of rows.
-		if len(recent) > 5 {
-			ui.SearchField(c, &a.recentQuery).Label(welcomeText("welcomeFilterRecent")).Placeholder(welcomeText("welcomeFilterRecent")).FontSize(12).FillWidth().Padding(0, 0, 4, 0)
-			recent = recentMatching(recent, a.recentQuery)
-		}
-		if len(recent) == 0 {
-			ui.Column(c).Grow(1).FillWidth().Center().Children(func() {
-				ui.Text(c, welcomeText("welcomeNoMatchingFolders")).FontSize(12).TextColor(colors(c).Dim)
 			})
 			return
 		}
@@ -174,28 +172,12 @@ func (a *App) welcomeRecent(c *ui.Context) {
 		})
 		switch {
 		case clear:
-			a.recentQuery = ""
 			a.cfg.ClearRecent()
 		case forget != "":
 			a.cfg.RemoveRecent(forget)
 			a.saveConfig()
 		}
 	})
-}
-
-// recentMatching is the folders whose name or path holds the query.
-func recentMatching(recent []string, query string) []string {
-	query = strings.ToLower(strings.TrimSpace(query))
-	if query == "" {
-		return recent
-	}
-	var out []string
-	for _, p := range recent {
-		if strings.Contains(strings.ToLower(p), query) {
-			out = append(out, p)
-		}
-	}
-	return out
 }
 
 func (a *App) recentRow(c *ui.Context, p string, forget *string, clear *bool) {

@@ -8,41 +8,6 @@ import (
 	"testing"
 )
 
-func TestRecentFilterAppearsPastFive(t *testing.T) {
-	h := newHarness(t, "")
-	h.a.showWelcome = true
-	for i := range 4 {
-		h.a.cfg.Recent = append(h.a.cfg.Recent, filepath.Join("/work", string(rune('a')+rune(i))))
-	}
-	h.tt.Frame()
-	if h.tt.HasText(welcomeText("welcomeFilterRecent")) {
-		t.Fatal("filter shows with four folders")
-	}
-	h.a.cfg.Recent = append(h.a.cfg.Recent, "/work/e", "/work/f")
-	h.tt.Frame()
-	if !h.tt.HasText(welcomeText("welcomeFilterRecent")) {
-		t.Fatal("filter is missing with six folders")
-	}
-}
-
-func TestRecentFilterNarrowsTheList(t *testing.T) {
-	h := newHarness(t, "")
-	h.a.showWelcome = true
-	h.a.cfg.Recent = []string{"/work/alpha", "/work/beta", "/work/gamma", "/work/delta", "/work/epsilon", "/work/zeta"}
-	h.tt.Frame()
-	h.a.recentQuery = "alp"
-	h.tt.Frame()
-	if !h.tt.HasText("alpha") || h.tt.HasText("beta") {
-		texts := h.tt.Texts()
-		t.Fatalf("filter kept the wrong rows: %v", texts)
-	}
-	h.a.recentQuery = "nothing-matches"
-	h.tt.Frame()
-	if !h.tt.HasText(welcomeText("welcomeNoMatchingFolders")) {
-		t.Fatal("empty filter result shows no message")
-	}
-}
-
 func TestRecentContextMenuRemovesRow(t *testing.T) {
 	h := newHarness(t, "")
 	h.a.showWelcome = true

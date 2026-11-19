@@ -301,9 +301,9 @@ func (a *App) jumpBar(c *ui.Context, g *group) {
 			last := i == len(parts)-1
 			children := func() {
 				if last {
-					fileIcon(c, part, 12)
+					fileIcon(c, part, 13)
 				} else {
-					folderGlyph(c, false, 12)
+					folderGlyph(c, false, 13)
 				}
 				t := ui.Text(c, part).FontSize(12).SingleLine().Ellipsis("…")
 				if !last {
@@ -360,7 +360,7 @@ func (a *App) jumpBar(c *ui.Context, g *group) {
 			if g.hexPreview[p] {
 				label = "Show File"
 			}
-			if iconButton(c, icHex, label, label, g.hexPreview[p]).Clicked() {
+			if glyphButton(c, icHex, label, label, g.hexPreview[p], false).Clicked() {
 				if g.hexPreview == nil {
 					g.hexPreview = map[string]bool{}
 				}
@@ -372,7 +372,7 @@ func (a *App) jumpBar(c *ui.Context, g *group) {
 			if g.markdownPreview[p] || isMarkdownTab(tab) {
 				label = "Show Markdown Source"
 			}
-			if iconButton(c, icMarkdown, label, label+" ("+keyLabel("Cmd+Shift+", "V")+")", g.markdownPreview[p] || isMarkdownTab(tab)).Clicked() {
+			if glyphButton(c, icMarkdown, label, label+" ("+keyLabel("Cmd+Shift+", "V")+")", g.markdownPreview[p] || isMarkdownTab(tab), false).Clicked() {
 				a.focus = g
 				if isMarkdownTab(tab) || g.markdownPreview[p] {
 					delete(g.markdownPreview, p)
@@ -381,10 +381,6 @@ func (a *App) jumpBar(c *ui.Context, g *group) {
 					a.openMarkdownTab(g)
 				}
 			}
-		}
-		ui.Box(c).Grow(1)
-		if iconButton(c, icInspector, inspectorText("inspectorShow"), inspectorText("inspectorShowTip"), a.inspectorOpen()).Clicked() {
-			a.toggleInspector()
 		}
 	})
 }
