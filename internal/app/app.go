@@ -126,9 +126,11 @@ type App struct {
 	services              ui.Services             // the window's clipboard and browser, for menus built without a context
 	branchHandle          ui.Handle               // the toolbar's branch, under which the branch picker shows
 	welcomeNote           string
-	showWelcome           bool   // the welcome window over an open workspace
-	hasWelcome            bool   // this app owns the welcome window
-	version               string // the app's, shown on the welcome window
+	recentQuery           string       // the welcome window's filter of recent folders
+	clone                 welcomeClone // the welcome window's Clone Repository dialog
+	showWelcome           bool         // the welcome window over an open workspace
+	hasWelcome            bool         // this app owns the welcome window
+	version               string       // the app's, shown on the welcome window
 	sidebarW              float32
 	saveTimer             *time.Timer // a settings save waiting for changes to stop
 	restoringSession      bool

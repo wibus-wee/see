@@ -402,7 +402,7 @@ func (a *App) treeItem(c *ui.Context, p string) {
 				a.note(locales.MsgCouldNotPreviewFile()+err.Error(), true)
 			}
 		}
-		if m.Item("Show in Finder").Chosen() {
+		if m.Item(showInFolderLabel()).Chosen() {
 			mygo.Shell.ShowItemInFolder(p)
 		}
 		if !e.Dir && m.Item("Open with External Editor").Chosen() {
