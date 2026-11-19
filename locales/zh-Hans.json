@@ -107,7 +107,6 @@
   "gitLogNotADate": "请按 2006-01-02 的格式输入日期。",
   "gitLogNoCommitOnOrBefore": "该日期或之前没有提交：",
   "gitLogNoRevision": "找不到修订版本 ",
-
   "commandShowProblems": "显示问题",
   "commandShowQuickHelp": "显示快速帮助",
   "commandToggleQuickHelpInspector": "切换快速帮助检查器",
@@ -143,7 +142,6 @@
   "problemWarning": "警告",
   "problemInfo": "信息",
   "problemHint": "提示",
-
   "commandShowOutline": "显示大纲",
   "commandShowBookmarks": "显示书签",
   "commandToggleBookmark": "切换书签",
@@ -180,7 +178,6 @@
   "outlineKindStruct": "结构体",
   "outlineKindTypeParameter": "类型参数",
   "outlineKindSymbol": "符号",
-
   "commandSearchFileSymbols": "搜索文件符号",
   "fileSymbolsOpenText": "打开文本文件以搜索其中的符号。",
   "fileSymbolsUnsupported": "语言服务器不支持文件符号。",
@@ -205,11 +202,9 @@
   "commandFocusNextEditor": "聚焦下一个编辑器",
   "commandFocusPreviousEditor": "聚焦上一个编辑器",
   "commandMoveTabToNextEditor": "移动标签页到下一个编辑器",
-
   "commandCloseOtherTabs": "关闭其他标签页",
   "commandCloseTabsToTheRight": "关闭右侧标签页",
   "commandCloseSavedTabs": "关闭已保存的标签页",
-
   "commandNextProblem": "下一个问题",
   "commandPreviousProblem": "上一个问题",
   "commandGoToLine": "跳转到行",
@@ -752,5 +747,20 @@
   "msgNoReferencesFound": "未找到引用。",
   "msgReferencesMayMissUnopened": "语言服务器可能不会统计尚未打开的文件中的引用。",
   "msgNoPinnedReferences": "还没有固定的引用列表。可从预览固定列表，或运行“固定引用”。",
-  "msgReferencesCountDInDFiles": "{files} 个文件中的 {count} 处引用"
+  "msgReferencesCountDInDFiles": "{files} 个文件中的 {count} 处引用",
+  "commandShowCallHierarchy": "显示调用层次结构",
+  "callHierarchy": "调用层次结构",
+  "callHierarchyIncoming": "传入",
+  "callHierarchyOutgoing": "传出",
+  "callHierarchyPreparing": "正在准备调用层次结构…",
+  "callHierarchyLoading": "正在加载调用…",
+  "callHierarchyNoCallers": "未找到调用方",
+  "callHierarchyNoCallees": "未找到被调用方",
+  "callHierarchyNoIncoming": "此语言服务器不支持传入调用",
+  "callHierarchyNoOutgoing": "此语言服务器不支持传出调用",
+  "callHierarchyNoItem": "此位置没有调用层次结构",
+  "callHierarchySelectToPreview": "选择一个调用以预览",
+  "callHierarchyPreview": "调用代码预览",
+  "callHierarchyMakeRoot": "设为根节点",
+  "callHierarchyCopyLocation": "复制位置"
 }

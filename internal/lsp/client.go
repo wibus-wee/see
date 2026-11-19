@@ -49,6 +49,7 @@ type Client struct {
 	implementations    bool
 	typeDefinitions    bool
 	inlayHints         bool
+	callHierarchy      bool
 	pullDiagnostics    bool
 	signatureHelp      bool
 	diagMu             sync.Mutex
@@ -207,6 +208,10 @@ func (c *Client) HasInlayHints() bool { return c.inlayHints }
 // HasSignatureHelp reports whether the server answers signature help.
 func (c *Client) HasSignatureHelp() bool { return c.signatureHelp }
 
+// HasCallHierarchy reports whether the server answers call hierarchy
+// requests, either direction.
+func (c *Client) HasCallHierarchy() bool { return c.callHierarchy }
+
 // WorkspaceSymbols searches declarations across the workspace.
 type WorkspaceSymbol struct {
 	Name     string   `json:"name"`
@@ -277,6 +282,7 @@ func (c *Client) initialize(ctx context.Context) error {
 	c.typeDefinitions = (serverCapabilities{DefinitionProvider: res.Capabilities.TypeDefinitionProvider}).hasDefinition()
 	c.inlayHints = res.Capabilities.hasInlayHints()
 	c.signatureHelp = res.Capabilities.hasSignatureHelp()
+	c.callHierarchy = res.Capabilities.hasCallHierarchy()
 	c.pullDiagnostics = len(res.Capabilities.DiagnosticProvider) > 0 && string(res.Capabilities.DiagnosticProvider) != "null" && string(res.Capabilities.DiagnosticProvider) != "false"
 	return c.conn.Notify("initialized", map[string]any{})
 }
@@ -416,31 +422,118 @@ func (c *Client) References(ctx context.Context, uri string, pos Position) ([]Lo
 	return result, err
 }
 
-// Callers returns call sites from incoming call hierarchy items.
-func (c *Client) Callers(ctx context.Context, uri string, pos Position) ([]Location, error) {
-	var items []json.RawMessage
+// PrepareCallHierarchy asks which symbols the hierarchy at pos of the
+// document can grow from. Servers that cannot place one at pos answer
+// an error rather than an empty result, which ErrNoCallItem wraps, so
+// the caller can tell "nothing here" apart from a failure.
+func (c *Client) PrepareCallHierarchy(ctx context.Context, uri string, pos Position) ([]CallItem, error) {
+	var items []callItemWire
 	if err := c.conn.Call(ctx, "textDocument/prepareCallHierarchy", map[string]any{"textDocument": map[string]any{"uri": uri}, "position": pos}, &items); err != nil {
+		var e *Error
+		if errors.As(err, &e) && e.Code == 0 {
+			return nil, ErrNoCallItem
+		}
+		return nil, err
+	}
+	if len(items) == 0 {
+		return nil, ErrNoCallItem
+	}
+	out := make([]CallItem, len(items))
+	for i, item := range items {
+		out[i] = CallItem{
+			ID: i, Name: item.Name, Kind: item.Kind, Detail: item.Detail,
+			URI: item.URI, Range: item.Range, SelectionRange: item.SelectionRange, Data: item.Data,
+		}
+	}
+	return out, nil
+}
+
+// ErrNoCallItem means the server found no call hierarchy item where
+// asked: a position off a symbol, or a result of none.
+var ErrNoCallItem = errors.New("lsp: no call hierarchy item")
+
+// IncomingCalls asks who calls the item. An item without fromRanges is
+// kept, of a call whose site the server does not name.
+func (c *Client) IncomingCalls(ctx context.Context, item CallItem) ([]CallEdge, error) {
+	var calls []struct {
+		From       callItemWire `json:"from"`
+		FromRanges []Range      `json:"fromRanges"`
+	}
+	if err := c.conn.Call(ctx, "callHierarchy/incomingCalls", map[string]any{"item": item.wire()}, &calls); err != nil {
+		return nil, err
+	}
+	return callEdges(calls, func(c struct {
+		From       callItemWire `json:"from"`
+		FromRanges []Range      `json:"fromRanges"`
+	}) (callItemWire, []Range) {
+		return c.From, c.FromRanges
+	}), nil
+}
+
+// OutgoingCalls asks what the item calls.
+func (c *Client) OutgoingCalls(ctx context.Context, item CallItem) ([]CallEdge, error) {
+	var calls []struct {
+		To         callItemWire `json:"to"`
+		FromRanges []Range      `json:"fromRanges"`
+	}
+	if err := c.conn.Call(ctx, "callHierarchy/outgoingCalls", map[string]any{"item": item.wire()}, &calls); err != nil {
+		return nil, err
+	}
+	return callEdges(calls, func(c struct {
+		To         callItemWire `json:"to"`
+		FromRanges []Range      `json:"fromRanges"`
+	}) (callItemWire, []Range) {
+		return c.To, c.FromRanges
+	}), nil
+}
+
+// wire is the item as the protocol sends it back, with the data the
+// server wants returned.
+func (item CallItem) wire() callItemWire {
+	return callItemWire{
+		Name: item.Name, Kind: item.Kind, Detail: item.Detail,
+		URI: item.URI, Range: item.Range, SelectionRange: item.SelectionRange, Data: item.Data,
+	}
+}
+
+// callEdges turns the wire's incoming or outgoing calls into edges,
+// giving each item an ID of its own.
+func callEdges[T any](calls []T, edgeOf func(T) (callItemWire, []Range)) []CallEdge {
+	out := make([]CallEdge, 0, len(calls))
+	for _, call := range calls {
+		w, fromRanges := edgeOf(call)
+		item := CallItem{
+			ID: len(out), Name: w.Name, Kind: w.Kind, Detail: w.Detail,
+			URI: w.URI, Range: w.Range, SelectionRange: w.SelectionRange, Data: w.Data,
+		}
+		out = append(out, CallEdge{Item: item, FromRanges: fromRanges})
+	}
+	return out
+}
+
+// Callers returns call sites from incoming call hierarchy items,
+// flattened to locations as it always did: each fromRange is one call
+// site of its caller, or the caller itself when the server names none.
+func (c *Client) Callers(ctx context.Context, uri string, pos Position) ([]Location, error) {
+	items, err := c.PrepareCallHierarchy(ctx, uri, pos)
+	if err != nil {
+		if errors.Is(err, ErrNoCallItem) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	var locations []Location
 	for _, item := range items {
-		var calls []struct {
-			From struct {
-				URI            string `json:"uri"`
-				Name           string `json:"name"`
-				SelectionRange Range  `json:"selectionRange"`
-			} `json:"from"`
-			Ranges []Range `json:"fromRanges"`
-		}
-		if err := c.conn.Call(ctx, "callHierarchy/incomingCalls", map[string]any{"item": item}, &calls); err != nil {
+		calls, err := c.IncomingCalls(ctx, item)
+		if err != nil {
 			return nil, err
 		}
 		for _, call := range calls {
-			if len(call.Ranges) == 0 {
-				locations = append(locations, Location{URI: call.From.URI, Range: call.From.SelectionRange, Name: call.From.Name})
+			if len(call.FromRanges) == 0 {
+				locations = append(locations, Location{URI: call.Item.URI, Range: call.Item.SelectionRange, Name: call.Item.Name})
 			}
-			for _, r := range call.Ranges {
-				locations = append(locations, Location{URI: call.From.URI, Range: r, Name: call.From.Name})
+			for _, r := range call.FromRanges {
+				locations = append(locations, Location{URI: call.Item.URI, Range: r, Name: call.Item.Name})
 			}
 		}
 	}

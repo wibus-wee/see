@@ -7601,3 +7601,153 @@ func MsgReferencesCountDInDFiles(count string, files string) string {
 func (msgs Messages) MsgReferencesCountDInDFiles(count string, files string) string {
 	return Catalog.Format(msgs.locale, "msgReferencesCountDInDFiles", map[string]any{"count": count, "files": files})
 }
+
+// CommandShowCallHierarchy says "Show Call Hierarchy"
+// in the language the app shows.
+func CommandShowCallHierarchy() string { return In(i18n.Locale()).CommandShowCallHierarchy() }
+
+// CommandShowCallHierarchy says "Show Call Hierarchy"
+// in the language of msgs.
+func (msgs Messages) CommandShowCallHierarchy() string {
+	return Catalog.Format(msgs.locale, "commandShowCallHierarchy", nil)
+}
+
+// CallHierarchy says "Call Hierarchy"
+// in the language the app shows.
+func CallHierarchy() string { return In(i18n.Locale()).CallHierarchy() }
+
+// CallHierarchy says "Call Hierarchy"
+// in the language of msgs.
+func (msgs Messages) CallHierarchy() string {
+	return Catalog.Format(msgs.locale, "callHierarchy", nil)
+}
+
+// CallHierarchyIncoming says "Incoming"
+// in the language the app shows.
+func CallHierarchyIncoming() string { return In(i18n.Locale()).CallHierarchyIncoming() }
+
+// CallHierarchyIncoming says "Incoming"
+// in the language of msgs.
+func (msgs Messages) CallHierarchyIncoming() string {
+	return Catalog.Format(msgs.locale, "callHierarchyIncoming", nil)
+}
+
+// CallHierarchyOutgoing says "Outgoing"
+// in the language the app shows.
+func CallHierarchyOutgoing() string { return In(i18n.Locale()).CallHierarchyOutgoing() }
+
+// CallHierarchyOutgoing says "Outgoing"
+// in the language of msgs.
+func (msgs Messages) CallHierarchyOutgoing() string {
+	return Catalog.Format(msgs.locale, "callHierarchyOutgoing", nil)
+}
+
+// CallHierarchyPreparing says "Preparing call hierarchy…"
+// in the language the app shows.
+func CallHierarchyPreparing() string { return In(i18n.Locale()).CallHierarchyPreparing() }
+
+// CallHierarchyPreparing says "Preparing call hierarchy…"
+// in the language of msgs.
+func (msgs Messages) CallHierarchyPreparing() string {
+	return Catalog.Format(msgs.locale, "callHierarchyPreparing", nil)
+}
+
+// CallHierarchyLoading says "Loading calls…"
+// in the language the app shows.
+func CallHierarchyLoading() string { return In(i18n.Locale()).CallHierarchyLoading() }
+
+// CallHierarchyLoading says "Loading calls…"
+// in the language of msgs.
+func (msgs Messages) CallHierarchyLoading() string {
+	return Catalog.Format(msgs.locale, "callHierarchyLoading", nil)
+}
+
+// CallHierarchyNoCallers says "No callers found"
+// in the language the app shows.
+func CallHierarchyNoCallers() string { return In(i18n.Locale()).CallHierarchyNoCallers() }
+
+// CallHierarchyNoCallers says "No callers found"
+// in the language of msgs.
+func (msgs Messages) CallHierarchyNoCallers() string {
+	return Catalog.Format(msgs.locale, "callHierarchyNoCallers", nil)
+}
+
+// CallHierarchyNoCallees says "No callees found"
+// in the language the app shows.
+func CallHierarchyNoCallees() string { return In(i18n.Locale()).CallHierarchyNoCallees() }
+
+// CallHierarchyNoCallees says "No callees found"
+// in the language of msgs.
+func (msgs Messages) CallHierarchyNoCallees() string {
+	return Catalog.Format(msgs.locale, "callHierarchyNoCallees", nil)
+}
+
+// CallHierarchyNoIncoming says "This language server does not report incoming calls"
+// in the language the app shows.
+func CallHierarchyNoIncoming() string { return In(i18n.Locale()).CallHierarchyNoIncoming() }
+
+// CallHierarchyNoIncoming says "This language server does not report incoming calls"
+// in the language of msgs.
+func (msgs Messages) CallHierarchyNoIncoming() string {
+	return Catalog.Format(msgs.locale, "callHierarchyNoIncoming", nil)
+}
+
+// CallHierarchyNoOutgoing says "This language server does not report outgoing calls"
+// in the language the app shows.
+func CallHierarchyNoOutgoing() string { return In(i18n.Locale()).CallHierarchyNoOutgoing() }
+
+// CallHierarchyNoOutgoing says "This language server does not report outgoing calls"
+// in the language of msgs.
+func (msgs Messages) CallHierarchyNoOutgoing() string {
+	return Catalog.Format(msgs.locale, "callHierarchyNoOutgoing", nil)
+}
+
+// CallHierarchyNoItem says "No call hierarchy at this position"
+// in the language the app shows.
+func CallHierarchyNoItem() string { return In(i18n.Locale()).CallHierarchyNoItem() }
+
+// CallHierarchyNoItem says "No call hierarchy at this position"
+// in the language of msgs.
+func (msgs Messages) CallHierarchyNoItem() string {
+	return Catalog.Format(msgs.locale, "callHierarchyNoItem", nil)
+}
+
+// CallHierarchySelectToPreview says "Select a call to preview it"
+// in the language the app shows.
+func CallHierarchySelectToPreview() string { return In(i18n.Locale()).CallHierarchySelectToPreview() }
+
+// CallHierarchySelectToPreview says "Select a call to preview it"
+// in the language of msgs.
+func (msgs Messages) CallHierarchySelectToPreview() string {
+	return Catalog.Format(msgs.locale, "callHierarchySelectToPreview", nil)
+}
+
+// CallHierarchyPreview says "Call code preview"
+// in the language the app shows.
+func CallHierarchyPreview() string { return In(i18n.Locale()).CallHierarchyPreview() }
+
+// CallHierarchyPreview says "Call code preview"
+// in the language of msgs.
+func (msgs Messages) CallHierarchyPreview() string {
+	return Catalog.Format(msgs.locale, "callHierarchyPreview", nil)
+}
+
+// CallHierarchyMakeRoot says "Make Root"
+// in the language the app shows.
+func CallHierarchyMakeRoot() string { return In(i18n.Locale()).CallHierarchyMakeRoot() }
+
+// CallHierarchyMakeRoot says "Make Root"
+// in the language of msgs.
+func (msgs Messages) CallHierarchyMakeRoot() string {
+	return Catalog.Format(msgs.locale, "callHierarchyMakeRoot", nil)
+}
+
+// CallHierarchyCopyLocation says "Copy Location"
+// in the language the app shows.
+func CallHierarchyCopyLocation() string { return In(i18n.Locale()).CallHierarchyCopyLocation() }
+
+// CallHierarchyCopyLocation says "Copy Location"
+// in the language of msgs.
+func (msgs Messages) CallHierarchyCopyLocation() string {
+	return Catalog.Format(msgs.locale, "callHierarchyCopyLocation", nil)
+}

@@ -107,7 +107,6 @@
   "gitLogNotADate": "Type a date as 2006-01-02.",
   "gitLogNoCommitOnOrBefore": "No commit on or before ",
   "gitLogNoRevision": "No revision ",
-
   "commandShowProblems": "Show Problems",
   "commandShowQuickHelp": "Show Quick Help",
   "commandToggleQuickHelpInspector": "Toggle Quick Help Inspector",
@@ -143,7 +142,6 @@
   "problemWarning": "Warning",
   "problemInfo": "Information",
   "problemHint": "Hint",
-
   "commandShowOutline": "Show Outline",
   "commandShowBookmarks": "Show Bookmarks",
   "commandToggleBookmark": "Toggle Bookmark",
@@ -180,7 +178,6 @@
   "outlineKindStruct": "struct",
   "outlineKindTypeParameter": "type parameter",
   "outlineKindSymbol": "symbol",
-
   "commandSearchFileSymbols": "Search File Symbols",
   "fileSymbolsOpenText": "Open a text file to search its symbols.",
   "fileSymbolsUnsupported": "The language server does not support file symbols.",
@@ -205,11 +202,9 @@
   "commandFocusNextEditor": "Focus Next Editor",
   "commandFocusPreviousEditor": "Focus Previous Editor",
   "commandMoveTabToNextEditor": "Move Tab to Next Editor",
-
   "commandCloseOtherTabs": "Close Other Tabs",
   "commandCloseTabsToTheRight": "Close Tabs to the Right",
   "commandCloseSavedTabs": "Close Saved Tabs",
-
   "commandNextProblem": "Next Problem",
   "commandPreviousProblem": "Previous Problem",
   "commandGoToLine": "Go to Line",
@@ -752,5 +747,20 @@
   "msgNoReferencesFound": "No references found.",
   "msgReferencesMayMissUnopened": "The language server may not count references in files it has not opened.",
   "msgNoPinnedReferences": "No pinned references yet. Pin a references list from its peek or run Pin References.",
-  "msgReferencesCountDInDFiles": "{count} references in {files} files"
+  "msgReferencesCountDInDFiles": "{count} references in {files} files",
+  "commandShowCallHierarchy": "Show Call Hierarchy",
+  "callHierarchy": "Call Hierarchy",
+  "callHierarchyIncoming": "Incoming",
+  "callHierarchyOutgoing": "Outgoing",
+  "callHierarchyPreparing": "Preparing call hierarchy…",
+  "callHierarchyLoading": "Loading calls…",
+  "callHierarchyNoCallers": "No callers found",
+  "callHierarchyNoCallees": "No callees found",
+  "callHierarchyNoIncoming": "This language server does not report incoming calls",
+  "callHierarchyNoOutgoing": "This language server does not report outgoing calls",
+  "callHierarchyNoItem": "No call hierarchy at this position",
+  "callHierarchySelectToPreview": "Select a call to preview it",
+  "callHierarchyPreview": "Call code preview",
+  "callHierarchyMakeRoot": "Make Root",
+  "callHierarchyCopyLocation": "Copy Location"
 }

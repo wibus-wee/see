@@ -234,7 +234,9 @@ func (f *fakeServer) serve() {
 			} else {
 				reply(f.signatureHelp(m.Params))
 			}
-		case "textDocument/implementation", "textDocument/typeDefinition":
+		case "textDocument/implementation", "textDocument/typeDefinition",
+			"textDocument/prepareCallHierarchy",
+			"callHierarchy/incomingCalls", "callHierarchy/outgoingCalls":
 			reply(f.navigation(m.Method, m.Params))
 		case "shutdown":
 			reply("null")

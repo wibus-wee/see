@@ -268,6 +268,10 @@ func (a *App) jumpBar(c *ui.Context, g *group) {
 				a.focus = g
 				a.findUsagesAt(false, ui.Point{X: g.relatedBounds.X, Y: g.relatedBounds.Y + g.relatedBounds.H}, true)
 			}
+			if menu.Item(locales.CallHierarchy()).Chosen() {
+				a.focus = g
+				a.showCallHierarchyAt(g)
+			}
 		}, ui.PopoverMenuButtonOptions{Open: &g.relatedOpen})
 		if !g.relatedOpen {
 			g.counterpartMenu = nil

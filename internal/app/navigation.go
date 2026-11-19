@@ -93,9 +93,9 @@ func (a *App) commandEnabled(name string) bool {
 		"Fold Imports", "Fold Level 1", "Fold Level 2", "Fold Level 3",
 		"Fold Level 4", "Fold Level 5":
 		return a.activeEditor() != nil
-	// References and callers need a language server for the file; Pin
-	// References also pins a list the peek already shows.
-	case "Find References", "Find Callers":
+	// References, callers and the hierarchy need a language server for
+	// the file; Pin References also pins a list the peek already shows.
+	case "Find References", "Find Callers", "Show Call Hierarchy":
 		return a.activeEditor() != nil && a.serverFor(a.activePath()) != nil
 	case "Pin References":
 		return a.choices != nil && a.choices.title == "references" && len(a.choices.locs) > 0 ||
@@ -166,7 +166,7 @@ func (a *App) commandEnabled(name string) bool {
 func (a *App) navigationMenuItems(run func(func())) []*mygo.MenuItem {
 	var items []*mygo.MenuItem
 	for _, cmd := range commands() {
-		if cmd.name != "Go to Definition" && cmd.name != "Peek Definition" && cmd.name != "Go to Implementation" && cmd.name != "Go to Type Definition" {
+		if cmd.name != "Go to Definition" && cmd.name != "Peek Definition" && cmd.name != "Go to Implementation" && cmd.name != "Go to Type Definition" && cmd.name != "Show Call Hierarchy" {
 			continue
 		}
 		items = append(items, &mygo.MenuItem{
