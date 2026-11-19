@@ -65,9 +65,14 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 			d := a.docs[path]
 			diff := g.diffs[p]
 			if diff != nil {
-				d = &doc{name: filepath.Base(diff.name)}
-				if !diff.cli && a.git.root != "" {
-					path = filepath.Join(a.git.root, diff.name)
+				if diff.branch != nil {
+					path = ""
+					d = &doc{name: diff.name}
+				} else {
+					d = &doc{name: filepath.Base(diff.name)}
+					if !diff.cli && a.git.root != "" {
+						path = filepath.Join(a.git.root, diff.name)
+					}
 				}
 			}
 			if d == nil {
@@ -113,7 +118,9 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 			case hovered:
 				tab.Background(colors(c).TabHover)
 			}
-			if d.untitled {
+			if diff != nil && diff.branch != nil {
+				tab.Tooltip(diff.name)
+			} else if d.untitled {
 				tab.Tooltip(d.name)
 			} else {
 				tab.Tooltip(workspace.RelPath(a.root, path))
@@ -180,7 +187,11 @@ func (a *App) diffJumpBar(c *ui.Context, g *group) {
 		ui.Text(c, filepath.Base(a.root)).FontSize(12).TextColor(colors(c).Muted).SingleLine()
 		symbolIcon(c, icChevron, 9, colors(c).Dim)
 		label := v.label()
-		if v.log != nil {
+		if v.branch != nil {
+			symbolIcon(c, icGit, 12, colors(c).Muted)
+			ui.Text(c, branchDiffText("gitSince")+" "+v.branch.baseName).FontSize(12).SingleLine().Shrink(1)
+			label = ""
+		} else if v.log != nil {
 			symbolIcon(c, icGit, 12, colors(c).Muted)
 			ui.Text(c, v.name).FontSize(12).SingleLine().Shrink(1)
 			label = ""
@@ -215,7 +226,11 @@ func (a *App) diffJumpBar(c *ui.Context, g *group) {
 			}
 		}
 		if len(g.order) == 1 && len(a.groups()) == 1 {
-			if glyphButton(c, icClose, "Close "+filepath.Base(v.name)+" ("+v.label()+")", "Close Diff", false, false).Clicked() {
+			label := "Close " + filepath.Base(v.name) + " (" + v.label() + ")"
+			if v.branch != nil {
+				label = "Close " + v.name
+			}
+			if glyphButton(c, icClose, label, "Close Diff", false, false).Clicked() {
 				a.closeTab(g, g.active)
 			}
 		}

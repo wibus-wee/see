@@ -28,6 +28,8 @@ type branchPicker struct {
 	seq      uint64
 	at       ui.Rect // the button it hangs from
 	anchor   ui.Rect // the toolbar's branch, as last drawn
+	compare  bool
+	target   *group
 }
 
 // branchItem is a row of the picker: a section's heading, a branch, or
@@ -48,6 +50,7 @@ func (a *App) openBranchPicker(at ui.Rect) {
 	}
 	p := &a.git.picker
 	p.open, p.query, p.sel, p.err, p.loading, p.at = true, "", 0, "", true, at
+	p.compare, p.target = false, nil
 	p.list.Selected = &p.sel
 	p.seq++
 	seq, gen, ctx, root := p.seq, a.gen, a.wsCtx, a.git.root
@@ -92,7 +95,7 @@ func (a *App) branchItems() []branchItem {
 	section("Branches", false)
 	section("Remote Branches", true)
 	// Last, so that Return takes the first branch that matches.
-	if name := strings.TrimSpace(p.query); name != "" && !exact {
+	if name := strings.TrimSpace(p.query); name != "" && !exact && !p.compare {
 		items = append(items, branchItem{create: name})
 	}
 	return items
@@ -128,13 +131,22 @@ func (a *App) chooseBranch(it branchItem) {
 			return git.CreateBranch(a.wsCtx, a.git.root, it.create)
 		})
 	case it.branch != nil && it.branch.Current:
-		p.open = false
+		if p.compare {
+			p.open = false
+			a.selectBranchBase(*it.branch, p.target)
+		} else {
+			p.open = false
+		}
 	case it.branch != nil:
 		p.open = false
-		b, all := *it.branch, p.branches
-		a.runBranchJob("Switched to "+b.LocalName()+".", func() error {
-			return git.Switch(a.wsCtx, a.git.root, b, all)
-		})
+		if p.compare {
+			a.selectBranchBase(*it.branch, p.target)
+		} else {
+			b, all := *it.branch, p.branches
+			a.runBranchJob("Switched to "+b.LocalName()+".", func() error {
+				return git.Switch(a.wsCtx, a.git.root, b, all)
+			})
+		}
 	}
 }
 
@@ -224,14 +236,36 @@ func (a *App) branchPickerPanel(c *ui.Context) {
 	ui.Overlay(c, func() {
 		backdrop := ui.Box(c).Absolute().Top(0).Left(0).Right(0).Bottom(0)
 		backdrop.OnClick(func() { p.open = false })
-		panel := ui.Column(c).Absolute().Left(max(p.at.X-8, 8)).Top(p.at.Y+p.at.H+6).Width(360).MaxHeight(440).
-			Radius(12).Padding(6).Gap(4).Material(glass.Glass{}).Border(1, colors(c).PopoverEdge).
+		left, top, width, height := max(p.at.X-8, 8), p.at.Y+p.at.H+6, float32(360), float32(440)
+		bottom, opensAbove := float32(0), false
+		if p.compare {
+			w, h := c.Size()
+			bounds := compareBranchPickerBounds(p.at, w, h)
+			left, top, width, height = bounds.X, bounds.Y, bounds.W, bounds.H
+			opensAbove = bounds.Y < p.at.Y
+			if opensAbove {
+				margin := min(float32(8), max(0, min(w, h)/2))
+				panelBottom := max(margin, min(p.at.Y-6, h-margin))
+				bottom = h - panelBottom
+			}
+		}
+		panel := ui.Column(c).Absolute().Left(left).Width(width).MaxHeight(height)
+		if opensAbove {
+			panel.Bottom(bottom)
+		} else {
+			panel.Top(top)
+		}
+		panel.Radius(12).Padding(6).Gap(4).Material(glass.Glass{}).Border(1, colors(c).PopoverEdge).
 			Shadow(0, 12, 36, 0, ui.RGBA(0, 0, 0, 0.35))
 		panel.OnClick(func() {})
 		panel.Children(func() {
 			ui.Row(c).Padding(4, 6).Gap(6).AlignItems(ui.Center).Children(func() {
 				symbolIcon(c, icSearch, 14, colors(c).Muted)
-				in := ui.TextInput(c, &p.query).Placeholder(locales.MsgFilterOrNameANewBranch()).Label(locales.MsgFilterBranches()).
+				placeholder, label := locales.MsgFilterOrNameANewBranch(), locales.MsgFilterBranches()
+				if p.compare {
+					placeholder, label = branchDiffText("gitSearchBaseBranch"), branchDiffText("gitChooseBaseBranch")
+				}
+				in := ui.TextInput(c, &p.query).Placeholder(placeholder).Label(label).
 					FontSize(13).Grow(1).AutoFocus().Background(ui.Transparent).BorderWidth(0)
 				switch {
 				case in.Changed():
@@ -264,6 +298,24 @@ func (a *App) branchPickerPanel(c *ui.Context) {
 			}
 		})
 	})
+}
+
+func compareBranchPickerBounds(at ui.Rect, width, height float32) ui.Rect {
+	margin := min(float32(8), max(0, min(width, height)/2))
+	panelWidth := min(float32(360), max(0, width-2*margin))
+	maxHeight := min(float32(440), max(0, height-2*margin))
+	left := max(margin, min(at.X-8, width-panelWidth-margin))
+	top := at.Y + at.H + 6
+	panelHeight := min(maxHeight, max(0, height-margin-top))
+	if panelHeight < min(maxHeight, 220) {
+		above := max(0, at.Y-margin-6)
+		if above > panelHeight {
+			panelHeight = min(maxHeight, above)
+			top = at.Y - 6 - panelHeight
+		}
+	}
+	top = max(margin, min(top, height-margin-panelHeight))
+	return ui.Rect{X: left, Y: top, W: panelWidth, H: panelHeight}
 }
 
 func (a *App) branchRow(c *ui.Context, items []branchItem, i int) {
