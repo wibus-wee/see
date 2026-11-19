@@ -130,6 +130,7 @@ func commandsFor(goos string) []command {
 		{"Shell Command: Uninstall 'see' Command from PATH", "", "", 0, 0, func(a *App) { a.uninstallSee() }},
 	}
 	cmds = append(cmds,
+		command{"Show Signature Help", "Ctrl+Shift+", "Space", ui.Ctrl | ui.Shift, ui.KeySpace, func(a *App) { a.showSignatureAtCaret() }},
 		command{"Find in File", "Cmd+", "F", 0, 0, func(a *App) {
 			if st := a.activeEditor(); st != nil {
 				st.Run(editor.Find)

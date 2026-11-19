@@ -139,6 +139,7 @@ type fakeServer struct {
 
 	documentSymbols    func(params json.RawMessage) string
 	documentHighlights func(params json.RawMessage) string
+	signatureHelp      func(params json.RawMessage) string
 	definition         func(params json.RawMessage) string // raw result
 	inlayHints         func(params json.RawMessage) string
 	navigation         func(method string, params json.RawMessage) string
@@ -226,6 +227,12 @@ func (f *fakeServer) serve() {
 				reply("null")
 			} else {
 				reply(f.inlayHints(m.Params))
+			}
+		case "textDocument/signatureHelp":
+			if f.signatureHelp == nil {
+				reply("null")
+			} else {
+				reply(f.signatureHelp(m.Params))
 			}
 		case "textDocument/implementation", "textDocument/typeDefinition":
 			reply(f.navigation(m.Method, m.Params))
@@ -432,5 +439,65 @@ func TestParseHover(t *testing.T) {
 	}
 	if _, _, err := ParseHover(json.RawMessage(`{"contents":5}`)); err == nil {
 		t.Error("bad contents accepted")
+	}
+}
+
+func TestSignatureHelp(t *testing.T) {
+	f, r, w := newFake(t)
+	f.caps = `{"signatureHelpProvider":{"triggerCharacters":["(",","]},"positionEncoding":"utf-16"}`
+	f.signatureHelp = func(p json.RawMessage) string {
+		var pp struct {
+			TextDocument struct{ URI string } `json:"textDocument"`
+			Position     Position             `json:"position"`
+		}
+		json.Unmarshal(p, &pp)
+		if pp.TextDocument.URI != "file:///w/a.go" || pp.Position.Line != 2 || pp.Position.Character != 8 {
+			t.Errorf("signatureHelp params: %s", p)
+		}
+		return `{"signatures":[` +
+			`{"label":"greet(n int, s string) int","documentation":{"kind":"markdown","value":"Greets."},` +
+			`"parameters":[{"label":"n int","documentation":"The count."},{"label":[13,21]}]},` +
+			`{"label":"greet()","parameters":[]}],` +
+			`"activeSignature":0,"activeParameter":1}`
+	}
+	c := connect(t, f, r, w, nil)
+	if !c.HasSignatureHelp() {
+		t.Fatal("capability not read")
+	}
+	help, err := c.SignatureHelp(context.Background(), "file:///w/a.go", Position{2, 8})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if help == nil || len(help.Signatures) != 2 {
+		t.Fatalf("help = %+v", help)
+	}
+	sig := help.Signatures[0]
+	if sig.Label != "greet(n int, s string) int" || sig.Documentation != "Greets." {
+		t.Errorf("signature = %+v", sig)
+	}
+	if len(sig.Parameters) != 2 || sig.Parameters[0].Documentation != "The count." {
+		t.Errorf("parameters = %+v", sig.Parameters)
+	}
+	lo, hi := sig.Parameters[0].ParamBounds(sig.Label)
+	if got := sig.Label[lo:hi]; got != "n int" {
+		t.Errorf("string label bounds = %q", got)
+	}
+	lo, hi = sig.Parameters[1].ParamBounds(sig.Label)
+	if got := sig.Label[lo:hi]; got != "s string" {
+		t.Errorf("offset label bounds = %q", got)
+	}
+	if help.ActiveSignature == nil || *help.ActiveSignature != 0 || help.ActiveParameter == nil || *help.ActiveParameter != 1 {
+		t.Errorf("actives = %+v", help)
+	}
+
+	// A server that does not answer signature help reports no capability.
+	f2, r2, w2 := newFake(t)
+	c2 := connect(t, f2, r2, w2, nil)
+	if c2.HasSignatureHelp() {
+		t.Error("capability read of a server without it")
+	}
+	help, err = c2.SignatureHelp(context.Background(), "file:///w/a.go", Position{2, 8})
+	if err != nil || help != nil {
+		t.Errorf("null result: %v %v", help, err)
 	}
 }

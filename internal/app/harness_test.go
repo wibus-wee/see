@@ -195,6 +195,7 @@ type fakeClient struct {
 	noNavigation   bool
 	hover          func(ctx context.Context, uri string, pos lsp.Position) (string, *lsp.Range, error)
 	inlayHints     func(ctx context.Context, uri string, r lsp.Range) ([]lsp.InlayHint, error)
+	signature      func(ctx context.Context, uri string, pos lsp.Position) (*lsp.SignatureHelp, error) // nil: no signature help
 	log            []string
 	shutdown       bool
 }
@@ -266,6 +267,11 @@ func (f *fakeClient) InlayHints(ctx context.Context, uri string, r lsp.Range) ([
 		return nil, nil
 	}
 	return f.inlayHints(ctx, uri, r)
+}
+func (f *fakeClient) HasSignatureHelp() bool { return f.signature != nil }
+func (f *fakeClient) SignatureHelp(ctx context.Context, uri string, pos lsp.Position) (*lsp.SignatureHelp, error) {
+	f.record("signatureHelp")
+	return f.signature(ctx, uri, pos)
 }
 func (f *fakeClient) Shutdown(time.Duration) {
 	f.mu.Lock()

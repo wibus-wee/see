@@ -133,6 +133,7 @@ type App struct {
 	noticeError    bool
 
 	hover         hoverState
+	signature     signatureState
 	task          *taskRun
 	taskList      ui.ListState
 	term          termPanel

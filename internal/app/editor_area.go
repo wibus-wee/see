@@ -420,6 +420,9 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 			if a.changeBarInput(g, d, st, origin, ev) {
 				return true
 			}
+			if a.signatureInput(st, ev) {
+				return true
+			}
 			return a.quickHelpEditorInput(g, d, st, ev)
 		}
 		if peek := a.git.peek; peek != nil && peek.doc == d && peek.group == g {
@@ -449,6 +452,8 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 			a.editorPeekAction(c, bounds, st, ch.from.Line, fmt.Sprintf("%d %s", len(ch.locs), ch.title), closeLabel, 264,
 				pin, func() { a.choices = nil }, func() { a.relatedView(c, ch) })
 		}
+		a.syncSignature(g, d, st)
+		a.signatureStrip(c, bounds, st, d, gutter)
 		line := d.buf.Line(pos.Line)
 		prefix := strings.ReplaceAll(line[:min(pos.Col, len(line))], "\t", "    ")
 		width, _ := c.MeasureText(0, ui.Span{Text: prefix, Font: st.Font.Family, Size: fontSize})
