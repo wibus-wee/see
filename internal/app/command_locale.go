@@ -9,6 +9,7 @@ import (
 
 var commandMessages = map[string]string{
 	"Show Problems":              "commandShowProblems",
+	"Show Outline":               "commandShowOutline",
 	"Search File Symbols":        "commandSearchFileSymbols",
 	"Go: Build Workspace":        "commandGoBuild",
 	"Go: Test Workspace":         "commandGoTest",

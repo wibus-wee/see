@@ -52,6 +52,7 @@ type App struct {
 	wsCancel context.CancelFunc
 	dirs     map[string]*dirState
 	tree     ui.OutlineState[string]
+	outline  outlineState
 	treeRow  int
 	reveal   string // a path to choose in the tree once its row shows
 	filter   treeFilter
@@ -147,6 +148,7 @@ const (
 	navFind
 	navGit
 	navProblems
+	navOutline
 )
 
 // dirState is a directory of the tree: unread until opened.

@@ -47,6 +47,7 @@ func commands() []command {
 		{"Replace in Workspace", "Cmd+Shift+", "H", ui.Cmd | ui.Shift, ui.KeyH, func(a *App) {
 			a.sidebarOff, a.navigator, a.find.focus, a.find.showReplace = false, navFind, true, true
 		}},
+		{"Show Outline", "", "", 0, 0, func(a *App) { a.sidebarOff, a.navigator = false, navOutline }},
 		{"Show Git", "", "", 0, 0, func(a *App) { a.sidebarOff, a.navigator = false, navGit; a.refreshGit() }},
 		{"Git: Show History", "", "", 0, 0, func(a *App) {
 			a.sidebarOff, a.navigator, a.git.historyClosed = false, navGit, false

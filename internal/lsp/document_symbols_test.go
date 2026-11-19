@@ -11,8 +11,11 @@ func TestDocumentSymbolsProtocol(t *testing.T) {
 		name, result string
 		want         []DocumentSymbol
 	}{
-		{"nested", `[{"name":"Type","range":{"start":{"line":0,"character":0},"end":{"line":9,"character":0}},"selectionRange":{"start":{"line":1,"character":5},"end":{"line":1,"character":9}},"children":[{"name":"Method","selectionRange":{"start":{"line":3,"character":2},"end":{"line":3,"character":8}}}]}]`, []DocumentSymbol{{"Type", Position{1, 5}}, {"Method", Position{3, 2}}}},
-		{"flat", `[{"name":"Local","location":{"uri":"file:///w/a.go","range":{"start":{"line":2,"character":3},"end":{"line":2,"character":7}}}},{"name":"Other","location":{"uri":"file:///w/other.go","range":{"start":{"line":0,"character":0},"end":{"line":0,"character":1}}}}]`, []DocumentSymbol{{"Local", Position{2, 3}}}},
+		{"nested", `[{"name":"Type","kind":23,"detail":"struct","range":{"start":{"line":0,"character":0},"end":{"line":9,"character":0}},"selectionRange":{"start":{"line":1,"character":5},"end":{"line":1,"character":9}},"children":[{"name":"Method","selectionRange":{"start":{"line":3,"character":2},"end":{"line":3,"character":8}}}]}]`, []DocumentSymbol{
+			{Name: "Type", Detail: "struct", Kind: 23, Position: Position{1, 5}, Range: Range{Position{0, 0}, Position{9, 0}}},
+			{Name: "Method", Depth: 1, Position: Position{3, 2}, Range: Range{Position{3, 2}, Position{3, 8}}},
+		}},
+		{"flat", `[{"name":"Local","location":{"uri":"file:///w/a.go","range":{"start":{"line":2,"character":3},"end":{"line":2,"character":7}}}},{"name":"Other","location":{"uri":"file:///w/other.go","range":{"start":{"line":0,"character":0},"end":{"line":0,"character":1}}}}]`, []DocumentSymbol{{Name: "Local", Position: Position{2, 3}, Range: Range{Position{2, 3}, Position{2, 7}}}}},
 		{"empty", "null", nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
