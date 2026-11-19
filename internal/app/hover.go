@@ -55,6 +55,7 @@ type hoverLocation struct {
 
 const hoverCacheTTL = 10 * time.Second
 const hoverCacheLimit = 128
+const quickHelpDefinitionTimeout = 300 * time.Millisecond
 
 func (a *App) invalidateHover() {
 	a.hover.epoch++
@@ -187,10 +188,11 @@ func (a *App) hideLink() {
 
 // renderHover keeps the editor's selectable hover and gives it the app's
 // popover colors and a subtle elevation.
-func (a *App) renderHover(c *ui.Context, panel ui.Element, h *editor.HoverCard) {
+func (a *App) renderHover(st *editor.State, c *ui.Context, panel ui.Element, h *editor.HoverCard) {
 	editor.DefaultHover(c, panel, h)
 	width := float32(620)
-	if a.quickHelp != nil {
+	if a.quickHelp == st {
+		a.quickHelpRendered = true
 		width = 500
 		a.quickHelpBounds = panel.LayoutBounds()
 	}
@@ -351,7 +353,9 @@ func (a *App) quickHelpAt(g *group, d *doc, st *editor.State, offset int) {
 		}
 		var declared *target
 		if client.HasDefinition() {
-			locations, _ := client.Definition(ctx, d.uri, at)
+			definitionCtx, cancelDefinition := context.WithTimeout(ctx, quickHelpDefinitionTimeout)
+			locations, _ := client.Definition(definitionCtx, d.uri, at)
+			cancelDefinition()
 			targets, _ := targetsOf(locations)
 			if len(targets) > 0 {
 				declared = &targets[0]
@@ -449,7 +453,7 @@ func (a *App) quickHelpEditorInput(g *group, d *doc, st *editor.State, ev ui.Inp
 	} else if a.quickHelpRequest == st && (ev.Kind == ui.InputKeyDown || ev.Kind == ui.InputText || ev.Kind == ui.InputCommand) {
 		a.cancelQuickHelpRequest()
 	}
-	if ev.Kind == ui.InputPointerDown && ev.Button == 0 && ev.Mods&ui.Alt != 0 {
+	if ev.Kind == ui.InputPointerDown && ev.Button == 0 && ev.Mods == ui.Alt {
 		a.post.Post(func() {
 			if a.docs[d.path] == d && g.eds[d.path] == st && g.active == d.path {
 				a.quickHelpAt(g, d, st, st.Cursor())
