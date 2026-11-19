@@ -142,6 +142,7 @@ type fakeServer struct {
 	signatureHelp      func(params json.RawMessage) string
 	definition         func(params json.RawMessage) string // raw result
 	inlayHints         func(params json.RawMessage) string
+	semanticTokens     func(method string, params json.RawMessage) string
 	navigation         func(method string, params json.RawMessage) string
 	initializeParams   json.RawMessage
 	caps               string
@@ -227,6 +228,12 @@ func (f *fakeServer) serve() {
 				reply("null")
 			} else {
 				reply(f.inlayHints(m.Params))
+			}
+		case "textDocument/semanticTokens/full", "textDocument/semanticTokens/range":
+			if f.semanticTokens == nil {
+				reply("null")
+			} else {
+				reply(f.semanticTokens(m.Method, m.Params))
 			}
 		case "textDocument/signatureHelp":
 			if f.signatureHelp == nil {
@@ -501,5 +508,85 @@ func TestSignatureHelp(t *testing.T) {
 	help, err = c2.SignatureHelp(context.Background(), "file:///w/a.go", Position{2, 8})
 	if err != nil || help != nil {
 		t.Errorf("null result: %v %v", help, err)
+	}
+}
+
+func TestSemanticTokens(t *testing.T) {
+	f, r, w := newFake(t)
+	f.caps = `{"positionEncoding":"utf-8","textDocumentSync":{"openClose":true,"change":2},` +
+		`"definitionProvider":true,` +
+		`"semanticTokensProvider":{"legend":{"tokenTypes":["namespace","variable","type","function","keyword","string"],"tokenModifiers":["declaration","readonly"]},"full":true,"range":true}}`
+	var gotRange bool
+	f.semanticTokens = func(method string, p json.RawMessage) string {
+		if method == "textDocument/semanticTokens/range" {
+			var pp struct {
+				Range Range `json:"range"`
+			}
+			json.Unmarshal(p, &pp)
+			gotRange = pp.Range.Start.Line == 2 && pp.Range.End.Line == 5
+			return `{"data":[0,0,1,0,0]}`
+		}
+		return `{"data":[0,0,3,1,0, 1,4,4,3,0, 0,5,1,4,0]}`
+	}
+	c := connect(t, f, r, w, nil)
+	if !c.HasSemanticTokens() || !c.SemanticTokensFull() || !c.SemanticTokensRange() {
+		t.Fatal("capability not read")
+	}
+	if got := c.SemanticTokenTypes(); len(got) != 6 || got[3] != "function" {
+		t.Fatalf("legend: %v", got)
+	}
+	if got := c.SemanticTokenModifiers(); len(got) != 2 || got[1] != "readonly" {
+		t.Fatalf("modifiers: %v", got)
+	}
+	// With both kinds offered, a windowed ask takes the range method and
+	// a whole-document ask the full one.
+	rng, err := c.SemanticTokens(context.Background(), "file:///w/a.go", 2, 4)
+	if err != nil || !gotRange || len(rng.Data) != 5 {
+		t.Fatalf("range: %v err=%v", rng.Data, err)
+	}
+	full, err := c.SemanticTokens(context.Background(), "file:///w/a.go", -1, -1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []uint32{0, 0, 3, 1, 0, 1, 4, 4, 3, 0, 0, 5, 1, 4, 0}
+	if len(full.Data) != len(want) {
+		t.Fatalf("data: %v", full.Data)
+	}
+	for i := range want {
+		if full.Data[i] != want[i] {
+			t.Fatalf("data[%d] = %d, want %v", i, full.Data[i], want)
+		}
+	}
+
+	// The capability is what a server without it answers: neither kind.
+	f2, r2, w2 := newFake(t)
+	c2 := connect(t, f2, r2, w2, nil)
+	if c2.HasSemanticTokens() || len(c2.SemanticTokenTypes()) != 0 {
+		t.Error("capability read of a server without it")
+	}
+	if _, err := c2.SemanticTokens(context.Background(), "file:///w/a.go", -1, -1); err == nil {
+		t.Error("request succeeded without the capability")
+	}
+}
+
+func TestSemanticTokensPartialCapability(t *testing.T) {
+	// A server answering only range requests takes the range method for
+	// windowed asks and reports no full-document support.
+	f, r, w := newFake(t)
+	f.caps = `{"definitionProvider":true,"semanticTokensProvider":{"legend":{"tokenTypes":["variable"],"tokenModifiers":[]},"range":true}}`
+	var method string
+	f.semanticTokens = func(m string, p json.RawMessage) string {
+		method = m
+		return `{"data":[]}`
+	}
+	c := connect(t, f, r, w, nil)
+	if !c.HasSemanticTokens() || c.SemanticTokensFull() || !c.SemanticTokensRange() {
+		t.Fatal("capability not read")
+	}
+	if _, err := c.SemanticTokens(context.Background(), "file:///w/a.go", -1, -1); err != nil {
+		t.Fatal(err)
+	}
+	if method != "textDocument/semanticTokens/range" {
+		t.Fatalf("method = %s", method)
 	}
 }

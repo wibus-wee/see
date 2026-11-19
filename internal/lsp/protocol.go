@@ -160,6 +160,7 @@ type serverCapabilities struct {
 	DiagnosticProvider        json.RawMessage `json:"diagnosticProvider"`
 	InlayHintProvider         json.RawMessage `json:"inlayHintProvider"`
 	SignatureHelpProvider     json.RawMessage `json:"signatureHelpProvider"`
+	SemanticTokensProvider    json.RawMessage `json:"semanticTokensProvider"`
 }
 
 // syncKind reads textDocumentSync, a number or TextDocumentSyncOptions,
@@ -267,6 +268,46 @@ func inlayLabel(raw json.RawMessage) (string, error) {
 		return sb.String(), nil
 	}
 	return "", fmt.Errorf("lsp: bad inlay hint label %.20q", raw)
+}
+
+// semanticTokensLegend is the legend a semanticTokensProvider names:
+// the token type and modifier names its numeric stream indexes.
+type semanticTokensLegend struct {
+	TokenTypes     []string `json:"tokenTypes"`
+	TokenModifiers []string `json:"tokenModifiers"`
+}
+
+// SemanticTokensData is the result of a semanticTokens request: the
+// delta-encoded token stream, five numbers a token.
+type SemanticTokensData struct {
+	Data []uint32 `json:"data"`
+}
+
+// semanticTokens reads the provider's legend and whether it answers
+// full and range requests. The provider may be an object or, against
+// the spec, a bare true; a legend it does not give leaves no names, and
+// its requests then count for nothing.
+func (s serverCapabilities) semanticTokens() (legend semanticTokensLegend, full, rng bool) {
+	raw := bytes.TrimSpace(s.SemanticTokensProvider)
+	if len(raw) == 0 || bytes.Equal(raw, []byte("false")) || bytes.Equal(raw, []byte("null")) {
+		return legend, false, false
+	}
+	if raw[0] != '{' {
+		return legend, false, false
+	}
+	var opts struct {
+		Legend semanticTokensLegend `json:"legend"`
+		Full   json.RawMessage      `json:"full"`
+		Range  json.RawMessage      `json:"range"`
+	}
+	if json.Unmarshal(raw, &opts) != nil {
+		return legend, false, false
+	}
+	truthy := func(v json.RawMessage) bool {
+		v = bytes.TrimSpace(v)
+		return len(v) > 0 && !bytes.Equal(v, []byte("false")) && !bytes.Equal(v, []byte("null"))
+	}
+	return opts.Legend, truthy(opts.Full), truthy(opts.Range)
 }
 
 func (s serverCapabilities) hasSignatureHelp() bool {

@@ -52,6 +52,9 @@ type Client struct {
 	callHierarchy      bool
 	pullDiagnostics    bool
 	signatureHelp      bool
+	semanticFull       bool
+	semanticRange      bool
+	semanticLegend     semanticTokensLegend
 	diagMu             sync.Mutex
 	onDiagnostics      func(string, *int, []Diagnostic)
 
@@ -212,6 +215,20 @@ func (c *Client) HasSignatureHelp() bool { return c.signatureHelp }
 // requests, either direction.
 func (c *Client) HasCallHierarchy() bool { return c.callHierarchy }
 
+// HasSemanticTokens reports whether the server answers semantic tokens
+// requests, whole-document or for a range.
+func (c *Client) HasSemanticTokens() bool { return c.semanticFull || c.semanticRange }
+
+// SemanticTokensFull and SemanticTokensRange report which of the two
+// semantic tokens requests the server answers.
+func (c *Client) SemanticTokensFull() bool  { return c.semanticFull }
+func (c *Client) SemanticTokensRange() bool { return c.semanticRange }
+
+// SemanticTokenTypes and SemanticTokenModifiers are the server's
+// legend: the names its token stream indexes, in its order.
+func (c *Client) SemanticTokenTypes() []string     { return c.semanticLegend.TokenTypes }
+func (c *Client) SemanticTokenModifiers() []string { return c.semanticLegend.TokenModifiers }
+
 // WorkspaceSymbols searches declarations across the workspace.
 type WorkspaceSymbol struct {
 	Name     string   `json:"name"`
@@ -257,6 +274,15 @@ func (c *Client) initialize(ctx context.Context) error {
 				"inlayHint":         map[string]any{},
 				"hover":             map[string]any{"contentFormat": []string{"markdown", "plaintext"}, "dynamicRegistration": false},
 				"signatureHelp":     map[string]any{"signatureInformation": map[string]any{"documentationFormat": []string{"markdown", "plaintext"}, "parameterInformation": map[string]any{"labelOffsetSupport": true}}, "dynamicRegistration": false},
+				"semanticTokens": map[string]any{
+					"dynamicRegistration":     false,
+					"requests":                map[string]any{"range": true, "full": map[string]any{"delta": false}},
+					"tokenTypes":              standardSemanticTokenTypes,
+					"tokenModifiers":          standardSemanticTokenModifiers,
+					"formats":                 []string{"relative"},
+					"overlappingTokenSupport": false,
+					"multilineTokenSupport":   false,
+				},
 			},
 			"workspace": map[string]any{
 				"workspaceFolders": true,
@@ -284,6 +310,7 @@ func (c *Client) initialize(ctx context.Context) error {
 	c.signatureHelp = res.Capabilities.hasSignatureHelp()
 	c.callHierarchy = res.Capabilities.hasCallHierarchy()
 	c.pullDiagnostics = len(res.Capabilities.DiagnosticProvider) > 0 && string(res.Capabilities.DiagnosticProvider) != "null" && string(res.Capabilities.DiagnosticProvider) != "false"
+	c.semanticLegend, c.semanticFull, c.semanticRange = res.Capabilities.semanticTokens()
 	return c.conn.Notify("initialized", map[string]any{})
 }
 
@@ -380,6 +407,50 @@ func (c *Client) InlayHints(ctx context.Context, uri string, r Range) ([]InlayHi
 		return nil, err
 	}
 	return ParseInlayHints(raw)
+}
+
+// SemanticTokens asks for the semantic tokens of the document, for its
+// lines first to last when first is not negative, else for the whole
+// document: whichever the server offers. A server answering neither
+// request reports HasSemanticTokens false instead, and this returns an
+// error.
+func (c *Client) SemanticTokens(ctx context.Context, uri string, first, last int) (*SemanticTokensData, error) {
+	params := map[string]any{"textDocument": map[string]any{"uri": uri}}
+	method := ""
+	switch {
+	case first >= 0 && c.semanticRange:
+		method = "textDocument/semanticTokens/range"
+		params["range"] = Range{Start: Position{Line: first, Character: 0}, End: Position{Line: last + 1, Character: 0}}
+	case c.semanticFull:
+		method = "textDocument/semanticTokens/full"
+	case c.semanticRange:
+		method = "textDocument/semanticTokens/range"
+		params["range"] = Range{Start: Position{Line: max(first, 0), Character: 0}, End: Position{Line: max(last, 0) + 1, Character: 0}}
+	default:
+		return nil, errors.New("lsp: server has no semantic tokens")
+	}
+	var result SemanticTokensData
+	if err := c.conn.Call(ctx, method, params, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// standardSemanticTokenTypes and standardSemanticTokenModifiers are the
+// names LSP 3.17 registers, which the client tells servers it reads; a
+// server's own legend orders the stream it answers, which may name
+// more.
+var standardSemanticTokenTypes = []string{
+	"namespace", "type", "class", "enum", "interface", "struct",
+	"typeParameter", "parameter", "variable", "property", "enumMember",
+	"event", "function", "method", "macro", "keyword", "modifier",
+	"comment", "string", "number", "regexp", "operator", "decorator",
+	"label",
+}
+
+var standardSemanticTokenModifiers = []string{
+	"declaration", "definition", "readonly", "static", "deprecated",
+	"abstract", "async", "modification", "documentation", "defaultLibrary",
 }
 
 // SignatureHelp asks for the signatures of the call at pos.
