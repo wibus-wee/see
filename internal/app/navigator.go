@@ -402,7 +402,7 @@ func (a *App) treeItem(c *ui.Context, p string) {
 				a.note(locales.MsgCouldNotPreviewFile()+err.Error(), true)
 			}
 		}
-		if m.Item("Show in Finder").Chosen() {
+		if m.Item(showInFolderLabel()).Chosen() {
 			mygo.Shell.ShowItemInFolder(p)
 		}
 		if !e.Dir && m.Item("Open with External Editor").Chosen() {
@@ -447,6 +447,18 @@ func (a *App) treeItem(c *ui.Context, p string) {
 		}
 	}
 	row.Drag(&tabDrag{path: p})
+}
+
+// showInFolderLabel names the platform's file manager, as its own menus
+// do: Finder on macOS, Explorer on Windows.
+func showInFolderLabel() string {
+	switch runtime.GOOS {
+	case "windows":
+		return "Show in Explorer"
+	case "darwin":
+		return "Show in Finder"
+	}
+	return "Show in File Manager"
 }
 
 func (a *App) dirError(c *ui.Context, dir string, err error) {
