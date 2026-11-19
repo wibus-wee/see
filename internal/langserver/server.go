@@ -85,6 +85,36 @@ type document struct {
 	version    int    // the protocol's
 	bufVersion uint64 // of the buffer last sent
 	snap       editor.Snapshot
+	pending    *syncResult
+}
+
+type syncResult struct {
+	done chan struct{}
+	err  error
+}
+
+func newSyncResult() *syncResult {
+	return &syncResult{done: make(chan struct{})}
+}
+
+func completedSyncResult(err error) *syncResult {
+	result := newSyncResult()
+	result.complete(err)
+	return result
+}
+
+func (r *syncResult) complete(err error) {
+	r.err = err
+	close(r.done)
+}
+
+func (r *syncResult) wait(ctx context.Context) error {
+	select {
+	case <-r.done:
+		return r.err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // New returns a Server, stopped until the first Get.
@@ -236,55 +266,65 @@ func (s *Server) Sync(ctx context.Context, c Client, docURI string, snap editor.
 		s.mu.Unlock()
 		return fmt.Errorf("%s restarted", s.o.Name)
 	}
-	send := s.queueSync(c, docURI, snap)
+	result := s.queueSync(c, docURI, snap)
 	s.mu.Unlock()
-	select {
-	case err := <-send:
-		return err
-	case <-ctx.Done():
-		return ctx.Err()
-	}
+	return result.wait(ctx)
 }
 
 // queueSync queues what brings the server's copy of a document up to
 // snap, with mu held so that versions go out in the order they are
-// numbered. The channel gets the result of sending it.
-func (s *Server) queueSync(c Client, docURI string, snap editor.Snapshot) <-chan error {
-	done := make(chan error, 1)
+// numbered. The returned result completes after it is sent.
+func (s *Server) queueSync(c Client, docURI string, snap editor.Snapshot) *syncResult {
 	d := s.docs[docURI]
 	switch {
 	case d == nil:
-		d = &document{version: 1, bufVersion: snap.Version(), snap: snap}
+		result := newSyncResult()
+		d = &document{version: 1, bufVersion: snap.Version(), snap: snap, pending: result}
 		s.docs[docURI] = d
 		path, _ := uri.ToPath(docURI)
 		language := s.o.Language(path)
 		s.out.push(func() {
 			err := c.DidOpen(docURI, language, 1, snap.String())
-			done <- err
+			s.completeSync(docURI, d, result, err)
 			if err == nil {
 				s.pull(c, docURI, snap)
 			} else {
 				s.logf("document open failed: %v", err)
 			}
 		})
+		return result
 	case d.bufVersion == snap.Version():
-		done <- nil
+		if d.pending != nil {
+			return d.pending
+		}
+		return completedSyncResult(nil)
 	default:
+		result := newSyncResult()
 		d.version++
 		d.bufVersion = snap.Version()
 		d.snap = snap
+		d.pending = result
 		v := d.version
 		s.out.push(func() {
 			err := c.DidChange(docURI, v, snap.String())
-			done <- err
+			s.completeSync(docURI, d, result, err)
 			if err == nil {
 				s.pull(c, docURI, snap)
 			} else {
 				s.logf("document change failed: %v", err)
 			}
 		})
+		return result
 	}
-	return done
+}
+
+func (s *Server) completeSync(docURI string, d *document, result *syncResult, err error) {
+	result.complete(err)
+	s.mu.Lock()
+	if s.docs[docURI] == d && d.pending == result {
+		d.pending = nil
+	}
+	s.mu.Unlock()
 }
 
 func (s *Server) logf(format string, args ...any) {
