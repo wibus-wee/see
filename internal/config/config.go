@@ -10,6 +10,8 @@ import (
 
 // Config is what the app remembers between runs.
 type Config struct {
+	HideInlineDiagnostics bool `json:"hideInlineDiagnostics,omitempty"`
+
 	LastWorkspace        string               `json:"lastWorkspace,omitempty"`
 	Recent               []string             `json:"recentWorkspaces,omitempty"`    // newest first
 	ReopenLast           bool                 `json:"reopenLastWorkspace,omitempty"` // else the welcome window shows at launch

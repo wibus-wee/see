@@ -45,6 +45,8 @@
   "foldImportsOnOpen": "Fold imports when opening a file",
   "foldImportsOnOpenDescription": "Automatically collapse imports in newly opened code files.",
   "showInlineBlame": "Show inline Git blame",
+  "showInlineDiagnostics": "Show inline diagnostics",
+  "inlineDiagnosticsDescription": "Show errors and warnings beside code with a subtle line tint.",
   "inlineBlameDescription": "Show the author and commit beside the current line.",
   "blameUncommitted": "You • Uncommitted changes",
   "blameInlineFormat": "%s, %s • %s",

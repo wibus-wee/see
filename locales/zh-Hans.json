@@ -45,6 +45,8 @@
   "foldImportsOnOpen": "打开文件时折叠导入",
   "foldImportsOnOpenDescription": "在新打开的代码文件中自动折叠导入。",
   "showInlineBlame": "显示行内 Git 追溯信息",
+  "showInlineDiagnostics": "显示行内诊断",
+  "inlineDiagnosticsDescription": "在代码旁显示错误和警告，并以淡色突出显示所在行。",
   "inlineBlameDescription": "在当前行旁显示作者和提交信息。",
   "blameUncommitted": "你 • 尚未提交的更改",
   "blameInlineFormat": "%s，%s • %s",

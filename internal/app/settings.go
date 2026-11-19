@@ -695,6 +695,14 @@ func (a *App) editorPane(c *ui.Context) {
 				a.settingsChanged()
 			})
 		},
+		func() {
+			labeled(c, logText("showInlineDiagnostics"), logText("inlineDiagnosticsDescription"))
+			enabled := !a.cfg.HideInlineDiagnostics
+			ui.Switch(c, &enabled).Label(logText("showInlineDiagnostics")).OnClick(func() {
+				a.cfg.HideInlineDiagnostics = !enabled
+				a.settingsChanged()
+			})
+		},
 	)
 }
 

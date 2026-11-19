@@ -293,7 +293,10 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 		}
 		a.syncBlame(d)
 		st.SetInlays(a.editorInlays(d, st))
+		backgrounds := st.LineBackgrounds
+		st.LineBackgrounds = a.diagnosticLineBackgrounds(d, st)
 		ed := editor.View(c.Key(d.path), st).Grow(1).FillWidth()
+		st.LineBackgrounds = backgrounds
 		st.DiffBase = base
 		x, y, over := ed.PointerPosition()
 		if over {
