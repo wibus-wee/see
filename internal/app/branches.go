@@ -236,7 +236,13 @@ func (a *App) branchPickerPanel(c *ui.Context) {
 	ui.Overlay(c, func() {
 		backdrop := ui.Box(c).Absolute().Top(0).Left(0).Right(0).Bottom(0)
 		backdrop.OnClick(func() { p.open = false })
-		panel := ui.Column(c).Absolute().Left(max(p.at.X-8, 8)).Top(p.at.Y+p.at.H+6).Width(360).MaxHeight(440).
+		left, top, width, height := max(p.at.X-8, 8), p.at.Y+p.at.H+6, float32(360), float32(440)
+		if p.compare {
+			w, h := c.Size()
+			bounds := compareBranchPickerBounds(p.at, w, h)
+			left, top, width, height = bounds.X, bounds.Y, bounds.W, bounds.H
+		}
+		panel := ui.Column(c).Absolute().Left(left).Top(top).Width(width).MaxHeight(height).
 			Radius(12).Padding(6).Gap(4).Material(glass.Glass{}).Border(1, colors(c).PopoverEdge).
 			Shadow(0, 12, 36, 0, ui.RGBA(0, 0, 0, 0.35))
 		panel.OnClick(func() {})
@@ -280,6 +286,24 @@ func (a *App) branchPickerPanel(c *ui.Context) {
 			}
 		})
 	})
+}
+
+func compareBranchPickerBounds(at ui.Rect, width, height float32) ui.Rect {
+	margin := min(float32(8), max(0, min(width, height)/2))
+	panelWidth := min(float32(360), max(0, width-2*margin))
+	maxHeight := min(float32(440), max(0, height-2*margin))
+	left := max(margin, min(at.X-8, width-panelWidth-margin))
+	top := at.Y + at.H + 6
+	panelHeight := min(maxHeight, max(0, height-margin-top))
+	if panelHeight < min(maxHeight, 220) {
+		above := max(0, at.Y-margin-6)
+		if above > panelHeight {
+			panelHeight = min(maxHeight, above)
+			top = at.Y - 6 - panelHeight
+		}
+	}
+	top = max(margin, min(top, height-margin-panelHeight))
+	return ui.Rect{X: left, Y: top, W: panelWidth, H: panelHeight}
 }
 
 func (a *App) branchRow(c *ui.Context, items []branchItem, i int) {

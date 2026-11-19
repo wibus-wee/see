@@ -151,6 +151,28 @@ func TestBranchDiffRejectsStaleBaseResult(t *testing.T) {
 	}
 }
 
+func TestCompareBasePickerClampsToWindowEdges(t *testing.T) {
+	root := gitRepo(t, map[string]string{"a.txt": "base\n"}, "base")
+	h := newHarness(t, root)
+	h.readGit()
+	h.a.openBaseBranchPicker(ui.Rect{X: harnessWidth - 16, Y: harnessHeight - 32, W: 16, H: 24}, nil)
+	h.settle(func() bool { return !h.a.git.picker.loading })
+	h.tt.Frame()
+
+	field, ok := h.tt.Access(branchDiffText("gitChooseBaseBranch"))
+	if !ok {
+		t.Fatalf("comparison picker field is not visible: %v", h.tt.Texts())
+	}
+	b := field.Bounds
+	if b.X < 8 || b.Y < 8 || b.X+b.W > harnessWidth-8 || b.Y+b.H > harnessHeight-8 || b.W < 200 {
+		t.Fatalf("comparison picker field is clipped at the window edge: %+v", b)
+	}
+	branch, ok := h.tt.Find("main")
+	if !ok || branch.X < 8 || branch.Y < 8 || branch.X+branch.W > harnessWidth-8 || branch.Y+branch.H > harnessHeight-8 {
+		t.Fatalf("comparison picker branch is clipped at the window edge: %+v, visible %v", branch, ok)
+	}
+}
+
 func TestBranchDiffEmptyState(t *testing.T) {
 	root := gitRepo(t, map[string]string{"a.txt": "same\n"})
 	h := newHarness(t, root)
