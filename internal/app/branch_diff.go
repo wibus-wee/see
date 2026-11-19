@@ -41,6 +41,7 @@ type branchDiffView struct {
 	patch             []byte
 	shown             int
 	collapsed         map[string]bool
+	selectedPath      string
 	jumpPath          string
 	scroll            ui.ScrollState
 }
@@ -82,8 +83,12 @@ func (a *App) branchDiffModePicker(c *ui.Context) {
 			item.Children(func() { ui.Text(c, option.label).FontSize(12) })
 		}
 	})
-	if selectMode.Trigger.Changed() && *mode == compareBaseMode && a.git.branchPanel == nil {
-		a.openBaseBranchPicker(selectMode.Trigger.Bounds(), nil)
+	if selectMode.Trigger.Changed() && *mode == compareBaseMode {
+		if a.git.branchPanel == nil {
+			a.openBaseBranchPicker(selectMode.Trigger.Bounds(), nil)
+		} else {
+			a.openBranchDiff(a.focus, a.git.branchPanel.baseRef, a.git.branchPanel.baseName, "")
+		}
 	}
 }
 
@@ -98,32 +103,6 @@ func (a *App) branchDiffNavigator(c *ui.Context) {
 		})
 		return
 	}
-	ui.Row(c).FillWidth().Height(30).Padding(0, sidebarInset).Gap(5).AlignItems(ui.Center).Children(func() {
-		ui.Text(c, branchDiffText("gitSince")+" "+v.baseName).FontSize(12).Bold().SingleLine().Shrink(1)
-		ui.Text(c, branchDiffText("gitReadOnly")).FontSize(10).TextColor(colors(c).Muted).SingleLine()
-		ui.Box(c).Grow(1)
-		if v.loading {
-			ui.Spinner(c).FontSize(10)
-		} else if v.err == "" && v.result != nil {
-			added, deleted := branchDiffTotals(v.files)
-			ui.Text(c, fmt.Sprintf("%d", len(v.files))).FontSize(11).TextColor(colors(c).Muted).SingleLine()
-			if added > 0 {
-				ui.Text(c, fmt.Sprintf("+%d", added)).FontSize(10).TextColor(a.gitStatusColor('A')).SingleLine()
-			}
-			if deleted > 0 {
-				ui.Text(c, fmt.Sprintf("−%d", deleted)).FontSize(10).TextColor(a.gitStatusColor('D')).SingleLine()
-			}
-		}
-	})
-	ui.Row(c).FillWidth().Padding(2, sidebarInset, 6).Gap(6).Children(func() {
-		if ui.Button(c, branchDiffText("gitViewDiff")).FontSize(11).Clicked() {
-			a.openBranchDiff(a.focus, v.baseRef, v.baseName, "")
-		}
-		button := ui.Button(c, branchDiffText("gitChangeBase")).FontSize(11)
-		if button.Clicked() {
-			a.openBaseBranchPicker(button.Bounds(), nil)
-		}
-	})
 	switch {
 	case v.loading && v.result == nil:
 		ui.Row(c).Padding(10, sidebarInset).Gap(8).Children(func() {
@@ -142,7 +121,9 @@ func (a *App) branchDiffNavigator(c *ui.Context) {
 				for _, f := range v.files {
 					row := ui.Row(c.Key(f.Path)).FillWidth().Height(28).Padding(0, sidebarInset).Gap(7).AlignItems(ui.Center).
 						Cursor(ui.CursorPointer).Label(f.Path).Tooltip(branchDiffText("gitReadOnly"))
-					if row.Hovered() {
+					if v.selectedPath == f.Path {
+						row.Background(colors(c).SelectedRow)
+					} else if row.Hovered() {
 						row.Background(colors(c).Pill)
 					}
 					row.OnClick(func() { a.openBranchDiff(a.focus, v.baseRef, v.baseName, f.Path) })
@@ -203,9 +184,7 @@ func (a *App) selectBranchBase(b git.Branch, target *group) {
 	}
 	a.git.branchDiffMode = compareBaseMode
 	a.loadBranchDiff(a.git.branchPanel, false)
-	if target != nil {
-		a.openBranchDiff(target, ref, name, "")
-	}
+	a.openBranchDiff(target, ref, name, "")
 }
 
 func (a *App) openBranchDiff(g *group, baseRef, baseName, path string) {
@@ -220,9 +199,15 @@ func (a *App) openBranchDiff(g *group, baseRef, baseName, path string) {
 		a.git.branchPanel = &branchDiffView{baseRef: baseRef, baseName: baseName, shown: branchDiffFilesAtOnce, collapsed: map[string]bool{}}
 		a.loadBranchDiff(a.git.branchPanel, false)
 	}
+	if path != "" {
+		a.git.branchPanel.selectedPath = path
+	}
 	key := branchDiffTab(baseRef)
 	if v := g.diffs[key]; v != nil && v.branch != nil {
 		v.branch.jumpPath = path
+		if path != "" {
+			v.branch.selectedPath = path
+		}
 		if path == "" {
 			v.branch.scroll.Y = 0
 		} else {
@@ -231,11 +216,18 @@ func (a *App) openBranchDiff(g *group, baseRef, baseName, path string) {
 		a.activateIn(g, key)
 		return
 	}
-	v := &branchDiffView{baseRef: baseRef, baseName: baseName, shown: branchDiffFilesAtOnce, collapsed: map[string]bool{}, jumpPath: path}
 	panel := a.git.branchPanel
+	selectedPath := ""
+	if panel.baseRef == baseRef {
+		selectedPath = panel.selectedPath
+	}
+	if path != "" {
+		selectedPath = path
+	}
+	v := &branchDiffView{baseRef: baseRef, baseName: baseName, shown: branchDiffFilesAtOnce, collapsed: map[string]bool{}, selectedPath: selectedPath, jumpPath: path}
 	if panel.baseRef == baseRef && panel.result != nil && panel.fingerprint == a.git.branchFingerprint {
 		*v = *panel
-		v.scroll, v.jumpPath = ui.ScrollState{}, path
+		v.scroll, v.jumpPath, v.selectedPath = ui.ScrollState{}, path, selectedPath
 		v.collapsed = cloneBoolMap(panel.collapsed)
 		v.seq = 0
 		v.reveal(path)
@@ -377,7 +369,7 @@ func (a *App) branchDiffContent(c *ui.Context, g *group, v *branchDiffView) {
 		})
 	default:
 		ui.Scroll(c.Key(v.baseRef)).Grow(1).FillWidth().TrackScroll(&v.scroll).Label(branchDiffText("gitCompareAgainstBase")).Children(func() {
-			ui.Column(c).FillWidth().Padding(16, 20, 24).Gap(10).Children(func() {
+			ui.Column(c).FillWidth().Padding(12, 16, 16).Children(func() {
 				for i, f := range v.files {
 					if i >= v.shown {
 						rest := len(v.files) - v.shown
@@ -386,9 +378,15 @@ func (a *App) branchDiffContent(c *ui.Context, g *group, v *branchDiffView) {
 						}
 						return
 					}
-					ui.Column(c.Key(f.Path)).FillWidth().Radius(6).BorderWidth(1).BorderColor(colors(c).Separator).Children(func() {
-						header := ui.Row(c).FillWidth().Height(32).Padding(0, 10).Gap(8).AlignItems(ui.Center).
-							Background(colors(c).Pill).Cursor(ui.CursorPointer).Label(f.Path)
+					if i > 0 {
+						ui.Box(c).FillWidth().Height(1).Background(colors(c).Separator)
+					}
+					ui.Column(c.Key(f.Path)).FillWidth().Children(func() {
+						header := ui.Row(c).FillWidth().Height(28).Padding(0, 8).Gap(8).AlignItems(ui.Center).
+							Cursor(ui.CursorPointer).Label(f.Path)
+						if header.Hovered() {
+							header.Background(colors(c).Pill)
+						}
 						header.OnClick(func() { v.collapsed[f.Path] = !v.collapsed[f.Path] })
 						if v.jumpPath == f.Path {
 							header.ScrollIntoView()
@@ -424,13 +422,46 @@ func (a *App) branchDiffContent(c *ui.Context, g *group, v *branchDiffView) {
 						case f.diff != nil:
 							editor.DiffView(c, f.diff).FillWidth()
 						case f.binary:
-							ui.Text(c, branchDiffText("gitBinaryNotShown")).FontSize(12).TextColor(colors(c).Muted).Padding(10, 12)
+							ui.Text(c, branchDiffText("gitBinaryNotShown")).FontSize(12).TextColor(colors(c).Muted).Padding(8, 10)
 						default:
-							ui.Text(c, branchDiffText("gitNoTextDiff")).FontSize(12).TextColor(colors(c).Muted).Padding(10, 12)
+							ui.Text(c, branchDiffText("gitNoTextDiff")).FontSize(12).TextColor(colors(c).Muted).Padding(8, 10)
 						}
 					})
 				}
 			})
 		})
 	}
+}
+
+func (a *App) branchDiffStatusBar(c *ui.Context, g *group, v *branchDiffView) {
+	ui.Row(c).FillWidth().Height(26).Padding(0, 8).Gap(7).AlignItems(ui.Center).
+		BorderWidth(1, 0, 0, 0).BorderColor(colors(c).Separator).Background(colors(c).Editor).Children(func() {
+		base := ui.ButtonBase(c).Label(branchDiffText("gitChangeBase")).Tooltip(branchDiffText("gitChangeBase")).
+			Padding(3, 7).Radius(4).KeepFocus()
+		if base.Hovered() {
+			base.Background(colors(c).Pill)
+		}
+		base.Children(func() {
+			ui.Row(c).Gap(5).AlignItems(ui.Center).Children(func() {
+				ui.Text(c, branchDiffText("gitBase")+" "+v.baseName).FontSize(11).SingleLine().Shrink(1)
+				symbolIcon(c, icChevron, 9, colors(c).Muted)
+			})
+		})
+		if base.Clicked() {
+			a.openBaseBranchPicker(base.Bounds(), g)
+		}
+		ui.Text(c, "→").FontSize(11).TextColor(colors(c).Dim).SingleLine()
+		ui.Text(c, branchDiffText("gitWorkingTree")).FontSize(11).TextColor(colors(c).Muted).SingleLine()
+		ui.Box(c).Grow(1)
+		if v.result != nil {
+			added, deleted := branchDiffTotals(v.files)
+			ui.Text(c, fmt.Sprintf("%d", len(v.files))).FontSize(11).TextColor(colors(c).Muted).SingleLine()
+			ui.Text(c, fmt.Sprintf("+%d", added)).FontSize(11).TextColor(a.gitStatusColor('A')).SingleLine()
+			ui.Text(c, fmt.Sprintf("−%d", deleted)).FontSize(11).TextColor(a.gitStatusColor('D')).SingleLine()
+		}
+		refresh := glyphButton(c, icRefresh, branchDiffText("gitRefreshComparison"), branchDiffText("gitRefreshComparison"), false, v.loading)
+		if refresh.Clicked() {
+			a.loadBranchDiff(v, true)
+		}
+	})
 }

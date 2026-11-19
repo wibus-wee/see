@@ -480,11 +480,12 @@ func (a *App) splitActive(s side) {
 			ng.diffs = map[string]*gitDiffTab{path: {name: v.name, log: &gitLogView{query: v.log.query}}}
 		} else if v != nil && v.branch != nil {
 			branch := &branchDiffView{
-				baseRef:   v.branch.baseRef,
-				baseName:  v.branch.baseName,
-				shown:     max(v.branch.shown, branchDiffFilesAtOnce),
-				collapsed: cloneBoolMap(v.branch.collapsed),
-				jumpPath:  v.branch.jumpPath,
+				baseRef:      v.branch.baseRef,
+				baseName:     v.branch.baseName,
+				shown:        max(v.branch.shown, branchDiffFilesAtOnce),
+				collapsed:    cloneBoolMap(v.branch.collapsed),
+				selectedPath: v.branch.selectedPath,
+				jumpPath:     v.branch.jumpPath,
 			}
 			ng.diffs = map[string]*gitDiffTab{path: {name: v.name, branch: branch}}
 			a.loadBranchDiff(branch, false)

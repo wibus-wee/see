@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -37,6 +38,9 @@ func TestCompareBranchUsesMergeBaseAndWorkingTree(t *testing.T) {
 	write(t, root, "untracked-binary.dat", "new\x00untracked binary")
 	write(t, root, "ignored-file", "ignored\n")
 	strange := "odd\tname\n.txt"
+	if runtime.GOOS == "windows" {
+		strange = "odd name.txt"
+	}
 	write(t, root, strange, "odd path\n")
 
 	comparison, err := CompareBranch(context.Background(), root, "refs/heads/base-only")
@@ -89,7 +93,8 @@ func TestCompareBranchUsesMergeBaseAndWorkingTree(t *testing.T) {
 	if strings.Contains(string(comparison.Patch), "base-only work") || strings.Contains(string(comparison.Patch), "only on the base branch") {
 		t.Errorf("patch includes base-only commits: %q", comparison.Patch)
 	}
-	if !strings.Contains(string(comparison.Patch), `odd\tname\n.txt`) {
+	patchName := strings.NewReplacer("\t", `\t`, "\n", `\n`).Replace(strange)
+	if !strings.Contains(string(comparison.Patch), patchName) {
 		t.Errorf("patch omits unusual path %q: %q", strange, comparison.Patch)
 	}
 }

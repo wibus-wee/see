@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"strings"
 )
 
@@ -81,7 +82,7 @@ func CompareBranch(ctx context.Context, root, baseRef string) (BranchDiffResult,
 
 func noIndexDiff(ctx context.Context, root, path string, options ...string) ([]byte, error) {
 	args := append([]string{"diff", "--no-index", "--no-ext-diff", "--no-textconv", "--no-color"}, options...)
-	args = append(args, "--", "/dev/null", path)
+	args = append(args, "--", os.DevNull, path)
 	// --no-index exits 1 when it has produced the requested difference.
 	out, err := Command(ctx, root, args...)
 	if err == nil {

@@ -1,7 +1,6 @@
 package app
 
 import (
-	"fmt"
 	"path/filepath"
 	"see/locales"
 	"slices"
@@ -175,32 +174,6 @@ func (a *App) diffJumpBar(c *ui.Context, g *group) {
 			ui.Text(c, label).FontSize(12).TextColor(colors(c).Muted).SingleLine()
 		}
 		ui.Box(c).Grow(1)
-		if v.branch != nil {
-			base := ui.ButtonBase(c).Label(branchDiffText("gitChangeBase")).Tooltip(branchDiffText("gitChangeBase")).
-				Padding(3, 8).Radius(5).KeepFocus()
-			if base.Hovered() {
-				base.Background(colors(c).Pill)
-			}
-			base.Children(func() {
-				ui.Row(c).Gap(5).AlignItems(ui.Center).Children(func() {
-					ui.Text(c, branchDiffText("gitBase")+" "+v.branch.baseName).FontSize(11).SingleLine().Shrink(1)
-					symbolIcon(c, icChevron, 9, colors(c).Muted)
-				})
-			})
-			if base.Clicked() {
-				a.openBaseBranchPicker(base.Bounds(), g)
-			}
-			refresh := glyphButton(c, icRefresh, branchDiffText("gitRefreshComparison"), branchDiffText("gitRefreshComparison"), false, v.branch.loading)
-			if refresh.Clicked() {
-				a.loadBranchDiff(v.branch, true)
-			}
-			if v.branch.result != nil {
-				added, deleted := branchDiffTotals(v.branch.files)
-				ui.Text(c, fmt.Sprintf("%d", len(v.branch.files))).FontSize(11).TextColor(colors(c).Muted).SingleLine()
-				ui.Text(c, fmt.Sprintf("+%d", added)).FontSize(11).TextColor(a.gitStatusColor('A')).SingleLine()
-				ui.Text(c, fmt.Sprintf("−%d", deleted)).FontSize(11).TextColor(a.gitStatusColor('D')).SingleLine()
-			}
-		}
 		if v.state != nil {
 			if glyphButton(c, icChangeUp, "Previous Change", "Previous Change", false, len(v.state.Hunks()) == 0).Clicked() {
 				a.focus = g

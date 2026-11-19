@@ -90,6 +90,9 @@ func (a *App) groupView(c *ui.Context, g *group) {
 			}
 		}
 		a.dropArea(c, g, func() { a.groupContent(c, g) })
+		if v := g.diffs[g.active]; v != nil && v.branch != nil {
+			a.branchDiffStatusBar(c, g, v.branch)
+		}
 		if st := g.eds[g.active]; st != nil {
 			pos := st.CursorPos()
 			line := st.Buffer.Line(pos.Line)

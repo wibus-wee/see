@@ -14,6 +14,44 @@ import (
 	"see/internal/git"
 )
 
+func settleBranchDiff(t *testing.T, h *harness) *branchDiffView {
+	t.Helper()
+	h.settle(func() bool {
+		v := h.a.git.branchPanel
+		return v == nil || !v.loading
+	})
+	v := h.a.git.branchPanel
+	if v == nil {
+		t.Fatal("base selection did not create a comparison")
+	}
+	if v.err != "" {
+		t.Fatalf("comparison for base %q failed: %s", v.baseRef, v.err)
+	}
+	if v.result == nil {
+		t.Fatalf("comparison for base %q completed without a result: %+v", v.baseRef, v)
+	}
+	return v
+}
+
+func settleBranchDiffTab(t *testing.T, h *harness, g *group, key string) *branchDiffView {
+	t.Helper()
+	h.settle(func() bool {
+		d := g.diffs[key]
+		return d == nil || d.branch == nil || !d.branch.loading
+	})
+	d := g.diffs[key]
+	if d == nil || d.branch == nil {
+		t.Fatalf("comparison tab %q was not opened", key)
+	}
+	if d.branch.err != "" {
+		t.Fatalf("comparison tab for base %q failed: %s", d.branch.baseRef, d.branch.err)
+	}
+	if d.branch.result == nil {
+		t.Fatalf("comparison tab for base %q completed without a result: %+v", d.branch.baseRef, d.branch)
+	}
+	return d.branch
+}
+
 func TestBranchDiffPickerAndTabs(t *testing.T) {
 	lines := func(prefix string) string {
 		var b strings.Builder
@@ -53,14 +91,26 @@ func TestBranchDiffPickerAndTabs(t *testing.T) {
 	h.tt.Frame()
 	h.tt.Key(0, ui.KeyEnter)
 	h.tt.Frame()
-	h.settle(func() bool {
-		return h.a.git.branchPanel != nil && !h.a.git.branchPanel.loading && h.a.git.branchPanel.result != nil
-	})
+	panel := settleBranchDiff(t, h)
 	if h.a.git.branch != "main" || git.Head(context.Background(), root) != head {
 		t.Fatalf("base selection changed HEAD: branch %q, HEAD %q, want %q", h.a.git.branch, git.Head(context.Background(), root), head)
 	}
-	if h.a.git.branchPanel.baseRef != "refs/heads/base" || !h.tt.HasText("Read-only") {
-		t.Fatalf("base panel = %+v; visible text = %v", h.a.git.branchPanel, h.tt.Texts())
+	key := branchDiffTab("refs/heads/base")
+	v := settleBranchDiffTab(t, h, h.a.focus, key)
+	if panel.baseRef != "refs/heads/base" || h.a.focus.active != key {
+		t.Fatalf("base selection did not open its comparison: panel %+v, active %q", panel, h.a.focus.active)
+	}
+	if !h.tt.HasText("Base: base") || !h.tt.HasText(branchDiffText("gitWorkingTree")) || h.tt.HasText("View Diff") || h.tt.HasText(branchDiffText("gitReadOnly")) {
+		t.Fatalf("comparison controls are misplaced: %v", h.tt.Texts())
+	}
+	baseButtons := 0
+	for _, access := range h.tt.AccessAll() {
+		if access.Role == ui.RoleButton && access.Name == branchDiffText("gitChangeBase") {
+			baseButtons++
+		}
+	}
+	if baseButtons != 1 {
+		t.Fatalf("comparison has %d base controls, want one", baseButtons)
 	}
 	if h.tt.HasText("Stage All Changes") || h.tt.HasText("Unstage All Changes") {
 		t.Fatalf("comparison mode exposes staging controls: %v", h.tt.Texts())
@@ -70,13 +120,9 @@ func TestBranchDiffPickerAndTabs(t *testing.T) {
 		t.Fatal(err)
 	}
 	h.tt.Frame()
-	key := branchDiffTab("refs/heads/base")
-	v := h.a.focus.diffs[key].branch
-	if h.a.focus.active != key || v == nil || v.jumpPath != "" || v.scroll.Y <= 0 || v.shown <= branchDiffFilesAtOnce || v.collapsed["zz-target.txt"] {
+	v = h.a.focus.diffs[key].branch
+	if h.a.focus.active != key || v == nil || v.jumpPath != "" || v.selectedPath != "zz-target.txt" || panel.selectedPath != "zz-target.txt" || v.scroll.Y <= 0 || v.shown <= branchDiffFilesAtOnce || v.collapsed["zz-target.txt"] {
 		t.Fatalf("file click did not navigate the shared diff: active %q, view %+v", h.a.focus.active, v)
-	}
-	if !h.tt.HasText("Base: base") {
-		t.Fatalf("branch-diff base control is not visible: %v", h.tt.Texts())
 	}
 	v.collapsed["zz-target.txt"] = true
 	order := len(h.a.focus.order)
@@ -89,6 +135,21 @@ func TestBranchDiffPickerAndTabs(t *testing.T) {
 	}
 	if v.collapsed["zz-target.txt"] || v.jumpPath != "" {
 		t.Fatalf("sidebar navigation did not reveal a collapsed file: %+v", v)
+	}
+	if err := h.tt.Click("Close Since base"); err != nil {
+		t.Fatal(err)
+	}
+	h.tt.Frame()
+	if h.a.focus.has(key) {
+		t.Fatalf("comparison tab %q remained open after close", key)
+	}
+	if err := h.tt.Click("zz-target.txt"); err != nil {
+		t.Fatal(err)
+	}
+	h.tt.Frame()
+	v = h.a.focus.diffs[key].branch
+	if h.a.focus.active != key || v == nil || v.selectedPath != "zz-target.txt" {
+		t.Fatalf("clicking a navigator file did not reopen its comparison: active %q, view %+v", h.a.focus.active, v)
 	}
 
 	if err := h.tt.Click("Change Base"); err != nil {
@@ -111,13 +172,10 @@ func TestBranchDiffPickerAndTabs(t *testing.T) {
 	h.tt.Frame()
 	h.tt.Key(0, ui.KeyEnter)
 	h.tt.Frame()
-	h.settle(func() bool {
-		return h.a.git.branchPanel.baseRef == "refs/heads/other" && !h.a.git.branchPanel.loading && h.a.git.branchPanel.result != nil
-	})
-	if err := h.tt.Click("View Diff"); err != nil {
-		t.Fatal(err)
-	}
-	if h.a.focus.active != branchDiffTab("refs/heads/other") || !h.a.focus.has(key) || h.a.focus.diffs[key].branch.baseRef != "refs/heads/base" {
+	panel = settleBranchDiff(t, h)
+	otherKey := branchDiffTab("refs/heads/other")
+	settleBranchDiffTab(t, h, h.a.focus, otherKey)
+	if panel.baseRef != "refs/heads/other" || h.a.focus.active != otherKey || !h.a.focus.has(key) || h.a.focus.diffs[key].branch.baseRef != "refs/heads/base" {
 		t.Fatalf("base tabs lost their identity: order %v active %q", h.a.focus.order, h.a.focus.active)
 	}
 	if h.a.git.branch != "main" || git.Head(context.Background(), root) != head {
@@ -133,6 +191,110 @@ func TestBranchDiffPickerAndTabs(t *testing.T) {
 	h.tt.Frame()
 	if h.a.git.branchDiffMode != uncommittedMode || !h.tt.HasText("Stage All Changes") {
 		t.Fatalf("returning to uncommitted mode did not restore staging controls: %v", h.tt.Texts())
+	}
+	if err := h.tt.Click("Uncommitted"); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.tt.Click("Compare Against Base"); err != nil {
+		t.Fatal(err)
+	}
+	h.tt.Frame()
+	if h.a.git.branchDiffMode != compareBaseMode || h.a.focus.active != otherKey {
+		t.Fatalf("returning to comparison mode did not reopen its tab: mode %d active %q", h.a.git.branchDiffMode, h.a.focus.active)
+	}
+}
+
+func TestBranchDiffCompareModeReopensClosedEmptyTab(t *testing.T) {
+	root := gitRepo(t, map[string]string{"same.txt": "same\n"}, "base")
+	h := newHarness(t, root)
+	h.readGit()
+	h.a.navigator, h.a.git.historyClosed = navGit, true
+	h.tt.Frame()
+
+	if err := h.tt.Click("Uncommitted"); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.tt.Click("Compare Against Base"); err != nil {
+		t.Fatal(err)
+	}
+	h.settle(func() bool { return !h.a.git.picker.loading })
+	h.tt.Type("base")
+	h.tt.Frame()
+	h.tt.Key(0, ui.KeyEnter)
+	h.tt.Frame()
+	panel := settleBranchDiff(t, h)
+	key := branchDiffTab("refs/heads/base")
+	settleBranchDiffTab(t, h, h.a.focus, key)
+	if len(panel.files) != 0 || h.a.focus.active != key || !h.tt.HasText(branchDiffText("gitNoBranchChanges")) {
+		t.Fatalf("empty comparison did not open: panel %+v, active %q, text %v", panel, h.a.focus.active, h.tt.Texts())
+	}
+	if err := h.tt.Click("Close Since base"); err != nil {
+		t.Fatal(err)
+	}
+	h.tt.Frame()
+	if h.a.focus.has(key) {
+		t.Fatalf("empty comparison tab %q remained open after close", key)
+	}
+	if err := h.tt.Click("Compare Against Base"); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.tt.Click("Uncommitted"); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.tt.Click("Uncommitted"); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.tt.Click("Compare Against Base"); err != nil {
+		t.Fatal(err)
+	}
+	h.tt.Frame()
+	if h.a.git.branchDiffMode != compareBaseMode || h.a.focus.active != key || !h.a.focus.has(key) {
+		t.Fatalf("returning to comparison mode did not reopen the empty tab: mode %d active %q order %v", h.a.git.branchDiffMode, h.a.focus.active, h.a.focus.order)
+	}
+}
+
+func TestBranchDiffPickerCancellationCanBeRecoveredFromNavigator(t *testing.T) {
+	root := gitRepo(t, map[string]string{"a.txt": "base\n"}, "base")
+	h := newHarness(t, root)
+	h.readGit()
+	h.a.navigator, h.a.git.historyClosed = navGit, true
+	h.tt.Frame()
+
+	if err := h.tt.Click("Uncommitted"); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.tt.Click("Compare Against Base"); err != nil {
+		t.Fatal(err)
+	}
+	h.settle(func() bool { return !h.a.git.picker.loading })
+	h.tt.Key(0, ui.KeyEscape)
+	h.tt.Frame()
+	if h.a.git.picker.open || h.a.git.branchPanel != nil {
+		t.Fatal("cancelling the initial base picker unexpectedly selected a base")
+	}
+	access, ok := h.tt.Access(branchDiffText("gitChooseBaseBranch"))
+	if !ok || access.Role != ui.RoleButton {
+		t.Fatalf("navigator has no recoverable base picker button: %v", h.tt.AccessAll())
+	}
+	if err := h.tt.Click(branchDiffText("gitChooseBaseBranch")); err != nil {
+		t.Fatal(err)
+	}
+	h.settle(func() bool { return !h.a.git.picker.loading })
+	if !h.a.git.picker.open || !h.a.git.picker.compare {
+		t.Fatal("navigator base button did not reopen comparison picker")
+	}
+	h.tt.Type("base")
+	h.tt.Frame()
+	h.tt.Key(0, ui.KeyEnter)
+	h.tt.Frame()
+	panel := settleBranchDiff(t, h)
+	if panel.baseRef != "refs/heads/base" {
+		t.Fatalf("navigator recovery selected base %q, want refs/heads/base", panel.baseRef)
+	}
+	for _, access := range h.tt.AccessAll() {
+		if access.Role == ui.RoleButton && access.Name == branchDiffText("gitChooseBaseBranch") {
+			t.Fatal("navigator retained the base picker button after selection")
+		}
 	}
 }
 
@@ -190,6 +352,23 @@ func TestBranchDiffEmptyState(t *testing.T) {
 	}
 }
 
+func TestBranchDiffNavigatorShowsComparisonError(t *testing.T) {
+	root := gitRepo(t, map[string]string{"a.txt": "same\n"})
+	h := newHarness(t, root)
+	h.readGit()
+	h.a.navigator, h.a.git.historyClosed = navGit, true
+	h.a.git.branchDiffMode = compareBaseMode
+	h.a.git.branchPanel = &branchDiffView{
+		baseRef:  "refs/heads/missing",
+		baseName: "missing",
+		err:      "resolve base failed",
+	}
+	h.tt.Frame()
+	if !h.tt.HasText("resolve base failed") || h.tt.HasText("View Diff") {
+		t.Fatalf("comparison error state = %v", h.tt.Texts())
+	}
+}
+
 func TestSplitLoadingBranchDiffLoadsIndependentView(t *testing.T) {
 	root := gitRepo(t, map[string]string{"a.txt": "base\n"}, "base")
 	writeFile(t, root, "a.txt", "current\n")
@@ -202,13 +381,13 @@ func TestSplitLoadingBranchDiffLoadsIndependentView(t *testing.T) {
 	key := branchDiffTab("refs/heads/base")
 	h.a.openBranchDiff(originalGroup, "refs/heads/base", "base", "a.txt")
 	original := originalGroup.diffs[key].branch
-	if original == nil || !original.loading {
+	if original == nil || !original.loading || original.selectedPath != "a.txt" {
 		t.Fatalf("expected original comparison to be loading: %+v", original)
 	}
 	h.a.splitActive(sideRight)
 	cloneGroup := h.a.focus
 	clone := cloneGroup.diffs[key].branch
-	if clone == nil || clone == original || !clone.loading || clone.files != nil {
+	if clone == nil || clone == original || !clone.loading || clone.files != nil || clone.selectedPath != original.selectedPath {
 		t.Fatalf("split did not start an independent comparison: original %+v, clone %+v", original, clone)
 	}
 	h.settle(func() bool {
