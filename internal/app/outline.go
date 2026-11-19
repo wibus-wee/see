@@ -204,7 +204,7 @@ func (a *App) outlineNavigator(c *ui.Context) {
 		ui.SearchField(c, &o.query).Label(outlineText("filterSymbols")).Placeholder(outlineText("filterSymbols")).FillWidth()
 	})
 	if len(rows) == 0 {
-		ui.Text(c, a.outlineEmptyText()).TextColor(colors(c).Muted).FontSize(12).Wrap().Padding(10, 12).FillWidth()
+		ui.Text(c, a.outlineEmptyText()).TextColor(colors(c).Muted).FontSize(12).Wrap().Padding(6, sidebarInset).FillWidth()
 		return
 	}
 	current := a.currentSymbol()
@@ -215,7 +215,7 @@ func (a *App) outlineNavigator(c *ui.Context) {
 		}
 	}
 	filtering := strings.TrimSpace(o.query) != ""
-	ui.List(c, &o.list, len(rows)).ItemKey(func(i int) any { return rows[i].index }).Grow(1).FillWidth().Label(outlineText("outlineTitle")).Rows(func(item ui.ListRow) {
+	ui.List(c, &o.list, len(rows)).ItemKey(func(i int) any { return rows[i].index }).Grow(1).FillWidth().Padding(0, sidebarInset).Label(outlineText("outlineTitle")).Rows(func(item ui.ListRow) {
 		c := item.Context
 		r := rows[item.Index]
 		s := o.symbols[r.index]
