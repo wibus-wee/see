@@ -182,27 +182,62 @@ func (a *App) toggleDiffLayout() {
 	a.saveConfig()
 }
 
-// goToChange moves the active diff's caret to the next change, or the
+// goToChange moves the active tab's caret to the next change, or the
 // previous one with dir -1, as Xcode's and Peek's Next and Previous
-// Change; it wraps around.
+// Change; it wraps around. A diff tab steps through its hunks, a file
+// editor through the hunks of its uncommitted changes.
 func (a *App) goToChange(dir int) {
-	v := a.focus.diffs[a.focus.active]
-	if v == nil || v.state == nil {
+	if isDiffTab(a.focus.active) {
+		v := a.focus.diffs[a.focus.active]
+		if v == nil || v.state == nil {
+			return
+		}
+		n := len(v.state.Hunks())
+		if n == 0 {
+			return
+		}
+		// i is the hunk the caret is in, else the last one before it.
+		i, inside := v.state.CurrentHunk()
+		v.state.GoToHunk(nextHunk(i, inside, n, dir))
 		return
 	}
-	n := len(v.state.Hunks())
-	if n == 0 {
+	d := a.docs[a.focus.active]
+	st := a.focus.eds[a.focus.active]
+	if d == nil || d.gitChanges == nil || st == nil {
 		return
 	}
-	// i is the hunk the caret is in, else the last one before it.
-	i, inside := v.state.CurrentHunk()
+	hunks := d.gitChanges.Hunks()
+	if len(hunks) == 0 {
+		return
+	}
+	// i is the hunk the caret is in, else the last one before it: the
+	// same counting CurrentHunk does for the diff's new side, hunkAtNew.
+	line := st.CursorPos().Line
+	i, inside := -1, false
+	for j, h := range hunks {
+		if h.NewStart <= line && line < h.NewEnd || h.NewStart == h.NewEnd && h.NewStart == line {
+			i, inside = j, true
+			break
+		}
+		if h.NewStart > line {
+			break
+		}
+		i = j
+	}
+	st.GoTo(editor.Pos{Line: min(hunks[nextHunk(i, inside, len(hunks), dir)].NewStart, d.buf.LineCount()-1)})
+}
+
+// nextHunk is the hunk to go to from hunk i: i + 1 for a next change, i
+// - 1 for a previous one from inside it, else i, wrapping around the n
+// hunks.
+func nextHunk(i int, inside bool, n, dir int) int {
 	switch {
 	case dir > 0:
 		i++
 	case inside:
 		i--
 	}
-	v.state.GoToHunk((i%n + n) % n)
+	return (i%n + n) % n
 }
 
 // settingsView is the settings window's view.
