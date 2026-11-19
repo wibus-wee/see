@@ -297,6 +297,14 @@ is worth showing to someone who is only editing one function they already know.
   `Callers` (`client.go:303`) as a thin wrapper over the new primitives so
   `app.go:1500` does not change. This is a refactor, not an addition: `Callers` flattens
   edges into `[]Location` (`client.go:308`) and throws away the item needed to expand.
+  Probed against gopls v0.23.0 on a throwaway module: `prepareCallHierarchy` on a function
+  name returns the item and `callHierarchy/outgoingCalls` answers with real callees
+  (`main` → `compose` and `fmt.Println`; `compose` → `helper`), so the direction the panel
+  needs does exist. Two shapes to handle as they actually arrive: one edge can repeat the
+  same line in `fromRanges` when a function is called twice on that line (merge by line, or
+  the row lists one call site twice), and a position that is not a callable answers with an
+  error envelope — `code: 0, message: "no symbol here"` — rather than an empty array, so
+  that case maps to the empty state and not to `lspFailure`.
 - `internal/lsp/protocol.go` — add `CallHierarchyProvider json.RawMessage` to
   `serverCapabilities` (`:112`) and `hasCallHierarchy()` beside `hasDefinition()` (`:144`).
   Today no call-hierarchy capability is read and an unsupported server produces an error
@@ -335,10 +343,10 @@ in the panel); entry points, locales and settings half a day; tests a day.
 
 **(f) Risks and unknowns**
 
-- **Outgoing calls per server.** gopls answers incoming calls today; whether it answers
-  `outgoingCalls` for every symbol was not verified in this work — no server was run. If a
-  server answers one direction only, the panel must say so per direction rather than show
-  an empty tree. Verify against gopls, tsrs and clangd before estimating the exit.
+- **Outgoing calls per server.** Verified for gopls v0.23.0 only, in a real LSP session
+  against a throwaway module (see (d)). tsrs and clangd were not probed, so if a server
+  answers one direction only, the panel must say so per direction rather than show an empty
+  tree.
 - **`Callers` has no test today** (nothing outside `internal/app` and `internal/lsp`
   references it) and it loses the hierarchy item, so this candidate touches a code path
   with no safety net.
