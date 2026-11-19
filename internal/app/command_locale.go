@@ -26,6 +26,7 @@ var commandMessages = map[string]string{
 	"Git: Reveal HEAD in Log":       "commandGitRevealHeadInLog",
 	"Git: Jump to Date…":            "commandGitJumpToDate",
 	"Toggle Inline Git Blame":       "commandToggleInlineBlame",
+	"Toggle Type Hints":             "commandToggleTypeHints",
 	"Toggle Minimap":                "commandToggleMinimap",
 
 	"Show Problems":              "commandShowProblems",

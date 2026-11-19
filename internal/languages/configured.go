@@ -135,6 +135,7 @@ func StartConfigured(spec config.LSPConfig, logf func(string, ...any)) langserve
 		return lsp.Start(ctx, p, spec.Command[1:], lsp.Options{
 			RootPath:              root,
 			RootURI:               uri.FromPath(root),
+			ServerID:              spec.Name,
 			Name:                  filepath.Base(root),
 			InitializationOptions: spec.InitializationOptions,
 			Env:                   envList(spec.Env),

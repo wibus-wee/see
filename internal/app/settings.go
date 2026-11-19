@@ -739,6 +739,19 @@ func (a *App) editorPane(c *ui.Context) {
 			})
 		},
 		func() {
+			labeled(c, logText("showTypeHints"), logText("typeHintsDescription"))
+			enabled := !a.cfg.HideTypeHints
+			ui.Switch(c, &enabled).Label(logText("showTypeHints")).OnClick(func() {
+				a.cfg.HideTypeHints = !enabled
+				if a.cfg.HideTypeHints {
+					for _, d := range a.docs {
+						a.clearInlayHints(d)
+					}
+				}
+				a.settingsChanged()
+			})
+		},
+		func() {
 			labeled(c, logText("showInlineDiagnostics"), logText("inlineDiagnosticsDescription"))
 			enabled := !a.cfg.HideInlineDiagnostics
 			ui.Switch(c, &enabled).Label(logText("showInlineDiagnostics")).OnClick(func() {

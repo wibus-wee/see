@@ -140,9 +140,11 @@ type fakeServer struct {
 	documentSymbols    func(params json.RawMessage) string
 	documentHighlights func(params json.RawMessage) string
 	definition         func(params json.RawMessage) string // raw result
+	inlayHints         func(params json.RawMessage) string
 	navigation         func(method string, params json.RawMessage) string
 	initializeParams   json.RawMessage
 	caps               string
+	configWant         string               // what the test expects for workspace/configuration; "" is [null,null]
 	replies            chan json.RawMessage // results of our requests to the client
 }
 
@@ -219,6 +221,12 @@ func (f *fakeServer) serve() {
 			} else if r := f.definition(m.Params); r != "" {
 				reply(r)
 			}
+		case "textDocument/inlayHint":
+			if f.inlayHints == nil {
+				reply("null")
+			} else {
+				reply(f.inlayHints(m.Params))
+			}
 		case "textDocument/implementation", "textDocument/typeDefinition":
 			reply(f.navigation(m.Method, m.Params))
 		case "shutdown":
@@ -231,10 +239,15 @@ func (f *fakeServer) serve() {
 }
 
 func connect(t *testing.T, f *fakeServer, r io.Reader, w io.WriteCloser, onExit func(error)) *Client {
+	return connectOpts(t, f, r, w, Options{RootPath: "/w", RootURI: "file:///w", Name: "w", Logf: t.Logf, OnExit: onExit})
+}
+
+func connectOpts(t *testing.T, f *fakeServer, r io.Reader, w io.WriteCloser, opts Options) *Client {
+	t.Helper()
 	go f.serve()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	c, err := Connect(ctx, r, w, Options{RootPath: "/w", RootURI: "file:///w", Name: "w", Logf: t.Logf, OnExit: onExit})
+	c, err := Connect(ctx, r, w, opts)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -269,7 +282,11 @@ func connect(t *testing.T, f *fakeServer, r io.Reader, w io.WriteCloser, onExit 
 		seen[reply.ID] = true
 		switch reply.ID {
 		case "s1":
-			if string(reply.Result) != "[null,null]" || reply.Error != nil {
+			want := f.configWant
+			if want == "" {
+				want = "[null,null]"
+			}
+			if string(reply.Result) != want || reply.Error != nil {
 				t.Fatalf("configuration reply: %s", body)
 			}
 		case "s2":

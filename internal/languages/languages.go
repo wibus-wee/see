@@ -74,6 +74,7 @@ func StartGopls(logf func(string, ...any)) langserver.Starter {
 		c, err := lsp.Start(ctx, path, nil, lsp.Options{
 			RootPath: root,
 			RootURI:  uri.FromPath(root),
+			ServerID: "gopls",
 			Name:     filepath.Base(root),
 			Logf:     logf,
 			OnExit:   onExit,

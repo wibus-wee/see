@@ -193,6 +193,7 @@ type fakeClient struct {
 	typeDefinition func(context.Context, string, lsp.Position) ([]lsp.Location, error)
 	noNavigation   bool
 	hover          func(ctx context.Context, uri string, pos lsp.Position) (string, *lsp.Range, error)
+	inlayHints     func(ctx context.Context, uri string, r lsp.Range) ([]lsp.InlayHint, error)
 	log            []string
 	shutdown       bool
 }
@@ -249,6 +250,14 @@ func (f *fakeClient) Hover(ctx context.Context, uri string, pos lsp.Position) (s
 		return "", nil, nil
 	}
 	return f.hover(ctx, uri, pos)
+}
+func (f *fakeClient) HasInlayHints() bool { return f.inlayHints != nil }
+func (f *fakeClient) InlayHints(ctx context.Context, uri string, r lsp.Range) ([]lsp.InlayHint, error) {
+	f.record("inlayHint")
+	if f.inlayHints == nil {
+		return nil, nil
+	}
+	return f.inlayHints(ctx, uri, r)
 }
 func (f *fakeClient) Shutdown(time.Duration) {
 	f.mu.Lock()
