@@ -7430,6 +7430,26 @@ func (msgs Messages) MinimapDescription() string {
 	return Catalog.Format(msgs.locale, "minimapDescription", nil)
 }
 
+// ReadingPositionPin says "Reading position pin"
+// in the language the app shows.
+func ReadingPositionPin() string { return In(i18n.Locale()).ReadingPositionPin() }
+
+// ReadingPositionPin says "Reading position pin"
+// in the language of msgs.
+func (msgs Messages) ReadingPositionPin() string {
+	return Catalog.Format(msgs.locale, "readingPositionPin", nil)
+}
+
+// ReadingPositionPinDescription says "Name the declaration the top of the editor is inside, once it scrolls out of view."
+// in the language the app shows.
+func ReadingPositionPinDescription() string { return In(i18n.Locale()).ReadingPositionPinDescription() }
+
+// ReadingPositionPinDescription says "Name the declaration the top of the editor is inside, once it scrolls out of view."
+// in the language of msgs.
+func (msgs Messages) ReadingPositionPinDescription() string {
+	return Catalog.Format(msgs.locale, "readingPositionPinDescription", nil)
+}
+
 // CommandToggleMinimap says "Toggle Minimap"
 // in the language the app shows.
 func CommandToggleMinimap() string { return In(i18n.Locale()).CommandToggleMinimap() }
