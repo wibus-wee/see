@@ -729,6 +729,8 @@
   "minimapLabel": "缩略图",
   "showMinimap": "显示缩略图",
   "minimapDescription": "在编辑器旁显示文件的缩略概览，如同 Xcode。",
+  "readingPositionPin": "阅读位置标记",
+  "readingPositionPinDescription": "当声明滚出视野后，在编辑器顶部标出当前所在的声明。",
   "commandToggleMinimap": "切换缩略图",
   "notifyTerminalBell": "终端响铃",
   "commandEditAllInScope": "编辑作用域中的所有位置",

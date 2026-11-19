@@ -56,6 +56,7 @@ type Config struct {
 	HideInlineBlame      bool                 `json:"hideInlineGitBlame,omitempty"`
 	HideTypeHints        bool                 `json:"hideTypeHints,omitempty"`
 	HideMinimap          bool                 `json:"hideEditorMinimap,omitempty"`
+	HideReadingPin       bool                 `json:"hideReadingPositionPin,omitempty"`
 	DiffUnified          bool                 `json:"diffUnified,omitempty"` // diffs inline rather than side by side
 	DiffLayout           string               `json:"diffLayout,omitempty"`  // "auto", "unified", "split"
 	GitStatus            bool                 `json:"gitStatus,omitempty"`

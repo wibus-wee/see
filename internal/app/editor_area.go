@@ -322,11 +322,16 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 		var ed ui.Element
 		minimap := a.showsMinimap(g, d)
 		ui.Row(c).Grow(1).FillWidth().Children(func() {
-			ed = editor.View(c.Key(d.path), st).Grow(1).FillHeight()
 			if minimap {
+				ui.Column(c).Grow(1).FillHeight().Children(func() {
+					a.readingPinRow(c, g, d, st)
+					ed = editor.View(c.Key(d.path), st).Grow(1).FillHeight()
+				})
 				a.minimap(c, g, d, st)
 			} else {
 				st.RenderFindBar = nil
+				a.readingPinRow(c, g, d, st)
+				ed = editor.View(c.Key(d.path), st).Grow(1).FillHeight()
 			}
 		})
 		st.LineBackgrounds = backgrounds

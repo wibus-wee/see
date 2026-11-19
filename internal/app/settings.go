@@ -737,6 +737,14 @@ func (a *App) editorPane(c *ui.Context) {
 			})
 		},
 		func() {
+			labeled(c, locales.ReadingPositionPin(), locales.ReadingPositionPinDescription())
+			enabled := !a.cfg.HideReadingPin
+			ui.Switch(c, &enabled).Label(locales.ReadingPositionPin()).OnClick(func() {
+				a.cfg.HideReadingPin = !enabled
+				a.settingsChanged()
+			})
+		},
+		func() {
 			labeled(c, logText("showInlineBlame"), logText("inlineBlameDescription"))
 			enabled := !a.cfg.HideInlineBlame
 			ui.Switch(c, &enabled).Label(logText("showInlineBlame")).OnClick(func() {

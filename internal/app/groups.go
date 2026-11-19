@@ -50,6 +50,8 @@ type group struct {
 	changeBars     []changeBar
 	changeBarPress bool
 	caretAnchor    ui.Point
+	// pin is the reading-position pin of the editor's top line.
+	pin readingPin
 }
 
 // goTo is a place to show in a document: a position of the buffer, or
