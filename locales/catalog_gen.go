@@ -504,6 +504,236 @@ func (msgs Messages) ProblemHint() string {
 	return Catalog.Format(msgs.locale, "problemHint", nil)
 }
 
+// CommandShowOutline says "Show Outline"
+// in the language the app shows.
+func CommandShowOutline() string { return In(i18n.Locale()).CommandShowOutline() }
+
+// CommandShowOutline says "Show Outline"
+// in the language of msgs.
+func (msgs Messages) CommandShowOutline() string {
+	return Catalog.Format(msgs.locale, "commandShowOutline", nil)
+}
+
+// OutlineTitle says "Outline"
+// in the language the app shows.
+func OutlineTitle() string { return In(i18n.Locale()).OutlineTitle() }
+
+// OutlineTitle says "Outline"
+// in the language of msgs.
+func (msgs Messages) OutlineTitle() string {
+	return Catalog.Format(msgs.locale, "outlineTitle", nil)
+}
+
+// FilterSymbols says "Filter Symbols"
+// in the language the app shows.
+func FilterSymbols() string { return In(i18n.Locale()).FilterSymbols() }
+
+// FilterSymbols says "Filter Symbols"
+// in the language of msgs.
+func (msgs Messages) FilterSymbols() string {
+	return Catalog.Format(msgs.locale, "filterSymbols", nil)
+}
+
+// OutlineUpdating says "Updating…"
+// in the language the app shows.
+func OutlineUpdating() string { return In(i18n.Locale()).OutlineUpdating() }
+
+// OutlineUpdating says "Updating…"
+// in the language of msgs.
+func (msgs Messages) OutlineUpdating() string {
+	return Catalog.Format(msgs.locale, "outlineUpdating", nil)
+}
+
+// OutlineLoading says "Loading symbols…"
+// in the language the app shows.
+func OutlineLoading() string { return In(i18n.Locale()).OutlineLoading() }
+
+// OutlineLoading says "Loading symbols…"
+// in the language of msgs.
+func (msgs Messages) OutlineLoading() string {
+	return Catalog.Format(msgs.locale, "outlineLoading", nil)
+}
+
+// OutlineEmpty says "No symbols in this file"
+// in the language the app shows.
+func OutlineEmpty() string { return In(i18n.Locale()).OutlineEmpty() }
+
+// OutlineEmpty says "No symbols in this file"
+// in the language of msgs.
+func (msgs Messages) OutlineEmpty() string {
+	return Catalog.Format(msgs.locale, "outlineEmpty", nil)
+}
+
+// OutlineOpenText says "Open a text file to see its outline."
+// in the language the app shows.
+func OutlineOpenText() string { return In(i18n.Locale()).OutlineOpenText() }
+
+// OutlineOpenText says "Open a text file to see its outline."
+// in the language of msgs.
+func (msgs Messages) OutlineOpenText() string {
+	return Catalog.Format(msgs.locale, "outlineOpenText", nil)
+}
+
+// NoMatchingSymbols says "No matching symbols"
+// in the language the app shows.
+func NoMatchingSymbols() string { return In(i18n.Locale()).NoMatchingSymbols() }
+
+// NoMatchingSymbols says "No matching symbols"
+// in the language of msgs.
+func (msgs Messages) NoMatchingSymbols() string {
+	return Catalog.Format(msgs.locale, "noMatchingSymbols", nil)
+}
+
+// OutlineLine says "line {line}"
+// in the language the app shows.
+func OutlineLine(line string) string { return In(i18n.Locale()).OutlineLine(line) }
+
+// OutlineLine says "line {line}"
+// in the language of msgs.
+func (msgs Messages) OutlineLine(line string) string {
+	return Catalog.Format(msgs.locale, "outlineLine", map[string]any{"line": line})
+}
+
+// OutlineKindModule says "module"
+// in the language the app shows.
+func OutlineKindModule() string { return In(i18n.Locale()).OutlineKindModule() }
+
+// OutlineKindModule says "module"
+// in the language of msgs.
+func (msgs Messages) OutlineKindModule() string {
+	return Catalog.Format(msgs.locale, "outlineKindModule", nil)
+}
+
+// OutlineKindClass says "class"
+// in the language the app shows.
+func OutlineKindClass() string { return In(i18n.Locale()).OutlineKindClass() }
+
+// OutlineKindClass says "class"
+// in the language of msgs.
+func (msgs Messages) OutlineKindClass() string {
+	return Catalog.Format(msgs.locale, "outlineKindClass", nil)
+}
+
+// OutlineKindMethod says "method"
+// in the language the app shows.
+func OutlineKindMethod() string { return In(i18n.Locale()).OutlineKindMethod() }
+
+// OutlineKindMethod says "method"
+// in the language of msgs.
+func (msgs Messages) OutlineKindMethod() string {
+	return Catalog.Format(msgs.locale, "outlineKindMethod", nil)
+}
+
+// OutlineKindField says "field"
+// in the language the app shows.
+func OutlineKindField() string { return In(i18n.Locale()).OutlineKindField() }
+
+// OutlineKindField says "field"
+// in the language of msgs.
+func (msgs Messages) OutlineKindField() string {
+	return Catalog.Format(msgs.locale, "outlineKindField", nil)
+}
+
+// OutlineKindConstructor says "constructor"
+// in the language the app shows.
+func OutlineKindConstructor() string { return In(i18n.Locale()).OutlineKindConstructor() }
+
+// OutlineKindConstructor says "constructor"
+// in the language of msgs.
+func (msgs Messages) OutlineKindConstructor() string {
+	return Catalog.Format(msgs.locale, "outlineKindConstructor", nil)
+}
+
+// OutlineKindEnum says "enum"
+// in the language the app shows.
+func OutlineKindEnum() string { return In(i18n.Locale()).OutlineKindEnum() }
+
+// OutlineKindEnum says "enum"
+// in the language of msgs.
+func (msgs Messages) OutlineKindEnum() string {
+	return Catalog.Format(msgs.locale, "outlineKindEnum", nil)
+}
+
+// OutlineKindInterface says "interface"
+// in the language the app shows.
+func OutlineKindInterface() string { return In(i18n.Locale()).OutlineKindInterface() }
+
+// OutlineKindInterface says "interface"
+// in the language of msgs.
+func (msgs Messages) OutlineKindInterface() string {
+	return Catalog.Format(msgs.locale, "outlineKindInterface", nil)
+}
+
+// OutlineKindFunction says "function"
+// in the language the app shows.
+func OutlineKindFunction() string { return In(i18n.Locale()).OutlineKindFunction() }
+
+// OutlineKindFunction says "function"
+// in the language of msgs.
+func (msgs Messages) OutlineKindFunction() string {
+	return Catalog.Format(msgs.locale, "outlineKindFunction", nil)
+}
+
+// OutlineKindVariable says "variable"
+// in the language the app shows.
+func OutlineKindVariable() string { return In(i18n.Locale()).OutlineKindVariable() }
+
+// OutlineKindVariable says "variable"
+// in the language of msgs.
+func (msgs Messages) OutlineKindVariable() string {
+	return Catalog.Format(msgs.locale, "outlineKindVariable", nil)
+}
+
+// OutlineKindConstant says "constant"
+// in the language the app shows.
+func OutlineKindConstant() string { return In(i18n.Locale()).OutlineKindConstant() }
+
+// OutlineKindConstant says "constant"
+// in the language of msgs.
+func (msgs Messages) OutlineKindConstant() string {
+	return Catalog.Format(msgs.locale, "outlineKindConstant", nil)
+}
+
+// OutlineKindEnumMember says "enum member"
+// in the language the app shows.
+func OutlineKindEnumMember() string { return In(i18n.Locale()).OutlineKindEnumMember() }
+
+// OutlineKindEnumMember says "enum member"
+// in the language of msgs.
+func (msgs Messages) OutlineKindEnumMember() string {
+	return Catalog.Format(msgs.locale, "outlineKindEnumMember", nil)
+}
+
+// OutlineKindStruct says "struct"
+// in the language the app shows.
+func OutlineKindStruct() string { return In(i18n.Locale()).OutlineKindStruct() }
+
+// OutlineKindStruct says "struct"
+// in the language of msgs.
+func (msgs Messages) OutlineKindStruct() string {
+	return Catalog.Format(msgs.locale, "outlineKindStruct", nil)
+}
+
+// OutlineKindTypeParameter says "type parameter"
+// in the language the app shows.
+func OutlineKindTypeParameter() string { return In(i18n.Locale()).OutlineKindTypeParameter() }
+
+// OutlineKindTypeParameter says "type parameter"
+// in the language of msgs.
+func (msgs Messages) OutlineKindTypeParameter() string {
+	return Catalog.Format(msgs.locale, "outlineKindTypeParameter", nil)
+}
+
+// OutlineKindSymbol says "symbol"
+// in the language the app shows.
+func OutlineKindSymbol() string { return In(i18n.Locale()).OutlineKindSymbol() }
+
+// OutlineKindSymbol says "symbol"
+// in the language of msgs.
+func (msgs Messages) OutlineKindSymbol() string {
+	return Catalog.Format(msgs.locale, "outlineKindSymbol", nil)
+}
+
 // CommandSearchFileSymbols says "Search File Symbols"
 // in the language the app shows.
 func CommandSearchFileSymbols() string { return In(i18n.Locale()).CommandSearchFileSymbols() }

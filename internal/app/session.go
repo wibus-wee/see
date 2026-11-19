@@ -172,7 +172,7 @@ func (a *App) restoreSession() {
 	a.restoringSession = true
 	defer func() { a.restoringSession = false }()
 	a.sidebarOff = s.SidebarHidden
-	if s.Navigator >= navFiles && s.Navigator <= navGit {
+	if s.Navigator >= navFiles && s.Navigator <= navGit || s.Navigator == navOutline {
 		a.navigator = s.Navigator
 	}
 	a.git.changesClosed, a.git.historyClosed, a.git.split, a.git.logSplit = s.ChangesClosed, s.HistoryClosed, s.GitSplit, s.GitLogSplit

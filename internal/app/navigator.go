@@ -26,6 +26,8 @@ func (a *App) navigatorPane(c *ui.Context, vibrant bool) {
 			a.gitNavigator(c)
 		} else if a.navigator == navProblems {
 			a.problemsNavigator(c)
+		} else if a.navigator == navOutline {
+			a.outlineNavigator(c)
 		} else if a.navigator == navFind {
 			a.findNavigator(c)
 		} else {
@@ -50,7 +52,7 @@ func (a *App) navigatorBar(c *ui.Context) {
 	t := c.Theme()
 	ui.Row(c).FillWidth().Padding(0, 10, 10, 10).Children(func() {
 		const segW, segGap = 38, 2
-		parts := ui.SegmentedBase(c, &a.navigator, 4)
+		parts := ui.SegmentedBase(c, &a.navigator, 5)
 		parts.Track.FillWidth().Height(30).Padding(3).Gap(segGap).Radius(15).Background(t.Text.Alpha(0.06)).Label(locales.MsgNavigator())
 		if c.Preferences().HighContrast {
 			parts.Track.Border(1, t.Border)
@@ -63,6 +65,7 @@ func (a *App) navigatorBar(c *ui.Context) {
 			{icSearch, "Show the Find Navigator"},
 			{icGit, "Show the Git Navigator"},
 			{icProblems, commandLabel("Show Problems")},
+			{icOutline, commandLabel("Show Outline")},
 		}
 		// The chosen segment's glass slides to it, as a segmented control's
 		// thumb does: in the flow, first, so that it paints under the
