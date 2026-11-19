@@ -73,8 +73,52 @@ type Config struct {
 	TermCopyOnSelect     bool                 `json:"terminalCopyOnSelect,omitempty"`
 	Workspaces           map[string]Workspace `json:"workspaceSessions,omitempty"`
 
+	// LSP lists language servers the user configured, started for files
+	// a built-in server does not cover. Same role as the servers See
+	// wires in code, given by hand in the configuration file.
+	LSP []LSPConfig `json:"lsp,omitempty"`
+
 	path     string // where it is saved; "" saves nowhere, as in tests
 	onRecent func() // called when the recent folders change
+}
+
+// LSPConfig describes one configured language server: what it is called,
+// the files it covers, and the command that starts it.
+//
+// In the configuration file, under the "lsp" array:
+//
+//	"lsp": [
+//	  {
+//	    "name": "rust-analyzer",
+//	    "extensions": [".rs"],
+//	    "languages": ["rust"],
+//	    "command": ["rust-analyzer"],
+//	    "env": {"RA_LOG": "info"},
+//	    "initializationOptions": {"check": {"command": "clippy"}}
+//	  }
+//	]
+type LSPConfig struct {
+	// Name is what errors, logs and Settings call the server, such as
+	// "rust-analyzer". Required.
+	Name string `json:"name"`
+	// Extensions are the file extensions the server covers, with their
+	// leading dot, such as [".rs", ".py"]. A file whose extension is
+	// listed is handled by this server when no built-in server claims it.
+	Extensions []string `json:"extensions,omitempty"`
+	// Languages are the LSP language IDs the server covers, such as
+	// ["rust"]. The first entry is also the language ID sent in
+	// didOpen for files matched by extension.
+	Languages []string `json:"languages,omitempty"`
+	// Command is the executable and its arguments, as exec accepts them:
+	// ["rust-analyzer"] or ["pyright-langserver", "--stdio"]. The first
+	// element is resolved on PATH; an absolute path is used as given.
+	Command []string `json:"command"`
+	// Env adds environment variables to the server's process, merged
+	// over the environment See itself runs with.
+	Env map[string]string `json:"env,omitempty"`
+	// InitializationOptions is sent verbatim as the LSP
+	// initializationOptions, for servers that take settings there.
+	InitializationOptions any `json:"initializationOptions,omitempty"`
 }
 
 // Path is where the configuration lives.

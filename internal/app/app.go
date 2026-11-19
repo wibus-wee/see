@@ -84,17 +84,26 @@ type App struct {
 	counterpartMiss     counterpartFeedback
 	peek                *peekState // a definition peeked at from an editor
 
-	lsp            *langserver.Server
-	cmakeLSP       *langserver.Server
-	cmakeState     langserver.State
-	cmakeErr       error
-	clangLSP       *langserver.Server
-	clangState     langserver.State
-	clangErr       error
-	tsLSP          *langserver.Server
-	tsState        langserver.State
-	tsErr          error
-	tsEpoch        uint64
+	lsp        *langserver.Server
+	cmakeLSP   *langserver.Server
+	cmakeState langserver.State
+	cmakeErr   error
+	clangLSP   *langserver.Server
+	clangState langserver.State
+	clangErr   error
+	tsLSP      *langserver.Server
+	tsState    langserver.State
+	tsErr      error
+	tsEpoch    uint64
+	// customLSPs are the configured language servers, by the index of
+	// their config.LSP entry; customStates tracks each one's state.
+	customLSPs     map[int]*langserver.Server
+	customLSPSpecs []config.LSPConfig
+	customCovers   map[int]func(path string) bool
+	customStates   map[int]struct {
+		state langserver.State
+		err   error
+	}
 	serverJob      bool
 	serverJobName  string // the tool an installation or a removal is of
 	serverJobErr   string
@@ -375,6 +384,28 @@ func (a *App) openWorkspace(dir string) {
 			}
 		})
 	}, a.diagnosticsHandler(gen), a.serverLog("cmake-language-server"))
+	a.customLSPSpecs = languages.ConfiguredSpecs(a.cfg.LSP)
+	a.customLSPs = map[int]*langserver.Server{}
+	a.customCovers = map[int]func(string) bool{}
+	a.customStates = map[int]struct {
+		state langserver.State
+		err   error
+	}{}
+	for i, spec := range a.customLSPSpecs {
+		a.customCovers[i] = languages.ConfiguredCovers(spec)
+		idx, name := i, spec.Name
+		a.customLSPs[i] = languages.NewConfiguredServer(spec, root, func(s langserver.State, err error) {
+			a.post.Post(func() {
+				if a.gen == gen {
+					a.customStates[idx] = struct {
+						state langserver.State
+						err   error
+					}{s, err}
+					a.serverStateLog(name, s, err)
+				}
+			})
+		}, a.diagnosticsHandler(gen), a.serverLog(name))
+	}
 	a.loadDir(root)
 	a.startWatch()
 	a.startGit()
@@ -430,6 +461,13 @@ func (a *App) closeWorkspace() {
 		a.cmakeLSP = nil
 	}
 	a.cmakeState, a.cmakeErr = langserver.Off, nil
+	for _, m := range a.customLSPs {
+		m.Stop()
+	}
+	a.customLSPs = nil
+	a.customLSPSpecs = nil
+	a.customCovers = nil
+	a.customStates = nil
 	a.root, a.realRoot = "", ""
 	a.recents = nil
 	a.dirs = map[string]*dirState{}
@@ -1496,7 +1534,59 @@ func (a *App) serverFor(path string) *langserver.Server {
 	if languages.ClangLanguage(path) != "" {
 		return a.clangLSP
 	}
+	// A configured server handles what no built-in server claims.
+	for i := range a.customLSPSpecs {
+		if m := a.customLSPs[i]; m != nil && a.customCovers[i](path) {
+			return m
+		}
+	}
 	return nil
+}
+
+// customServerFor returns the configured server for path, or nil when a
+// built-in server already claims it or none is configured for it.
+func (a *App) customServerFor(path string) *langserver.Server {
+	if path == "" {
+		return nil
+	}
+	if strings.EqualFold(filepath.Ext(path), ".go") ||
+		languages.TypeScriptLanguage(path) != "" ||
+		languages.CMakeLanguage(path) != "" ||
+		languages.ClangLanguage(path) != "" {
+		return nil
+	}
+	for i := range a.customLSPSpecs {
+		if m := a.customLSPs[i]; m != nil && a.customCovers[i](path) {
+			return m
+		}
+	}
+	return nil
+}
+
+// customIndex finds a configured server's index by its Server.
+func (a *App) customIndex(m *langserver.Server) int {
+	for i, s := range a.customLSPs {
+		if s == m {
+			return i
+		}
+	}
+	return -1
+}
+
+func (a *App) retryCustomLSP(idx int) {
+	m := a.customLSPs[idx]
+	if m == nil {
+		return
+	}
+	a.invalidateHover()
+	m.Retry()
+	s, err := m.Status()
+	a.customStates[idx] = struct {
+		state langserver.State
+		err   error
+	}{s, err}
+	a.notice = ""
+	a.openServerDocuments(m)
 }
 
 func (a *App) retryTypeScriptLSP() {
