@@ -418,7 +418,7 @@ func (a *App) quickHelpAt(g *group, d *doc, st *editor.State, offset int) {
 func quickHelpContent(c *ui.Context, md string, declared *target, open func(), root string) {
 	sections := splitQuickHelp(md)
 	ui.Scroll(c).Width(480).MaxWidthPercent(100).MaxHeight(400).Shrink(1).Children(func() {
-		ui.Column(c).FillWidth().Padding(16).Gap(12).Children(func() {
+		ui.Column(c).FillWidth().Padding(4).Gap(12).Children(func() {
 			render := func(label, body string) {
 				if body == "" {
 					return
