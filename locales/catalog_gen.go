@@ -34,6 +34,166 @@ type Messages struct{ locale string }
 // source language.
 func In(locale string) Messages { return Messages{locale} }
 
+// CommandGoToImplementation says "Go to Implementation"
+// in the language the app shows.
+func CommandGoToImplementation() string { return In(i18n.Locale()).CommandGoToImplementation() }
+
+// CommandGoToImplementation says "Go to Implementation"
+// in the language of msgs.
+func (msgs Messages) CommandGoToImplementation() string {
+	return Catalog.Format(msgs.locale, "commandGoToImplementation", nil)
+}
+
+// CommandGoToTypeDefinition says "Go to Type Definition"
+// in the language the app shows.
+func CommandGoToTypeDefinition() string { return In(i18n.Locale()).CommandGoToTypeDefinition() }
+
+// CommandGoToTypeDefinition says "Go to Type Definition"
+// in the language of msgs.
+func (msgs Messages) CommandGoToTypeDefinition() string {
+	return Catalog.Format(msgs.locale, "commandGoToTypeDefinition", nil)
+}
+
+// ImplementationFinding says "Finding implementations…"
+// in the language the app shows.
+func ImplementationFinding() string { return In(i18n.Locale()).ImplementationFinding() }
+
+// ImplementationFinding says "Finding implementations…"
+// in the language of msgs.
+func (msgs Messages) ImplementationFinding() string {
+	return Catalog.Format(msgs.locale, "implementationFinding", nil)
+}
+
+// ImplementationEmpty says "No implementation found."
+// in the language the app shows.
+func ImplementationEmpty() string { return In(i18n.Locale()).ImplementationEmpty() }
+
+// ImplementationEmpty says "No implementation found."
+// in the language of msgs.
+func (msgs Messages) ImplementationEmpty() string {
+	return Catalog.Format(msgs.locale, "implementationEmpty", nil)
+}
+
+// ImplementationUnsupported says "The language server does not support Go to Implementation."
+// in the language the app shows.
+func ImplementationUnsupported() string { return In(i18n.Locale()).ImplementationUnsupported() }
+
+// ImplementationUnsupported says "The language server does not support Go to Implementation."
+// in the language of msgs.
+func (msgs Messages) ImplementationUnsupported() string {
+	return Catalog.Format(msgs.locale, "implementationUnsupported", nil)
+}
+
+// ImplementationUnavailable says "The implementation is in a place that cannot be opened."
+// in the language the app shows.
+func ImplementationUnavailable() string { return In(i18n.Locale()).ImplementationUnavailable() }
+
+// ImplementationUnavailable says "The implementation is in a place that cannot be opened."
+// in the language of msgs.
+func (msgs Messages) ImplementationUnavailable() string {
+	return Catalog.Format(msgs.locale, "implementationUnavailable", nil)
+}
+
+// ImplementationResults says "implementations"
+// in the language the app shows.
+func ImplementationResults() string { return In(i18n.Locale()).ImplementationResults() }
+
+// ImplementationResults says "implementations"
+// in the language of msgs.
+func (msgs Messages) ImplementationResults() string {
+	return Catalog.Format(msgs.locale, "implementationResults", nil)
+}
+
+// ImplementationPreview says "Implementation code preview"
+// in the language the app shows.
+func ImplementationPreview() string { return In(i18n.Locale()).ImplementationPreview() }
+
+// ImplementationPreview says "Implementation code preview"
+// in the language of msgs.
+func (msgs Messages) ImplementationPreview() string {
+	return Catalog.Format(msgs.locale, "implementationPreview", nil)
+}
+
+// ImplementationClose says "Close Implementations Preview"
+// in the language the app shows.
+func ImplementationClose() string { return In(i18n.Locale()).ImplementationClose() }
+
+// ImplementationClose says "Close Implementations Preview"
+// in the language of msgs.
+func (msgs Messages) ImplementationClose() string {
+	return Catalog.Format(msgs.locale, "implementationClose", nil)
+}
+
+// TypeDefinitionFinding says "Finding type definitions…"
+// in the language the app shows.
+func TypeDefinitionFinding() string { return In(i18n.Locale()).TypeDefinitionFinding() }
+
+// TypeDefinitionFinding says "Finding type definitions…"
+// in the language of msgs.
+func (msgs Messages) TypeDefinitionFinding() string {
+	return Catalog.Format(msgs.locale, "typeDefinitionFinding", nil)
+}
+
+// TypeDefinitionEmpty says "No type definition found."
+// in the language the app shows.
+func TypeDefinitionEmpty() string { return In(i18n.Locale()).TypeDefinitionEmpty() }
+
+// TypeDefinitionEmpty says "No type definition found."
+// in the language of msgs.
+func (msgs Messages) TypeDefinitionEmpty() string {
+	return Catalog.Format(msgs.locale, "typeDefinitionEmpty", nil)
+}
+
+// TypeDefinitionUnsupported says "The language server does not support Go to Type Definition."
+// in the language the app shows.
+func TypeDefinitionUnsupported() string { return In(i18n.Locale()).TypeDefinitionUnsupported() }
+
+// TypeDefinitionUnsupported says "The language server does not support Go to Type Definition."
+// in the language of msgs.
+func (msgs Messages) TypeDefinitionUnsupported() string {
+	return Catalog.Format(msgs.locale, "typeDefinitionUnsupported", nil)
+}
+
+// TypeDefinitionUnavailable says "The type definition is in a place that cannot be opened."
+// in the language the app shows.
+func TypeDefinitionUnavailable() string { return In(i18n.Locale()).TypeDefinitionUnavailable() }
+
+// TypeDefinitionUnavailable says "The type definition is in a place that cannot be opened."
+// in the language of msgs.
+func (msgs Messages) TypeDefinitionUnavailable() string {
+	return Catalog.Format(msgs.locale, "typeDefinitionUnavailable", nil)
+}
+
+// TypeDefinitionResults says "type definitions"
+// in the language the app shows.
+func TypeDefinitionResults() string { return In(i18n.Locale()).TypeDefinitionResults() }
+
+// TypeDefinitionResults says "type definitions"
+// in the language of msgs.
+func (msgs Messages) TypeDefinitionResults() string {
+	return Catalog.Format(msgs.locale, "typeDefinitionResults", nil)
+}
+
+// TypeDefinitionPreview says "Type definition code preview"
+// in the language the app shows.
+func TypeDefinitionPreview() string { return In(i18n.Locale()).TypeDefinitionPreview() }
+
+// TypeDefinitionPreview says "Type definition code preview"
+// in the language of msgs.
+func (msgs Messages) TypeDefinitionPreview() string {
+	return Catalog.Format(msgs.locale, "typeDefinitionPreview", nil)
+}
+
+// TypeDefinitionClose says "Close Type Definitions Preview"
+// in the language the app shows.
+func TypeDefinitionClose() string { return In(i18n.Locale()).TypeDefinitionClose() }
+
+// TypeDefinitionClose says "Close Type Definitions Preview"
+// in the language of msgs.
+func (msgs Messages) TypeDefinitionClose() string {
+	return Catalog.Format(msgs.locale, "typeDefinitionClose", nil)
+}
+
 // VideoPreview says "Video preview"
 // in the language the app shows.
 func VideoPreview() string { return In(i18n.Locale()).VideoPreview() }
@@ -3544,6 +3704,182 @@ func (msgs Messages) MsgFindResults() string {
 	return Catalog.Format(msgs.locale, "msgFindResults", nil)
 }
 
+// WorkspaceReplace says "Replace"
+// in the language the app shows.
+func WorkspaceReplace() string { return In(i18n.Locale()).WorkspaceReplace() }
+
+// WorkspaceReplace says "Replace"
+// in the language of msgs.
+func (msgs Messages) WorkspaceReplace() string {
+	return Catalog.Format(msgs.locale, "workspaceReplace", nil)
+}
+
+// WorkspaceReplaceAll says "Replace All"
+// in the language the app shows.
+func WorkspaceReplaceAll() string { return In(i18n.Locale()).WorkspaceReplaceAll() }
+
+// WorkspaceReplaceAll says "Replace All"
+// in the language of msgs.
+func (msgs Messages) WorkspaceReplaceAll() string {
+	return Catalog.Format(msgs.locale, "workspaceReplaceAll", nil)
+}
+
+// MsgReplaceWith says "Replace with"
+// in the language the app shows.
+func MsgReplaceWith() string { return In(i18n.Locale()).MsgReplaceWith() }
+
+// MsgReplaceWith says "Replace with"
+// in the language of msgs.
+func (msgs Messages) MsgReplaceWith() string {
+	return Catalog.Format(msgs.locale, "msgReplaceWith", nil)
+}
+
+// MsgReplaceLiteralHint says "Replacement is literal text. Leave it empty to delete the match."
+// in the language the app shows.
+func MsgReplaceLiteralHint() string { return In(i18n.Locale()).MsgReplaceLiteralHint() }
+
+// MsgReplaceLiteralHint says "Replacement is literal text. Leave it empty to delete the match."
+// in the language of msgs.
+func (msgs Messages) MsgReplaceLiteralHint() string {
+	return Catalog.Format(msgs.locale, "msgReplaceLiteralHint", nil)
+}
+
+// MsgReviewWorkspaceReplacement says "Review all replacements before applying them"
+// in the language the app shows.
+func MsgReviewWorkspaceReplacement() string { return In(i18n.Locale()).MsgReviewWorkspaceReplacement() }
+
+// MsgReviewWorkspaceReplacement says "Review all replacements before applying them"
+// in the language of msgs.
+func (msgs Messages) MsgReviewWorkspaceReplacement() string {
+	return Catalog.Format(msgs.locale, "msgReviewWorkspaceReplacement", nil)
+}
+
+// MsgConfirmWorkspaceReplace says "Replace {matches, plural, one {# match} other {# matches}} in {files, plural, one {# file} other {# files}}?"
+// in the language the app shows.
+func MsgConfirmWorkspaceReplace(matches int, files int) string {
+	return In(i18n.Locale()).MsgConfirmWorkspaceReplace(matches, files)
+}
+
+// MsgConfirmWorkspaceReplace says "Replace {matches, plural, one {# match} other {# matches}} in {files, plural, one {# file} other {# files}}?"
+// in the language of msgs.
+func (msgs Messages) MsgConfirmWorkspaceReplace(matches int, files int) string {
+	return Catalog.Format(msgs.locale, "msgConfirmWorkspaceReplace", map[string]any{"matches": matches, "files": files})
+}
+
+// MsgWorkspaceReplaceDiskHint says "Writes to disk and cannot be undone in the editor. Files with unsaved edits are skipped."
+// in the language the app shows.
+func MsgWorkspaceReplaceDiskHint() string { return In(i18n.Locale()).MsgWorkspaceReplaceDiskHint() }
+
+// MsgWorkspaceReplaceDiskHint says "Writes to disk and cannot be undone in the editor. Files with unsaved edits are skipped."
+// in the language of msgs.
+func (msgs Messages) MsgWorkspaceReplaceDiskHint() string {
+	return Catalog.Format(msgs.locale, "msgWorkspaceReplaceDiskHint", nil)
+}
+
+// MsgWorkspaceReplacing says "Replacing…"
+// in the language the app shows.
+func MsgWorkspaceReplacing() string { return In(i18n.Locale()).MsgWorkspaceReplacing() }
+
+// MsgWorkspaceReplacing says "Replacing…"
+// in the language of msgs.
+func (msgs Messages) MsgWorkspaceReplacing() string {
+	return Catalog.Format(msgs.locale, "msgWorkspaceReplacing", nil)
+}
+
+// MsgWorkspaceReplaced says "{count, plural, one {Replaced # match.} other {Replaced # matches.}}"
+// in the language the app shows.
+func MsgWorkspaceReplaced(count int) string { return In(i18n.Locale()).MsgWorkspaceReplaced(count) }
+
+// MsgWorkspaceReplaced says "{count, plural, one {Replaced # match.} other {Replaced # matches.}}"
+// in the language of msgs.
+func (msgs Messages) MsgWorkspaceReplaced(count int) string {
+	return Catalog.Format(msgs.locale, "msgWorkspaceReplaced", map[string]any{"count": count})
+}
+
+// MsgWorkspaceReplaceSkipped says "{count, plural, one {Skipped # file.} other {Skipped # files.}}"
+// in the language the app shows.
+func MsgWorkspaceReplaceSkipped(count int) string {
+	return In(i18n.Locale()).MsgWorkspaceReplaceSkipped(count)
+}
+
+// MsgWorkspaceReplaceSkipped says "{count, plural, one {Skipped # file.} other {Skipped # files.}}"
+// in the language of msgs.
+func (msgs Messages) MsgWorkspaceReplaceSkipped(count int) string {
+	return Catalog.Format(msgs.locale, "msgWorkspaceReplaceSkipped", map[string]any{"count": count})
+}
+
+// MsgWorkspaceReplaceFailed says "Could not replace: {reason}"
+// in the language the app shows.
+func MsgWorkspaceReplaceFailed(reason string) string {
+	return In(i18n.Locale()).MsgWorkspaceReplaceFailed(reason)
+}
+
+// MsgWorkspaceReplaceFailed says "Could not replace: {reason}"
+// in the language of msgs.
+func (msgs Messages) MsgWorkspaceReplaceFailed(reason string) string {
+	return Catalog.Format(msgs.locale, "msgWorkspaceReplaceFailed", map[string]any{"reason": reason})
+}
+
+// MsgReplaceProtected says "{name} has unsaved edits or is read-only."
+// in the language the app shows.
+func MsgReplaceProtected(name string) string { return In(i18n.Locale()).MsgReplaceProtected(name) }
+
+// MsgReplaceProtected says "{name} has unsaved edits or is read-only."
+// in the language of msgs.
+func (msgs Messages) MsgReplaceProtected(name string) string {
+	return Catalog.Format(msgs.locale, "msgReplaceProtected", map[string]any{"name": name})
+}
+
+// MsgReplaceUnsupported says "{name} is not a supported UTF-8 text file."
+// in the language the app shows.
+func MsgReplaceUnsupported(name string) string { return In(i18n.Locale()).MsgReplaceUnsupported(name) }
+
+// MsgReplaceUnsupported says "{name} is not a supported UTF-8 text file."
+// in the language of msgs.
+func (msgs Messages) MsgReplaceUnsupported(name string) string {
+	return Catalog.Format(msgs.locale, "msgReplaceUnsupported", map[string]any{"name": name})
+}
+
+// MsgReplaceStale says "{name} changed since the search."
+// in the language the app shows.
+func MsgReplaceStale(name string) string { return In(i18n.Locale()).MsgReplaceStale(name) }
+
+// MsgReplaceStale says "{name} changed since the search."
+// in the language of msgs.
+func (msgs Messages) MsgReplaceStale(name string) string {
+	return Catalog.Format(msgs.locale, "msgReplaceStale", map[string]any{"name": name})
+}
+
+// MsgReplaceThisMatch says "Replace this match"
+// in the language the app shows.
+func MsgReplaceThisMatch() string { return In(i18n.Locale()).MsgReplaceThisMatch() }
+
+// MsgReplaceThisMatch says "Replace this match"
+// in the language of msgs.
+func (msgs Messages) MsgReplaceThisMatch() string {
+	return Catalog.Format(msgs.locale, "msgReplaceThisMatch", nil)
+}
+
+// MsgReplaceDeleteMatch says "Delete"
+// in the language the app shows.
+func MsgReplaceDeleteMatch() string { return In(i18n.Locale()).MsgReplaceDeleteMatch() }
+
+// MsgReplaceDeleteMatch says "Delete"
+// in the language of msgs.
+func (msgs Messages) MsgReplaceDeleteMatch() string {
+	return Catalog.Format(msgs.locale, "msgReplaceDeleteMatch", nil)
+}
+
+// MsgReplaceSearchLimit says "Narrow the search to use Replace All."
+// in the language the app shows.
+func MsgReplaceSearchLimit() string { return In(i18n.Locale()).MsgReplaceSearchLimit() }
+
+// MsgReplaceSearchLimit says "Narrow the search to use Replace All."
+// in the language of msgs.
+func (msgs Messages) MsgReplaceSearchLimit() string {
+	return Catalog.Format(msgs.locale, "msgReplaceSearchLimit", nil)
+}
+
 // MsgSwitchProject says "Switch Project"
 // in the language the app shows.
 func MsgSwitchProject() string { return In(i18n.Locale()).MsgSwitchProject() }
@@ -4070,14 +4406,64 @@ func (msgs Messages) MsgSettings() string {
 	return Catalog.Format(msgs.locale, "msgSettings", nil)
 }
 
-// MsgNoRecentFolders says "No Recent Folders"
+// MsgNoRecentFolders says "No recent folders"
 // in the language the app shows.
 func MsgNoRecentFolders() string { return In(i18n.Locale()).MsgNoRecentFolders() }
 
-// MsgNoRecentFolders says "No Recent Folders"
+// MsgNoRecentFolders says "No recent folders"
 // in the language of msgs.
 func (msgs Messages) MsgNoRecentFolders() string {
 	return Catalog.Format(msgs.locale, "msgNoRecentFolders", nil)
+}
+
+// WelcomeNoRecentFoldersDetail says "Folders you open will appear here."
+// in the language the app shows.
+func WelcomeNoRecentFoldersDetail() string { return In(i18n.Locale()).WelcomeNoRecentFoldersDetail() }
+
+// WelcomeNoRecentFoldersDetail says "Folders you open will appear here."
+// in the language of msgs.
+func (msgs Messages) WelcomeNoRecentFoldersDetail() string {
+	return Catalog.Format(msgs.locale, "welcomeNoRecentFoldersDetail", nil)
+}
+
+// WelcomeNewFileDetail says "Start with a blank text file"
+// in the language the app shows.
+func WelcomeNewFileDetail() string { return In(i18n.Locale()).WelcomeNewFileDetail() }
+
+// WelcomeNewFileDetail says "Start with a blank text file"
+// in the language of msgs.
+func (msgs Messages) WelcomeNewFileDetail() string {
+	return Catalog.Format(msgs.locale, "welcomeNewFileDetail", nil)
+}
+
+// WelcomeOpenFileDetail says "Open a single file"
+// in the language the app shows.
+func WelcomeOpenFileDetail() string { return In(i18n.Locale()).WelcomeOpenFileDetail() }
+
+// WelcomeOpenFileDetail says "Open a single file"
+// in the language of msgs.
+func (msgs Messages) WelcomeOpenFileDetail() string {
+	return Catalog.Format(msgs.locale, "welcomeOpenFileDetail", nil)
+}
+
+// WelcomeOpenFolderDetail says "Open a folder of files"
+// in the language the app shows.
+func WelcomeOpenFolderDetail() string { return In(i18n.Locale()).WelcomeOpenFolderDetail() }
+
+// WelcomeOpenFolderDetail says "Open a folder of files"
+// in the language of msgs.
+func (msgs Messages) WelcomeOpenFolderDetail() string {
+	return Catalog.Format(msgs.locale, "welcomeOpenFolderDetail", nil)
+}
+
+// WelcomeReopenRecent says "Reopen Recent"
+// in the language the app shows.
+func WelcomeReopenRecent() string { return In(i18n.Locale()).WelcomeReopenRecent() }
+
+// WelcomeReopenRecent says "Reopen Recent"
+// in the language of msgs.
+func (msgs Messages) WelcomeReopenRecent() string {
+	return Catalog.Format(msgs.locale, "welcomeReopenRecent", nil)
 }
 
 // MsgOpenFolder2 says "Open Folder"
@@ -4218,6 +4604,16 @@ func CommandFindInWorkspace() string { return In(i18n.Locale()).CommandFindInWor
 // in the language of msgs.
 func (msgs Messages) CommandFindInWorkspace() string {
 	return Catalog.Format(msgs.locale, "commandFindInWorkspace", nil)
+}
+
+// CommandReplaceInWorkspace says "Replace in Workspace"
+// in the language the app shows.
+func CommandReplaceInWorkspace() string { return In(i18n.Locale()).CommandReplaceInWorkspace() }
+
+// CommandReplaceInWorkspace says "Replace in Workspace"
+// in the language of msgs.
+func (msgs Messages) CommandReplaceInWorkspace() string {
+	return Catalog.Format(msgs.locale, "commandReplaceInWorkspace", nil)
 }
 
 // CommandShowGit says "Show Git"
@@ -4502,6 +4898,16 @@ func CommandFindInFile() string { return In(i18n.Locale()).CommandFindInFile() }
 // in the language of msgs.
 func (msgs Messages) CommandFindInFile() string {
 	return Catalog.Format(msgs.locale, "commandFindInFile", nil)
+}
+
+// CommandReplaceInFile says "Replace in File"
+// in the language the app shows.
+func CommandReplaceInFile() string { return In(i18n.Locale()).CommandReplaceInFile() }
+
+// CommandReplaceInFile says "Replace in File"
+// in the language of msgs.
+func (msgs Messages) CommandReplaceInFile() string {
+	return Catalog.Format(msgs.locale, "commandReplaceInFile", nil)
 }
 
 // CommandFindReferences says "Find References"

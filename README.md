@@ -51,7 +51,7 @@ Use `see` or `see .` for the current folder, `see /path/to/project` to open a fo
 ## Features
 
 - **Read** — open several folders in separate windows, keep files in tabs, and arrange editors side by side or one below another.
-- **Search** — find text in the current file or across the workspace, with case, whole-word, regular expression, and path filters.
+- **Search and replace** — find and replace text in the current file or across the workspace. Workspace search supports case, whole-word, regular expression, and path filters.
 - **Jump** — reach files by fuzzy name, search workspace symbols, and step back and forward through your reading history.
 - **Understand** — definitions, references, callers, diagnostics, and hover help for Go, TypeScript, and JavaScript, through language servers.
 - **Review** — stage, unstage, commit, and discard changes, open a change as a diff tab, and see each file's status and line counts beside it in the navigator.
@@ -81,6 +81,8 @@ Rename a file or folder from its context menu. On macOS, select an item in the f
 ### Editing, saving, and recovery
 
 Edit and save UTF-8 text in the source view. Unsaved changes are marked on tabs, and See asks before closing them. If a file changes on disk, See preserves your edits and asks before overwriting it. Files shown with replacement characters remain read-only.
+
+Use **Replace in File** in the command palette to replace one match or all matches in the editor; these edits can be undone. In the Find navigator, turn on **Replace** to preview the replacement next to each match. Replace individual matches from their rows or choose **Replace All** and confirm. Workspace replacement writes to disk, skips files with unsaved edits or stale matches, and cannot be undone from the editor. Replacement text is literal, including when the search uses a regular expression; leave it empty to delete the matches.
 
 See caches unsaved text for open files so it can restore edits after an unexpected exit. If the disk version changed in the meantime, it preserves the recovered edits and asks before overwriting.
 
@@ -148,6 +150,8 @@ These are the macOS shortcuts; on other platforms, use Ctrl in place of Cmd. The
 | Search workspace symbols | Cmd+T (or type `#` in Open Quickly) |
 | Find in workspace | Cmd+Shift+F |
 | Find in file | Cmd+F |
+| Replace in file | Option+Cmd+F (macOS), Ctrl+H (Windows/Linux) |
+| Replace in workspace | Cmd+Shift+H |
 | Go to line / column | Ctrl+G |
 | Toggle navigator | Cmd+B or Cmd+0 |
 | Open Markdown preview | Cmd+Shift+V |

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"see/internal/tasks"
 	"see/locales"
 	"strings"
@@ -20,6 +21,7 @@ type command struct {
 }
 
 func commands() []command {
+	replaceLabel, replaceKeyName, replaceMods, replaceKey := fileReplaceShortcut()
 	cmds := []command{
 		{"New File", "Cmd+", "N", ui.Cmd, ui.KeyN, func(a *App) { a.newFile() }},
 		{"Command Palette", "Cmd+Shift+", "P", ui.Cmd | ui.Shift, ui.KeyP, func(a *App) { a.openPalette() }},
@@ -41,6 +43,9 @@ func commands() []command {
 		{"Open Markdown Preview", "Cmd+Shift+", "V", ui.Cmd | ui.Shift, ui.KeyV, func(a *App) { a.openMarkdownTab(a.focus) }},
 		{"Find in Workspace", "Cmd+Shift+", "F", ui.Cmd | ui.Shift, ui.KeyF, func(a *App) {
 			a.sidebarOff, a.navigator, a.find.focus = false, navFind, true
+		}},
+		{"Replace in Workspace", "Cmd+Shift+", "H", ui.Cmd | ui.Shift, ui.KeyH, func(a *App) {
+			a.sidebarOff, a.navigator, a.find.focus, a.find.showReplace = false, navFind, true, true
 		}},
 		{"Show Git", "", "", 0, 0, func(a *App) { a.sidebarOff, a.navigator = false, navGit; a.refreshGit() }},
 		{"Git: Show History", "", "", 0, 0, func(a *App) {
@@ -106,6 +111,11 @@ func commands() []command {
 				st.Run(editor.Find)
 			}
 		}},
+		command{"Replace in File", replaceLabel, replaceKeyName, replaceMods, replaceKey, func(a *App) {
+			if st := a.activeEditor(); st != nil {
+				st.Run(editor.FindReplace)
+			}
+		}},
 		command{"Find References", "Shift+", "F12", ui.Shift, ui.KeyF12, func(a *App) { a.findUsages(false) }},
 		command{"Find Callers", "", "", 0, 0, func(a *App) { a.findUsages(true) }},
 		command{"Go to Definition", "", "F12", 0, 0, func(a *App) {
@@ -125,6 +135,13 @@ func commands() []command {
 	}
 	return cmds
 
+}
+
+func fileReplaceShortcut() (string, string, ui.Modifiers, ui.Key) {
+	if runtime.GOOS == "darwin" {
+		return "Alt+Cmd+", "F", ui.Alt | ui.Cmd, ui.KeyF
+	}
+	return "Ctrl+", "H", ui.Ctrl, ui.KeyH
 }
 
 func (a *App) openPalette() {

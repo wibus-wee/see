@@ -477,6 +477,9 @@ func (a *App) findNavigator(c *ui.Context) {
 			changed = ui.Toggle(c, &f.opts.WholeWord, "W").Label(locales.MsgWholeWords()).Tooltip(locales.MsgMatchWholeWords()).KeepFocus().Changed() || changed
 			changed = ui.Toggle(c, &f.opts.Regexp, ".*").Label(locales.MsgRegularExpression()).Tooltip(locales.MsgRegularExpression()).KeepFocus().Changed() || changed
 			ui.Box(c).Grow(1)
+			if ui.Toggle(c, &f.showReplace, locales.WorkspaceReplace()).KeepFocus().Changed() {
+				f.confirm = false
+			}
 			ui.Toggle(c, &f.showFilters, "Filters").Tooltip(locales.MsgFilesToIncludeAndExclude()).KeepFocus()
 			if changed {
 				a.runFind()
@@ -489,6 +492,9 @@ func (a *App) findNavigator(c *ui.Context) {
 			if ui.TextInput(c, &f.opts.Exclude).Placeholder(locales.MsgExcludeTestGo()).FillWidth().Changed() {
 				a.findSoon()
 			}
+		}
+		if f.showReplace {
+			a.findReplaceControls(c)
 		}
 		a.findSummary(c)
 	})
@@ -548,7 +554,30 @@ func (a *App) findRow(c *ui.Context, k findKey) {
 		return
 	}
 	m := file.Matches[k.match]
-	row := ui.Row(c).Grow(1).Gap(0).AlignItems(ui.Center)
+	ui.Row(c).Grow(1).Gap(3).AlignItems(ui.Center).Children(func() {
+		a.findMatchText(c, k, m)
+		if a.find.showReplace {
+			label := locales.MsgReplaceThisMatch()
+			tip := label
+			protected := a.replaceProtected(k.path)
+			if protected {
+				tip = locales.MsgReplaceProtected(filepath.Base(k.path))
+			}
+			b := ui.ButtonBase(c).Label(label).Tooltip(tip).Size(23, 22).Radius(4).Center().Shrink(0).
+				Disabled(!a.find.canReplace() || a.find.confirm || protected).OnClick(func() { a.replaceFind(&k) })
+			if b.Hovered() {
+				b.Background(colors(c).Pill)
+			}
+			b.Children(func() { symbolIcon(c, icReplaceMatch, 14, colors(c).Muted) })
+		}
+	})
+}
+
+func (a *App) findMatchText(c *ui.Context, k findKey, m search.Match) {
+	row := ui.Row(c).Grow(1).Shrink(1).Gap(0).AlignItems(ui.Center)
+	before := m.Preview[m.PreStart:m.PreEnd]
+	replacing := a.find.showReplace && a.find.ran == a.find.opts
+	replacement := a.find.replacement
 	row.Children(func() {
 		// A text drops the spaces at its ends: the joins get them as room.
 		gap := func(n int) {
@@ -560,12 +589,25 @@ func (a *App) findRow(c *ui.Context, k findKey) {
 		trimmed := strings.TrimRight(pre, " \t")
 		ui.Text(c, trimmed).FontSize(12).TextColor(colors(c).Muted).SingleLine().Shrink(1)
 		gap(len(pre) - len(trimmed))
-		ui.Text(c, m.Preview[m.PreStart:m.PreEnd]).FontSize(12).Bold().Background(colors(c).Match).Radius(3).SingleLine().Shrink(0)
+		match := ui.Text(c, before).FontSize(12).Bold().Background(colors(c).Match).Radius(3).SingleLine().Shrink(1)
+		if replacing && before != replacement {
+			match.Strikethrough()
+			ui.Text(c, " → ").FontSize(11).TextColor(colors(c).Muted).Padding(0, 3).Shrink(0)
+			label := replacement
+			if label == "" {
+				label = locales.MsgReplaceDeleteMatch()
+			}
+			ui.Text(c, label).FontSize(12).Bold().TextColor(c.Theme().Accent).SingleLine().Shrink(1)
+		}
 		trimmed = strings.TrimLeft(post, " \t")
 		gap(len(post) - len(trimmed))
 		ui.Text(c, trimmed).FontSize(12).TextColor(colors(c).Muted).SingleLine().Shrink(1)
 	})
-	row.Tooltip(fmt.Sprintf(locales.MsgLineD(), m.Line+1))
+	tip := fmt.Sprintf(locales.MsgLineD(), m.Line+1)
+	if replacing {
+		tip += "\n" + m.Preview + "\n→ " + m.Preview[:m.PreStart] + replacement + m.Preview[m.PreEnd:]
+	}
+	row.Tooltip(tip)
 	row.OnClick(func() {
 		for i := 0; i < a.find.tree.Rows(); i++ {
 			if a.find.tree.Item(i) == k {

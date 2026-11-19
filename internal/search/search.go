@@ -5,6 +5,7 @@ package search
 import (
 	"bufio"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -80,6 +81,7 @@ type Match struct {
 	// match starts in it and PreEnd where it ends.
 	Preview          string
 	PreStart, PreEnd int
+	lineHash         [sha256.Size]byte
 }
 
 // File is the matches in one file.
@@ -193,7 +195,9 @@ func Run(ctx context.Context, rg, root string, o Options, emit func(File)) (Stat
 		switch ev.Type {
 		case "begin":
 			flush()
-			cur = &File{Path: filepath.Join(root, filepath.FromSlash(ev.Data.Path.Text))}
+			if ev.Data.Path.Text != "" {
+				cur = &File{Path: filepath.Join(root, filepath.FromSlash(ev.Data.Path.Text))}
+			}
 		case "end":
 			flush()
 		case "match":
@@ -201,12 +205,15 @@ func Run(ctx context.Context, rg, root string, o Options, emit func(File)) (Stat
 			if cur == nil || ev.Data.Lines.Text == "" {
 				continue
 			}
-			line := strings.TrimRight(ev.Data.Lines.Text, "\r\n")
+			line := trimLineEnding(ev.Data.Lines.Text)
+			lineHash := sha256.Sum256([]byte(line))
 			for _, sm := range ev.Data.Submatches {
-				if sm.End > len(line) || sm.Start >= sm.End {
+				if sm.Start < 0 || sm.End > len(line) || sm.Start >= sm.End {
 					continue
 				}
-				cur.Matches = append(cur.Matches, preview(ev.Data.LineNumber-1, line, sm.Start, sm.End))
+				m := preview(ev.Data.LineNumber-1, line, sm.Start, sm.End)
+				m.lineHash = lineHash
+				cur.Matches = append(cur.Matches, m)
 				st.Matches++
 				if st.Matches >= limit {
 					st.Truncated = true
@@ -216,13 +223,16 @@ func Run(ctx context.Context, rg, root string, o Options, emit func(File)) (Stat
 		}
 	}
 	flush()
-	if st.Truncated {
+	scanErr := sc.Err()
+	if st.Truncated || scanErr != nil {
 		cancel()
 	}
 	werr := cmd.Wait()
 	switch {
 	case st.Truncated:
 		return st, nil
+	case scanErr != nil:
+		return st, scanErr
 	case ctx.Err() != nil:
 		return st, ctx.Err()
 	case werr != nil:
@@ -237,6 +247,13 @@ func Run(ctx context.Context, rg, root string, o Options, emit func(File)) (Stat
 		return st, werr
 	}
 	return st, nil
+}
+
+func trimLineEnding(s string) string {
+	if line, ok := strings.CutSuffix(s, "\n"); ok {
+		return strings.TrimSuffix(line, "\r")
+	}
+	return s
 }
 
 // preview cuts a long line around a match, at character boundaries.

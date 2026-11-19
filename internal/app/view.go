@@ -36,6 +36,7 @@ func editorBindings() []editor.Binding {
 		none(ui.Cmd|ui.Shift, ui.KeyP),
 		none(ui.Cmd|ui.Shift, ui.KeyO),
 		none(ui.Cmd|ui.Shift, ui.KeyF),
+		none(ui.Cmd|ui.Shift, ui.KeyH),
 		none(ui.Cmd|ui.Shift, ui.KeyV),
 		none(ui.Cmd|ui.Shift, ui.KeyC),
 		none(ui.Cmd, ui.KeyBackslash),
@@ -50,6 +51,8 @@ func editorBindings() []editor.Binding {
 	for k := ui.Key1; k <= ui.Key9; k++ {
 		bs = append(bs, none(ui.Cmd, k))
 	}
+	_, _, mods, key := fileReplaceShortcut()
+	bs = append(bs, none(mods, key))
 	if runtime.GOOS != "darwin" {
 		// Back and forward, as VS Code on Windows; the editor would move
 		// by subwords.

@@ -31,6 +31,12 @@ type findState struct {
 	field       ui.Handle
 	focus       bool
 	showFilters bool
+	showReplace bool
+	replacement string
+	replacing   bool
+	confirm     bool
+	replaceNote string
+	replaceErr  bool
 	running     bool
 	seq         int
 	cancel      context.CancelFunc
@@ -70,6 +76,7 @@ func (f *findState) reset() {
 
 // findSoon searches once typing stops for a moment.
 func (a *App) findSoon() {
+	a.find.confirm = false
 	if a.find.timer != nil {
 		a.find.timer.Stop()
 	}
@@ -83,6 +90,10 @@ func (a *App) runFind() {
 	if f.timer != nil {
 		f.timer.Stop()
 		f.timer = nil
+	}
+	f.confirm = false
+	if f.replacing {
+		return
 	}
 	if f.cancel != nil {
 		f.cancel()
