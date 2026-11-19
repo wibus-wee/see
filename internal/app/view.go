@@ -88,7 +88,7 @@ func (a *App) view(c *ui.Context) {
 	if !a.hover.cmd {
 		a.hideLink()
 	}
-	if a.root == "" && a.hasWelcome && len(a.docs) == 0 {
+	if a.root == "" && a.hasWelcome && len(a.docs) == 0 && !a.hasTabs() {
 		// The primary main window hides without a folder; its welcome
 		// window and folderless project windows show these actions.
 		if c.Shortcut(ui.Cmd|ui.Shift, ui.KeyN) {

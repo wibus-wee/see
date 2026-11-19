@@ -93,3 +93,73 @@ func TestOpenPath(t *testing.T) {
 		}
 	}
 }
+
+func TestParseFlags(t *testing.T) {
+	for _, tc := range []struct {
+		args []string
+		want Request
+		fails bool
+	}{
+		{[]string{"--diff", "a", "b"}, Request{Diff: [2]string{"a", "b"}}, false},
+		{[]string{"--diff", "a"}, Request{}, true},
+		{[]string{"--diff", "a", "b", "c"}, Request{}, true},
+		{[]string{"-"}, Request{Stdin: true}, false},
+		{[]string{"--stdin"}, Request{Stdin: true}, false},
+		{[]string{"--stdin", "file"}, Request{}, true},
+		{[]string{"--diff", "a", "b", "-"}, Request{}, true},
+		{[]string{"--new-window", "p"}, Request{Path: "p", NewWindow: true}, false},
+		{[]string{"--new-window"}, Request{NewWindow: true}, false},
+		{[]string{"--diff", "a", "b", "--new-window"}, Request{Diff: [2]string{"a", "b"}, NewWindow: true}, false},
+		{[]string{"--bogus"}, Request{}, true},
+		{[]string{"--", "p"}, Request{Path: "p"}, false},
+	} {
+		got, err := parse(tc.args)
+		if tc.fails != (err != nil) || (!tc.fails && got != tc.want) {
+			t.Errorf("parse(%q) = %+v, %v; want %+v, fails=%v", tc.args, got, err, tc.want, tc.fails)
+		}
+	}
+}
+
+func TestOpenRequestReadsTheHandoff(t *testing.T) {
+	wd := t.TempDir()
+	rel := func(parts ...string) string { return filepath.Join(append([]string{wd}, parts...)...) }
+	for _, tc := range []struct {
+		args []string
+		want Request
+		ok   bool
+	}{
+		{[]string{OpenArg, rel("p")}, Request{Path: rel("p")}, true},
+		{[]string{OpenArg, "--new-window", rel("p")}, Request{Path: rel("p"), NewWindow: true}, true},
+		{[]string{OpenStdinArg, rel("stdin")}, Request{Path: rel("stdin"), Stdin: true}, true},
+		{[]string{OpenDiffArg, rel("a"), rel("b")}, Request{Diff: [2]string{rel("a"), rel("b")}}, true},
+		{[]string{OpenDiffArg, "--new-window", rel("a"), rel("b")}, Request{Diff: [2]string{rel("a"), rel("b")}, NewWindow: true}, true},
+		{[]string{OpenDiffArg, rel("a")}, Request{}, false},
+		{[]string{OpenDiffArg, rel("a"), rel("b"), rel("c")}, Request{}, false},
+		{[]string{OpenArg}, Request{}, false},
+		{nil, Request{}, false},
+	} {
+		got, ok := OpenRequest(tc.args, wd)
+		if ok != tc.ok || (ok && got != tc.want) {
+			t.Errorf("OpenRequest(%q) = %+v, %v; want %+v, %v", tc.args, got, ok, tc.want, tc.ok)
+		}
+	}
+}
+
+func TestOpenRequestResolvesRelativePaths(t *testing.T) {
+	wd := t.TempDir()
+	got, ok := OpenRequest([]string{OpenDiffArg, "a", "b"}, wd)
+	if !ok || got.Diff[0] != filepath.Join(wd, "a") || got.Diff[1] != filepath.Join(wd, "b") {
+		t.Fatalf("OpenRequest = %+v, %v", got, ok)
+	}
+}
+
+func TestWriteStdinKeepsThePipe(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "in")
+	if err := writeStdin(path, strings.NewReader("piped\n")); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(path)
+	if err != nil || string(got) != "piped\n" {
+		t.Fatalf("stdin file = %q, %v", got, err)
+	}
+}
