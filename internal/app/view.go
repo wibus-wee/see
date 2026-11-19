@@ -46,6 +46,7 @@ func editorBindings() []editor.Binding {
 		none(ui.Ctrl|ui.Shift, ui.KeyTab),
 		none(ui.Ctrl, ui.KeyMinus),
 		none(ui.Cmd, ui.KeyF12),
+		none(ui.Alt, ui.KeyF12),
 		none(ui.Ctrl|ui.Shift, ui.KeyMinus),
 	}
 	for k := ui.Key1; k <= ui.Key9; k++ {
@@ -210,6 +211,7 @@ func (a *App) shortcuts(c *ui.Context) {
 	}
 	if c.Shortcut(0, ui.KeyEscape) {
 		a.choices = nil
+		a.peek = nil
 		if !a.quick.open {
 			a.git.peek = nil
 		}

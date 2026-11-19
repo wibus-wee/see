@@ -324,6 +324,26 @@ func (msgs Messages) TypeDefinitionClose() string {
 	return Catalog.Format(msgs.locale, "typeDefinitionClose", nil)
 }
 
+// PeekDefinitionClose says "Close Definition Peek"
+// in the language the app shows.
+func PeekDefinitionClose() string { return In(i18n.Locale()).PeekDefinitionClose() }
+
+// PeekDefinitionClose says "Close Definition Peek"
+// in the language of msgs.
+func (msgs Messages) PeekDefinitionClose() string {
+	return Catalog.Format(msgs.locale, "peekDefinitionClose", nil)
+}
+
+// PeekDefinitionUnavailable says "Definition preview unavailable."
+// in the language the app shows.
+func PeekDefinitionUnavailable() string { return In(i18n.Locale()).PeekDefinitionUnavailable() }
+
+// PeekDefinitionUnavailable says "Definition preview unavailable."
+// in the language of msgs.
+func (msgs Messages) PeekDefinitionUnavailable() string {
+	return Catalog.Format(msgs.locale, "peekDefinitionUnavailable", nil)
+}
+
 // CommandFold says "Fold"
 // in the language the app shows.
 func CommandFold() string { return In(i18n.Locale()).CommandFold() }
@@ -892,6 +912,36 @@ func CommandShowOutline() string { return In(i18n.Locale()).CommandShowOutline()
 // in the language of msgs.
 func (msgs Messages) CommandShowOutline() string {
 	return Catalog.Format(msgs.locale, "commandShowOutline", nil)
+}
+
+// CommandShowDocumentItems says "Show Document Items"
+// in the language the app shows.
+func CommandShowDocumentItems() string { return In(i18n.Locale()).CommandShowDocumentItems() }
+
+// CommandShowDocumentItems says "Show Document Items"
+// in the language of msgs.
+func (msgs Messages) CommandShowDocumentItems() string {
+	return Catalog.Format(msgs.locale, "commandShowDocumentItems", nil)
+}
+
+// CommandShowGroupFiles says "Show Group Files"
+// in the language the app shows.
+func CommandShowGroupFiles() string { return In(i18n.Locale()).CommandShowGroupFiles() }
+
+// CommandShowGroupFiles says "Show Group Files"
+// in the language of msgs.
+func (msgs Messages) CommandShowGroupFiles() string {
+	return Catalog.Format(msgs.locale, "commandShowGroupFiles", nil)
+}
+
+// JumpNoSelection says "No Selection"
+// in the language the app shows.
+func JumpNoSelection() string { return In(i18n.Locale()).JumpNoSelection() }
+
+// JumpNoSelection says "No Selection"
+// in the language of msgs.
+func (msgs Messages) JumpNoSelection() string {
+	return Catalog.Format(msgs.locale, "jumpNoSelection", nil)
 }
 
 // OutlineTitle says "Outline"
@@ -5548,6 +5598,16 @@ func CommandGoToDefinition() string { return In(i18n.Locale()).CommandGoToDefini
 // in the language of msgs.
 func (msgs Messages) CommandGoToDefinition() string {
 	return Catalog.Format(msgs.locale, "commandGoToDefinition", nil)
+}
+
+// CommandPeekDefinition says "Peek Definition"
+// in the language the app shows.
+func CommandPeekDefinition() string { return In(i18n.Locale()).CommandPeekDefinition() }
+
+// CommandPeekDefinition says "Peek Definition"
+// in the language of msgs.
+func (msgs Messages) CommandPeekDefinition() string {
+	return Catalog.Format(msgs.locale, "commandPeekDefinition", nil)
 }
 
 // CommandSelectLastTab says "Select Last Tab"

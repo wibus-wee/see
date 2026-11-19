@@ -76,8 +76,9 @@ type App struct {
 	navCancel           context.CancelFunc
 	finding             bool // a navigation request is on its way
 	findingLabel        string
-	navigationMenuState [3]bool
+	navigationMenuState [4]bool
 	choices             *defChoices // several definitions to choose from
+	peek                *peekState  // a definition peeked at from an editor
 
 	lsp            *langserver.Server
 	cmakeLSP       *langserver.Server
@@ -432,6 +433,7 @@ func (a *App) closeWorkspace() {
 	a.resetLayout()
 	a.hist.Clear()
 	a.choices = nil
+	a.peek = nil
 	a.trustAsk, a.afterTrust = false, nil
 	a.trustDismissed = false
 	a.lspState, a.lspErr = langserver.Off, nil
@@ -1086,6 +1088,9 @@ func (a *App) newEditor(g *group, d *doc) *editor.State {
 	st.OnDefinition = func(offset int) { a.goToDefinition(g, d, offset) }
 	a.loadGitBase(d)
 	st.ContextMenu = func(menu *ui.Menu) {
+		if menu.Item(commandLabel("Peek Definition")).Shortcut(ui.Alt, ui.KeyF12).Disabled(!a.navigationEnabled(d.path, "peek")).Chosen() {
+			a.peekDefinition(g, d, st.Buffer.Offset(st.CursorPos()))
+		}
 		for _, kind := range []string{"implementation", "typeDefinition"} {
 			item := menu.Item(commandLabel(navigationCommand(kind))).Disabled(!a.navigationEnabled(d.path, kind))
 			if kind == "implementation" {
@@ -1127,6 +1132,7 @@ func (a *App) cancelNav() {
 	}
 	a.finding = false
 	a.choices = nil
+	a.peek = nil
 }
 
 // here is the reading position of the focused group's document.
@@ -1200,6 +1206,7 @@ func (a *App) userActivateIn(g *group, path string) {
 }
 
 func (a *App) goBack() {
+	a.peek = nil
 	cur, ok := a.here()
 	if !ok {
 		return
@@ -1211,6 +1218,7 @@ func (a *App) goBack() {
 }
 
 func (a *App) goForward() {
+	a.peek = nil
 	cur, ok := a.here()
 	if !ok {
 		return
@@ -1253,6 +1261,13 @@ func (a *App) goToDefinition(g *group, d *doc, offset int) {
 	a.goToLocation(g, d, offset, "definition")
 }
 
+// peekDefinition asks for the definition of the symbol at offset of d,
+// as Go to Definition does, but shows it in a peek of the editor instead
+// of going there.
+func (a *App) peekDefinition(g *group, d *doc, offset int) {
+	a.goToLocation(g, d, offset, "peek")
+}
+
 func (a *App) goToLocation(g *group, d *doc, offset int, kind string) {
 	if d.buf == nil {
 		return
@@ -1279,7 +1294,7 @@ func (a *App) goToLocation(g *group, d *doc, offset int, kind string) {
 	a.navCancel = cancel
 	a.finding = true
 	a.findingLabel = "Finding definition…"
-	if kind != "definition" {
+	if kind != "definition" && kind != "peek" {
 		a.findingLabel = navigationText(kind, "Finding")
 	}
 	a.notice = ""
@@ -1327,6 +1342,9 @@ func locationRequest(ctx context.Context, m *langserver.Server, docURI string, s
 	}
 	enc := c.Encoding()
 	position := lsp.Position{Line: pos.Line, Character: lsp.ColumnToLSP(line, pos.Col, enc)}
+	if kind == "peek" {
+		kind = "definition"
+	}
 	var locs []lsp.Location
 	switch kind {
 	case "implementation":
@@ -1344,6 +1362,10 @@ func (a *App) definitionFound(g *group, from nav.Entry, targets []target, enc st
 }
 
 func (a *App) locationFound(g *group, from nav.Entry, targets []target, enc string, skipped int, err error, kind string) {
+	if kind == "peek" {
+		a.peekFound(g, from, targets, enc, skipped, err)
+		return
+	}
 	switch {
 	case err != nil:
 		a.lspFailure(err)

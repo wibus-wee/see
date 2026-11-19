@@ -86,6 +86,7 @@ var commandMessages = map[string]string{
 	"Find References":       "commandFindReferences",
 	"Find Callers":          "commandFindCallers",
 	"Go to Definition":      "commandGoToDefinition",
+	"Peek Definition":       "commandPeekDefinition",
 	"Go to Implementation":  "commandGoToImplementation",
 	"Go to Type Definition": "commandGoToTypeDefinition",
 	"Select Last Tab":       "commandSelectLastTab",

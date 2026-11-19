@@ -323,6 +323,7 @@ func (a *App) showGitPeek(g *group, d *doc, st *editor.State, line int) {
 		for i, h := range diff.Hunks() {
 			if line >= h.NewStart && line < max(h.NewEnd, h.NewStart+1) || h.NewStart >= d.buf.LineCount() && line == d.buf.LineCount()-1 {
 				a.choices = nil
+				a.peek = nil
 				diff.GoToHunk(i)
 				a.git.peek = &gitPeek{doc: d, group: g, line: line, diff: diff}
 				a.git.peek.scroll.Y = diffHunkOffset(st, diff, i)

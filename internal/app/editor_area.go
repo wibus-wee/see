@@ -398,6 +398,11 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 				})
 			})
 		}
+		if p := a.peek; p != nil && p.group == g && p.doc == d {
+			a.editorPeek(c, bounds, st, p.from.Line, a.peekTitle(p.t), locales.PeekDefinitionClose(), peekContentHeight(st, p), func() { a.peek = nil }, func() {
+				a.peekView(c, p)
+			})
+		}
 		if ch := a.choices; ch != nil && ch.g == g && ch.from.Path == d.path {
 			closeLabel := "Close References Preview"
 			if ch.title == "definitions" {
