@@ -157,51 +157,31 @@ func (a *App) refreshGit() {
 	ctx, root, gen := a.wsCtx, a.root, a.gen
 	counting := a.navigator == navGit && !a.sidebarOff
 	go func() {
-		r, b, changes, err := git.Read(ctx, root)
-		var (
-			head, upstream, web, refs string
-			refsErr                   error
-			ahead, behind             int
-			remotes                   []string
-			counts                    [2]map[string]git.FileStat
-		)
-		if err == nil {
-			head = git.Head(ctx, r)
-			refs, refsErr = git.Refs(ctx, r)
-			upstream, ahead, behind = git.Tracking(ctx, r)
-			if counting && len(changes) > 0 {
-				counts[0], counts[1] = git.LineCounts(ctx, r)
-			}
-			remotes = git.Remotes(ctx, r)
-			remote := "origin"
-			if up, _, ok := strings.Cut(upstream, "/"); ok {
-				remote = up
-			} else if len(remotes) > 0 {
-				remote = remotes[0]
-			}
-			web = git.RemoteWebURL(ctx, r, remote)
-		}
+		// One status --porcelain=v2 --branch names HEAD, the branch and
+		// what it tracks as well as the changes; for-each-ref and remote
+		// -v are the only other calls, plus the diffs the counts ask for.
+		s, err := git.Sync(ctx, root, counting)
 		a.post.Post(func() {
 			if a.gen != gen {
 				return
 			}
 			a.git.loading = false
-			if a.git.root != r || a.git.branch != b || a.git.head != head || a.git.upstream != upstream || refsErr == nil && a.git.refs != refs {
+			if a.git.root != s.Root || a.git.branch != s.Branch || a.git.head != s.Head || a.git.upstream != s.Upstream || s.RefsErr == nil && a.git.refs != s.Refs {
 				a.git.history.stale = true
 			}
-			if refsErr == nil {
-				a.git.refs = refs
+			if s.RefsErr == nil {
+				a.git.refs = s.Refs
 			}
-			a.git.root, a.git.branch, a.git.changes, a.git.head = r, b, changes, head
+			a.git.root, a.git.branch, a.git.changes, a.git.head = s.Root, s.Branch, s.Changes, s.Head
 			a.git.pruneSelection()
-			a.git.upstream, a.git.ahead, a.git.behind = upstream, ahead, behind
-			if counting || len(changes) == 0 {
-				a.git.counts = counts
+			a.git.upstream, a.git.ahead, a.git.behind = s.Upstream, s.Ahead, s.Behind
+			if counting || len(s.Changes) == 0 {
+				a.git.counts = [2]map[string]git.FileStat{s.Staged, s.Unstaged}
 			}
 			if err == nil {
-				a.git.web, a.git.remotes = web, remotes
+				a.git.web, a.git.remotes = s.Web, s.Remotes
 			}
-			a.git.decor = git.Decorations(r, changes)
+			a.git.decor = git.Decorations(s.Root, s.Changes)
 			for _, d := range a.docs {
 				if d.buf != nil {
 					a.loadGitBase(d)

@@ -59,8 +59,12 @@ func Remotes(ctx context.Context, root string) []string {
 	if err != nil {
 		return nil
 	}
+	return orderRemotes(strings.Fields(string(out)))
+}
+
+func orderRemotes(names []string) []string {
 	var remotes []string
-	for _, r := range strings.Fields(string(out)) {
+	for _, r := range names {
 		if r == "origin" {
 			remotes = append([]string{r}, remotes...)
 		} else {
@@ -68,6 +72,38 @@ func Remotes(ctx context.Context, root string) []string {
 		}
 	}
 	return remotes
+}
+
+// remoteInfo reads remote -v once for the repository's remotes, origin
+// first, and the web page of the remote upstream names (or of the first
+// remote without one). It is the one remote call a refresh needs: a
+// remote's fetch URL is its web page's source.
+func remoteInfo(ctx context.Context, root, upstream string) (remotes []string, web string) {
+	out, err := Command(ctx, root, "remote", "-v")
+	if err != nil {
+		return nil, ""
+	}
+	// remote -v lists name, fetch URL and push URL; the fetch URL serves.
+	urls := map[string]string{}
+	var names []string
+	for _, line := range strings.Split(string(out), "\n") {
+		f := strings.Fields(line)
+		if len(f) < 3 || f[2] != "(fetch)" {
+			continue
+		}
+		if _, ok := urls[f[0]]; !ok {
+			names = append(names, f[0])
+			urls[f[0]] = f[1]
+		}
+	}
+	remotes = orderRemotes(names)
+	remote := "origin"
+	if up, _, ok := strings.Cut(upstream, "/"); ok && up != "" {
+		remote = up
+	} else if len(remotes) > 0 {
+		remote = remotes[0]
+	}
+	return remotes, WebURL(urls[remote])
 }
 
 // WebURL is the web page of a remote's repository, as GitHub, GitLab and
