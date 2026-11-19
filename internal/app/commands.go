@@ -153,6 +153,7 @@ func commandsFor(goos string) []command {
 		command{"Peek Definition", "Alt+", "F12", ui.Alt, ui.KeyF12, func(a *App) { a.navigateActive("peek") }},
 		command{"Go to Implementation", "Cmd+", "F12", ui.Cmd, ui.KeyF12, func(a *App) { a.navigateActive("implementation") }},
 		command{"Go to Type Definition", "", "", 0, 0, func(a *App) { a.navigateActive("typeDefinition") }},
+		command{"Show Code Actions", "Cmd+", ".", ui.Cmd, ui.KeyPeriod, func(a *App) { a.showCodeActions() }},
 		command{"Edit All in Scope", scopeLabel, scopeKeyName, scopeMods, scopeKey, func(a *App) { a.editAllInScope() }},
 	)
 	for n := 1; n <= 9; n++ {

@@ -57,8 +57,12 @@ type Client struct {
 	semanticFull        bool
 	semanticRange       bool
 	semanticLegend      semanticTokensLegend
+	codeActions         codeActionSupport
+	hasCodeActions      bool
+	hasCommands         bool
 	diagMu              sync.Mutex
 	onDiagnostics       func(string, *int, []Diagnostic)
+	applyEdit           func(*WorkspaceEdit) error
 
 	cmd    *exec.Cmd
 	stdin  io.Closer
@@ -238,6 +242,27 @@ func (c *Client) SemanticTokensRange() bool { return c.semanticRange }
 func (c *Client) SemanticTokenTypes() []string     { return c.semanticLegend.TokenTypes }
 func (c *Client) SemanticTokenModifiers() []string { return c.semanticLegend.TokenModifiers }
 
+// HasCodeActions reports whether the server offers code actions.
+func (c *Client) HasCodeActions() bool { return c.hasCodeActions }
+
+// CodeActionKinds is the kinds the server named in its capabilities,
+// empty when it made no such promise.
+func (c *Client) CodeActionKinds() []string { return c.codeActions.kinds }
+
+// HasExecuteCommand reports whether the server runs commands, as a
+// code action's Command asks for.
+func (c *Client) HasExecuteCommand() bool { return c.hasCommands }
+
+// SetApplyEditHandler sets what answers a server's workspace/applyEdit
+// request: it applies the edit and reports failure as the request's
+// error. Until one is set the request is refused, as a client that
+// advertises no applyEdit should.
+func (c *Client) SetApplyEditHandler(fn func(*WorkspaceEdit) error) {
+	c.diagMu.Lock()
+	defer c.diagMu.Unlock()
+	c.applyEdit = fn
+}
+
 // WorkspaceSymbols searches declarations across the workspace.
 type WorkspaceSymbol struct {
 	Name     string   `json:"name"`
@@ -293,10 +318,16 @@ func (c *Client) initialize(ctx context.Context) error {
 					"overlappingTokenSupport": false,
 					"multilineTokenSupport":   false,
 				},
+				"codeAction": map[string]any{"codeActionLiteralSupport": map[string]any{"codeActionKind": map[string]any{"valueSet": []string{"", "quickfix", "refactor", "refactor.extract", "refactor.inline", "refactor.rewrite", "source", "source.organizeImports"}}}, "dataSupport": true, "resolveSupport": map[string]any{"properties": []string{"edit", "command"}}, "dynamicRegistration": false},
 			},
 			"workspace": map[string]any{
 				"workspaceFolders": true,
 				"configuration":    true,
+				"applyEdit":        true,
+				"workspaceEdit": map[string]any{
+					"documentChanges": true,
+				},
+				"executeCommand": map[string]any{"dynamicRegistration": false},
 			},
 			"window": map[string]any{"workDoneProgress": false},
 		},
@@ -321,6 +352,8 @@ func (c *Client) initialize(ctx context.Context) error {
 	c.documentLinkResolve = res.Capabilities.documentLinkResolve()
 	c.signatureHelp = res.Capabilities.hasSignatureHelp()
 	c.callHierarchy = res.Capabilities.hasCallHierarchy()
+	c.codeActions, c.hasCodeActions = res.Capabilities.codeActions()
+	c.hasCommands = res.Capabilities.hasExecuteCommand()
 	c.pullDiagnostics = len(res.Capabilities.DiagnosticProvider) > 0 && string(res.Capabilities.DiagnosticProvider) != "null" && string(res.Capabilities.DiagnosticProvider) != "false"
 	c.semanticLegend, c.semanticFull, c.semanticRange = res.Capabilities.semanticTokens()
 	return c.conn.Notify("initialized", map[string]any{})
@@ -523,6 +556,45 @@ func (c *Client) Diagnostics(ctx context.Context, uri string) ([]Diagnostic, boo
 	}
 	err := c.conn.Call(ctx, "textDocument/diagnostic", map[string]any{"textDocument": map[string]any{"uri": uri}}, &result)
 	return result.Items, result.Kind == "full", err
+}
+
+// CodeActions asks which fixes and refactorings the server offers in
+// the range of the document, given the diagnostics published there.
+func (c *Client) CodeActions(ctx context.Context, uri string, r Range, diagnostics []Diagnostic) ([]CodeAction, error) {
+	var actions []CodeAction
+	err := c.conn.Call(ctx, "textDocument/codeAction", map[string]any{
+		"textDocument": map[string]any{"uri": uri},
+		"range":        r,
+		"context":      map[string]any{"diagnostics": diagnostics},
+	}, &actions)
+	return actions, err
+}
+
+// ResolveCodeAction fills in an action that came with neither edit nor
+// command. The action goes back as the server sent it; what it answers
+// replaces the field it filled, the edit or the command.
+func (c *Client) ResolveCodeAction(ctx context.Context, action CodeAction) (*CodeAction, error) {
+	var resolved CodeAction
+	err := c.conn.Call(ctx, "codeAction/resolve", action, &resolved)
+	if err != nil {
+		return nil, err
+	}
+	if resolved.Edit == nil {
+		resolved.Edit = action.Edit
+	}
+	if resolved.Command == nil {
+		resolved.Command = action.Command
+	}
+	return &resolved, nil
+}
+
+// ExecuteCommand runs the command of a code action on the server.
+func (c *Client) ExecuteCommand(ctx context.Context, command Command) error {
+	params := map[string]any{"command": command.Command}
+	if len(command.Arguments) > 0 {
+		params["arguments"] = command.Arguments
+	}
+	return c.conn.Call(ctx, "workspace/executeCommand", params, nil)
 }
 
 // References returns locations that refer to a symbol.
@@ -728,6 +800,27 @@ func (h *handler) Handle(ctx context.Context, method string, params json.RawMess
 	case "client/registerCapability", "client/unregisterCapability",
 		"window/workDoneProgress/create", "window/showMessageRequest":
 		return nil, nil
+	case "workspace/applyEdit":
+		// A server edits the workspace this way after workspace/executeCommand
+		// (a rename done by a command, say). The app applies it; failure
+		// answers the request with an error and false.
+		var p struct {
+			Edit WorkspaceEdit `json:"edit"`
+		}
+		if err := json.Unmarshal(params, &p); err != nil {
+			return nil, &Error{Code: CodeInvalidParams, Message: err.Error()}
+		}
+		h.diagMu.Lock()
+		fn := h.applyEdit
+		h.diagMu.Unlock()
+		if fn == nil {
+			return nil, &Error{Code: CodeMethodNotFound, Message: "no applyEdit handler"}
+		}
+		applied := true
+		if err := fn(&p.Edit); err != nil {
+			applied = false
+		}
+		return map[string]any{"applied": applied}, nil
 	}
 	return nil, &Error{Code: CodeMethodNotFound, Message: "method not found: " + method}
 }

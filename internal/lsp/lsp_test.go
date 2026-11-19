@@ -257,7 +257,8 @@ func (f *fakeServer) serve() {
 			}
 		case "textDocument/implementation", "textDocument/typeDefinition",
 			"textDocument/prepareCallHierarchy",
-			"callHierarchy/incomingCalls", "callHierarchy/outgoingCalls":
+			"callHierarchy/incomingCalls", "callHierarchy/outgoingCalls",
+			"textDocument/codeAction", "codeAction/resolve", "workspace/executeCommand":
 			reply(f.navigation(m.Method, m.Params))
 		case "shutdown":
 			reply("null")

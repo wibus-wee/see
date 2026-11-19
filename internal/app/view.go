@@ -159,6 +159,7 @@ func (a *App) view(c *ui.Context) {
 	if a.jumpDate.open {
 		a.jumpToDatePanel(c)
 	}
+	a.codeActionMenu(c)
 }
 
 // shortcuts handles the app's keys wherever the focus is.
@@ -242,6 +243,7 @@ func (a *App) shortcuts(c *ui.Context) {
 		pendingScopeRequest := a.scopeCancel != nil
 		hasChoices := a.choices != nil
 		hasPeek := a.git.peek != nil
+		a.codeActions = nil
 		a.dismissSignature()
 		a.cancelScopeEditRequest()
 		a.choices = nil

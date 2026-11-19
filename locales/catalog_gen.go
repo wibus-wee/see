@@ -944,6 +944,16 @@ func (msgs Messages) GitShowMoreFiles() string {
 	return Catalog.Format(msgs.locale, "gitShowMoreFiles", nil)
 }
 
+// GitViewed says "Viewed"
+// in the language the app shows.
+func GitViewed() string { return In(i18n.Locale()).GitViewed() }
+
+// GitViewed says "Viewed"
+// in the language of msgs.
+func (msgs Messages) GitViewed() string {
+	return Catalog.Format(msgs.locale, "gitViewed", nil)
+}
+
 // GitLogTable says "Commit table"
 // in the language the app shows.
 func GitLogTable() string { return In(i18n.Locale()).GitLogTable() }
@@ -1154,6 +1164,88 @@ func CommandShowSignatureHelp() string { return In(i18n.Locale()).CommandShowSig
 // in the language of msgs.
 func (msgs Messages) CommandShowSignatureHelp() string {
 	return Catalog.Format(msgs.locale, "commandShowSignatureHelp", nil)
+}
+
+// CommandShowCodeActions says "Show Code Actions"
+// in the language the app shows.
+func CommandShowCodeActions() string { return In(i18n.Locale()).CommandShowCodeActions() }
+
+// CommandShowCodeActions says "Show Code Actions"
+// in the language of msgs.
+func (msgs Messages) CommandShowCodeActions() string {
+	return Catalog.Format(msgs.locale, "commandShowCodeActions", nil)
+}
+
+// CodeActionFinding says "Finding code actions…"
+// in the language the app shows.
+func CodeActionFinding() string { return In(i18n.Locale()).CodeActionFinding() }
+
+// CodeActionFinding says "Finding code actions…"
+// in the language of msgs.
+func (msgs Messages) CodeActionFinding() string {
+	return Catalog.Format(msgs.locale, "codeActionFinding", nil)
+}
+
+// CodeActionResolving says "Resolving code action…"
+// in the language the app shows.
+func CodeActionResolving() string { return In(i18n.Locale()).CodeActionResolving() }
+
+// CodeActionResolving says "Resolving code action…"
+// in the language of msgs.
+func (msgs Messages) CodeActionResolving() string {
+	return Catalog.Format(msgs.locale, "codeActionResolving", nil)
+}
+
+// CodeActionEmpty says "No code actions here."
+// in the language the app shows.
+func CodeActionEmpty() string { return In(i18n.Locale()).CodeActionEmpty() }
+
+// CodeActionEmpty says "No code actions here."
+// in the language of msgs.
+func (msgs Messages) CodeActionEmpty() string {
+	return Catalog.Format(msgs.locale, "codeActionEmpty", nil)
+}
+
+// CodeActionUnsupported says "The language server does not support code actions."
+// in the language the app shows.
+func CodeActionUnsupported() string { return In(i18n.Locale()).CodeActionUnsupported() }
+
+// CodeActionUnsupported says "The language server does not support code actions."
+// in the language of msgs.
+func (msgs Messages) CodeActionUnsupported() string {
+	return Catalog.Format(msgs.locale, "codeActionUnsupported", nil)
+}
+
+// CodeActionResourceChanges says "The action also makes {count} file changes, which are not applied."
+// in the language the app shows.
+func CodeActionResourceChanges(count string) string {
+	return In(i18n.Locale()).CodeActionResourceChanges(count)
+}
+
+// CodeActionResourceChanges says "The action also makes {count} file changes, which are not applied."
+// in the language of msgs.
+func (msgs Messages) CodeActionResourceChanges(count string) string {
+	return Catalog.Format(msgs.locale, "codeActionResourceChanges", map[string]any{"count": count})
+}
+
+// CodeActionNoCommands says "The language server does not run commands."
+// in the language the app shows.
+func CodeActionNoCommands() string { return In(i18n.Locale()).CodeActionNoCommands() }
+
+// CodeActionNoCommands says "The language server does not run commands."
+// in the language of msgs.
+func (msgs Messages) CodeActionNoCommands() string {
+	return Catalog.Format(msgs.locale, "codeActionNoCommands", nil)
+}
+
+// MsgCodeActionUnavailable says "The language server is not ready yet."
+// in the language the app shows.
+func MsgCodeActionUnavailable() string { return In(i18n.Locale()).MsgCodeActionUnavailable() }
+
+// MsgCodeActionUnavailable says "The language server is not ready yet."
+// in the language of msgs.
+func (msgs Messages) MsgCodeActionUnavailable() string {
+	return Catalog.Format(msgs.locale, "msgCodeActionUnavailable", nil)
 }
 
 // SignatureHelp says "Signature Help"
@@ -7750,4 +7842,34 @@ func CallHierarchyCopyLocation() string { return In(i18n.Locale()).CallHierarchy
 // in the language of msgs.
 func (msgs Messages) CallHierarchyCopyLocation() string {
 	return Catalog.Format(msgs.locale, "callHierarchyCopyLocation", nil)
+}
+
+// GitKindTests says "Tests"
+// in the language the app shows.
+func GitKindTests() string { return In(i18n.Locale()).GitKindTests() }
+
+// GitKindTests says "Tests"
+// in the language of msgs.
+func (msgs Messages) GitKindTests() string {
+	return Catalog.Format(msgs.locale, "gitKindTests", nil)
+}
+
+// GitKindDocs says "Docs"
+// in the language the app shows.
+func GitKindDocs() string { return In(i18n.Locale()).GitKindDocs() }
+
+// GitKindDocs says "Docs"
+// in the language of msgs.
+func (msgs Messages) GitKindDocs() string {
+	return Catalog.Format(msgs.locale, "gitKindDocs", nil)
+}
+
+// GitKindGenerated says "Generated"
+// in the language the app shows.
+func GitKindGenerated() string { return In(i18n.Locale()).GitKindGenerated() }
+
+// GitKindGenerated says "Generated"
+// in the language of msgs.
+func (msgs Messages) GitKindGenerated() string {
+	return Catalog.Format(msgs.locale, "gitKindGenerated", nil)
 }

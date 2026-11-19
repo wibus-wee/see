@@ -172,6 +172,8 @@ type serverCapabilities struct {
 	DocumentLinkProvider      json.RawMessage `json:"documentLinkProvider"`
 	SignatureHelpProvider     json.RawMessage `json:"signatureHelpProvider"`
 	SemanticTokensProvider    json.RawMessage `json:"semanticTokensProvider"`
+	CodeActionProvider        json.RawMessage `json:"codeActionProvider"`
+	ExecuteCommandProvider    json.RawMessage `json:"executeCommandProvider"`
 }
 
 // syncKind reads textDocumentSync, a number or TextDocumentSyncOptions,
@@ -361,6 +363,216 @@ func (s serverCapabilities) hasSignatureHelp() bool {
 func (s serverCapabilities) hasCallHierarchy() bool {
 	raw := bytes.TrimSpace(s.CallHierarchyProvider)
 	return len(raw) > 0 && !bytes.Equal(raw, []byte("false")) && !bytes.Equal(raw, []byte("null"))
+}
+
+// codeActionSupport is what a server says about textDocument/codeAction
+// in codeActionProvider: a literal for the kinds it gives and whether
+// codeAction/resolve fills an action in, or a plain true.
+type codeActionSupport struct {
+	resolve bool
+	kinds   []string
+}
+
+func (s serverCapabilities) codeActions() (codeActionSupport, bool) {
+	raw := bytes.TrimSpace(s.CodeActionProvider)
+	if len(raw) == 0 || bytes.Equal(raw, []byte("false")) || bytes.Equal(raw, []byte("null")) {
+		return codeActionSupport{}, false
+	}
+	if !bytes.Equal(raw, []byte("true")) {
+		var opts struct {
+			CodeActionKinds []string `json:"codeActionKinds"`
+			ResolveProvider bool     `json:"resolveProvider"`
+		}
+		if json.Unmarshal(raw, &opts) == nil {
+			return codeActionSupport{resolve: opts.ResolveProvider, kinds: opts.CodeActionKinds}, true
+		}
+	}
+	// true, or a literal the client cannot read: actions are on, of any
+	// kind, complete as they arrive.
+	return codeActionSupport{}, true
+}
+
+func (s serverCapabilities) hasExecuteCommand() bool {
+	raw := bytes.TrimSpace(s.ExecuteCommandProvider)
+	return len(raw) > 0 && !bytes.Equal(raw, []byte("false")) && !bytes.Equal(raw, []byte("null"))
+}
+
+// Command is a server's named operation with its arguments, run in the
+// server process: workspace/executeCommand sends it back as it came.
+type Command struct {
+	Title     string          `json:"title"`
+	Command   string          `json:"command"`
+	Arguments json.RawMessage `json:"arguments,omitempty"`
+}
+
+// TextEdit replaces Range with NewText: the documentChanges of a
+// workspace edit are lists of these.
+type TextEdit struct {
+	Range   Range  `json:"range"`
+	NewText string `json:"newText"`
+}
+
+// WorkspaceEdit is the edit of a code action or a workspace/applyEdit
+// request: per document, a list of TextEdits. It may arrive as the
+// legacy changes map or as documentChanges.
+type WorkspaceEdit struct {
+	// Changes maps a document URI to its edits.
+	Changes map[string][]TextEdit `json:"changes,omitempty"`
+	// DocumentChanges holds the `documentChanges` form. An entry is a
+	// TextDocumentEdit or a resource operation (create, rename, delete).
+	DocumentChanges []json.RawMessage `json:"documentChanges,omitempty"`
+}
+
+// TextDocumentEdit carries the edits of one document inside
+// documentChanges.
+type TextDocumentEdit struct {
+	TextDocument struct {
+		URI     string `json:"uri"`
+		Version int64  `json:"version"`
+	} `json:"textDocument"`
+	Edits []json.RawMessage `json:"edits"`
+}
+
+// EditURIs is the document URIs a workspace edit touches, changes and
+// text-document documentChanges together, each once. Entries the client
+// cannot read are left out.
+func (w *WorkspaceEdit) EditURIs() []string {
+	seen := map[string]bool{}
+	var out []string
+	add := func(u string) {
+		if u != "" && !seen[u] {
+			seen[u] = true
+			out = append(out, u)
+		}
+	}
+	for u := range w.Changes {
+		add(u)
+	}
+	for _, raw := range w.DocumentChanges {
+		var edit TextDocumentEdit
+		if json.Unmarshal(raw, &edit) == nil {
+			add(edit.TextDocument.URI)
+		}
+	}
+	return out
+}
+
+// EditsFor is the TextEdits of one document URI from both forms. Edits
+// whose shape the client cannot read — AnnotatedTextEdits inside
+// documentChanges, which the client never advertises — are left out.
+func (w *WorkspaceEdit) EditsFor(docURI string) []TextEdit {
+	var out []TextEdit
+	out = append(out, w.Changes[docURI]...)
+	for _, raw := range w.DocumentChanges {
+		var edit TextDocumentEdit
+		if json.Unmarshal(raw, &edit) != nil || edit.TextDocument.URI != docURI {
+			continue
+		}
+		for _, rawEdit := range edit.Edits {
+			var e TextEdit
+			if json.Unmarshal(rawEdit, &e) == nil {
+				out = append(out, e)
+			}
+		}
+	}
+	return out
+}
+
+// ResourceChanges is the number of documentChanges entries that are
+// resource operations rather than text edits: the app cannot run them.
+func (w *WorkspaceEdit) ResourceChanges() int {
+	n := 0
+	for _, raw := range w.DocumentChanges {
+		var probe struct {
+			Kind string `json:"kind"`
+		}
+		if json.Unmarshal(raw, &probe) == nil && (probe.Kind == "create" || probe.Kind == "rename" || probe.Kind == "delete") {
+			n++
+		}
+	}
+	return n
+}
+
+// CodeAction is a fix or refactoring a server offers at a place. A
+// Command alone may arrive too (Command | CodeAction): UnmarshalJSON
+// folds it into one with Command set. An action with neither Edit nor
+// Command needs codeAction/resolve before it runs.
+type CodeAction struct {
+	Title       string
+	Kind        string
+	Edit        *WorkspaceEdit
+	Command     *Command
+	Data        json.RawMessage
+	IsPreferred bool
+	Disabled    string // the reason an unavailable action gives
+}
+
+func (a *CodeAction) UnmarshalJSON(data []byte) error {
+	var raw struct {
+		Title    string          `json:"title"`
+		Kind     string          `json:"kind"`
+		Edit     *WorkspaceEdit  `json:"edit"`
+		Command  json.RawMessage `json:"command"`
+		Data     json.RawMessage `json:"data"`
+		Disabled *struct {
+			Reason string `json:"reason"`
+		} `json:"disabled"`
+		IsPreferred bool `json:"isPreferred"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	a.Title, a.Kind, a.Edit, a.Data, a.IsPreferred = raw.Title, raw.Kind, raw.Edit, raw.Data, raw.IsPreferred
+	a.Disabled, a.Command = "", nil
+	if raw.Disabled != nil {
+		a.Disabled = raw.Disabled.Reason
+	}
+	if len(bytes.TrimSpace(raw.Command)) == 0 || bytes.Equal(bytes.TrimSpace(raw.Command), []byte("null")) {
+		return nil
+	}
+	// In a Command-shaped reply `command` is the command string; in a
+	// CodeAction it is a Command object.
+	if raw.Command[0] == '"' {
+		var name string
+		if err := json.Unmarshal(raw.Command, &name); err != nil {
+			return err
+		}
+		var args json.RawMessage
+		var probe struct {
+			Arguments json.RawMessage `json:"arguments"`
+		}
+		if json.Unmarshal(data, &probe) == nil {
+			args = probe.Arguments
+		}
+		a.Command = &Command{Title: a.Title, Command: name, Arguments: args}
+		return nil
+	}
+	var cmd Command
+	if err := json.Unmarshal(raw.Command, &cmd); err != nil {
+		return err
+	}
+	a.Command = &cmd
+	return nil
+}
+
+// MarshalJSON writes an action back as the server sent it, so
+// codeAction/resolve gets the untouched object the spec asks for.
+func (a CodeAction) MarshalJSON() ([]byte, error) {
+	raw := struct {
+		Title       string          `json:"title"`
+		Kind        string          `json:"kind,omitempty"`
+		Edit        *WorkspaceEdit  `json:"edit,omitempty"`
+		Command     *Command        `json:"command,omitempty"`
+		Data        json.RawMessage `json:"data,omitempty"`
+		IsPreferred bool            `json:"isPreferred,omitempty"`
+	}{a.Title, a.Kind, a.Edit, a.Command, a.Data, a.IsPreferred}
+	return json.Marshal(raw)
+}
+
+// NeedsResolve reports whether the action must round-trip
+// codeAction/resolve before it can run: nothing to run yet.
+func (a *CodeAction) NeedsResolve() bool {
+	return a.Edit == nil && a.Command == nil
 }
 
 // ParseHover decodes a Hover result into Markdown: its contents are
