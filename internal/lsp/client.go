@@ -19,6 +19,9 @@ import (
 type Options struct {
 	// RootPath is the workspace's directory, RootURI its URI.
 	RootPath, RootURI string
+	// ServerID names the server for serverConfigurations, such as
+	// "gopls"; "" answers workspace/configuration with nulls.
+	ServerID string
 	// InitializationOptions are passed to the server during initialization.
 	InitializationOptions any
 	// Env adds environment variables to the server's process, as
@@ -45,6 +48,7 @@ type Client struct {
 	documentHighlights bool
 	implementations    bool
 	typeDefinitions    bool
+	inlayHints         bool
 	pullDiagnostics    bool
 	diagMu             sync.Mutex
 	onDiagnostics      func(string, *int, []Diagnostic)
@@ -196,6 +200,9 @@ func (c *Client) HasDocumentHighlights() bool { return c.documentHighlights }
 func (c *Client) HasImplementation() bool { return c.implementations }
 func (c *Client) HasTypeDefinition() bool { return c.typeDefinitions }
 
+// HasInlayHints reports whether the server provides inlay hints.
+func (c *Client) HasInlayHints() bool { return c.inlayHints }
+
 // WorkspaceSymbols searches declarations across the workspace.
 type WorkspaceSymbol struct {
 	Name     string   `json:"name"`
@@ -238,6 +245,7 @@ func (c *Client) initialize(ctx context.Context) error {
 				"documentHighlight": map[string]any{"dynamicRegistration": false},
 				"implementation":    map[string]any{"linkSupport": true, "dynamicRegistration": false},
 				"typeDefinition":    map[string]any{"linkSupport": true, "dynamicRegistration": false},
+				"inlayHint":         map[string]any{},
 				"hover":             map[string]any{"contentFormat": []string{"markdown", "plaintext"}, "dynamicRegistration": false},
 			},
 			"workspace": map[string]any{
@@ -262,6 +270,7 @@ func (c *Client) initialize(ctx context.Context) error {
 	c.documentHighlights = res.Capabilities.hasDocumentHighlights()
 	c.implementations = (serverCapabilities{DefinitionProvider: res.Capabilities.ImplementationProvider}).hasDefinition()
 	c.typeDefinitions = (serverCapabilities{DefinitionProvider: res.Capabilities.TypeDefinitionProvider}).hasDefinition()
+	c.inlayHints = res.Capabilities.hasInlayHints()
 	c.pullDiagnostics = len(res.Capabilities.DiagnosticProvider) > 0 && string(res.Capabilities.DiagnosticProvider) != "null" && string(res.Capabilities.DiagnosticProvider) != "false"
 	return c.conn.Notify("initialized", map[string]any{})
 }
@@ -345,6 +354,20 @@ func (c *Client) Hover(ctx context.Context, uri string, pos Position) (string, *
 		return "", nil, err
 	}
 	return ParseHover(raw)
+}
+
+// InlayHints asks for the inlay hints of the document in r, the lines
+// on screen rather than the whole document.
+func (c *Client) InlayHints(ctx context.Context, uri string, r Range) ([]InlayHint, error) {
+	var raw json.RawMessage
+	err := c.conn.Call(ctx, "textDocument/inlayHint", map[string]any{
+		"textDocument": map[string]any{"uri": uri},
+		"range":        r,
+	}, &raw)
+	if err != nil {
+		return nil, err
+	}
+	return ParseInlayHints(raw)
 }
 
 // SetDiagnosticsHandler receives published diagnostics from the server.
@@ -444,6 +467,23 @@ func (c *Client) Kill() {
 	}
 }
 
+// serverConfigurations is what workspace/configuration answers, keyed
+// by server id: a server missing from it gets null per item, its own
+// defaults — which for gopls means no inlay hints at all. Adding an
+// entry moves only that server.
+var serverConfigurations = map[string]any{
+	"gopls": map[string]any{
+		// The hint kinds a reader asks about; the rest stay gopls's
+		// default, off.
+		"hints": map[string]any{
+			"assignVariableTypes":   true,
+			"compositeLiteralTypes": true,
+			"rangeVariableTypes":    true,
+			"parameterNames":        true,
+		},
+	},
+}
+
 // handler answers the server's requests with the least a client must.
 type handler Client
 
@@ -454,7 +494,13 @@ func (h *handler) Handle(ctx context.Context, method string, params json.RawMess
 			Items []json.RawMessage `json:"items"`
 		}
 		_ = json.Unmarshal(params, &p)
-		return make([]any, len(p.Items)), nil // null for each: the server's defaults
+		out := make([]any, len(p.Items))
+		if settings, ok := serverConfigurations[h.opts.ServerID]; ok {
+			for i := range out {
+				out[i] = settings
+			}
+		}
+		return out, nil // null for each item of a server with nothing to say
 	case "workspace/workspaceFolders":
 		return []map[string]any{{"uri": h.opts.RootURI, "name": h.opts.Name}}, nil
 	case "client/registerCapability", "client/unregisterCapability",

@@ -544,6 +544,26 @@ func (msgs Messages) InlineBlameDescription() string {
 	return Catalog.Format(msgs.locale, "inlineBlameDescription", nil)
 }
 
+// ShowTypeHints says "Show type hints"
+// in the language the app shows.
+func ShowTypeHints() string { return In(i18n.Locale()).ShowTypeHints() }
+
+// ShowTypeHints says "Show type hints"
+// in the language of msgs.
+func (msgs Messages) ShowTypeHints() string {
+	return Catalog.Format(msgs.locale, "showTypeHints", nil)
+}
+
+// TypeHintsDescription says "Show inferred types and parameter names inside code, as the language server reports them."
+// in the language the app shows.
+func TypeHintsDescription() string { return In(i18n.Locale()).TypeHintsDescription() }
+
+// TypeHintsDescription says "Show inferred types and parameter names inside code, as the language server reports them."
+// in the language of msgs.
+func (msgs Messages) TypeHintsDescription() string {
+	return Catalog.Format(msgs.locale, "typeHintsDescription", nil)
+}
+
 // BlameUncommitted says "You • Uncommitted changes"
 // in the language the app shows.
 func BlameUncommitted() string { return In(i18n.Locale()).BlameUncommitted() }
@@ -622,6 +642,16 @@ func CommandToggleInlineBlame() string { return In(i18n.Locale()).CommandToggleI
 // in the language of msgs.
 func (msgs Messages) CommandToggleInlineBlame() string {
 	return Catalog.Format(msgs.locale, "commandToggleInlineBlame", nil)
+}
+
+// CommandToggleTypeHints says "Toggle Type Hints"
+// in the language the app shows.
+func CommandToggleTypeHints() string { return In(i18n.Locale()).CommandToggleTypeHints() }
+
+// CommandToggleTypeHints says "Toggle Type Hints"
+// in the language of msgs.
+func (msgs Messages) CommandToggleTypeHints() string {
+	return Catalog.Format(msgs.locale, "commandToggleTypeHints", nil)
 }
 
 // VideoPreview says "Video preview"
@@ -742,6 +772,176 @@ func GitIncomingCommit() string { return In(i18n.Locale()).GitIncomingCommit() }
 // in the language of msgs.
 func (msgs Messages) GitIncomingCommit() string {
 	return Catalog.Format(msgs.locale, "gitIncomingCommit", nil)
+}
+
+// GitUncommitted says "Uncommitted"
+// in the language the app shows.
+func GitUncommitted() string { return In(i18n.Locale()).GitUncommitted() }
+
+// GitUncommitted says "Uncommitted"
+// in the language of msgs.
+func (msgs Messages) GitUncommitted() string {
+	return Catalog.Format(msgs.locale, "gitUncommitted", nil)
+}
+
+// GitCompareAgainstBase says "Compare Against Base"
+// in the language the app shows.
+func GitCompareAgainstBase() string { return In(i18n.Locale()).GitCompareAgainstBase() }
+
+// GitCompareAgainstBase says "Compare Against Base"
+// in the language of msgs.
+func (msgs Messages) GitCompareAgainstBase() string {
+	return Catalog.Format(msgs.locale, "gitCompareAgainstBase", nil)
+}
+
+// GitChooseBaseBranch says "Choose a base branch"
+// in the language the app shows.
+func GitChooseBaseBranch() string { return In(i18n.Locale()).GitChooseBaseBranch() }
+
+// GitChooseBaseBranch says "Choose a base branch"
+// in the language of msgs.
+func (msgs Messages) GitChooseBaseBranch() string {
+	return Catalog.Format(msgs.locale, "gitChooseBaseBranch", nil)
+}
+
+// GitSearchBaseBranch says "Search local and remote branches"
+// in the language the app shows.
+func GitSearchBaseBranch() string { return In(i18n.Locale()).GitSearchBaseBranch() }
+
+// GitSearchBaseBranch says "Search local and remote branches"
+// in the language of msgs.
+func (msgs Messages) GitSearchBaseBranch() string {
+	return Catalog.Format(msgs.locale, "gitSearchBaseBranch", nil)
+}
+
+// GitSince says "Since"
+// in the language the app shows.
+func GitSince() string { return In(i18n.Locale()).GitSince() }
+
+// GitSince says "Since"
+// in the language of msgs.
+func (msgs Messages) GitSince() string {
+	return Catalog.Format(msgs.locale, "gitSince", nil)
+}
+
+// GitChangeBase says "Change Base"
+// in the language the app shows.
+func GitChangeBase() string { return In(i18n.Locale()).GitChangeBase() }
+
+// GitChangeBase says "Change Base"
+// in the language of msgs.
+func (msgs Messages) GitChangeBase() string {
+	return Catalog.Format(msgs.locale, "gitChangeBase", nil)
+}
+
+// GitBase says "Base:"
+// in the language the app shows.
+func GitBase() string { return In(i18n.Locale()).GitBase() }
+
+// GitBase says "Base:"
+// in the language of msgs.
+func (msgs Messages) GitBase() string {
+	return Catalog.Format(msgs.locale, "gitBase", nil)
+}
+
+// GitWorkingTree says "Working Tree"
+// in the language the app shows.
+func GitWorkingTree() string { return In(i18n.Locale()).GitWorkingTree() }
+
+// GitWorkingTree says "Working Tree"
+// in the language of msgs.
+func (msgs Messages) GitWorkingTree() string {
+	return Catalog.Format(msgs.locale, "gitWorkingTree", nil)
+}
+
+// GitRefreshComparison says "Refresh Comparison"
+// in the language the app shows.
+func GitRefreshComparison() string { return In(i18n.Locale()).GitRefreshComparison() }
+
+// GitRefreshComparison says "Refresh Comparison"
+// in the language of msgs.
+func (msgs Messages) GitRefreshComparison() string {
+	return Catalog.Format(msgs.locale, "gitRefreshComparison", nil)
+}
+
+// GitReadingBranchDiff says "Reading branch comparison…"
+// in the language the app shows.
+func GitReadingBranchDiff() string { return In(i18n.Locale()).GitReadingBranchDiff() }
+
+// GitReadingBranchDiff says "Reading branch comparison…"
+// in the language of msgs.
+func (msgs Messages) GitReadingBranchDiff() string {
+	return Catalog.Format(msgs.locale, "gitReadingBranchDiff", nil)
+}
+
+// GitNoBranchChanges says "No changes since this base."
+// in the language the app shows.
+func GitNoBranchChanges() string { return In(i18n.Locale()).GitNoBranchChanges() }
+
+// GitNoBranchChanges says "No changes since this base."
+// in the language of msgs.
+func (msgs Messages) GitNoBranchChanges() string {
+	return Catalog.Format(msgs.locale, "gitNoBranchChanges", nil)
+}
+
+// GitReadOnly says "Read-only"
+// in the language the app shows.
+func GitReadOnly() string { return In(i18n.Locale()).GitReadOnly() }
+
+// GitReadOnly says "Read-only"
+// in the language of msgs.
+func (msgs Messages) GitReadOnly() string {
+	return Catalog.Format(msgs.locale, "gitReadOnly", nil)
+}
+
+// GitBinary says "Binary"
+// in the language the app shows.
+func GitBinary() string { return In(i18n.Locale()).GitBinary() }
+
+// GitBinary says "Binary"
+// in the language of msgs.
+func (msgs Messages) GitBinary() string {
+	return Catalog.Format(msgs.locale, "gitBinary", nil)
+}
+
+// GitBinaryNotShown says "Binary file diff is not shown."
+// in the language the app shows.
+func GitBinaryNotShown() string { return In(i18n.Locale()).GitBinaryNotShown() }
+
+// GitBinaryNotShown says "Binary file diff is not shown."
+// in the language of msgs.
+func (msgs Messages) GitBinaryNotShown() string {
+	return Catalog.Format(msgs.locale, "gitBinaryNotShown", nil)
+}
+
+// GitNoTextDiff says "No text diff is available for this change."
+// in the language the app shows.
+func GitNoTextDiff() string { return In(i18n.Locale()).GitNoTextDiff() }
+
+// GitNoTextDiff says "No text diff is available for this change."
+// in the language of msgs.
+func (msgs Messages) GitNoTextDiff() string {
+	return Catalog.Format(msgs.locale, "gitNoTextDiff", nil)
+}
+
+// GitUntracked says "Untracked"
+// in the language the app shows.
+func GitUntracked() string { return In(i18n.Locale()).GitUntracked() }
+
+// GitUntracked says "Untracked"
+// in the language of msgs.
+func (msgs Messages) GitUntracked() string {
+	return Catalog.Format(msgs.locale, "gitUntracked", nil)
+}
+
+// GitShowMoreFiles says "Show %d more files"
+// in the language the app shows.
+func GitShowMoreFiles() string { return In(i18n.Locale()).GitShowMoreFiles() }
+
+// GitShowMoreFiles says "Show %d more files"
+// in the language of msgs.
+func (msgs Messages) GitShowMoreFiles() string {
+	return Catalog.Format(msgs.locale, "gitShowMoreFiles", nil)
 }
 
 // GitLogTable says "Commit table"

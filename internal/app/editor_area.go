@@ -301,6 +301,7 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 			st.DiffBase = st.Buffer
 		}
 		a.syncBlame(d)
+		a.syncInlayHints(d, st)
 		st.SetInlays(a.editorInlays(d, st))
 		backgrounds := st.LineBackgrounds
 		st.LineBackgrounds = a.diagnosticLineBackgrounds(d, st)

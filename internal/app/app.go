@@ -236,6 +236,10 @@ type doc struct {
 	blameTimer        *time.Timer
 	blameCancel       context.CancelFunc
 	languageInlays    []editor.Inlay
+	inlayKey          inlayKey
+	inlaySeq          int
+	inlayTimer        *time.Timer
+	inlayCancel       context.CancelFunc
 }
 
 type draftCache struct {

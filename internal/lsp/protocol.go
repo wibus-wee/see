@@ -123,6 +123,7 @@ type serverCapabilities struct {
 	ImplementationProvider    json.RawMessage `json:"implementationProvider"`
 	TypeDefinitionProvider    json.RawMessage `json:"typeDefinitionProvider"`
 	DiagnosticProvider        json.RawMessage `json:"diagnosticProvider"`
+	InlayHintProvider         json.RawMessage `json:"inlayHintProvider"`
 }
 
 // syncKind reads textDocumentSync, a number or TextDocumentSyncOptions,
@@ -158,6 +159,78 @@ func (s serverCapabilities) hasDefinition() bool {
 func (s serverCapabilities) hasDocumentHighlights() bool {
 	raw := bytes.TrimSpace(s.DocumentHighlightProvider)
 	return len(raw) > 0 && !bytes.Equal(raw, []byte("false")) && !bytes.Equal(raw, []byte("null"))
+}
+
+func (s serverCapabilities) hasInlayHints() bool {
+	raw := bytes.TrimSpace(s.InlayHintProvider)
+	return len(raw) > 0 && !bytes.Equal(raw, []byte("false")) && !bytes.Equal(raw, []byte("null"))
+}
+
+// InlayHint is a type or parameter name the server would draw inside a
+// line: at Position, the Label's text, padded as it asks.
+type InlayHint struct {
+	Position     Position
+	Label        string
+	Kind         int
+	PaddingLeft  bool
+	PaddingRight bool
+}
+
+type inlayHintJSON struct {
+	Position     Position        `json:"position"`
+	Label        json.RawMessage `json:"label"`
+	Kind         int             `json:"kind"`
+	PaddingLeft  bool            `json:"paddingLeft"`
+	PaddingRight bool            `json:"paddingRight"`
+}
+
+// ParseInlayHints decodes a textDocument/inlayHint result: null or a
+// list, each hint's label a string or an array of parts, as the union
+// allows; inlayHint/resolve is not asked, so unresolved labels — the
+// parts — are enough.
+func ParseInlayHints(raw json.RawMessage) ([]InlayHint, error) {
+	raw = bytes.TrimSpace(raw)
+	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
+		return nil, nil
+	}
+	var items []inlayHintJSON
+	if err := json.Unmarshal(raw, &items); err != nil {
+		return nil, fmt.Errorf("lsp: bad inlay hints: %w", err)
+	}
+	out := make([]InlayHint, 0, len(items))
+	for _, it := range items {
+		label, err := inlayLabel(bytes.TrimSpace(it.Label))
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, InlayHint{Position: it.Position, Label: label, Kind: it.Kind, PaddingLeft: it.PaddingLeft, PaddingRight: it.PaddingRight})
+	}
+	return out, nil
+}
+
+func inlayLabel(raw json.RawMessage) (string, error) {
+	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
+		return "", nil
+	}
+	switch raw[0] {
+	case '"':
+		var s string
+		err := json.Unmarshal(raw, &s)
+		return s, err
+	case '[':
+		var parts []struct {
+			Value string `json:"value"`
+		}
+		if err := json.Unmarshal(raw, &parts); err != nil {
+			return "", fmt.Errorf("lsp: bad inlay hint label: %w", err)
+		}
+		var sb strings.Builder
+		for _, p := range parts {
+			sb.WriteString(p.Value)
+		}
+		return sb.String(), nil
+	}
+	return "", fmt.Errorf("lsp: bad inlay hint label %.20q", raw)
 }
 
 // ParseHover decodes a Hover result into Markdown: its contents are
