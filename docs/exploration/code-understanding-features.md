@@ -7,12 +7,20 @@ this discussion to implement it without asking what was meant.
 It describes `main` at `4fb1a68` (release 0.2.4). Every claim about what See supports was
 checked against that tree; file and line references point into it.
 
-**Revision.** The first version of this document claimed the MyGo editor could not draw text
-inside a line, and specified candidate 6 as an app-side overlay because of it. That was
-wrong: `SetInlays` exists in the MyGo version See pins (`v0.9.0`, `go.mod:7`), and
-`feat/ux-batch-1` already drives it for blame and inline diagnostics. §2.4, candidate 6 and
-[§4.4](#44-decisions-the-owner-has-to-make) item 4 are corrected here; no other candidate
-changed.
+**Revision.** Two claims in the first version of this document did not survive checking, and
+this version replaces them.
+
+1. It said the MyGo editor could not draw text inside a line, and specified candidate 6 as an
+   app-side overlay because of it. Wrong: `SetInlays` exists in the MyGo version See pins
+   (`v0.9.0`, `go.mod:7`) and `feat/ux-batch-1` already drives it for blame and inline
+   diagnostics. §2.4 and [§4.4](#44-decisions-the-owner-has-to-make) item 4 are corrected.
+2. It said, as an open question, whether gopls reports inlay hints under the null
+   configuration See sends today. It does not — not one — so the configuration change is part
+   of candidate 6's cost rather than a risk against it. Candidate 6, §2.4 and §4.1 are
+   corrected, and its size goes from S–M to M.
+
+No other candidate changed. §4.4 items 3 and 4 record what was checked and how, so neither
+question is re-opened here.
 
 **Nothing here is in flight.** PR #56 (`feat/ux-batch-1`), #57
 (`devin/1795065831-branch-diffs`) and #37 (`workspace-window-states`) already carry the
@@ -173,17 +181,18 @@ scoped around the boundary.
 | Line band | `LineBackgrounds` | a colour behind a run of lines; #56's inline diagnostics use it |
 | Text band | `TextBackgrounds` | a colour behind a byte range; the Command-hover link uses it (`internal/app/hover.go:74`) |
 | Popover | `ShowHover` | content anchored at a range (`hover.go:77`) |
-| Inlay text | `SetInlays([]Inlay)` (`ui/editor/state.go:478`), `Inlay{Offset, Text, Trailing, Ellipsis}` (`ui/editor/lsp.go:90`) | text drawn inside a line that is not in the buffer; `Trailing` keeps it after the code as a diagnostic or a blame does, `Ellipsis` shortens it to the room left; it moves with the edits until set again |
+| Inlay text | `SetInlays([]Inlay)` (`ui/editor/state.go:478`), `Inlay{Offset, Text, Trailing, Ellipsis}` (`ui/editor/lsp.go:88`), applied in `setInlays` (`ui/editor/lsp.go:454`) | text drawn inside a line that is not in the buffer, at `Offset`: it takes its own space and pushes the rest of the line. `Trailing` moves it to the line's end as ghost text the caret can sit before, and only a trailing inlay is shortened to `Ellipsis` when the line is full (`ui/editor/view.go:769`, `:939`). It moves with the edits until set again |
 | Replacement ranges | `SetReplacements([]Replacement)` (`ui/editor/state.go:497`) | a byte range shown as something else, or as nothing: folded lines, hidden Markdown marks |
 | Callbacks | `OnHover`, `OnDefinition`, `OnCompletion`, `OnGutterClick`, `OnInput` (`ui/editor/state.go:96` to `:138`) | events from the editor into the app |
 
 One thing is missing: a callback for the caret moving. Candidate 3 therefore triggers from
-the frame loop instead of a callback. Candidate 6 needs no workaround at all — the inlay lane
-is the editor's own, and `feat/ux-batch-1` already drives it: `d.languageInlays
-[]editor.Inlay` (`app.go:213`), merged with inline diagnostics and blame in `editorInlays`
-(`internal/app/blame.go:86`) and applied at `editor_area.go:295`. `blame_test.go:20` on
-that branch sets a language inlay with `Text: "type hint"`, which is the lane this candidate
-fills.
+the frame loop instead of a callback. Candidate 6 needs no workaround at all — a non-trailing
+inlay is drawn at its own offset inside the line and a trailing one at the line's end, which
+are both placements the candidate needs — and `feat/ux-batch-1` already drives the lane:
+`d.languageInlays []editor.Inlay` (`app.go:213`), merged with inline diagnostics and blame
+in `editorInlays` (`internal/app/blame.go:86`) and applied at `editor_area.go:295`.
+`blame_test.go:20` on that branch sets a language inlay with `Text: "type hint"`, which is
+the lane this candidate fills.
 
 ### 2.5 Gaps the candidates work from
 
@@ -217,7 +226,7 @@ knows the file.
 | 3 | Signature help at the call site | M | What are these arguments |
 | 4 | Pinnable references panel | L | Where else is this used |
 | 5 | Reading-position pin | S–M | Where am I in this file |
-| 6 | Inlay type hints | S–M | What type is this, really |
+| 6 | Inlay type hints | M | What type is this, really |
 
 ---
 
@@ -774,34 +783,44 @@ the line, muted, without being in the file.
 
 **(b) UI and interaction**
 
-- **Home: an inlay at the end of the line**, drawn by the editor inside its own text flow:
-  for `handler := compose(a, b)` the line renders as code, then, after a gap, `Handler` in
-  the editor's muted inlay colour, never selectable, never part of the buffer. The app
-  measures and places nothing: it hands the editor `Inlay{Offset: end of the line, Text,
-  Trailing: true, Ellipsis: "…"}`, and the editor draws it and moves it with the edits.
-  End of line rather than after the identifier because a trailing inlay never reflows the
-  code — a mid-line one pushes the rest of the line and can wrap it, which for a reader is
-  worse than a hint one gap further right.
-- **Which hints.** Whatever the server reports for the visible range. For Go that is
-  inferred types on short variable declarations and, server settings permitting, range
-  variables and parameter names; See does not decide, it draws what arrives.
+- **Home: an inlay at the offset the server names, inside the line**, drawn by the editor in
+  its own text flow, never selectable and never part of the buffer. For `x := outer()` the
+  type lands just after `x`; for `helper(total)` the parameter name lands on the argument.
+  The app measures and places nothing: it hands the editor `Inlay{Offset, Text}`, which the
+  editor draws, keeps on its offset as the buffer changes, and moves the rest of the line
+  around.
+- **Two placements, and the choice is per hint.** Without `Trailing` the text sits exactly
+  where the server put it and takes its own space; with `Trailing: true` it goes to the
+  line's end as ghost text the caret can sit before, and only then is it shortened to `…`
+  when the line is full (`ui/editor/lsp.go:454`, `ui/editor/view.go:769`, `:939` — MyGo
+  v0.9.0 as pinned, so neither placement needs an upstream change). This candidate uses the
+  first: a parameter name at the end of a line is a name without its argument, which to a
+  reader is not a hint at all. Trailing stays for hints that are about the whole line.
+- **Which hints.** See asks for the kinds it wants in the configuration payload (§4.4 item 5)
+  and then draws whatever comes back for the visible range without re-filtering. gopls's
+  shapes were checked against a live server (§4.4 item 3): types for inferred values and
+  range variables, parameter names at call sites, kinds 1 and 2, each carrying
+  `paddingRight`. The padding the server asks for is added to the text rather than guessed
+  at.
 - **Entry points.** Automatic, for languages whose server reports hints. Settings →
   Editor → **Type Hints**, on by default, plus the command palette entry **Toggle Type
   Hints** because a reader who finds them noisy wants one keystroke, not a settings
   dialog.
 - **Scope and refresh.** Only the visible lines are requested, refreshed when scrolling
-  settles (about 100 ms) and when the buffer version changes. Because the hint is a trailing
-  inlay, a line with no room left shortens the hint to `…` (`Ellipsis`) instead of wrapping
-  the code or drawing over the scrollbar; nothing is clipped by hand.
+  settles (about 100 ms) and when the buffer version changes. A mid-line hint is not elided:
+  on a long line it does what typing would do, pushing the rest of the line out of view with
+  **Wrap Lines** off (Settings → Editor, `internal/config/config.go:50`) and wrapping it with
+  Wrap Lines on. Nothing is clipped by hand, and only on-screen lines can pay that cost.
 - **Empty, loading and error states.** Nothing is drawn: no server, no support, no hints
   for the range, a failed request. A hint that fails must be invisible, for the same reason
   as candidate 3 — the reader did not ask a question they can see, and a per-line error
   badge would be worse than the missing type.
 - **Fit.** The hint has to look like a marginal note, not like text the file contains, and
-  the editor's inlay style already does that: muted, drawn after the code, outside the
-  buffer, not selectable, not editable. Its colour and size come from MyGo rather than from
-  this candidate; a hint that must be dimmer or smaller than the editor's inlay style is a
-  MyGo change, and belongs with the other upstream asks in §4.4.
+  the editor's inlay style already does that: muted, outside the buffer, not selectable, not
+  editable, and — with `Trailing` off — drawn in the line's own colour for inlay text rather
+  than as ghost text. Its colour and size come from MyGo rather than from this candidate; a
+  hint that must be dimmer or smaller than the editor's inlay style is a MyGo change, and
+  belongs with the other upstream asks in §4.4.
 
 **(c) Why it serves reading rather than editing**
 
@@ -834,10 +853,17 @@ what the compiler knows" and "do not turn See into an editor" point the same way
   candidate only fills `d.languageInlays`; if it has not, the same three lines are the whole
   app-side surface — a field on `doc`, one call after the buffer version changes, and the
   merge that keeps diagnostics and blame in the same list.
-- `internal/app/inlay.go` (new) — the state only: visible range, hints by line, seq, cancel,
-  scroll settle timer, and the mapping from a hint to `editor.Inlay{Offset: end of its line,
-  Text: "  " + label, Trailing: true, Ellipsis: "…"}`. No measurement, no overlay, no
-  clipping: a trailing inlay is elided by the editor when the line is full.
+- `internal/app/inlay.go` (new) — the state and the mapping, no drawing: visible range,
+  hints by line, seq, cancel, scroll settle timer, and `toInlay(hint, line)` producing
+  `editor.Inlay{Offset, Text}`. The offset is the line's start plus
+  `lsp.ColumnFromLSP(lineText, hintPosition, encoding)` (`internal/lsp/position.go:48`, the
+  inverse of the `ColumnToLSP` already used outbound), and the text is the label with the
+  server's `paddingLeft` and `paddingRight` applied.
+- **The configuration payload, which this candidate now needs.** `internal/lsp/client.go:375`
+  to `:390` answers `workspace/configuration` with one null per item, and gopls reports no
+  hint at all until it is answered with its own settings (verified, §4.4 item 3). The
+  handler gains a table keyed by server id — `{"hints": {...}}` for gopls, null for every
+  server with nothing to say yet — so no other language server's behaviour moves.
 - Settings and command as above; locales; regenerate the catalog.
 - Tests: `internal/lsp/inlay_test.go` on the fake server — the range sent, both label
   shapes, a `null` result; `internal/app/inlay_test.go` on the harness — `d.languageInlays`
@@ -847,34 +873,39 @@ what the compiler knows" and "do not turn See into an editor" point the same way
 
 **(e) Size and work breakdown**
 
-S–M, about 2 days: protocol, client, tolerant parsing and range conversion half a day; the
+M, about 3 days: protocol, client, tolerant parsing and range conversion half a day; the
 state, visible-range window and refresh on scroll half a day; the inlay mapping, the toggle
-and its settings half a day; tests half a day. It is no longer M because the drawing half of
-the work — the part that was going to fight horizontal scrolling and clipping — belongs to
-the editor.
+and its settings half a day; the configuration table and its one gopls entry half a day, plus
+the test that pins gopls's answer; tests half a day.
+
+The drawing half of the work — the part that would have fought horizontal scrolling and
+clipping — belongs to the editor, which is why this is not L. What keeps it at M is the
+configuration answer: it is small, but it is the only part of the candidate that changes how
+See talks to every server.
 
 **(f) Risks and unknowns**
 
-- **gopls's hint settings are not verified here.** See answers `workspace/configuration`
-  with one null per item (`client.go:377` to `:382`, "the server's defaults"), so which
-  hints gopls reports by default was not checked in this work. Some servers need a
-  configuration payload before hints appear at all, which would make this candidate touch
-  the client's configuration handler for every server — the one item here whose risk
-  extends past its own feature.
+- **gopls reports nothing under See's current configuration.** Checked against a live gopls
+  v0.23.0 with a minimal client (`initialize`, `didOpen`, `textDocument/inlayHint` over a
+  26-line file, `workspace/configuration` answered three ways): null gave `null`, an empty
+  object gave `null`, and `{"hints": {…}}` gave eight hints. `gopls api-json` lists eight
+  hint kinds and every one defaults to `false`. So this candidate cannot draw a single Go
+  hint until the configuration handler changes, and that is the one piece of its work that
+  touches every server rather than this feature. Only gopls was probed; what tsrs and
+  clangd answer a null with is still unknown.
 - **The inlay lane belongs to #56, not to `main`.** On `main` there is no `SetInlays` call in
   `editor_area.go` and no `languageInlays` field, so this candidate either waits for #56 or
   adds the same three lines and resolves a trivial conflict when #56 lands. A one-file
   overlap, not a design conflict, but it must be coordinated rather than raced.
-- **Hints only ever appear at the end of a line.** If reading shows that a hint after the
-  identifier is worth the reflow, the inlay `Offset` already allows it; that is a design
-  change to this candidate, not new plumbing.
-- **Noise.** A hint on every line turns a file into a wall of grey. End-of-line only, muted
-  by the editor, and only for hints the server actually reports keeps it tolerable; the
-  toggle is the escape hatch.
-- **Distance from the declaration.** A trailing hint sits at the line's end, so on a long
-  line the eye travels further than in Xcode, which puts the hint straight after the name.
-  That gap is the price of never reflowing the code; the mid-line offset above is the fix if
-  it reads badly.
+- **Mid-line hints reflow the code.** That is the price of putting a parameter name on its
+  argument: the rest of the line moves, and on a long line it moves out of view or wraps. A
+  reader comparing two functions that both gain hints sees the code shift under them. If
+  that proves worse than the fact is worth, the `Trailing` shape is one flag away — but only
+  for hints that are about the whole line.
+- **Noise.** A hint on every line turns a file into a wall of grey. Only what the server
+  reports, muted by the editor, with the toggle as the escape hatch keeps it tolerable — and
+  parameter names are the loudest of the kinds, which is what to watch on the first real
+  file rather than what to design around now.
 
 ## 4. Why this order
 
@@ -887,7 +918,7 @@ the editor.
 | 3 | Signature help | Every call site | Parameter hints, hover on arguments | M | Cheapest per use: one request, one strip, no new surface |
 | 4 | Pinnable references panel | Whenever a symbol is used in more than a handful of places | A third list for free, through the widget from 1 | L | Valuable, but the popover already covers the small case |
 | 5 | Reading-position pin | Long files, continuously | Nothing; it removes a recurring interruption | S–M | Pure orientation, and it depends on the symbol shape #56 introduces |
-| 6 | Inlay type hints | Reading code that infers types | The editor's inlay lane, which every later language hint reuses | S–M | Last because one uncertainty is left: which hints a server reports without a configuration payload. The drawing lane is the editor's own and #56 already uses it |
+| 6 | Inlay type hints | Reading code that infers types | The editor's inlay lane, which every later language hint reuses | M | Last because it is the least of the six questions, and because it now carries a known cross-cutting cost: gopls reports no hint until See answers its configuration (verified, §4.4 item 3). The drawing lane is the editor's own and #56 already uses it |
 
 The order is not an estimate of excitement; it is the sequence a reader's questions come
 in: **who calls this** (1), **what does it mean** (2), **what are these arguments** (3),
@@ -912,8 +943,9 @@ remove.
   stay as cheap as it is scoped here. If it grows past its estimate, cut it rather than let
   it delay 1 to 4.
 - **6** proves the inlay lane for everything that later wants text inside a line — parameter
-  names, resolved hints, a diagnostic lane — and at S–M it is cheap insurance rather than a
-  dependency change.
+  names, resolved hints, a diagnostic lane — and it is the first feature to answer
+  `workspace/configuration`, which every later server setting needs. That is the one place
+  where its cost reaches past itself, and it is why it is scoped as M rather than S–M.
 
 Candidates 1 and 4 touch the same two places — the bottom panel's tab strip and the row
 widget — and 2, 5 and 6 all touch `internal/app/editor_area.go`. Landing them in rank
@@ -968,14 +1000,25 @@ guess.
 2. **Is the Quick Help inspector per window or per editor group?** Recommendation: per
    window, on the right edge, following the focused group's caret — a group of its own
    would compete with the split-layout feature for the same space.
-3. **Should See answer `workspace/configuration` with real per-server settings, or keep
-   answering null and take the servers' defaults?** (`internal/lsp/client.go:377`,
-   the handler at `:375` to `:390`.) Candidate 6 may need a real answer for gopls to report
-   hints at all, and that is a change to every server, not one feature. This is the only
-   item in the document with risk outside its own scope; decide it before starting
-   candidate 6.
+3. **Answer `workspace/configuration` per server, starting with gopls?** This is no longer a
+   guess. Against a live gopls v0.23.0 — a minimal client sending `initialize`, `didOpen`
+   and `textDocument/inlayHint` over a 26-line file, with `workspace/configuration`
+   (`internal/lsp/client.go:375` to `:390`, answered with one null per item at `:377`)
+   answered three ways — null produced `null`, an empty object produced `null`, and
+   `{"hints": {…}}` produced eight hints; `gopls api-json` shows all eight hint kinds
+   defaulting to `false`. So candidate 6 draws nothing at all without this change, and the
+   change touches every server. Recommendation: yes, as a table keyed by server id with
+   gopls as its only entry and null as the default, so no other server's behaviour moves;
+   decide it before starting candidate 6 rather than inside it. tsrs and clangd were not
+   probed, and their answers stay null either way.
 4. **Do we need further MyGo editor APIs — a caret callback (candidate 3), a top inset
-   (candidate 5) — or can every remaining surface stay app-side?** Inlay rendering is no
-   longer part of the question: `SetInlays` exists (`ui/editor/state.go:478`) and #56 already
-   drives it. Recommendation: app-side for both, as scoped above; upstream the caret callback
-   only once candidate 3 has shown what it needs from it.
+   (candidate 5) — or can every remaining surface stay app-side?** Inlay rendering is not part
+   of the question: `SetInlays` exists (`ui/editor/state.go:478`), it draws at an offset inside
+   the line as well as at the line's end (`ui/editor/lsp.go:454`, `ui/editor/view.go:769`), and
+   #56 already drives it. Recommendation: app-side for all three, as scoped above; upstream the
+   caret callback only once candidate 3 has shown what it needs from it.
+5. **Which hint kinds, if gopls is configured?** All eight are off by default and See will
+   answer for itself (`gopls api-json`). Recommendation: types and parameter names only —
+   `assignVariableTypes`, `compositeLiteralTypes`, `rangeVariableTypes`, `parameterNames` —
+   because a reader asks what a value is, and the remaining four explain literals and
+   constant values, which is annotation rather than understanding.
