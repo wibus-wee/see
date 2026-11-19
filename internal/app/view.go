@@ -78,6 +78,7 @@ func (a *App) view(c *ui.Context) {
 	a.modifiers = c.Modifiers()
 	c.SetTheme(a.theme)
 	a.services = c.Services()
+	a.showCounterpartFeedback(c)
 	vibrant := c.Vibrancy()
 	if vibrant {
 		c.Root().Background(ui.Transparent)
@@ -103,9 +104,6 @@ func (a *App) view(c *ui.Context) {
 		return
 	}
 	a.shortcuts(c)
-	if a.counterpartMiss != a.activePath() {
-		a.counterpartMiss = ""
-	}
 	root := ui.Column(c).Fill()
 	target := float32(1)
 	if a.sidebarOff || a.root == "" {

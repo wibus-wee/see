@@ -77,7 +77,9 @@ func (a *App) switchCounterpart(step int) {
 	g := a.focus
 	names := a.counterpartNames(g)
 	if len(names) == 0 {
-		a.counterpartMiss = a.activePath()
+		if path := a.activePath(); path != "" {
+			a.counterpartMiss = counterpartFeedback{path: path, pending: true}
+		}
 		return
 	}
 	path := g.active
@@ -92,16 +94,35 @@ func (a *App) switchCounterpart(step int) {
 			if i := slices.Index(paths, path); len(paths) > 1 && i >= 0 {
 				a.jumpToCounterpart(g, paths[(i+step+len(paths))%len(paths)])
 			} else {
-				a.counterpartMiss = path
+				a.counterpartMiss = counterpartFeedback{path: path, pending: true}
 			}
 		})
 	}()
 }
 
 func (a *App) jumpToCounterpart(g *group, path string) {
-	a.counterpartMiss = ""
 	a.jumpToFile(g, path)
 	a.requestGroupFocus(g)
+}
+
+type counterpartFeedback struct {
+	path    string
+	pending bool
+}
+
+func (a *App) showCounterpartFeedback(c *ui.Context) {
+	const toastID = "counterparts-not-found"
+	f := &a.counterpartMiss
+	if f.path == "" {
+		return
+	}
+	if f.path != a.activePath() {
+		c.CloseToast(toastID)
+		*f = counterpartFeedback{}
+	} else if f.pending {
+		c.AddToast(ui.Toast{ID: toastID, Title: locales.MsgNoCounterpartsFound()})
+		f.pending = false
+	}
 }
 
 type counterpartMenu struct {

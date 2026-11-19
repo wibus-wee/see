@@ -87,10 +87,25 @@ func TestCounterpartShortcutsAndPalette(t *testing.T) {
 	wantFile("internal/format.go")
 
 	h.open("internal/format2.go")
+	h.tt.Type("// saved\n")
+	save := jumpShortcut(t, "Save")
+	h.tt.Key(save.shortcutMods, save.shortcutKey)
+	if !h.tt.HasText("Saved format2.go") {
+		t.Fatalf("fixture did not save the file: %v", h.tt.Texts())
+	}
+	h.a.lspState = langserver.Failed
+	h.tt.Frame()
+	_, hadRetry := h.tt.Find("Retry gopls")
+	if !hadRetry {
+		t.Fatal("fixture does not show the gopls Retry action")
+	}
 	h.tt.Key(next.shortcutMods, next.shortcutKey)
-	h.settle(func() bool { return h.a.counterpartMiss != "" })
+	h.settle(func() bool { return h.a.counterpartMiss.pending })
 	if !h.tt.HasText("No counterparts found.") || filepath.Base(h.a.activePath()) != "format2.go" {
 		t.Fatalf("unpaired file did not stay open with a notice: %v", h.tt.Texts())
+	}
+	if _, retry := h.tt.Find("Retry gopls"); !retry {
+		t.Fatal("counterpart feedback hid the gopls Retry action")
 	}
 	if err := h.tt.Click("Related Items"); err != nil {
 		t.Fatal(err)

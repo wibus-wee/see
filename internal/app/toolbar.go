@@ -232,14 +232,13 @@ func (a *App) activityView(c *ui.Context) {
 	}
 	pill := ui.Row(c).Height(16).MaxWidth(260).Shrink(1).Gap(5).AlignItems(ui.Center)
 	pill.Children(func() {
-		showCounterpartMiss := a.counterpartMiss != "" && a.notice == ""
 		// The dot tells the state at a glance, as Peek's toolbar does: the
 		// accent while work goes on, red when it went wrong.
 		dot := colors(c).Muted
 		switch {
 		case a.finding, a.find.running, state == langserver.Starting:
 			dot = c.Theme().Accent
-		case !showCounterpartMiss && (a.noticeError || state == langserver.Failed || a.watchErr != nil):
+		case a.noticeError, state == langserver.Failed, a.watchErr != nil:
 			dot = colors(c).Err
 		}
 		if dot != colors(c).Muted {
@@ -260,8 +259,6 @@ func (a *App) activityView(c *ui.Context) {
 		case a.find.running:
 			ui.Spinner(c).FontSize(11)
 			ui.Text(c, locales.Searching()).FontSize(12).TextColor(colors(c).Muted)
-		case showCounterpartMiss:
-			ui.Text(c, locales.MsgNoCounterpartsFound()).FontSize(12).TextColor(colors(c).Muted).SingleLine().Shrink(1)
 		case state == langserver.Starting:
 			ui.Spinner(c).FontSize(11)
 			ui.Text(c, locales.MsgStarting()+name+"…").FontSize(12).TextColor(colors(c).Muted)
