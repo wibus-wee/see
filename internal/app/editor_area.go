@@ -330,8 +330,10 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 				a.minimap(c, g, d, st)
 			} else {
 				st.RenderFindBar = nil
-				a.readingPinRow(c, g, d, st)
-				ed = editor.View(c.Key(d.path), st).Grow(1).FillHeight()
+				ui.Column(c).Grow(1).FillHeight().Children(func() {
+					a.readingPinRow(c, g, d, st)
+					ed = editor.View(c.Key(d.path), st).Grow(1).FillHeight()
+				})
 			}
 		})
 		st.LineBackgrounds = backgrounds
