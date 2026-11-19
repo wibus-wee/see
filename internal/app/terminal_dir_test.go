@@ -37,8 +37,11 @@ func TestTerminalDirOK(t *testing.T) {
 
 func TestShowInFolderLabel(t *testing.T) {
 	got := showInFolderLabel()
-	want := "Show in Finder"
-	if runtime.GOOS == "windows" {
+	want := "Show in File Manager"
+	switch runtime.GOOS {
+	case "darwin":
+		want = "Show in Finder"
+	case "windows":
 		want = "Show in Explorer"
 	}
 	if got != want {
