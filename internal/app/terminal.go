@@ -225,7 +225,7 @@ func (a *App) newTerminalTabAt(dir string) {
 	a.withTerminal(func() {
 		tp := &a.term
 		tp.nextID++
-		p := &termPane{id: tp.nextID, title: shellName()}
+		p := &termPane{id: tp.nextID, title: a.shellTitle()}
 		if err := a.newTerm(p, dir); err != nil {
 			a.note(locales.MsgCouldNotStartATerminal()+err.Error(), true)
 			return
@@ -246,8 +246,8 @@ func (a *App) splitTerminal() {
 	}
 	a.withTerminal(func() {
 		tp.nextID++
-		p := &termPane{id: tp.nextID, title: shellName()}
-		if err := a.newTerm(p, ""); err != nil {
+		p := &termPane{id: tp.nextID, title: a.shellTitle()}
+		if err := a.newTerm(p, a.paneDir(tab.active)); err != nil {
 			a.note(locales.MsgCouldNotStartATerminal()+err.Error(), true)
 			return
 		}
@@ -414,6 +414,25 @@ func (a *App) termDir(dir string) string {
 		return a.root
 	}
 	return dir
+}
+
+// paneDir is the working directory the pane's shell reported (OSC 7),
+// or the workspace's root when the shell reported none, as one not
+// running yet. A split starts where the split pane runs.
+func (a *App) paneDir(p *termPane) string {
+	if p != nil && p.term != nil && p.term.Dir() != "" {
+		return p.term.Dir()
+	}
+	return a.root
+}
+
+// shellTitle is a new pane's title before its shell's first OSC title:
+// the name of the shell that will run.
+func (a *App) shellTitle() string {
+	if a.cfg.TermShell != "" {
+		return filepath.Base(a.cfg.TermShell)
+	}
+	return shellName()
 }
 
 func shellName() string {
@@ -640,7 +659,7 @@ func (a *App) termPaneRow(c *ui.Context, i, j int, tab *termTab, p *termPane, ne
 		symbolIcon(c, icPrompt, 16, colors(c).Muted)
 		title := p.title
 		if title == "" {
-			title = shellName()
+			title = a.shellTitle()
 		}
 		t := ui.Text(c, title).FontSize(12).SingleLine().Grow(1).Shrink(1)
 		if !active {
