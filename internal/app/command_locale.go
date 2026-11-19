@@ -23,6 +23,7 @@ var commandMessages = map[string]string{
 	"Fold Level 5":                  "commandFoldLevel5",
 	"Show Line's Commit in Git Log": "commandShowLineCommit",
 	"Toggle Inline Git Blame":       "commandToggleInlineBlame",
+	"Toggle Minimap":                "commandToggleMinimap",
 
 	"Show Problems":              "commandShowProblems",
 	"Show Outline":               "commandShowOutline",

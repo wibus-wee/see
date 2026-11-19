@@ -55,6 +55,7 @@ func commands() []command {
 		}},
 		{"Git: Show Log", "", "", 0, 0, func(a *App) { a.openGitLog() }},
 		{"Show Line's Commit in Git Log", "", "", 0, 0, func(a *App) { a.revealLineCommit() }},
+		{"Toggle Minimap", "Ctrl+Shift+Cmd+", "M", ui.Ctrl | ui.Shift | ui.Cmd, ui.KeyM, func(a *App) { a.cfg.HideMinimap = !a.cfg.HideMinimap; a.settingsChanged() }},
 		{"Toggle Inline Git Blame", "", "", 0, 0, func(a *App) { a.cfg.HideInlineBlame = !a.cfg.HideInlineBlame; a.settingsChanged() }},
 		{"Toggle Inline Diff", "", "", 0, 0, func(a *App) { a.toggleDiffLayout() }},
 		{"Next Change", "", "", 0, 0, func(a *App) { a.goToChange(1) }},

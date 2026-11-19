@@ -619,5 +619,9 @@
   "badEncodingTitle": "{name} 不是 UTF-8 文本",
   "badEncodingDetail": "文本使用了其他编码，或者文件不是文本。",
   "showReplacement": "使用替换字符显示",
-  "terminalUnavailable": "终端不可用"
+  "terminalUnavailable": "终端不可用",
+  "minimapLabel": "缩略图",
+  "showMinimap": "显示缩略图",
+  "minimapDescription": "在编辑器旁显示文件的缩略概览，如同 Xcode。",
+  "commandToggleMinimap": "切换缩略图"
 }

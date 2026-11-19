@@ -295,8 +295,24 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 		st.SetInlays(a.editorInlays(d, st))
 		backgrounds := st.LineBackgrounds
 		st.LineBackgrounds = a.diagnosticLineBackgrounds(d, st)
-		ed := editor.View(c.Key(d.path), st).Grow(1).FillWidth()
+		var ed ui.Element
+		minimap := a.showsMinimap(g, d)
+		ui.Row(c).Grow(1).FillWidth().Children(func() {
+			ed = editor.View(c.Key(d.path), st).Grow(1).FillHeight()
+			if minimap {
+				a.minimap(c, g, d, st)
+			} else {
+				st.RenderFindBar = nil
+			}
+		})
 		st.LineBackgrounds = backgrounds
+		if row := ed.LayoutBounds().W; row > 0 {
+			m := g.minimapOf(d.path)
+			m.room = row
+			if minimap {
+				m.room += minimapWidth
+			}
+		}
 		st.DiffBase = base
 		x, y, over := ed.PointerPosition()
 		if over {

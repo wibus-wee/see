@@ -494,6 +494,26 @@ func (msgs Messages) ShowInlineBlame() string {
 	return Catalog.Format(msgs.locale, "showInlineBlame", nil)
 }
 
+// ShowInlineDiagnostics says "Show inline diagnostics"
+// in the language the app shows.
+func ShowInlineDiagnostics() string { return In(i18n.Locale()).ShowInlineDiagnostics() }
+
+// ShowInlineDiagnostics says "Show inline diagnostics"
+// in the language of msgs.
+func (msgs Messages) ShowInlineDiagnostics() string {
+	return Catalog.Format(msgs.locale, "showInlineDiagnostics", nil)
+}
+
+// InlineDiagnosticsDescription says "Show errors and warnings beside code with a subtle line tint."
+// in the language the app shows.
+func InlineDiagnosticsDescription() string { return In(i18n.Locale()).InlineDiagnosticsDescription() }
+
+// InlineDiagnosticsDescription says "Show errors and warnings beside code with a subtle line tint."
+// in the language of msgs.
+func (msgs Messages) InlineDiagnosticsDescription() string {
+	return Catalog.Format(msgs.locale, "inlineDiagnosticsDescription", nil)
+}
+
 // InlineBlameDescription says "Show the author and commit beside the current line."
 // in the language the app shows.
 func InlineBlameDescription() string { return In(i18n.Locale()).InlineBlameDescription() }
@@ -6242,4 +6262,44 @@ func TerminalUnavailable() string { return In(i18n.Locale()).TerminalUnavailable
 // in the language of msgs.
 func (msgs Messages) TerminalUnavailable() string {
 	return Catalog.Format(msgs.locale, "terminalUnavailable", nil)
+}
+
+// MinimapLabel says "Minimap"
+// in the language the app shows.
+func MinimapLabel() string { return In(i18n.Locale()).MinimapLabel() }
+
+// MinimapLabel says "Minimap"
+// in the language of msgs.
+func (msgs Messages) MinimapLabel() string {
+	return Catalog.Format(msgs.locale, "minimapLabel", nil)
+}
+
+// ShowMinimap says "Show minimap"
+// in the language the app shows.
+func ShowMinimap() string { return In(i18n.Locale()).ShowMinimap() }
+
+// ShowMinimap says "Show minimap"
+// in the language of msgs.
+func (msgs Messages) ShowMinimap() string {
+	return Catalog.Format(msgs.locale, "showMinimap", nil)
+}
+
+// MinimapDescription says "Show a scaled overview of the file beside the editor, as Xcode does."
+// in the language the app shows.
+func MinimapDescription() string { return In(i18n.Locale()).MinimapDescription() }
+
+// MinimapDescription says "Show a scaled overview of the file beside the editor, as Xcode does."
+// in the language of msgs.
+func (msgs Messages) MinimapDescription() string {
+	return Catalog.Format(msgs.locale, "minimapDescription", nil)
+}
+
+// CommandToggleMinimap says "Toggle Minimap"
+// in the language the app shows.
+func CommandToggleMinimap() string { return In(i18n.Locale()).CommandToggleMinimap() }
+
+// CommandToggleMinimap says "Toggle Minimap"
+// in the language of msgs.
+func (msgs Messages) CommandToggleMinimap() string {
+	return Catalog.Format(msgs.locale, "commandToggleMinimap", nil)
 }

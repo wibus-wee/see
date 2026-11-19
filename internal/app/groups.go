@@ -24,6 +24,7 @@ type group struct {
 	active          string
 	preview         string
 	eds             map[string]*editor.State
+	minimaps        map[string]*minimap
 	pending         map[string]goTo // where to go once a document loads
 	markdownPreview map[string]bool
 	hexPreview      map[string]bool
@@ -251,6 +252,7 @@ func (a *App) closeTab(g *group, path string) {
 	if !g.hasDocument(docPath) {
 		g.closeVideo(docPath)
 		delete(g.eds, docPath)
+		delete(g.minimaps, docPath)
 		delete(g.pending, docPath)
 		delete(g.markdownPreview, docPath)
 		delete(g.hexPreview, docPath)
@@ -359,6 +361,7 @@ func (a *App) moveTab(from *group, path string, to *group, s side, at int) {
 		from.mru = slices.DeleteFunc(from.mru, func(p string) bool { return p == path })
 		if !from.hasDocument(underlying) {
 			delete(from.eds, underlying)
+			delete(from.minimaps, underlying)
 			delete(from.pending, underlying)
 		}
 		if from.active == path {
