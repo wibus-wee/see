@@ -6846,6 +6846,36 @@ func (msgs Messages) BadEncodingDetail() string {
 	return Catalog.Format(msgs.locale, "badEncodingDetail", nil)
 }
 
+// IsNotText says "{name} is not text"
+// in the language the app shows.
+func IsNotText(name string) string { return In(i18n.Locale()).IsNotText(name) }
+
+// IsNotText says "{name} is not text"
+// in the language of msgs.
+func (msgs Messages) IsNotText(name string) string {
+	return Catalog.Format(msgs.locale, "isNotText", map[string]any{"name": name})
+}
+
+// CouldNotReadStdin says "Could not read the standard input: "
+// in the language the app shows.
+func CouldNotReadStdin() string { return In(i18n.Locale()).CouldNotReadStdin() }
+
+// CouldNotReadStdin says "Could not read the standard input: "
+// in the language of msgs.
+func (msgs Messages) CouldNotReadStdin() string {
+	return Catalog.Format(msgs.locale, "couldNotReadStdin", nil)
+}
+
+// FileIsTooLargeToShow says "{name} is too large to show"
+// in the language the app shows.
+func FileIsTooLargeToShow(name string) string { return In(i18n.Locale()).FileIsTooLargeToShow(name) }
+
+// FileIsTooLargeToShow says "{name} is too large to show"
+// in the language of msgs.
+func (msgs Messages) FileIsTooLargeToShow(name string) string {
+	return Catalog.Format(msgs.locale, "fileIsTooLargeToShow", map[string]any{"name": name})
+}
+
 // ShowReplacement says "Show with Replacement Characters"
 // in the language the app shows.
 func ShowReplacement() string { return In(i18n.Locale()).ShowReplacement() }

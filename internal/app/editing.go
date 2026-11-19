@@ -65,20 +65,7 @@ func (a *App) newFile() {
 		a.newFileError(locales.MsgCouldNotCacheUnsavedFile() + err.Error())
 		return
 	}
-	name := "Untitled"
-	for n := 1; ; n++ {
-		used := false
-		for _, d := range a.docs {
-			if d.untitled && d.name == name {
-				used = true
-				break
-			}
-		}
-		if !used {
-			break
-		}
-		name = fmt.Sprintf("Untitled-%d", n)
-	}
+	name := a.untitledName()
 	if a.root == "" && len(a.docs) == 0 {
 		a.host.SetWorkspaceSize(config.DefaultWindowWidth, config.DefaultWindowHeight)
 	}
@@ -89,6 +76,25 @@ func (a *App) newFile() {
 	a.welcomeNote = ""
 	a.showWelcome = false
 	a.saveConfig()
+}
+
+// untitledName is what the next untitled document is called: the first
+// of "Untitled", "Untitled-1" and so on no other has.
+func (a *App) untitledName() string {
+	name := "Untitled"
+	for n := 1; ; n++ {
+		used := false
+		for _, d := range a.docs {
+			if d.untitled && d.name == name {
+				used = true
+				break
+			}
+		}
+		if !used {
+			return name
+		}
+		name = fmt.Sprintf("Untitled-%d", n)
+	}
 }
 
 func (a *App) newFileError(msg string) {

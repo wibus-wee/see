@@ -34,9 +34,11 @@ type windows struct {
 func (w *windows) sync(from window) {
 	a := w.a
 	// A folder or an open file makes the main window, with or without the
-	// welcome window over it. Otherwise closing the welcome window leaves
-	// the app with no window up, as Xcode does, rather than an empty one.
-	wantMain := a.root != "" || len(a.docs) > 0
+	// welcome window over it; a folderless window keeps it for what it
+	// still shows, as `see --diff` tabs and untitled documents.
+	// Otherwise closing the welcome window leaves the app with no window
+	// up, as Xcode does, rather than an empty one.
+	wantMain := a.root != "" || len(a.docs) > 0 || a.hasTabs()
 	wantWelcome := a.showWelcome
 	// Show before hiding, so that the app always has a window up while it
 	// switches from one to the other.

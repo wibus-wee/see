@@ -53,6 +53,7 @@ func Main() {
 		varSetMenu     func()
 		createProject  func(string)
 		openProject    func(string) *projectWindow
+		forceNewWindow bool // openProject skips reusing a window for its folder
 		revealOpenFile func(*App, string) bool
 		openFromSystem func(string)
 		pendingOpen    []string
@@ -151,7 +152,7 @@ func Main() {
 		openProject = func(path string) *projectWindow {
 			a.showWelcome = false
 			wins.sync(nil)
-			if path != "" {
+			if path != "" && !forceNewWindow {
 				if root, err := workspace.CanonicalRoot(path); err == nil {
 					for _, p := range projects {
 						if p.app.root == root {
@@ -343,13 +344,29 @@ func Main() {
 		// open, else to the first window while it has no folder, else to
 		// a window of its own.
 		mygo.App.OnSecondInstance(func(args []string, wd string) {
-			path, ok := cli.OpenPath(args, wd)
+			req, ok := cli.OpenRequest(args, wd)
 			if !ok {
 				win.Update(wins.reopen)
 				return
 			}
 			win.Update(func() {
-				if p := projectHolding(projects, path); p != nil {
+				switch {
+				case req.Diff[0] != "", req.Stdin:
+					// A diff and a document of piped input are the window's
+					// own, as a plain path is while it has no folder.
+					p := primary
+					if req.NewWindow || a.root != "" {
+						p = openProject("")
+					}
+					p.app.revealRequest(req)
+					wins.sync(nil)
+					p.win.Show()
+					p.win.Focus()
+					p.win.Update(func() {})
+					return
+				}
+				path := req.Path
+				if p := projectHolding(projects, path); p != nil && !req.NewWindow {
 					p.app.revealCLIPath(path)
 					wins.sync(nil)
 					p.win.Show()
@@ -357,14 +374,17 @@ func Main() {
 					p.win.Update(func() {}) // draws the file
 					return
 				}
-				if a.root == "" {
+				if a.root == "" && !req.NewWindow {
 					a.openCLIPath(path)
 					wins.sync(nil)
 					win.Focus()
 					return
 				}
 				dir, file := cli.Split(path)
-				if p := openProject(dir); file != "" {
+				forceNewWindow = req.NewWindow
+				p := openProject(dir)
+				forceNewWindow = false
+				if file != "" {
 					p.app.revealCLIPath(file)
 					p.win.Update(func() {})
 				}
@@ -420,10 +440,16 @@ func Main() {
 		// last folder when the user asked for it at launch.
 		a.showWelcome = true // until a folder opens
 		defer wins.sync(nil)
-		cliPath, fromCLI := cli.OpenPath(os.Args[1:], "")
+		req, fromCLI := cli.OpenRequest(os.Args[1:], "")
 		switch {
+		case fromCLI && req.Diff[0] != "", fromCLI && req.Stdin:
+			// A diff and a document of piped input open in the primary
+			// window, which a launch has no folder in yet.
+			a.openRequest(req)
 		case fromCLI:
-			a.openCLIPath(cliPath)
+			// The primary window is the first; it takes the path as its
+			// own — only an invocation while the app runs needs another.
+			a.openCLIPath(req.Path)
 		case cfg.LastWorkspace != "" && cfg.ReopenLast:
 			if _, err := os.Stat(cfg.LastWorkspace); err != nil {
 				a.welcomeNote = "The last folder, " + cfg.LastWorkspace + ", is no longer there."

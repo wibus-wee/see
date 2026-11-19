@@ -87,7 +87,7 @@ func (a *App) tabFile(g *group, tab string) string {
 		return tabPath(tab)
 	}
 	v := g.diffs[tab]
-	if v == nil || v.page() || a.git.root == "" {
+	if v == nil || v.page() || v.cli || a.git.root == "" {
 		return ""
 	}
 	return workspace.DocPath(a.root, a.realRoot, filepath.Join(a.git.root, filepath.FromSlash(v.name)))
@@ -141,6 +141,18 @@ func (n *layout) find(g *group) *layout {
 
 // groups lists the groups, left to right and top to bottom.
 func (a *App) groups() []*group { return a.layout.leaves(nil) }
+
+// hasTabs is whether any group has a tab open — a document, a diff, or
+// another kind. A folderless window that shows only `see --diff` tabs
+// has no documents, and the main window would hide without this.
+func (a *App) hasTabs() bool {
+	for _, g := range a.groups() {
+		if len(g.order) > 0 {
+			return true
+		}
+	}
+	return false
+}
 
 func (a *App) newGroup() *group {
 	a.nextGroup++
@@ -473,7 +485,7 @@ func (a *App) closeTab(g *group, path string) {
 		}
 	}
 	a.releaseIfUnused(docPath)
-	if a.root == "" && len(a.docs) == 0 {
+	if a.root == "" && len(a.docs) == 0 && !a.hasTabs() {
 		a.host.SetTitle("See")
 	}
 	if len(g.order) == 0 && len(a.groups()) > 1 {

@@ -65,8 +65,10 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 			d := a.docs[path]
 			diff := g.diffs[p]
 			if diff != nil {
-				path = filepath.Join(a.git.root, diff.name)
 				d = &doc{name: filepath.Base(diff.name)}
+				if !diff.cli && a.git.root != "" {
+					path = filepath.Join(a.git.root, diff.name)
+				}
 			}
 			if d == nil {
 				continue
