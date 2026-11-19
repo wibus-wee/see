@@ -29,6 +29,7 @@ var commandMessages = map[string]string{
 	"Toggle Minimap":                "commandToggleMinimap",
 
 	"Show Problems":              "commandShowProblems",
+	"Show Quick Help":            "commandShowQuickHelp",
 	"Show Outline":               "commandShowOutline",
 	"Show Bookmarks":             "commandShowBookmarks",
 	"Toggle Bookmark":            "commandToggleBookmark",
@@ -99,6 +100,7 @@ var commandMessages = map[string]string{
 	"Peek Definition":       "commandPeekDefinition",
 	"Go to Implementation":  "commandGoToImplementation",
 	"Go to Type Definition": "commandGoToTypeDefinition",
+	"Edit All in Scope":     "commandEditAllInScope",
 	"Select Last Tab":       "commandSelectLastTab",
 }
 

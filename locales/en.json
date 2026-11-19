@@ -89,6 +89,13 @@
   "gitLogNoRevision": "No revision ",
 
   "commandShowProblems": "Show Problems",
+  "commandShowQuickHelp": "Show Quick Help",
+  "quickHelp": "Quick Help",
+  "quickHelpDeclaration": "Declaration",
+  "quickHelpSummary": "Summary",
+  "quickHelpDiscussion": "Discussion",
+  "quickHelpDeclaredIn": "Declared In",
+  "navigate": "Navigate",
   "filterProblems": "Filter Problems",
   "problemsOpenFiles": "Diagnostics from open files",
   "noProblemsOpenFiles": "No problems in open files",
@@ -687,5 +694,13 @@
   "showMinimap": "Show minimap",
   "minimapDescription": "Show a scaled overview of the file beside the editor, as Xcode does.",
   "commandToggleMinimap": "Toggle Minimap",
-  "notifyTerminalBell": "Terminal bell"
+  "notifyTerminalBell": "Terminal bell",
+  "commandEditAllInScope": "Edit All in Scope",
+  "scopeEditSourceOnly": "Open an editable source file to edit identifiers in scope.",
+  "scopeEditIdentifier": "Place the cursor on an identifier to edit its occurrences.",
+  "scopeEditUnsupported": "The language server does not support semantic highlights.",
+  "scopeEditEmpty": "No semantic occurrences were found for this identifier.",
+  "scopeEditFailed": "Could not find semantic occurrences: {error}",
+  "scopeEditSearching": "Finding semantic occurrences… · Esc to cancel",
+  "scopeEditActive": "{count, plural, one {Editing # occurrence · Esc to finish} other {Editing # occurrences · Esc to finish}}"
 }

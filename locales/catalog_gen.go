@@ -924,6 +924,76 @@ func (msgs Messages) CommandShowProblems() string {
 	return Catalog.Format(msgs.locale, "commandShowProblems", nil)
 }
 
+// CommandShowQuickHelp says "Show Quick Help"
+// in the language the app shows.
+func CommandShowQuickHelp() string { return In(i18n.Locale()).CommandShowQuickHelp() }
+
+// CommandShowQuickHelp says "Show Quick Help"
+// in the language of msgs.
+func (msgs Messages) CommandShowQuickHelp() string {
+	return Catalog.Format(msgs.locale, "commandShowQuickHelp", nil)
+}
+
+// QuickHelp says "Quick Help"
+// in the language the app shows.
+func QuickHelp() string { return In(i18n.Locale()).QuickHelp() }
+
+// QuickHelp says "Quick Help"
+// in the language of msgs.
+func (msgs Messages) QuickHelp() string {
+	return Catalog.Format(msgs.locale, "quickHelp", nil)
+}
+
+// QuickHelpDeclaration says "Declaration"
+// in the language the app shows.
+func QuickHelpDeclaration() string { return In(i18n.Locale()).QuickHelpDeclaration() }
+
+// QuickHelpDeclaration says "Declaration"
+// in the language of msgs.
+func (msgs Messages) QuickHelpDeclaration() string {
+	return Catalog.Format(msgs.locale, "quickHelpDeclaration", nil)
+}
+
+// QuickHelpSummary says "Summary"
+// in the language the app shows.
+func QuickHelpSummary() string { return In(i18n.Locale()).QuickHelpSummary() }
+
+// QuickHelpSummary says "Summary"
+// in the language of msgs.
+func (msgs Messages) QuickHelpSummary() string {
+	return Catalog.Format(msgs.locale, "quickHelpSummary", nil)
+}
+
+// QuickHelpDiscussion says "Discussion"
+// in the language the app shows.
+func QuickHelpDiscussion() string { return In(i18n.Locale()).QuickHelpDiscussion() }
+
+// QuickHelpDiscussion says "Discussion"
+// in the language of msgs.
+func (msgs Messages) QuickHelpDiscussion() string {
+	return Catalog.Format(msgs.locale, "quickHelpDiscussion", nil)
+}
+
+// QuickHelpDeclaredIn says "Declared In"
+// in the language the app shows.
+func QuickHelpDeclaredIn() string { return In(i18n.Locale()).QuickHelpDeclaredIn() }
+
+// QuickHelpDeclaredIn says "Declared In"
+// in the language of msgs.
+func (msgs Messages) QuickHelpDeclaredIn() string {
+	return Catalog.Format(msgs.locale, "quickHelpDeclaredIn", nil)
+}
+
+// Navigate says "Navigate"
+// in the language the app shows.
+func Navigate() string { return In(i18n.Locale()).Navigate() }
+
+// Navigate says "Navigate"
+// in the language of msgs.
+func (msgs Messages) Navigate() string {
+	return Catalog.Format(msgs.locale, "navigate", nil)
+}
+
 // FilterProblems says "Filter Problems"
 // in the language the app shows.
 func FilterProblems() string { return In(i18n.Locale()).FilterProblems() }
@@ -6944,4 +7014,84 @@ func NotifyTerminalBell() string { return In(i18n.Locale()).NotifyTerminalBell()
 // in the language of msgs.
 func (msgs Messages) NotifyTerminalBell() string {
 	return Catalog.Format(msgs.locale, "notifyTerminalBell", nil)
+}
+
+// CommandEditAllInScope says "Edit All in Scope"
+// in the language the app shows.
+func CommandEditAllInScope() string { return In(i18n.Locale()).CommandEditAllInScope() }
+
+// CommandEditAllInScope says "Edit All in Scope"
+// in the language of msgs.
+func (msgs Messages) CommandEditAllInScope() string {
+	return Catalog.Format(msgs.locale, "commandEditAllInScope", nil)
+}
+
+// ScopeEditSourceOnly says "Open an editable source file to edit identifiers in scope."
+// in the language the app shows.
+func ScopeEditSourceOnly() string { return In(i18n.Locale()).ScopeEditSourceOnly() }
+
+// ScopeEditSourceOnly says "Open an editable source file to edit identifiers in scope."
+// in the language of msgs.
+func (msgs Messages) ScopeEditSourceOnly() string {
+	return Catalog.Format(msgs.locale, "scopeEditSourceOnly", nil)
+}
+
+// ScopeEditIdentifier says "Place the cursor on an identifier to edit its occurrences."
+// in the language the app shows.
+func ScopeEditIdentifier() string { return In(i18n.Locale()).ScopeEditIdentifier() }
+
+// ScopeEditIdentifier says "Place the cursor on an identifier to edit its occurrences."
+// in the language of msgs.
+func (msgs Messages) ScopeEditIdentifier() string {
+	return Catalog.Format(msgs.locale, "scopeEditIdentifier", nil)
+}
+
+// ScopeEditUnsupported says "The language server does not support semantic highlights."
+// in the language the app shows.
+func ScopeEditUnsupported() string { return In(i18n.Locale()).ScopeEditUnsupported() }
+
+// ScopeEditUnsupported says "The language server does not support semantic highlights."
+// in the language of msgs.
+func (msgs Messages) ScopeEditUnsupported() string {
+	return Catalog.Format(msgs.locale, "scopeEditUnsupported", nil)
+}
+
+// ScopeEditEmpty says "No semantic occurrences were found for this identifier."
+// in the language the app shows.
+func ScopeEditEmpty() string { return In(i18n.Locale()).ScopeEditEmpty() }
+
+// ScopeEditEmpty says "No semantic occurrences were found for this identifier."
+// in the language of msgs.
+func (msgs Messages) ScopeEditEmpty() string {
+	return Catalog.Format(msgs.locale, "scopeEditEmpty", nil)
+}
+
+// ScopeEditFailed says "Could not find semantic occurrences: {error}"
+// in the language the app shows.
+func ScopeEditFailed(error string) string { return In(i18n.Locale()).ScopeEditFailed(error) }
+
+// ScopeEditFailed says "Could not find semantic occurrences: {error}"
+// in the language of msgs.
+func (msgs Messages) ScopeEditFailed(error string) string {
+	return Catalog.Format(msgs.locale, "scopeEditFailed", map[string]any{"error": error})
+}
+
+// ScopeEditSearching says "Finding semantic occurrences… · Esc to cancel"
+// in the language the app shows.
+func ScopeEditSearching() string { return In(i18n.Locale()).ScopeEditSearching() }
+
+// ScopeEditSearching says "Finding semantic occurrences… · Esc to cancel"
+// in the language of msgs.
+func (msgs Messages) ScopeEditSearching() string {
+	return Catalog.Format(msgs.locale, "scopeEditSearching", nil)
+}
+
+// ScopeEditActive says "{count, plural, one {Editing # occurrence · Esc to finish} other {Editing # occurrences · Esc to finish}}"
+// in the language the app shows.
+func ScopeEditActive(count int) string { return In(i18n.Locale()).ScopeEditActive(count) }
+
+// ScopeEditActive says "{count, plural, one {Editing # occurrence · Esc to finish} other {Editing # occurrences · Esc to finish}}"
+// in the language of msgs.
+func (msgs Messages) ScopeEditActive(count int) string {
+	return Catalog.Format(msgs.locale, "scopeEditActive", map[string]any{"count": count})
 }

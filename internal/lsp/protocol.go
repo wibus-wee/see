@@ -20,6 +20,12 @@ type Range struct {
 	End   Position `json:"end"`
 }
 
+// DocumentHighlight is an occurrence of a symbol in the current document.
+type DocumentHighlight struct {
+	Range Range `json:"range"`
+	Kind  int   `json:"kind,omitempty"`
+}
+
 // Location is a range of a document named by its URI.
 type Diagnostic struct {
 	Range    Range  `json:"range"`
@@ -110,12 +116,13 @@ const (
 // serverCapabilities holds the parts of the server's capabilities the
 // client reads.
 type serverCapabilities struct {
-	PositionEncoding       string          `json:"positionEncoding"`
-	TextDocumentSync       json.RawMessage `json:"textDocumentSync"`
-	DefinitionProvider     json.RawMessage `json:"definitionProvider"`
-	ImplementationProvider json.RawMessage `json:"implementationProvider"`
-	TypeDefinitionProvider json.RawMessage `json:"typeDefinitionProvider"`
-	DiagnosticProvider     json.RawMessage `json:"diagnosticProvider"`
+	PositionEncoding          string          `json:"positionEncoding"`
+	TextDocumentSync          json.RawMessage `json:"textDocumentSync"`
+	DefinitionProvider        json.RawMessage `json:"definitionProvider"`
+	DocumentHighlightProvider json.RawMessage `json:"documentHighlightProvider"`
+	ImplementationProvider    json.RawMessage `json:"implementationProvider"`
+	TypeDefinitionProvider    json.RawMessage `json:"typeDefinitionProvider"`
+	DiagnosticProvider        json.RawMessage `json:"diagnosticProvider"`
 }
 
 // syncKind reads textDocumentSync, a number or TextDocumentSyncOptions,
@@ -145,6 +152,11 @@ func (s serverCapabilities) syncKind() (kind int, openClose bool) {
 
 func (s serverCapabilities) hasDefinition() bool {
 	raw := bytes.TrimSpace(s.DefinitionProvider)
+	return len(raw) > 0 && !bytes.Equal(raw, []byte("false")) && !bytes.Equal(raw, []byte("null"))
+}
+
+func (s serverCapabilities) hasDocumentHighlights() bool {
+	raw := bytes.TrimSpace(s.DocumentHighlightProvider)
 	return len(raw) > 0 && !bytes.Equal(raw, []byte("false")) && !bytes.Equal(raw, []byte("null"))
 }
 

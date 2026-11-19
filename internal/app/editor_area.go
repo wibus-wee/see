@@ -274,6 +274,9 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 				{locales.Close(), func() { a.closeTab(g, g.active) }},
 			})
 		}
+		if status := a.scopeEditStatus(st); status != "" {
+			ui.Text(c, status).FontSize(11).TextColor(colors(c).Muted).Padding(6, 12).FillWidth().Background(colors(c).TabBar)
+		}
 		if d.plain || d.lossy {
 			msg := "Large file: syntax highlighting is off."
 			if d.lossy {
@@ -396,7 +399,12 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 			}
 		}
 		origin := ui.Point{X: bounds.X, Y: bounds.Y}
-		st.OnInput = func(ev ui.InputEvent) bool { return a.changeBarInput(g, d, st, origin, ev) }
+		st.OnInput = func(ev ui.InputEvent) bool {
+			if a.changeBarInput(g, d, st, origin, ev) {
+				return true
+			}
+			return a.quickHelpEditorInput(g, d, st, ev)
+		}
 		if peek := a.git.peek; peek != nil && peek.doc == d && peek.group == g {
 			a.editorPeek(c, bounds, st, peek.line, d.name+" — Git changes", "Close Change Preview", diffHeight(st, peek.diff), func() { a.git.peek = nil }, func() {
 				ui.Scroll(c).Grow(1).FillWidth().TrackScroll(&peek.scroll).Label(locales.MsgGitChangePreview()).Children(func() {

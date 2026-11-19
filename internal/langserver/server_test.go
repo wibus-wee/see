@@ -13,7 +13,10 @@ import (
 )
 
 type fakeClient struct {
-	noDefinition bool
+	noDefinition  bool
+	changeStarted chan struct{}
+	releaseChange <-chan struct{}
+	changeErr     error
 
 	mu    sync.Mutex
 	calls []string
@@ -38,7 +41,14 @@ func (c *fakeClient) DidOpen(uri, language string, version int, text string) err
 	return c.record("open " + language + " " + text)
 }
 func (c *fakeClient) DidChange(uri string, version int, text string) error {
-	return c.record("change " + text)
+	if c.changeStarted != nil {
+		close(c.changeStarted)
+		<-c.releaseChange
+	}
+	if err := c.record("change " + text); err != nil {
+		return err
+	}
+	return c.changeErr
 }
 func (c *fakeClient) DidClose(uri string) error { return c.record("close") }
 func (c *fakeClient) Definition(context.Context, string, lsp.Position) ([]lsp.Location, error) {
@@ -169,6 +179,69 @@ func TestSyncOpensThenChangesInOrder(t *testing.T) {
 	want := []string{"open txt a", "change ab", "close", "open txt ab"}
 	if got := fc.got(); len(got) != len(want) || got[0] != want[0] || got[1] != want[1] || got[2] != want[2] || got[3] != want[3] {
 		t.Fatalf("calls %q, want %q", got, want)
+	}
+}
+
+func TestQueueSyncWaitsForInFlightChange(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		err  error
+	}{
+		{name: "success"},
+		{name: "error", err: errors.New("change failed")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			changeStarted := make(chan struct{})
+			releaseChange := make(chan struct{})
+			var releaseOnce sync.Once
+			release := func() { releaseOnce.Do(func() { close(releaseChange) }) }
+
+			fc := &fakeClient{
+				changeStarted: changeStarted,
+				releaseChange: releaseChange,
+				changeErr:     tc.err,
+			}
+			s := New(Options{Start: serving(fc, new(int))})
+			defer s.StopWait(time.Second)
+			defer release()
+			ctx := context.Background()
+			client, err := s.Get(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			buf := editor.NewBuffer("a")
+			const docURI = "file:///w/a.txt"
+			if err := s.Sync(ctx, client, docURI, buf.Snapshot()); err != nil {
+				t.Fatal(err)
+			}
+			buf.Set("ab")
+			s.Changed(docURI, buf.Snapshot())
+			select {
+			case <-changeStarted:
+			case <-time.After(time.Second):
+				t.Fatal("DidChange did not start")
+			}
+
+			s.mu.Lock()
+			wait := s.queueSync(client, docURI, buf.Snapshot())
+			s.mu.Unlock()
+			select {
+			case <-wait.done:
+				t.Fatalf("same-version Sync returned before the queued DidChange completed: %v", wait.err)
+			default:
+			}
+
+			release()
+			select {
+			case <-wait.done:
+				err := wait.err
+				if !errors.Is(err, tc.err) {
+					t.Fatalf("Sync error = %v, want %v", err, tc.err)
+				}
+			case <-time.After(time.Second):
+				t.Fatal("Sync did not finish after DidChange was released")
+			}
+		})
 	}
 }
 

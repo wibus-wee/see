@@ -137,12 +137,13 @@ type fakeServer struct {
 	mu  sync.Mutex
 	got []string // methods received, in order
 
-	documentSymbols  func(params json.RawMessage) string
-	definition       func(params json.RawMessage) string // raw result
-	navigation       func(method string, params json.RawMessage) string
-	initializeParams json.RawMessage
-	caps             string
-	replies          chan json.RawMessage // results of our requests to the client
+	documentSymbols    func(params json.RawMessage) string
+	documentHighlights func(params json.RawMessage) string
+	definition         func(params json.RawMessage) string // raw result
+	navigation         func(method string, params json.RawMessage) string
+	initializeParams   json.RawMessage
+	caps               string
+	replies            chan json.RawMessage // results of our requests to the client
 }
 
 func newFake(t *testing.T) (*fakeServer, io.Reader, io.WriteCloser) {
@@ -205,6 +206,12 @@ func (f *fakeServer) serve() {
 				reply("null")
 			} else {
 				reply(f.documentSymbols(m.Params))
+			}
+		case "textDocument/documentHighlight":
+			if f.documentHighlights == nil {
+				reply("null")
+			} else {
+				reply(f.documentHighlights(m.Params))
 			}
 		case "textDocument/definition":
 			if f.definition == nil {

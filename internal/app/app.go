@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 	"see/internal/languages"
 	"see/locales"
 	"slices"
@@ -62,15 +63,20 @@ type App struct {
 	git      gitState
 
 	// Documents, by path, and the editor groups showing them.
-	docs             map[string]*doc
-	layout           *layout
-	recents          []string // the files activated lately, across groups, most recent last
-	focus            *group
-	focusGroupTarget *group
-	nextGroup        int
-	focusEditor      *editor.State // an editor to give the keyboard to
-	focusImage       string        // an image preview to give the keyboard to once loaded
-	closed           []closedTab   // tabs Reopen Closed Tab can bring back, most recent last
+	docs              map[string]*doc
+	layout            *layout
+	recents           []string // the files activated lately, across groups, most recent last
+	focus             *group
+	focusGroupTarget  *group
+	nextGroup         int
+	focusEditor       *editor.State // an editor to give the keyboard to
+	focusImage        string        // an image preview to give the keyboard to once loaded
+	closed            []closedTab   // tabs Reopen Closed Tab can bring back, most recent last
+	quickHelp         *editor.State
+	quickHelpBounds   ui.Rect
+	quickHelpRendered bool
+	quickHelpRequest  *editor.State
+	quickHelpSeq      uint64
 
 	// Navigation.
 	hist                nav.History
@@ -80,6 +86,14 @@ type App struct {
 	finding             bool // a navigation request is on its way
 	findingLabel        string
 	navigationMenuState [4]bool
+	scopeSeq            uint64
+	scopeCancel         context.CancelFunc
+	scopePendingState   *editor.State
+	scopePendingGroup   *group
+	scopePendingPath    string
+	scopeModeState      *editor.State
+	scopeModeGroup      *group
+	scopeModePath       string
 	choices             *defChoices // several definitions to choose from
 	counterpartMiss     counterpartFeedback
 	peek                *peekState // a definition peeked at from an editor
@@ -1185,9 +1199,17 @@ func (a *App) newEditor(g *group, d *doc) *editor.State {
 			a.showFileHistory(d.path)
 		}
 		a.linkItems(menu, d, st)
+		menu.Separator()
+		_, _, mods, key := editAllScopeShortcut(runtime.GOOS)
+		item := menu.Item(commandLabel("Edit All in Scope")).Disabled(!a.scopeEditCommandEnabled(g, d, st)).Shortcut(mods, key)
+		if item.Chosen() {
+			a.editAllInScopeFor(g, d, st)
+		}
 	}
 	st.OnHover = func(r editor.HoverRequest) { a.hoverAt(d, st, r) }
-	st.RenderHover = a.renderHover
+	st.RenderHover = func(c *ui.Context, panel ui.Element, h *editor.HoverCard) {
+		a.renderHover(st, c, panel, h)
+	}
 	return st
 }
 

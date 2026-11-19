@@ -76,6 +76,9 @@ func (a *App) commandEnabled(name string) bool {
 	switch name {
 	case "Reopen Closed Tab":
 		return len(a.closed) > 0
+	case "Edit All in Scope":
+		d, st := a.scopeEditDocument()
+		return d != nil && st != nil && a.serverFor(d.path) != nil
 	case "Go to Implementation":
 		return a.activeEditor() != nil && a.navigationEnabled(a.activePath(), "implementation")
 	case "Go to Type Definition":
