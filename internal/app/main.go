@@ -181,7 +181,7 @@ func Main() {
 			})
 			p := &projectWindow{app: child, win: childWin}
 			projects = append(projects, p)
-			child.post = platform.SchedulerFunc(func(fn func()) { childWin.Update(fn) })
+			child.post.set(platform.SchedulerFunc(func(fn func()) { childWin.Update(fn) }))
 			host := newWindowHost(child, childWin)
 			host.own, host.welcomeSized = true, path == ""
 			if host.welcomeSized {
@@ -285,7 +285,7 @@ func Main() {
 		}
 		pendingOpen = nil
 
-		a.post = platform.SchedulerFunc(func(fn func()) { win.Update(func() { fn(); wins.sync(nil) }) })
+		a.post.set(platform.SchedulerFunc(func(fn func()) { win.Update(func() { fn(); wins.sync(nil) }) }))
 		if ready := shellpath.Ready(); ready != nil {
 			go func() {
 				<-ready

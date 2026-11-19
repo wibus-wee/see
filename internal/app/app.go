@@ -16,6 +16,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -35,11 +36,48 @@ import (
 	"see/internal/platform"
 )
 
+// poster routes work to the UI thread through a Scheduler that may be
+// swapped after the app starts: main binds it to a window once the window
+// exists, and tests redirect it to watch posts. The atomic load keeps
+// Post safe when a swap races a background goroutine's read; a goroutine
+// may still post once through the scheduler it already loaded.
+type poster struct {
+	s atomic.Pointer[platform.Scheduler]
+}
+
+func newPoster(s platform.Scheduler) *poster {
+	p := &poster{}
+	p.set(s)
+	return p
+}
+
+// Post hands fn to the current scheduler.
+func (p *poster) Post(fn func()) {
+	if s := p.load(); s != nil {
+		s.Post(fn)
+		return
+	}
+	fn()
+}
+
+func (p *poster) set(s platform.Scheduler) { p.s.Store(&s) }
+
+// load returns the current scheduler, or nil when none was ever set.
+func (p *poster) load() platform.Scheduler {
+	if p == nil {
+		return nil
+	}
+	if s := p.s.Load(); s != nil {
+		return *s
+	}
+	return nil
+}
+
 // App is the reader's state. It lives on the UI thread: background work
 // hands its results back through post, which runs them there.
 type App struct {
-	post         platform.Scheduler // runs fn on the UI thread, then redraws
-	host         platform.Desktop   // the window and the desktop around it
+	post         *poster          // runs fn on the UI thread, then redraws
+	host         platform.Desktop // the window and the desktop around it
 	windowWidth  int
 	windowHeight int
 	startLSP     func(logf func(string, ...any)) langserver.Starter
@@ -298,7 +336,7 @@ func newApp(cfg *config.Config) *App {
 		cfg:                   cfg,
 		docs:                  map[string]*doc{},
 		dirs:                  map[string]*dirState{},
-		post:                  platform.SchedulerFunc(func(fn func()) { fn() }),
+		post:                  newPoster(platform.SchedulerFunc(func(fn func()) { fn() })),
 		host:                  platform.NoDesktop{},
 		startLSP:              languages.StartGopls,
 		logf:                  log.Printf,
