@@ -85,7 +85,14 @@ func blameDate(t time.Time) string {
 
 func (a *App) editorInlays(d *doc, st *editor.State) []editor.Inlay {
 	inlays := append([]editor.Inlay(nil), d.languageInlays...)
-	if b, ok := a.lineBlame(d, st); ok && !a.cfg.HideInlineBlame {
+	cursorDiagnostic := false
+	for _, diagnostic := range a.inlineDiagnostics(d) {
+		line := diagnostic.line
+		offset := d.buf.Offset(editor.Pos{Line: line, Col: len(d.buf.Line(line))})
+		inlays = append(inlays, editor.Inlay{Offset: offset, Text: "    " + diagnostic.message, Trailing: true, Ellipsis: "…"})
+		cursorDiagnostic = cursorDiagnostic || line == st.CursorPos().Line
+	}
+	if b, ok := a.lineBlame(d, st); ok && !a.cfg.HideInlineBlame && !cursorDiagnostic {
 		line := st.CursorPos().Line
 		offset := d.buf.Offset(editor.Pos{Line: line, Col: len(d.buf.Line(line))})
 		inlays = append(inlays, editor.Inlay{Offset: offset, Text: "    " + blameInlineText(b), Trailing: true, Ellipsis: "…"})
