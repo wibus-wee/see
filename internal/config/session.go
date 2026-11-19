@@ -19,6 +19,9 @@ type Workspace struct {
 	Terminals      []TermTab `json:"terminals,omitempty"`
 	PanelOpen      bool      `json:"panelOpen,omitempty"`
 	ActiveTerminal int       `json:"activeTerminal,omitempty"`
+	// Bookmarks are the waypoints the workspace keeps, in the order the
+	// user marked them.
+	Bookmarks []Bookmark `json:"bookmarks,omitempty"`
 }
 
 // TermTab is a terminal tab of the bottom panel: shells side by side.
@@ -32,6 +35,13 @@ type TermTab struct {
 type TermPane struct {
 	Dir   string `json:"dir,omitempty"`
 	Title string `json:"title,omitempty"`
+}
+
+// Bookmark is a line of a file the workspace remembers: a path as the
+// app's documents are keyed, and a line from 0.
+type Bookmark struct {
+	Path string `json:"path"`
+	Line int    `json:"line"`
 }
 
 // WorkspaceSize is the window size a workspace remembers, or the default

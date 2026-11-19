@@ -27,6 +27,10 @@ var commandMessages = map[string]string{
 
 	"Show Problems":              "commandShowProblems",
 	"Show Outline":               "commandShowOutline",
+	"Show Bookmarks":             "commandShowBookmarks",
+	"Toggle Bookmark":            "commandToggleBookmark",
+	"Remove Bookmark":            "commandRemoveBookmark",
+	"Clear Bookmarks":            "commandClearBookmarks",
 	"Show Document Items":        "commandShowDocumentItems",
 	"Show Group Files":           "commandShowGroupFiles",
 	"Next Counterpart":           "commandNextCounterpart",

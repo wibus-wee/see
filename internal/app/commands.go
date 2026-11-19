@@ -50,6 +50,8 @@ func commands() []command {
 			a.sidebarOff, a.navigator, a.find.focus, a.find.showReplace = false, navFind, true, true
 		}},
 		{"Show Outline", "", "", 0, 0, func(a *App) { a.sidebarOff, a.navigator = false, navOutline }},
+		{"Show Bookmarks", "", "", 0, 0, func(a *App) { a.sidebarOff, a.navigator = false, navBookmarks }},
+		{"Toggle Bookmark", "Alt+Cmd+", "K", ui.Alt | ui.Cmd, ui.KeyK, func(a *App) { a.toggleBookmark() }},
 		{"Show Document Items", docItemsLabel, docItemsKeyName, docItemsMods, docItemsKey, func(a *App) { a.focus.jumpSymbols = true }},
 		{"Show Group Files", groupFilesLabel, groupFilesKeyName, groupFilesMods, groupFilesKey, func(a *App) { a.focus.jumpFiles = true }},
 		{"Next Counterpart", counterpartLabel, "↓", counterpartMods, ui.KeyDown, func(a *App) { a.switchCounterpart(1) }},

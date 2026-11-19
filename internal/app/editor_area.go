@@ -295,6 +295,10 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 		st.SetInlays(a.editorInlays(d, st))
 		backgrounds := st.LineBackgrounds
 		st.LineBackgrounds = a.diagnosticLineBackgrounds(d, st)
+		st.LineBackgrounds = append(st.LineBackgrounds, bookmarkLineBackgrounds(a.bookmarkedLines(d.path), st.Theme)...)
+		gutterMarks := st.GutterMarks
+		st.GutterMarks = a.bookmarkGutterMarks(d.path)
+		st.OnGutterClick = func(line int) { a.bookmarks.Toggle(d.path, line); a.saveConfigSoon() }
 		var ed ui.Element
 		minimap := a.showsMinimap(g, d)
 		ui.Row(c).Grow(1).FillWidth().Children(func() {
@@ -306,6 +310,8 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 			}
 		})
 		st.LineBackgrounds = backgrounds
+		st.GutterMarks = gutterMarks
+		st.OnGutterClick = nil
 		if row := ed.LayoutBounds().W; row > 0 {
 			m := g.minimapOf(d.path)
 			m.room = row

@@ -57,6 +57,8 @@ func symbolName(icon *ui.SVG) string {
 		return "arrow.triangle.branch"
 	case icCollapse:
 		return "rectangle.compress.vertical"
+	case icBookmark:
+		return "bookmark"
 	case icMarkdown:
 		return "doc.richtext"
 	case icRelated:

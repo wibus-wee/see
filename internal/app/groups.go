@@ -22,7 +22,7 @@ type group struct {
 	order           []string // the tabs, left to right
 	mru             []string // most recently active last
 	active          string
-	cycle           []string      // the Ctrl+Tab walk left to do: tabs by recency, active first
+	cycle           []string     // the Ctrl+Tab walk left to do: tabs by recency, active first
 	cycleMod        ui.Modifiers // the modifier the walk began under; letting it go lands the walk
 	cycleActive     bool         // Ctrl+Tab is walking cycle: activating does not touch mru
 	preview         string
