@@ -104,6 +104,13 @@ func (s *Server) Status() (State, error) {
 	return s.state, s.err
 }
 
+// Current returns the initialized client without starting the server.
+func (s *Server) Current() Client {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.client
+}
+
 func (s *Server) setState(st State, err error) {
 	s.state, s.err = st, err
 	if s.o.OnState != nil {

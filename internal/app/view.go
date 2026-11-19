@@ -44,6 +44,7 @@ func editorBindings() []editor.Binding {
 		none(ui.Ctrl, ui.KeyTab),
 		none(ui.Ctrl|ui.Shift, ui.KeyTab),
 		none(ui.Ctrl, ui.KeyMinus),
+		none(ui.Cmd, ui.KeyF12),
 		none(ui.Ctrl|ui.Shift, ui.KeyMinus),
 	}
 	for k := ui.Key1; k <= ui.Key9; k++ {
@@ -64,6 +65,7 @@ var startTime = time.Now()
 var startTrace = os.Getenv("SEE_TRACE_STARTUP") != ""
 
 func (a *App) view(c *ui.Context) {
+	defer a.refreshNavigationMenu()
 	if startTrace {
 		startTrace = false
 		a.logf("startup: first frame built %v after process start", time.Since(startTime).Round(time.Millisecond))

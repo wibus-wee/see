@@ -60,11 +60,13 @@ var commandMessages = map[string]string{
 	"Keep Preview Tab":           "commandKeepPreviewTab",
 	"Shell Command: Install 'see' Command in PATH":     "commandShellCommandInstallSeeCommandInPath",
 	"Shell Command: Uninstall 'see' Command from PATH": "commandShellCommandUninstallSeeCommandFromPath",
-	"Find in File":     "commandFindInFile",
-	"Find References":  "commandFindReferences",
-	"Find Callers":     "commandFindCallers",
-	"Go to Definition": "commandGoToDefinition",
-	"Select Last Tab":  "commandSelectLastTab",
+	"Find in File":          "commandFindInFile",
+	"Find References":       "commandFindReferences",
+	"Find Callers":          "commandFindCallers",
+	"Go to Definition":      "commandGoToDefinition",
+	"Go to Implementation":  "commandGoToImplementation",
+	"Go to Type Definition": "commandGoToTypeDefinition",
+	"Select Last Tab":       "commandSelectLastTab",
 }
 
 func commandLabel(name string) string {

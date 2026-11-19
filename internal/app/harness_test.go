@@ -153,13 +153,16 @@ func (h *harness) open(rel string) *doc {
 }
 
 type fakeClient struct {
-	mu       sync.Mutex
-	enc      string
-	startErr error
-	def      func(ctx context.Context, uri string, pos lsp.Position) ([]lsp.Location, error)
-	hover    func(ctx context.Context, uri string, pos lsp.Position) (string, *lsp.Range, error)
-	log      []string
-	shutdown bool
+	mu             sync.Mutex
+	enc            string
+	startErr       error
+	def            func(ctx context.Context, uri string, pos lsp.Position) ([]lsp.Location, error)
+	implementation func(context.Context, string, lsp.Position) ([]lsp.Location, error)
+	typeDefinition func(context.Context, string, lsp.Position) ([]lsp.Location, error)
+	noNavigation   bool
+	hover          func(ctx context.Context, uri string, pos lsp.Position) (string, *lsp.Range, error)
+	log            []string
+	shutdown       bool
 }
 
 func (f *fakeClient) record(s string) {
@@ -174,8 +177,24 @@ func (f *fakeClient) calls() []string {
 	return slices.Clone(f.log)
 }
 
-func (f *fakeClient) Encoding() string    { return f.enc }
-func (f *fakeClient) HasDefinition() bool { return true }
+func (f *fakeClient) Encoding() string        { return f.enc }
+func (f *fakeClient) HasDefinition() bool     { return true }
+func (f *fakeClient) HasImplementation() bool { return !f.noNavigation }
+func (f *fakeClient) HasTypeDefinition() bool { return !f.noNavigation }
+func (f *fakeClient) Implementation(ctx context.Context, uri string, pos lsp.Position) ([]lsp.Location, error) {
+	f.record("implementation")
+	if f.implementation == nil {
+		return nil, nil
+	}
+	return f.implementation(ctx, uri, pos)
+}
+func (f *fakeClient) TypeDefinition(ctx context.Context, uri string, pos lsp.Position) ([]lsp.Location, error) {
+	f.record("typeDefinition")
+	if f.typeDefinition == nil {
+		return nil, nil
+	}
+	return f.typeDefinition(ctx, uri, pos)
+}
 func (f *fakeClient) DidOpen(uri, lang string, v int, text string) error {
 	f.record("open " + filepath.Base(uri))
 	return nil

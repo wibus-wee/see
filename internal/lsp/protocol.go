@@ -110,10 +110,12 @@ const (
 // serverCapabilities holds the parts of the server's capabilities the
 // client reads.
 type serverCapabilities struct {
-	PositionEncoding   string          `json:"positionEncoding"`
-	TextDocumentSync   json.RawMessage `json:"textDocumentSync"`
-	DefinitionProvider json.RawMessage `json:"definitionProvider"`
-	DiagnosticProvider json.RawMessage `json:"diagnosticProvider"`
+	PositionEncoding       string          `json:"positionEncoding"`
+	TextDocumentSync       json.RawMessage `json:"textDocumentSync"`
+	DefinitionProvider     json.RawMessage `json:"definitionProvider"`
+	ImplementationProvider json.RawMessage `json:"implementationProvider"`
+	TypeDefinitionProvider json.RawMessage `json:"typeDefinitionProvider"`
+	DiagnosticProvider     json.RawMessage `json:"diagnosticProvider"`
 }
 
 // syncKind reads textDocumentSync, a number or TextDocumentSyncOptions,

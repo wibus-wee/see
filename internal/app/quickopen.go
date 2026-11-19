@@ -115,7 +115,14 @@ func (a *App) quickRow(c *ui.Context, i int) {
 		return
 	}
 	if strings.HasPrefix(q.query, ">") || strings.HasPrefix(q.query, ":") {
-		row := ui.Row(c.Key(r.Path)).FillWidth().Padding(8).Gap(8).Radius(8).AlignItems(ui.Center)
+		enabled := true
+		for _, cmd := range commands() {
+			if commandLabel(cmd.name) == r.Path {
+				enabled = a.commandEnabled(cmd.name)
+				break
+			}
+		}
+		row := ui.Row(c.Key(r.Path)).FillWidth().Padding(8).Gap(8).Radius(8).AlignItems(ui.Center).Disabled(!enabled)
 		if i == q.sel {
 			row.Background(c.Theme().Accent)
 		}

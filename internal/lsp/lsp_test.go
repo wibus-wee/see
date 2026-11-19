@@ -137,10 +137,12 @@ type fakeServer struct {
 	mu  sync.Mutex
 	got []string // methods received, in order
 
-	documentSymbols func(params json.RawMessage) string
-	definition      func(params json.RawMessage) string // raw result
-	caps            string
-	replies         chan json.RawMessage // results of our requests to the client
+	documentSymbols  func(params json.RawMessage) string
+	definition       func(params json.RawMessage) string // raw result
+	navigation       func(method string, params json.RawMessage) string
+	initializeParams json.RawMessage
+	caps             string
+	replies          chan json.RawMessage // results of our requests to the client
 }
 
 func newFake(t *testing.T) (*fakeServer, io.Reader, io.WriteCloser) {
@@ -190,6 +192,7 @@ func (f *fakeServer) serve() {
 		}
 		switch m.Method {
 		case "initialize":
+			f.initializeParams = m.Params
 			// Interleave garbage, a notification and a request of the
 			// server's before answering: none may stall the client.
 			f.send(`{not json`)
@@ -209,6 +212,8 @@ func (f *fakeServer) serve() {
 			} else if r := f.definition(m.Params); r != "" {
 				reply(r)
 			}
+		case "textDocument/implementation", "textDocument/typeDefinition":
+			reply(f.navigation(m.Method, m.Params))
 		case "shutdown":
 			reply("null")
 		case "exit":

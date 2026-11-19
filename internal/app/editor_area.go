@@ -381,6 +381,9 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 			if ch.title == "definitions" {
 				closeLabel = "Close Definitions Preview"
 			}
+			if ch.navigation != "" {
+				closeLabel = navigationText(ch.navigation, "Close")
+			}
 			a.editorPeek(c, bounds, st, ch.from.Line, fmt.Sprintf("%d %s", len(ch.locs), ch.title), closeLabel, 264, func() { a.choices = nil }, func() { a.relatedView(c, ch) })
 		}
 		line := d.buf.Line(pos.Line)

@@ -24,6 +24,7 @@ func TestRealGopls(t *testing.T) {
 		"go.mod": "module example.com/w\n\ngo 1.21\n",
 		"a.go":   "package main\n\nimport \"example.com/w/b\"\n\nfunc main() {\n\t_ = \"🎉中\"; b.Größe名字()\n}\n",
 		"b/b.go": "package b\n\n// Größe名字 is 🎉.\nvar _ = \"😀\"; func Größe名字() {}\n",
+		"c.go":   "package main\n\ntype Speaker interface { Speak() }\ntype Person struct{}\nfunc (Person) Speak() {}\nvar person Person\n",
 	})
 	h := newHarness(t, root)
 	h.a.startLSP = languages.StartGopls // the real one, found through SEE_GOPLS
@@ -60,5 +61,19 @@ func TestRealGopls(t *testing.T) {
 	h.settle(func() bool { return h.a.activePath() == filepath.Join(root, "a.go") && h.a.activeEditor() != nil })
 	if h.a.activeEditor().Cursor() != off {
 		t.Fatalf("Go Back cursor=%v want %+v", h.a.activeEditor().CursorPos(), from.buf.Pos(off))
+	}
+	for _, step := range []struct{ kind, source, target string }{
+		{"implementation", "Speak() }", "Speak() {}"},
+		{"typeDefinition", "person Person", "Person struct"},
+	} {
+		d := h.open("c.go")
+		offset := strings.Index(d.buf.String(), step.source)
+		want := strings.Index(d.buf.String(), step.target)
+		h.a.activeEditor().GoTo(d.buf.Pos(offset))
+		h.a.goToLocation(h.a.focus, d, offset, step.kind)
+		h.settle(func() bool { return !h.a.finding })
+		if h.a.activeEditor().Cursor() != want {
+			t.Fatalf("%s cursor=%v want byte offset %d; notice=%s", step.kind, h.a.activeEditor().CursorPos(), want, h.a.notice)
+		}
 	}
 }

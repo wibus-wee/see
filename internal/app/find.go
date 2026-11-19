@@ -473,7 +473,9 @@ func (a *App) chooseQuick(i int) {
 	if strings.HasPrefix(q.query, ">") {
 		for _, cmd := range commands() {
 			if commandLabel(cmd.name) == p {
-				cmd.run(a)
+				if a.commandEnabled(cmd.name) {
+					cmd.run(a)
+				}
 				return
 			}
 		}

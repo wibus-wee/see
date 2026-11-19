@@ -385,10 +385,11 @@ func Main() {
 			currentApp, currentWin := current.app, current.win
 			mygo.App.SetMenu(mygo.NewMenu([]*mygo.MenuItem{
 				appMenu(currentApp), currentApp.fileMenu(currentWin.Update), {Role: mygo.RoleEditMenu},
-				{Label: locales.View(), Submenu: []*mygo.MenuItem{
+				{Label: locales.View(), Submenu: append(append([]*mygo.MenuItem{
 					{Label: locales.CommandPalette(), Click: func(*mygo.MenuItem, *mygo.Window) { currentWin.Update(currentApp.openPalette) }},
+				}, currentApp.navigationMenuItems(currentWin.Update)...), []*mygo.MenuItem{
 					{Label: locales.Appearance(), Submenu: appearanceMenu(currentApp)},
-				}}, {Role: mygo.RoleWindowMenu},
+				}...)}, {Role: mygo.RoleWindowMenu},
 			}))
 			mygo.App.Dock.SetMenu(mygo.NewMenu(dockRecentItems(cfg.Recent, func(path string) {
 				win.Update(func() {

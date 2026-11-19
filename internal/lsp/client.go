@@ -36,6 +36,8 @@ type Client struct {
 	sync            int
 	openNote        bool
 	defs            bool
+	implementations bool
+	typeDefinitions bool
 	pullDiagnostics bool
 	diagMu          sync.Mutex
 	onDiagnostics   func(string, *int, []Diagnostic)
@@ -149,6 +151,9 @@ func (c *Client) Encoding() string { return c.encoding }
 // HasDefinition reports whether the server answers definition requests.
 func (c *Client) HasDefinition() bool { return c.defs }
 
+func (c *Client) HasImplementation() bool { return c.implementations }
+func (c *Client) HasTypeDefinition() bool { return c.typeDefinitions }
+
 // WorkspaceSymbols searches declarations across the workspace.
 type WorkspaceSymbol struct {
 	Name     string   `json:"name"`
@@ -188,6 +193,8 @@ func (c *Client) initialize(ctx context.Context) error {
 				"references":      map[string]any{"dynamicRegistration": false},
 				"callHierarchy":   map[string]any{"dynamicRegistration": false},
 				"definition":      map[string]any{"linkSupport": true, "dynamicRegistration": false},
+				"implementation":  map[string]any{"linkSupport": true, "dynamicRegistration": false},
+				"typeDefinition":  map[string]any{"linkSupport": true, "dynamicRegistration": false},
 				"hover":           map[string]any{"contentFormat": []string{"markdown", "plaintext"}, "dynamicRegistration": false},
 			},
 			"workspace": map[string]any{
@@ -209,6 +216,8 @@ func (c *Client) initialize(ctx context.Context) error {
 	c.encoding = NegotiatedEncoding(res.Capabilities.PositionEncoding)
 	c.sync, c.openNote = res.Capabilities.syncKind()
 	c.defs = res.Capabilities.hasDefinition()
+	c.implementations = (serverCapabilities{DefinitionProvider: res.Capabilities.ImplementationProvider}).hasDefinition()
+	c.typeDefinitions = (serverCapabilities{DefinitionProvider: res.Capabilities.TypeDefinitionProvider}).hasDefinition()
 	c.pullDiagnostics = len(res.Capabilities.DiagnosticProvider) > 0 && string(res.Capabilities.DiagnosticProvider) != "null" && string(res.Capabilities.DiagnosticProvider) != "false"
 	return c.conn.Notify("initialized", map[string]any{})
 }
@@ -247,8 +256,20 @@ func (c *Client) DidClose(uri string) error {
 
 // Definition asks where the symbol at pos of the document is defined.
 func (c *Client) Definition(ctx context.Context, uri string, pos Position) ([]Location, error) {
+	return c.locations(ctx, "textDocument/definition", uri, pos)
+}
+
+func (c *Client) Implementation(ctx context.Context, uri string, pos Position) ([]Location, error) {
+	return c.locations(ctx, "textDocument/implementation", uri, pos)
+}
+
+func (c *Client) TypeDefinition(ctx context.Context, uri string, pos Position) ([]Location, error) {
+	return c.locations(ctx, "textDocument/typeDefinition", uri, pos)
+}
+
+func (c *Client) locations(ctx context.Context, method, uri string, pos Position) ([]Location, error) {
 	var raw json.RawMessage
-	err := c.conn.Call(ctx, "textDocument/definition", map[string]any{
+	err := c.conn.Call(ctx, method, map[string]any{
 		"textDocument": map[string]any{"uri": uri},
 		"position":     pos,
 	}, &raw)

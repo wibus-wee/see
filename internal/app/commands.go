@@ -113,6 +113,8 @@ func commands() []command {
 				st.OnDefinition(st.Buffer.Offset(st.CursorPos()))
 			}
 		}},
+		command{"Go to Implementation", "Cmd+", "F12", ui.Cmd, ui.KeyF12, func(a *App) { a.navigateActive("implementation") }},
+		command{"Go to Type Definition", "", "", 0, 0, func(a *App) { a.navigateActive("typeDefinition") }},
 	)
 	for n := 1; n <= 9; n++ {
 		label := fmt.Sprintf("Select Tab %d", n)

@@ -70,12 +70,13 @@ type App struct {
 	focusImage       string        // an image preview to give the keyboard to once loaded
 
 	// Navigation.
-	hist         nav.History
-	navSeq       uint64 // bumped by every navigation the user asks for
-	navCancel    context.CancelFunc
-	finding      bool // a navigation request is on its way
-	findingLabel string
-	choices      *defChoices // several definitions to choose from
+	hist                nav.History
+	navSeq              uint64 // bumped by every navigation the user asks for
+	navCancel           context.CancelFunc
+	finding             bool // a navigation request is on its way
+	findingLabel        string
+	navigationMenuState [3]bool
+	choices             *defChoices // several definitions to choose from
 
 	lsp            *langserver.Server
 	cmakeLSP       *langserver.Server
@@ -213,6 +214,7 @@ type defChoices struct {
 	enc           string
 	locs          []target
 	title         string
+	navigation    string
 	selected      int
 	previewEditor *editor.State
 	previewPath   string
@@ -1063,6 +1065,15 @@ func (a *App) newEditor(g *group, d *doc) *editor.State {
 	st.OnDefinition = func(offset int) { a.goToDefinition(g, d, offset) }
 	a.loadGitBase(d)
 	st.ContextMenu = func(menu *ui.Menu) {
+		for _, kind := range []string{"implementation", "typeDefinition"} {
+			item := menu.Item(commandLabel(navigationCommand(kind))).Disabled(!a.navigationEnabled(d.path, kind))
+			if kind == "implementation" {
+				item.Shortcut(ui.Cmd, ui.KeyF12)
+			}
+			if item.Chosen() {
+				a.goToLocation(g, d, st.Buffer.Offset(st.CursorPos()), kind)
+			}
+		}
 		if menu.Item("Find References").Shortcut(ui.Shift, ui.KeyF12).Chosen() {
 			a.focus = g
 			a.findUsagesAt(false, g.pointerAnchor, g.pointerInEditor)
@@ -1212,6 +1223,10 @@ func (a *App) cycleTab(dir int) {
 // and goes there, in g. Only the latest navigation the user asked for
 // wins: a response to an older one is dropped.
 func (a *App) goToDefinition(g *group, d *doc, offset int) {
+	a.goToLocation(g, d, offset, "definition")
+}
+
+func (a *App) goToLocation(g *group, d *doc, offset int, kind string) {
 	if d.buf == nil {
 		return
 	}
@@ -1223,7 +1238,7 @@ func (a *App) goToDefinition(g *group, d *doc, offset int) {
 	}
 	if !a.cfg.IsTrusted(a.root) {
 		a.trustAsk = true
-		a.afterTrust = func() { a.goToDefinition(g, d, offset) }
+		a.afterTrust = func() { a.goToLocation(g, d, offset, kind) }
 		return
 	}
 	a.cancelNav()
@@ -1237,10 +1252,13 @@ func (a *App) goToDefinition(g *group, d *doc, offset int) {
 	a.navCancel = cancel
 	a.finding = true
 	a.findingLabel = "Finding definition…"
+	if kind != "definition" {
+		a.findingLabel = navigationText(kind, "Finding")
+	}
 	a.notice = ""
 	go func() {
 		defer cancel()
-		locs, enc, err := definition(ctx, m, d.uri, snap, pos, line)
+		locs, enc, err := locationRequest(ctx, m, d.uri, snap, pos, line, kind)
 		targets, skipped := targetsOf(locs)
 		a.post.Post(func() {
 			if a.gen != gen || a.navSeq != seq {
@@ -1248,7 +1266,7 @@ func (a *App) goToDefinition(g *group, d *doc, offset int) {
 			}
 			a.finding = false
 			a.navCancel = nil
-			a.definitionFound(g, from, targets, enc, skipped, err)
+			a.locationFound(g, from, targets, enc, skipped, err, kind)
 		})
 	}()
 }
@@ -1266,30 +1284,62 @@ func targetsOf(locs []lsp.Location) (targets []target, skipped int) {
 }
 
 func definition(ctx context.Context, m *langserver.Server, docURI string, snap editor.Snapshot, pos editor.Pos, line string) ([]lsp.Location, string, error) {
+	return locationRequest(ctx, m, docURI, snap, pos, line, "definition")
+}
+
+func locationRequest(ctx context.Context, m *langserver.Server, docURI string, snap editor.Snapshot, pos editor.Pos, line, kind string) ([]lsp.Location, string, error) {
 	c, err := m.Get(ctx)
 	if err != nil {
 		return nil, "", err
+	}
+	if !supportsNavigation(c, kind) {
+		return nil, "", errors.New(navigationText(kind, "Unsupported"))
 	}
 	if err := m.Sync(ctx, c, docURI, snap); err != nil {
 		return nil, "", err
 	}
 	enc := c.Encoding()
-	locs, err := c.Definition(ctx, docURI, lsp.Position{Line: pos.Line, Character: lsp.ColumnToLSP(line, pos.Col, enc)})
+	position := lsp.Position{Line: pos.Line, Character: lsp.ColumnToLSP(line, pos.Col, enc)}
+	var locs []lsp.Location
+	switch kind {
+	case "implementation":
+		locs, err = c.(implementationClient).Implementation(ctx, docURI, position)
+	case "typeDefinition":
+		locs, err = c.(typeDefinitionClient).TypeDefinition(ctx, docURI, position)
+	default:
+		locs, err = c.Definition(ctx, docURI, position)
+	}
 	return locs, enc, err
 }
 
 func (a *App) definitionFound(g *group, from nav.Entry, targets []target, enc string, skipped int, err error) {
+	a.locationFound(g, from, targets, enc, skipped, err, "definition")
+}
+
+func (a *App) locationFound(g *group, from nav.Entry, targets []target, enc string, skipped int, err error, kind string) {
 	switch {
 	case err != nil:
 		a.lspFailure(err)
 	case len(targets) == 0 && skipped > 0:
+		if kind != "definition" {
+			a.note(navigationText(kind, "Unavailable"), false)
+			return
+		}
 		a.note(locales.MsgTheDefinitionIsInAPlaceThatIs(), false)
 	case len(targets) == 0:
+		if kind != "definition" {
+			a.note(navigationText(kind, "Empty"), false)
+			return
+		}
 		a.note(locales.MsgNoDefinitionFound(), false)
 	case len(targets) == 1:
 		a.jump(g, from, targets[0], enc)
 	default:
 		a.choices = &defChoices{g: g, from: from, enc: enc, locs: targets, title: "definitions"}
+		if kind != "definition" {
+			a.choices.title = navigationText(kind, "Results")
+			a.choices.navigation = kind
+		}
 		a.git.peek = nil
 		a.loadRelatedPreviews(a.choices)
 	}
@@ -1613,6 +1663,9 @@ func (a *App) selectRelated(ch *defChoices, index int) {
 		label := "Reference code preview"
 		if ch.title == "definitions" {
 			label = "Definition code preview"
+		}
+		if ch.navigation != "" {
+			label = navigationText(ch.navigation, "Preview")
 		}
 		ch.previewEditor = &editor.State{Buffer: buf, ReadOnly: true, Label: label, Theme: a.edTheme}
 		a.applyEditorPrefs(ch.previewEditor)
