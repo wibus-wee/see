@@ -29,6 +29,8 @@ var commandMessages = map[string]string{
 	"Show Outline":               "commandShowOutline",
 	"Show Document Items":        "commandShowDocumentItems",
 	"Show Group Files":           "commandShowGroupFiles",
+	"Next Counterpart":           "commandNextCounterpart",
+	"Previous Counterpart":       "commandPreviousCounterpart",
 	"Search File Symbols":        "commandSearchFileSymbols",
 	"Go: Build Workspace":        "commandGoBuild",
 	"Go: Test Workspace":         "commandGoTest",

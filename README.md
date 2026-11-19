@@ -88,6 +88,8 @@ See caches unsaved text for open files so it can restore edits after an unexpect
 
 Use **Ctrl+G** or **Go to Line** in the command palette, then enter `:42` or `:42:8` to jump within the current text buffer. Line and column numbers start at 1; columns count UTF-8 bytes. Positions beyond the buffer are clamped. **Go Back** returns to the previous position.
 
+Use **Next Counterpart** or **Previous Counterpart** to cycle through related files in the same folder, such as `server.go` and `server_test.go` or `Widget.h` and `Widget.mm`. The shortcuts are **Ctrl+Cmd+↓/↑** on macOS and **Ctrl+Shift+↓/↑** on Windows and Linux. To choose a file directly, open **Related Items → Counterparts** in the jump bar.
+
 ### Markdown preview
 
 For a Markdown file, use the preview button in the editor bar or **Cmd+Shift+V** to open a preview tab, and drag that tab to an editor edge to read it beside the source. The preview uses the current buffer, so unsaved edits show up in it.
