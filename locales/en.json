@@ -622,5 +622,9 @@
   "badEncodingTitle": "{name} is not UTF-8 text",
   "badEncodingDetail": "Its text uses another encoding, or it is not text.",
   "showReplacement": "Show with Replacement Characters",
-  "terminalUnavailable": "The terminal is not available"
+  "terminalUnavailable": "The terminal is not available",
+  "minimapLabel": "Minimap",
+  "showMinimap": "Show minimap",
+  "minimapDescription": "Show a scaled overview of the file beside the editor, as Xcode does.",
+  "commandToggleMinimap": "Toggle Minimap"
 }

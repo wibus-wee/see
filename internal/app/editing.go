@@ -429,6 +429,7 @@ func (a *App) saveUntitled(d *doc, done func(bool)) {
 						}
 						if st := g.eds[old]; st != nil {
 							delete(g.eds, old)
+							delete(g.minimaps, old)
 							g.eds[path] = st
 							st.Label = d.name
 						}
