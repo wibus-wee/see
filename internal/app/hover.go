@@ -193,14 +193,17 @@ func (a *App) hideLink() {
 // popover colors and a subtle elevation.
 func (a *App) renderHover(st *editor.State, c *ui.Context, panel ui.Element, h *editor.HoverCard) {
 	editor.DefaultHover(c, panel, h)
-	width := float32(620)
 	if a.quickHelp == st {
 		a.quickHelpRendered = true
-		width = 500
 		a.quickHelpBounds = panel.LayoutBounds()
+		panel.Label(quickHelpText("quickHelp"))
+		panel.Width(500).MaxWidth(500).MaxWidthPercent(100).
+			Shadow(0, 2, 8, 0, ui.RGBA(0, 0, 0, 0.1))
+	} else {
+		panel.MaxWidth(620).
+			Shadow(0, 3, 12, 0, ui.RGBA(0, 0, 0, 0.14))
 	}
-	panel.Radius(8).MaxWidth(width).Background(colors(c).Popover).Border(1, colors(c).PopoverEdge).
-		Shadow(0, 3, 12, 0, ui.RGBA(0, 0, 0, 0.14))
+	panel.Radius(8).Background(colors(c).Popover).Border(1, colors(c).PopoverEdge)
 }
 
 type quickHelpSections struct {
@@ -414,24 +417,37 @@ func (a *App) quickHelpAt(g *group, d *doc, st *editor.State, offset int) {
 
 func quickHelpContent(c *ui.Context, md string, declared *target, open func(), root string) {
 	sections := splitQuickHelp(md)
-	ui.Scroll(c).MaxWidth(480).MaxHeight(400).Shrink(1).Label(quickHelpText("quickHelp")).Children(func() {
-		ui.Column(c).FillWidth().Padding(13).Gap(9).Children(func() {
-			first := true
+	ui.Scroll(c).Width(480).MaxWidthPercent(100).MaxHeight(400).Shrink(1).Children(func() {
+		ui.Column(c).FillWidth().Padding(16).Gap(12).Children(func() {
 			render := func(label, body string) {
 				if body == "" {
 					return
 				}
-				if !first {
-					ui.Box(c).FillWidth().Height(1).Background(colors(c).Separator)
-				}
-				first = false
 				ui.Column(c).FillWidth().Gap(5).Children(func() {
-					ui.Text(c, quickHelpText(label)).FontSize(10).TextColor(colors(c).Muted).SingleLine()
+					ui.Text(c, quickHelpText(label)).FontSize(12).FontWeight(600).TextColor(colors(c).Muted).SingleLine()
 					markdown.View(c, body, nil)
 				})
 			}
-			render("quickHelpDeclaration", sections.declaration)
 			render("quickHelpSummary", sections.summary)
+			if sections.declaration != "" {
+				markdown.View(c, sections.declaration, &markdown.Options{
+					CodeBlock: func(c *ui.Context, b *markdown.CodeBlockView) {
+						th := markdown.DefaultTheme(c.Theme())
+						ui.Column(c).FillWidth().Gap(4).Children(func() {
+							ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(8).Children(func() {
+								ui.Text(c, quickHelpText("quickHelpDeclaration")).FontSize(12).
+									FontWeight(600).TextColor(colors(c).Muted).SingleLine()
+								ui.Spacer(c)
+								b.CopyButton(c)
+							})
+							ui.Column(c).FillWidth().Background(th.CodeBlockBackground).
+								Border(1, th.CodeBlockBorder).Radius(th.CodeBlockRadius).Clip().Children(func() {
+								b.Body(c)
+							})
+						})
+					},
+				})
+			}
 			render("quickHelpDiscussion", sections.discussion)
 			if declared != nil {
 				path := declared.path
@@ -441,11 +457,9 @@ func quickHelpContent(c *ui.Context, md string, declared *target, open func(), r
 					path = filepath.Base(path)
 				}
 				line := fmt.Sprintf("%s:%d", filepath.ToSlash(path), declared.pos.Line+1)
-				if !first {
-					ui.Box(c).FillWidth().Height(1).Background(colors(c).Separator)
-				}
 				ui.Column(c).FillWidth().Gap(5).Children(func() {
-					ui.Text(c, quickHelpText("quickHelpDeclaredIn")).FontSize(10).TextColor(colors(c).Muted).SingleLine()
+					ui.Text(c, quickHelpText("quickHelpDeclaredIn")).FontSize(12).FontWeight(600).
+						TextColor(colors(c).Muted).SingleLine()
 					ui.Row(c).FillWidth().Cursor(ui.CursorPointer).Tooltip(declared.path).OnClick(open).Children(func() {
 						ui.Text(c, line).FontSize(12).TextColor(c.Theme().Accent).SingleLine()
 					})

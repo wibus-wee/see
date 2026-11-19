@@ -338,6 +338,38 @@ func TestQuickHelpCommandPaletteMouseEscapeRestoresEditor(t *testing.T) {
 	}
 }
 
+func TestQuickHelpWidthUsesNominalSizeAndFitsViewport(t *testing.T) {
+	h, d, offset := quickHelpHarness(t)
+	h.fc.hover = func(context.Context, string, lsp.Position) (string, *lsp.Range, error) {
+		return "```go\nfunc helper() int\n```\n\nShort summary.\n\nBrief discussion.", nil, nil
+	}
+	st := h.a.activeEditor()
+	st.GoTo(d.buf.Pos(offset + 2))
+	h.tt.Frame()
+	h.a.showQuickHelpAtCaret()
+	waitForQuickHelp(t, h, st, "Summary")
+
+	wide, ok := h.tt.Find("Quick Help")
+	if !ok || wide.W < 480 || wide.W > 500 {
+		t.Fatalf("short Quick Help width = %g, found=%v; want about 500 DIP", wide.W, ok)
+	}
+	texts := strings.Join(h.tt.Texts(), "\n")
+	summary := strings.Index(texts, "Summary")
+	declaration := strings.Index(texts, "Declaration")
+	discussion := strings.Index(texts, "Discussion")
+	declaredIn := strings.Index(texts, "Declared In")
+	if summary < 0 || declaration <= summary || discussion <= declaration || declaredIn <= discussion {
+		t.Fatalf("Quick Help sections are out of order: %q", h.tt.Texts())
+	}
+
+	const smallViewportWidth = 320
+	h.tt.SetSize(smallViewportWidth, 400)
+	narrow, ok := h.tt.Find("Quick Help")
+	if !ok || narrow.W <= 0 || narrow.W > smallViewportWidth {
+		t.Fatalf("Quick Help width in %d-DIP viewport = %g, found=%v", smallViewportWidth, narrow.W, ok)
+	}
+}
+
 func TestQuickHelpDeclaredInJumpsToDefinition(t *testing.T) {
 	h, d, offset := quickHelpHarness(t)
 	st := h.a.activeEditor()
