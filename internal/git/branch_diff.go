@@ -1,10 +1,11 @@
 package git
 
 import (
-	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 )
 
@@ -84,15 +85,17 @@ func noIndexDiff(ctx context.Context, root, path string, options ...string) ([]b
 	args := append([]string{"diff", "--no-index", "--no-ext-diff", "--no-textconv", "--no-color"}, options...)
 	args = append(args, "--", os.DevNull, path)
 	// --no-index exits 1 when it has produced the requested difference.
-	out, err := Command(ctx, root, args...)
+	out, stderr, err := commandSeparateOutput(ctx, root, args...)
 	if err == nil {
 		return out, nil
 	}
-	if bytes.HasPrefix(out, []byte("diff --git ")) {
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) && exitErr.ExitCode() == 1 {
 		return out, nil
 	}
-	if len(ParseNumstat(out)) > 0 {
-		return out, nil
+	output := append(stderr, out...)
+	if len(output) > 0 {
+		return nil, fmt.Errorf("%v: %s", err, strings.TrimSpace(string(output)))
 	}
 	return nil, err
 }

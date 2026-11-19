@@ -43,6 +43,18 @@ func commandInput(ctx context.Context, dir string, input []byte, args ...string)
 	return out, nil
 }
 
+func commandSeparateOutput(ctx context.Context, dir string, args ...string) ([]byte, []byte, error) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	args = append([]string{"-c", "core.fsmonitor=false", "-C", dir}, args...)
+	cmd := proc.CommandContext(ctx, "git", args...)
+	cmd.Env = append(cmd.Environ(), "GIT_OPTIONAL_LOCKS=0", "GIT_TERMINAL_PROMPT=0", "GIT_PAGER=cat", "GIT_LITERAL_PATHSPECS=1")
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout, cmd.Stderr = &stdout, &stderr
+	err := cmd.Run()
+	return stdout.Bytes(), stderr.Bytes(), err
+}
+
 // Read returns the root of the repository holding dir, its branch (or
 // HEAD's short hash when detached) and its changes, untracked files among
 // them.

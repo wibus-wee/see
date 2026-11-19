@@ -237,13 +237,25 @@ func (a *App) branchPickerPanel(c *ui.Context) {
 		backdrop := ui.Box(c).Absolute().Top(0).Left(0).Right(0).Bottom(0)
 		backdrop.OnClick(func() { p.open = false })
 		left, top, width, height := max(p.at.X-8, 8), p.at.Y+p.at.H+6, float32(360), float32(440)
+		bottom, opensAbove := float32(0), false
 		if p.compare {
 			w, h := c.Size()
 			bounds := compareBranchPickerBounds(p.at, w, h)
 			left, top, width, height = bounds.X, bounds.Y, bounds.W, bounds.H
+			opensAbove = bounds.Y < p.at.Y
+			if opensAbove {
+				margin := min(float32(8), max(0, min(w, h)/2))
+				panelBottom := max(margin, min(p.at.Y-6, h-margin))
+				bottom = h - panelBottom
+			}
 		}
-		panel := ui.Column(c).Absolute().Left(left).Top(top).Width(width).MaxHeight(height).
-			Radius(12).Padding(6).Gap(4).Material(glass.Glass{}).Border(1, colors(c).PopoverEdge).
+		panel := ui.Column(c).Absolute().Left(left).Width(width).MaxHeight(height)
+		if opensAbove {
+			panel.Bottom(bottom)
+		} else {
+			panel.Top(top)
+		}
+		panel.Radius(12).Padding(6).Gap(4).Material(glass.Glass{}).Border(1, colors(c).PopoverEdge).
 			Shadow(0, 12, 36, 0, ui.RGBA(0, 0, 0, 0.35))
 		panel.OnClick(func() {})
 		panel.Children(func() {

@@ -99,6 +99,30 @@ func TestCompareBranchUsesMergeBaseAndWorkingTree(t *testing.T) {
 	}
 }
 
+func TestNoIndexDiffAcceptsExitStatusOneWithWarnings(t *testing.T) {
+	root, run := newRepo(t)
+	write(t, root, "untracked.txt", "untracked change\n")
+	run("config", "core.autocrlf", "true")
+	run("config", "core.safecrlf", "warn")
+
+	patch, err := noIndexDiff(context.Background(), root, "untracked.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(patch), "diff --git ") {
+		t.Fatalf("untracked patch = %q", patch)
+	}
+
+	numstat, err := noIndexDiff(context.Background(), root, "untracked.txt", "--numstat", "-z")
+	if err != nil {
+		t.Fatal(err)
+	}
+	files := ParseNumstat(numstat)
+	if len(files) != 1 || files[0].Path != "untracked.txt" || files[0].Added == 0 {
+		t.Fatalf("untracked numstat = %+v from %q", files, numstat)
+	}
+}
+
 func TestCompareBranchRejectsMissingAndUnrelatedRefs(t *testing.T) {
 	root, run := newRepo(t)
 	run("commit", "--allow-empty", "-qm", "shared")

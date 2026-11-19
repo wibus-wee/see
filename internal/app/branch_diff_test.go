@@ -335,6 +335,29 @@ func TestCompareBasePickerClampsToWindowEdges(t *testing.T) {
 	}
 }
 
+func TestCompareBasePickerAnchorsShortFilteredListToFooter(t *testing.T) {
+	root := gitRepo(t, map[string]string{"a.txt": "base\n"}, "base")
+	h := newHarness(t, root)
+	h.readGit()
+	anchor := ui.Rect{X: harnessWidth / 2, Y: harnessHeight - 36, W: 120, H: 26}
+	h.a.openBaseBranchPicker(anchor, nil)
+	h.settle(func() bool { return !h.a.git.picker.loading })
+	h.tt.Frame()
+	h.tt.Type("main")
+	h.tt.Frame()
+	if items := h.a.branchItems(); len(items) != 2 || items[1].branch == nil || items[1].branch.Name != "main" {
+		t.Fatalf("filtered comparison branches = %+v, want one main branch", h.a.branchItems())
+	}
+	list, ok := h.tt.Access("Branches")
+	if !ok {
+		t.Fatalf("filtered branch list is not visible: %v", h.tt.Texts())
+	}
+	gap := anchor.Y - 6 - (list.Bounds.Y + list.Bounds.H)
+	if gap < 0 || gap > 32 {
+		t.Fatalf("short picker list is not bottom-anchored to its control: gap %.1f, list %+v, anchor %+v", gap, list.Bounds, anchor)
+	}
+}
+
 func TestBranchDiffEmptyState(t *testing.T) {
 	root := gitRepo(t, map[string]string{"a.txt": "same\n"})
 	h := newHarness(t, root)
