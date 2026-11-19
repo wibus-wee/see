@@ -64,6 +64,7 @@ type App struct {
 	// Documents, by path, and the editor groups showing them.
 	docs             map[string]*doc
 	layout           *layout
+	recents          []string // the files activated lately, across groups, most recent last
 	focus            *group
 	focusGroupTarget *group
 	nextGroup        int
@@ -393,6 +394,7 @@ func (a *App) closeWorkspace() {
 		a.wsCancel()
 	}
 	a.cancelNav()
+	a.endTabCycle()
 	a.stopGoTask()
 	a.task = nil
 	a.taskList = ui.ListState{}
@@ -422,6 +424,7 @@ func (a *App) closeWorkspace() {
 	}
 	a.cmakeState, a.cmakeErr = langserver.Off, nil
 	a.root, a.realRoot = "", ""
+	a.recents = nil
 	a.dirs = map[string]*dirState{}
 	a.tree = ui.OutlineState[string]{}
 	a.treeRow = -1
@@ -1235,15 +1238,6 @@ func (a *App) activateTabNumber(n int) {
 	if i < len(g.order) {
 		a.userActivate(g.order[i])
 	}
-}
-
-func (a *App) cycleTab(dir int) {
-	g := a.focus
-	if len(g.order) < 2 {
-		return
-	}
-	i := slices.Index(g.order, g.active)
-	a.userActivate(g.order[(i+dir+len(g.order))%len(g.order)])
 }
 
 // goToDefinition asks the language server where the symbol at offset of d is defined

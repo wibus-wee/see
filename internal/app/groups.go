@@ -22,6 +22,9 @@ type group struct {
 	order           []string // the tabs, left to right
 	mru             []string // most recently active last
 	active          string
+	cycle           []string      // the Ctrl+Tab walk left to do: tabs by recency, active first
+	cycleMod        ui.Modifiers // the modifier the walk began under; letting it go lands the walk
+	cycleActive     bool         // Ctrl+Tab is walking cycle: activating does not touch mru
 	preview         string
 	eds             map[string]*editor.State
 	minimaps        map[string]*minimap
@@ -214,14 +217,128 @@ func (a *App) activateIn(g *group, path string) {
 	if !g.has(path) {
 		return
 	}
+	if g.cycleActive && !slices.Contains(g.cycle, path) {
+		a.endTabCycle() // something else activated: the walk is over
+	}
 	a.focus = g
 	g.active = path
-	g.mru = slices.DeleteFunc(g.mru, func(p string) bool { return p == path })
-	g.mru = append(g.mru, path)
+	if !g.cycleActive {
+		g.mru = slices.DeleteFunc(g.mru, func(p string) bool { return p == path })
+		g.mru = append(g.mru, path)
+		if !isDiffTab(path) && !isMarkdownTab(path) {
+			a.recents = slices.DeleteFunc(a.recents, func(p string) bool { return p == path })
+			a.recents = append(a.recents, path)
+			if len(a.recents) > maxRecents {
+				a.recents = slices.Delete(a.recents, 0, len(a.recents)-maxRecents)
+			}
+		}
+	}
 	if p := a.tabFile(g, path); p != "" {
 		a.revealInTree(p)
 	}
 	a.saveConfigSoon()
+}
+
+// maxRecents bounds the activated files recents keeps.
+const maxRecents = 60
+
+// endTabCycle lands the Ctrl+Tab walk: the tab it reached is the most
+// recent again, and the rest of the list keeps the order it had.
+func (a *App) endTabCycle() {
+	for _, g := range a.groups() {
+		if g.cycleActive {
+			a.landTabCycle(g)
+		}
+	}
+}
+
+// noteRecent lands a file in recents as endTabCycle's walk does: the
+// tab reached counts as the file active most lately.
+func (a *App) noteRecent(path string) {
+	if isDiffTab(path) || isMarkdownTab(path) {
+		return
+	}
+	a.recents = slices.DeleteFunc(a.recents, func(p string) bool { return p == path })
+	a.recents = append(a.recents, path)
+	if len(a.recents) > maxRecents {
+		a.recents = slices.Delete(a.recents, 0, len(a.recents)-maxRecents)
+	}
+}
+
+// settleTabCycles lands the walks whose modifier is no longer held.
+func (a *App) settleTabCycles() {
+	for _, g := range a.groups() {
+		if g.cycleActive && a.modifiers&g.cycleMod == 0 {
+			a.landTabCycle(g)
+		}
+	}
+}
+
+// landTabCycle ends g's walk: the tab it reached is the most recent
+// again, and the rest of the list keeps the order it had.
+func (a *App) landTabCycle(g *group) {
+	g.cycleActive = false
+	g.cycle, g.cycleMod = nil, 0
+	if g.active != "" {
+		g.mru = slices.DeleteFunc(g.mru, func(p string) bool { return p == g.active })
+		g.mru = append(g.mru, g.active)
+		a.noteRecent(g.active)
+	}
+}
+
+// cycleTab activates a tab of the focused group in most-recent order:
+// dir 1 back through the history, -1 back toward the latest. While Ctrl
+// is held the walk goes on, the active tab changing but mru not moving;
+// letting Ctrl go ends it, and the tab reached becomes the most recent.
+// A group without the two activations the walk needs cycles the tabs
+// left to right, as before.
+func (a *App) cycleTab(dir int) {
+	g := a.focus
+	if g == nil || len(g.order) < 2 {
+		return
+	}
+	if !g.cycleActive {
+		g.cycle = mruOrder(g)
+		if len(g.cycle) < 2 {
+			i := slices.Index(g.order, g.active)
+			a.userActivate(g.order[(i+dir+len(g.order))%len(g.order)])
+			return
+		}
+		g.cycleMod = a.modifiers & (ui.Ctrl | ui.Cmd)
+		g.cycleActive = true
+	}
+	// The walk moves dir through cycle, past tabs closed since it began.
+	i := slices.Index(g.cycle, g.active)
+	if i < 0 {
+		i = 0 // the active tab closed: the walk goes on from its start
+	}
+	for n := 0; n < len(g.cycle); n++ {
+		i = (i + dir + len(g.cycle)) % len(g.cycle)
+		if g.has(g.cycle[i]) {
+			if g.cycle[i] != g.active {
+				a.userActivate(g.cycle[i])
+			}
+			return
+		}
+	}
+}
+
+// mruOrder lists g's tabs most recently active first: mru back to
+// front, then any tab of order the history lost, as a session restored
+// before it tracked activations leaves.
+func mruOrder(g *group) []string {
+	out := make([]string, 0, len(g.order))
+	for i := len(g.mru) - 1; i >= 0; i-- {
+		if g.has(g.mru[i]) {
+			out = append(out, g.mru[i])
+		}
+	}
+	for _, tab := range g.order {
+		if !slices.Contains(out, tab) {
+			out = append(out, tab)
+		}
+	}
+	return out
 }
 
 // closeTab closes a tab of g. A document no group shows any more is let
@@ -251,6 +368,7 @@ func (a *App) closeTab(g *group, path string) {
 	}
 	g.order = slices.DeleteFunc(g.order, func(p string) bool { return p == path })
 	g.mru = slices.DeleteFunc(g.mru, func(p string) bool { return p == path })
+	g.cycle = slices.DeleteFunc(g.cycle, func(p string) bool { return p == path })
 	if !g.hasDocument(docPath) {
 		g.closeVideo(docPath)
 		delete(g.eds, docPath)
@@ -341,6 +459,7 @@ func (a *App) moveTab(from *group, path string, to *group, s side, at int) {
 		delete(from.diffs, path)
 		from.order = slices.DeleteFunc(from.order, func(p string) bool { return p == path })
 		from.mru = slices.DeleteFunc(from.mru, func(p string) bool { return p == path })
+		from.cycle = slices.DeleteFunc(from.cycle, func(p string) bool { return p == path })
 		if from.active == path {
 			from.active = ""
 			if n := len(from.mru); n > 0 {
@@ -361,6 +480,7 @@ func (a *App) moveTab(from *group, path string, to *group, s side, at int) {
 		}
 		from.order = slices.DeleteFunc(from.order, func(p string) bool { return p == path })
 		from.mru = slices.DeleteFunc(from.mru, func(p string) bool { return p == path })
+		from.cycle = slices.DeleteFunc(from.cycle, func(p string) bool { return p == path })
 		if !from.hasDocument(underlying) {
 			delete(from.eds, underlying)
 			delete(from.minimaps, underlying)
@@ -439,6 +559,7 @@ func (a *App) moveTab(from *group, path string, to *group, s side, at int) {
 	// Close it in from without letting the document go.
 	from.order = slices.DeleteFunc(from.order, func(p string) bool { return p == path })
 	from.mru = slices.DeleteFunc(from.mru, func(p string) bool { return p == path })
+	from.cycle = slices.DeleteFunc(from.cycle, func(p string) bool { return p == path })
 	if !from.hasDocument(path) {
 		delete(from.eds, path)
 	}
