@@ -131,6 +131,7 @@
   "inspectorCallers": "Callers",
   "inspectorReferences": "References",
   "inspectorImplementations": "Implementations",
+  "inspectorTabs": "Inspectors",
   "inspectorQuickHelpTip": "Quick Help Inspector",
   "inspectorFileTip": "File Inspector",
   "inspectorHistoryTip": "History Inspector",

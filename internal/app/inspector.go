@@ -8,6 +8,7 @@ import (
 	"see/internal/git"
 	"see/internal/workspace"
 
+	"github.com/egoist/mygo/plugins/glass"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -49,44 +50,74 @@ func (a *App) setInspectorTab(tab string) {
 	a.saveConfigSoon()
 }
 
-// inspectorTabs is the segmented strip over the pane's pages, as Xcode's
-// row of inspector icons.
-func (a *App) inspectorTabs(c *ui.Context) {
-	tabs := []struct {
-		icon *ui.SVG
-		id   string
-		tip  string
-	}{
-		{icPage, "file", inspectorText("inspectorFileTip")},
-		{icClock, "history", inspectorText("inspectorHistoryTip")},
-		{icQuestion, "quickhelp", inspectorText("inspectorQuickHelpTip")},
+// inspectorTabIdx is the strip's index of the page's name.
+func (a *App) inspectorTabIdx() int {
+	switch a.cfg.InspectorTab {
+	case "file":
+		return 0
+	case "history":
+		return 1
 	}
-	ui.Row(c).FillWidth().Height(33).Center().Shrink(0).
-		BorderWidth(0, 0, 1, 0).BorderColor(colors(c).Separator).Children(func() {
-		ui.Row(c).Border(1, colors(c).Separator).Radius(6).Clip().Children(func() {
-			for i, t := range tabs {
-				t := t
-				if i > 0 {
-					ui.Box(c).Width(1).FillHeight().Background(colors(c).Hairline).Shrink(0)
-				}
-				on := a.inspectorTab() == t.id
-				b := ui.ButtonBase(c).Label(t.tip).Tooltip(t.tip).Width(46).Height(22).KeepFocus()
-				switch {
-				case on:
-					b.Background(c.Theme().Accent.Alpha(0.16))
-				case b.Hovered():
-					b.Background(colors(c).Pill)
-				}
-				b.Children(func() {
+	return 2
+}
+
+// setInspectorTabIdx persists the strip's selection as its page's name.
+func (a *App) setInspectorTabIdx(i int) {
+	switch i {
+	case 0:
+		a.setInspectorTab("file")
+	case 1:
+		a.setInspectorTab("history")
+	default:
+		a.setInspectorTab("quickhelp")
+	}
+}
+
+// inspectorTabs switches the pane's pages, the same segmented control
+// the navigator bar uses, over a thumb that slides to the choice.
+func (a *App) inspectorTabs(c *ui.Context) {
+	t := c.Theme()
+	ui.Row(c).FillWidth().Padding(0, 10, 10, 10).Children(func() {
+		// The pane is narrow, so the three segments share the track
+		// equally; the thumb's pitch is the share the layout gives them.
+		const segGap = 2
+		// Row padding 10+10, track padding 3+3, two gaps between segments.
+		segW := (a.inspectorW() - 26 - 2*segGap) / 3
+		in := &a.inspector
+		in.tab = a.inspectorTabIdx()
+		parts := ui.SegmentedBase(c, &in.tab, 3)
+		parts.Track.FillWidth().Height(30).Padding(3).Gap(segGap).Radius(15).
+			Background(t.Text.Alpha(0.06)).Label(inspectorText("inspectorTabs"))
+		if c.Preferences().HighContrast {
+			parts.Track.Border(1, t.Border)
+		}
+		segments := []struct {
+			icon  *ui.SVG
+			label string
+		}{
+			{icPage, inspectorText("inspectorFileTip")},
+			{icClock, inspectorText("inspectorHistoryTip")},
+			{icQuestion, inspectorText("inspectorQuickHelpTip")},
+		}
+		at := parts.Track.AnimateTo("thumb", float32(in.tab), thumbSpring)
+		parts.Track.Children(func() {
+			ui.Box(c).Width(segW).Height(24).Radius(12).Shrink(0).MarginEnd(-(segW + segGap)).Start(at * (segW + segGap)).
+				Material(glass.Glass{Interactive: true}).PassThrough()
+			for i, s := range segments {
+				i, s := i, s
+				seg := parts.Segment(i).Grow(1).Height(24).Radius(12).Label(s.label).Tooltip(s.label)
+				seg.Children(func() {
 					color := colors(c).Muted
-					if on {
-						color = c.Theme().Accent
+					if i == in.tab {
+						color = colors(c).Text
 					}
-					ui.Box(c).Fill().Center().Children(func() { symbolIcon(c, t.icon, 12, color) })
+					symbolIcon(c, s.icon, 14, color)
 				})
-				b.OnClick(func() { a.setInspectorTab(t.id) })
 			}
 		})
+		if parts.Track.Changed() {
+			a.setInspectorTabIdx(in.tab)
+		}
 	})
 }
 

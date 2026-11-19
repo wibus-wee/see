@@ -52,7 +52,9 @@ type quickHelpInspector struct {
 	hasPending bool
 	timer      *time.Timer
 	scroll     ui.ScrollState
-	// fileScroll and history are the pane's other pages' state.
+	// tab is the strip's selected page; fileScroll and history are the
+	// other pages' state.
+	tab        int
 	fileScroll ui.ScrollState
 	history    inspectorFileHistory
 }
