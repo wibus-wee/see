@@ -4,7 +4,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"testing"
 )
@@ -160,11 +159,9 @@ func TestCloneRepoName(t *testing.T) {
 
 func TestExpandTilde(t *testing.T) {
 	home := t.TempDir()
-	homeEnv := "HOME"
-	if runtime.GOOS == "windows" {
-		homeEnv = "USERPROFILE"
-	}
-	t.Setenv(homeEnv, home)
+	// os.UserHomeDir reads HOME on Unix, USERPROFILE on Windows.
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	if got := expandTilde("~/code"); got != filepath.Join(home, "code") {
 		t.Fatalf("expandTilde(~/code) = %q", got)
 	}
