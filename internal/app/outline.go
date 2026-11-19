@@ -241,11 +241,11 @@ func (a *App) outlineNavigator(c *ui.Context) {
 				ui.Box(c).Width(16).Height(16).Radius(4).Shrink(0).Background(color.Alpha(0.16)).AlignItems(ui.Center).Justify(ui.Center).Children(func() {
 					ui.Text(c, kind).FontSize(10).Bold().TextColor(color).SingleLine()
 				})
-				ui.Text(c, s.Name).FontSize(12).SingleLine().Shrink(1)
+				ui.Text(c, s.Name).FontSize(12).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 				if filtering && r.parent != "" {
-					ui.Text(c, r.parent).FontSize(11).TextColor(colors(c).Dim).SingleLine().Shrink(100)
+					ui.Text(c, r.parent).FontSize(11).TextColor(colors(c).Dim).SingleLine().Ellipsis("…").MinWidth(0).Shrink(100)
 				} else if s.Detail != "" && !strings.Contains(s.Detail, "\n") && !callableKind(s.Kind) {
-					ui.Text(c, s.Detail).FontSize(11).TextColor(colors(c).Dim).SingleLine().Shrink(100)
+					ui.Text(c, s.Detail).FontSize(11).TextColor(colors(c).Dim).SingleLine().Ellipsis("…").MinWidth(0).Shrink(100)
 				}
 				ui.Box(c).Grow(1)
 				ui.Text(c, line).FontSize(10).TextColor(colors(c).Dim).SingleLine().Shrink(0)

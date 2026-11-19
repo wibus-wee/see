@@ -685,7 +685,7 @@ func (a *App) termPaneRow(c *ui.Context, i, j int, tab *termTab, p *termPane, ne
 		if title == "" {
 			title = a.shellTitle()
 		}
-		t := ui.Text(c, title).FontSize(12).SingleLine().Grow(1).Shrink(1)
+		t := ui.Text(c, title).FontSize(12).SingleLine().Ellipsis("…").MinWidth(0).Grow(1).Shrink(1)
 		if !active {
 			t.TextColor(colors(c).Muted)
 		}

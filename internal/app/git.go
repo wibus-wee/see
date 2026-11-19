@@ -830,10 +830,10 @@ func (a *App) gitRow(c *ui.Context, ch git.Change, staged bool) {
 		row.Children(func() {
 			ui.Row(c).FillWidth().Gap(6).AlignItems(ui.Center).Children(func() {
 				fileIcon(c, filepath.Base(ch.Path), 15)
-				ui.Text(c, filepath.Base(ch.Path)).FontSize(12).SingleLine().Shrink(1)
+				ui.Text(c, filepath.Base(ch.Path)).FontSize(12).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(1)
 				dir := filepath.Dir(ch.Path)
 				if dir != "." {
-					ui.Text(c, filepath.ToSlash(dir)).FontSize(11).TextColor(colors(c).Dim).SingleLine().Shrink(1)
+					ui.Text(c, filepath.ToSlash(dir)).FontSize(11).TextColor(colors(c).Dim).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(1)
 				}
 			})
 		})

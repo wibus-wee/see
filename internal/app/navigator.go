@@ -163,13 +163,13 @@ func (a *App) projectNavigatorContent(c *ui.Context) {
 func (a *App) treeHeading(c *ui.Context) {
 	ui.Row(c).FillWidth().Padding(4, 12, 4, sidebarInset+6).Gap(6).AlignItems(ui.Center).Children(func() {
 		folderGlyph(c, true, 15)
-		ui.Text(c, filepath.Base(a.root)).FontSize(12).Bold().SingleLine().Shrink(1)
+		ui.Text(c, filepath.Base(a.root)).FontSize(12).Bold().SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 		if a.filtering() {
 			detail := fmt.Sprintf("%d of %d", a.filter.matches, len(a.quick.files))
 			if a.quick.files == nil {
 				detail = "Filtering…"
 			}
-			ui.Text(c, detail).FontSize(11).TextColor(colors(c).Dim).SingleLine().Shrink(1)
+			ui.Text(c, detail).FontSize(11).TextColor(colors(c).Dim).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 		}
 		ui.Box(c).Grow(1)
 		if glyphButton(c, icAdd, "New File", "New File in Project", false, false).Clicked() {
@@ -323,7 +323,7 @@ func (a *App) treeItem(c *ui.Context, p string) {
 			msg += ": " + describeErr(d.err)
 		}
 		ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, msg).TextColor(colors(c).Err).FontSize(12).SingleLine().Shrink(1)
+			ui.Text(c, msg).TextColor(colors(c).Err).FontSize(12).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 			if ui.Button(c, locales.Retry()).Padding(0, 6).Clicked() {
 				a.retryDir(dir)
 			}
@@ -353,7 +353,7 @@ func (a *App) treeItem(c *ui.Context, p string) {
 			a.renameField(c, a.renameEntry)
 			return
 		}
-		t := ui.Text(c, name).SingleLine().Shrink(1)
+		t := ui.Text(c, name).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(1)
 		if dim {
 			t.TextColor(colors(c).Dim)
 		}
@@ -562,9 +562,9 @@ func (a *App) findRow(c *ui.Context, k findKey) {
 	if k.match < 0 {
 		ui.Row(c).Grow(1).Gap(6).AlignItems(ui.Center).Children(func() {
 			fileIcon(c, filepath.Base(k.path), 14)
-			ui.Text(c, filepath.Base(k.path)).Bold().SingleLine().Shrink(0)
+			ui.Text(c, filepath.Base(k.path)).Bold().SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(0)
 			if dir := filepath.Dir(workspace.RelPath(a.root, k.path)); dir != "." {
-				ui.Text(c, dir).FontSize(11).TextColor(colors(c).Dim).SingleLine().Shrink(1)
+				ui.Text(c, dir).FontSize(11).TextColor(colors(c).Dim).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(1)
 			}
 			ui.Box(c).Grow(1)
 			ui.Text(c, fmt.Sprint(len(file.Matches))).FontSize(11).TextColor(colors(c).Muted).Padding(0, 6).Radius(8).Background(colors(c).Pill)
@@ -605,9 +605,9 @@ func (a *App) findMatchText(c *ui.Context, k findKey, m search.Match) {
 		}
 		pre, post := m.Preview[:m.PreStart], m.Preview[m.PreEnd:]
 		trimmed := strings.TrimRight(pre, " \t")
-		ui.Text(c, trimmed).FontSize(12).TextColor(colors(c).Muted).SingleLine().Shrink(1)
+		ui.Text(c, trimmed).FontSize(12).TextColor(colors(c).Muted).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 		gap(len(pre) - len(trimmed))
-		match := ui.Text(c, before).FontSize(12).Bold().Background(colors(c).Match).Radius(3).SingleLine().Shrink(1)
+		match := ui.Text(c, before).FontSize(12).Bold().Background(colors(c).Match).Radius(3).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 		if replacing && before != replacement {
 			match.Strikethrough()
 			ui.Text(c, " → ").FontSize(11).Padding(0, 3).Shrink(0)
@@ -615,11 +615,11 @@ func (a *App) findMatchText(c *ui.Context, k findKey, m search.Match) {
 			if label == "" {
 				label = locales.MsgReplaceDeleteMatch()
 			}
-			ui.Text(c, label).FontSize(12).Bold().SingleLine().Shrink(1)
+			ui.Text(c, label).FontSize(12).Bold().SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 		}
 		trimmed = strings.TrimLeft(post, " \t")
 		gap(len(post) - len(trimmed))
-		ui.Text(c, trimmed).FontSize(12).TextColor(colors(c).Muted).SingleLine().Shrink(1)
+		ui.Text(c, trimmed).FontSize(12).TextColor(colors(c).Muted).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 	})
 	tip := fmt.Sprintf(locales.MsgLineD(), m.Line+1)
 	if replacing {

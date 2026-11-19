@@ -320,7 +320,7 @@ func (a *App) historyRow(c *ui.Context, i int) {
 		a.commitAvatars(c, cm, avatarSize)
 		ui.Column(c).Grow(1).Shrink(1).Gap(1).Children(func() {
 			ui.Row(c).FillWidth().Gap(4).AlignItems(ui.Center).Children(func() {
-				ui.Text(c, cm.Subject).FontSize(12).Bold().SingleLine().Shrink(1)
+				ui.Text(c, cm.Subject).FontSize(12).Bold().SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 				if unpushed {
 					ui.Text(c, "↑").FontSize(11).Bold().TextColor(c.Theme().Accent).Shrink(0)
 				}
@@ -634,7 +634,7 @@ func (a *App) commitFiles(c *ui.Context, g *group, v *commitView) {
 			row.OnClick(func() { a.openCommitFile(g, v.commit, f) })
 			row.Children(func() {
 				fileIcon(c, filepath.Base(f.Path), 15)
-				ui.Text(c, filepath.Base(f.Path)).FontSize(12).SingleLine().Shrink(0)
+				ui.Text(c, filepath.Base(f.Path)).FontSize(12).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(0)
 				dir := filepath.Dir(f.Path)
 				if f.OldPath != "" {
 					dir = f.OldPath + " →"

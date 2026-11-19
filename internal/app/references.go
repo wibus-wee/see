@@ -111,8 +111,8 @@ func (a *App) relatedList(c *ui.Context, ch *defChoices, collapsed map[string]bo
 				arrow = "▸"
 			}
 			ui.Text(c, arrow).TextColor(colors(c).Muted)
-			ui.Text(c, filepath.Base(path)).FontSize(12).SingleLine().Shrink(1)
-			ui.Text(c, workspace.RelPath(a.root, filepath.Dir(path))).FontSize(11).TextColor(colors(c).Muted).SingleLine().Grow(1).Shrink(1)
+			ui.Text(c, filepath.Base(path)).FontSize(12).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(1)
+			ui.Text(c, workspace.RelPath(a.root, filepath.Dir(path))).FontSize(11).TextColor(colors(c).Muted).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Grow(1).Shrink(1)
 			ui.Text(c, fmt.Sprint(len(visible))).FontSize(11).TextColor(colors(c).Muted)
 		})
 		file.OnClick(func() { collapsed[path] = !collapsed[path] })
@@ -137,7 +137,7 @@ func (a *App) relatedList(c *ui.Context, ch *defChoices, collapsed map[string]bo
 				row.Background(colors(c).Pill)
 			}
 			row.Children(func() {
-				tx := ui.Text(c, text).FontSize(12).SingleLine().Shrink(1)
+				tx := ui.Text(c, text).FontSize(12).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 				if read != nil && read[i] {
 					tx.TextColor(colors(c).Muted)
 				}

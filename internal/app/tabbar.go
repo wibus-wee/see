@@ -151,7 +151,7 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 				if d.buf != nil && d.buf.Modified() {
 					ui.Text(c, "●").FontSize(10).TextColor(c.Theme().Accent)
 				}
-				name := ui.Text(c, nameLabel).FontSize(12).SingleLine().Shrink(1)
+				name := ui.Text(c, nameLabel).FontSize(12).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(1)
 				if g.preview == p {
 					name.Italic()
 				}
@@ -162,7 +162,7 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 					name.TextColor(colors(c).Muted)
 				}
 				if count[d.name] > 1 {
-					ui.Text(c, filepath.Base(filepath.Dir(path))).FontSize(11).TextColor(colors(c).Dim).SingleLine().Shrink(2)
+					ui.Text(c, filepath.Base(filepath.Dir(path))).FontSize(11).TextColor(colors(c).Dim).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(2)
 				}
 				if d.loading {
 					ui.Spinner(c).FontSize(10)
@@ -189,20 +189,20 @@ func (a *App) diffJumpBar(c *ui.Context, g *group) {
 		label := v.label()
 		if v.branch != nil {
 			symbolIcon(c, icGit, 12, colors(c).Muted)
-			ui.Text(c, branchDiffText("gitSince")+" "+v.branch.baseName).FontSize(12).SingleLine().Shrink(1)
+			ui.Text(c, branchDiffText("gitSince")+" "+v.branch.baseName).FontSize(12).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 			label = ""
 		} else if v.log != nil {
 			symbolIcon(c, icGit, 12, colors(c).Muted)
-			ui.Text(c, v.name).FontSize(12).SingleLine().Shrink(1)
+			ui.Text(c, v.name).FontSize(12).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(1)
 			label = ""
 		} else if v.commit != nil {
 			symbolIcon(c, icGit, 12, colors(c).Muted)
 			ui.Text(c, v.rev).FontSize(12).SingleLine()
-			ui.Text(c, v.name).FontSize(12).TextColor(colors(c).Muted).SingleLine().Shrink(1)
+			ui.Text(c, v.name).FontSize(12).TextColor(colors(c).Muted).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(1)
 			label = ""
 		} else {
 			fileIcon(c, filepath.Base(v.name), 12)
-			ui.Text(c, v.name).FontSize(12).SingleLine().Shrink(1)
+			ui.Text(c, v.name).FontSize(12).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(1)
 		}
 		if label != "" {
 			ui.Text(c, label).FontSize(12).TextColor(colors(c).Muted).SingleLine()
@@ -282,7 +282,7 @@ func (a *App) jumpBar(c *ui.Context, g *group) {
 		}
 		folderGlyph(c, false, 13)
 		if outside {
-			ui.Text(c, tildePath(filepath.Dir(p))).FontSize(12).TextColor(colors(c).Muted).SingleLine().Shrink(1)
+			ui.Text(c, tildePath(filepath.Dir(p))).FontSize(12).TextColor(colors(c).Muted).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(1)
 		} else {
 			ui.Text(c, filepath.Base(a.root)).FontSize(12).TextColor(colors(c).Muted).SingleLine()
 		}
@@ -305,7 +305,7 @@ func (a *App) jumpBar(c *ui.Context, g *group) {
 				} else {
 					folderGlyph(c, false, 12)
 				}
-				t := ui.Text(c, part).FontSize(12).SingleLine()
+				t := ui.Text(c, part).FontSize(12).SingleLine().Ellipsis("…")
 				if !last {
 					t.TextColor(colors(c).Muted)
 				} else {

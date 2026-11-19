@@ -159,7 +159,7 @@ func (a *App) addCounterpartsMenu(m *ui.Menu, g *group) {
 			if m.Item(name).ID(p).Content(func(x ui.MenuItemContent) {
 				ui.Row(x.Context).Gap(6).AlignItems(ui.Center).Children(func() {
 					fileIcon(x.Context, name, 13)
-					ui.Text(x.Context, name).FontSize(13).TextColor(x.Text).SingleLine().Shrink(1)
+					ui.Text(x.Context, name).FontSize(13).TextColor(x.Text).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 				})
 			}).Chosen() {
 				a.jumpToCounterpart(g, p)

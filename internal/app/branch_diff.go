@@ -66,7 +66,7 @@ func (a *App) branchDiffModePicker(c *ui.Context) {
 	selectMode.Trigger.Label(selected).Padding(3, sidebarInset).Radius(6).Gap(6).AlignItems(ui.Center).KeepFocus()
 	selectMode.Trigger.Children(func() {
 		ui.Row(c).FillWidth().Gap(6).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, selected).FontSize(12).Bold().SingleLine().Shrink(1)
+			ui.Text(c, selected).FontSize(12).Bold().SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 			symbolIcon(c, icChevron, 9, colors(c).Muted)
 		})
 	})
@@ -133,7 +133,7 @@ func (a *App) branchDiffNavigator(c *ui.Context) {
 						if f.OldPath != "" {
 							name = filepath.ToSlash(f.OldPath) + " → " + name
 						}
-						ui.Text(c, name).FontSize(11).SingleLine().Shrink(1)
+						ui.Text(c, name).FontSize(11).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(1)
 						ui.Box(c).Grow(1)
 						if f.Added < 0 {
 							ui.Text(c, branchDiffText("gitBinary")).FontSize(10).TextColor(colors(c).Muted)
@@ -403,7 +403,7 @@ func (a *App) branchDiffContent(c *ui.Context, g *group, v *branchDiffView) {
 							if f.OldPath != "" {
 								name = filepath.ToSlash(f.OldPath) + " → " + name
 							}
-							ui.Text(c, name).FontSize(12).Bold().SingleLine().Shrink(1)
+							ui.Text(c, name).FontSize(12).Bold().SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(1)
 							ui.Box(c).Grow(1)
 							if f.untracked {
 								ui.Text(c, branchDiffText("gitUntracked")).FontSize(10).TextColor(colors(c).Muted)
@@ -448,7 +448,7 @@ func (a *App) branchDiffStatusBar(c *ui.Context, g *group, v *branchDiffView) {
 		}
 		base.Children(func() {
 			ui.Row(c).Gap(5).AlignItems(ui.Center).Children(func() {
-				ui.Text(c, branchDiffText("gitBase")+" "+v.baseName).FontSize(11).TextColor(palette.Text.Mix(baseTint, 0.22)).SingleLine().Shrink(1)
+				ui.Text(c, branchDiffText("gitBase")+" "+v.baseName).FontSize(11).TextColor(palette.Text.Mix(baseTint, 0.22)).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 				symbolIcon(c, icChevron, 9, palette.Muted)
 			})
 		})
