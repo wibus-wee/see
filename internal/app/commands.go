@@ -28,6 +28,7 @@ func commandsFor(goos string) []command {
 	replaceLabel, replaceKeyName, replaceMods, replaceKey := fileReplaceShortcutFor(goos)
 	docItemsLabel, docItemsKeyName, docItemsMods, docItemsKey, groupFilesLabel, groupFilesKeyName, groupFilesMods, groupFilesKey := jumpBarShortcutsFor(goos)
 	scopeLabel, scopeKeyName, scopeMods, scopeKey := editAllScopeShortcut(goos)
+	counterpartLabel, counterpartMods := counterpartShortcut(goos)
 	cmds := []command{
 		{"New File", "Cmd+", "N", ui.Cmd, ui.KeyN, func(a *App) { a.newFile() }},
 		{"Command Palette", "Cmd+Shift+", "P", ui.Cmd | ui.Shift, ui.KeyP, func(a *App) { a.openPalette() }},
@@ -56,6 +57,8 @@ func commandsFor(goos string) []command {
 		{"Show Outline", "", "", 0, 0, func(a *App) { a.sidebarOff, a.navigator = false, navOutline }},
 		{"Show Document Items", docItemsLabel, docItemsKeyName, docItemsMods, docItemsKey, func(a *App) { a.focus.jumpSymbols = true }},
 		{"Show Group Files", groupFilesLabel, groupFilesKeyName, groupFilesMods, groupFilesKey, func(a *App) { a.focus.jumpFiles = true }},
+		{"Next Counterpart", counterpartLabel, "↓", counterpartMods, ui.KeyDown, func(a *App) { a.switchCounterpart(1) }},
+		{"Previous Counterpart", counterpartLabel, "↑", counterpartMods, ui.KeyUp, func(a *App) { a.switchCounterpart(-1) }},
 		{"Show Git", "", "", 0, 0, func(a *App) { a.sidebarOff, a.navigator = false, navGit; a.refreshGit() }},
 		{"Git: Show History", "", "", 0, 0, func(a *App) {
 			a.sidebarOff, a.navigator, a.git.historyClosed = false, navGit, false
@@ -206,6 +209,13 @@ func fileReplaceShortcutFor(goos string) (string, string, ui.Modifiers, ui.Key) 
 		return "Alt+Cmd+", "F", ui.Alt | ui.Cmd, ui.KeyF
 	}
 	return "Ctrl+", "H", ui.Ctrl, ui.KeyH
+}
+
+func counterpartShortcut(goos string) (string, ui.Modifiers) {
+	if goos == "darwin" {
+		return "Ctrl+Cmd+", ui.Ctrl | ui.Cmd
+	}
+	return "Ctrl+Shift+", ui.Ctrl | ui.Shift
 }
 
 func (a *App) openPalette() {

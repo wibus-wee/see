@@ -204,11 +204,13 @@ func (a *App) jumpBar(c *ui.Context, g *group) {
 		BorderWidth(0, 0, 1, 0).BorderColor(colors(c).Separator).Children(func() {
 		g.relatedBounds = g.relatedHandle.Bounds(c)
 		related := ui.ButtonBase(c.Key("related-items")).Label(locales.MsgRelatedItems()).Tooltip(locales.MsgRelatedItems()).Size(22, 22).Radius(4).Center().Bind(&g.relatedHandle)
-		if related.Hovered() || related.Pressed() {
+		if related.Hovered() || related.Pressed() || g.relatedOpen {
 			related.Background(colors(c).Pill)
 		}
 		related.Children(func() { symbolIcon(c, icRelated, 14, colors(c).Muted) })
-		related.Menu(func(menu *ui.Menu) {
+		related.PopoverMenuButton(func(menu *ui.Menu) {
+			a.addCounterpartsMenu(menu, g)
+			menu.Separator()
 			if menu.Item("Callers").Chosen() {
 				a.focus = g
 				a.findUsagesAt(true, ui.Point{X: g.relatedBounds.X, Y: g.relatedBounds.Y + g.relatedBounds.H}, true)
@@ -217,7 +219,10 @@ func (a *App) jumpBar(c *ui.Context, g *group) {
 				a.focus = g
 				a.findUsagesAt(false, ui.Point{X: g.relatedBounds.X, Y: g.relatedBounds.Y + g.relatedBounds.H}, true)
 			}
-		})
+		}, ui.PopoverMenuButtonOptions{Open: &g.relatedOpen})
+		if !g.relatedOpen {
+			g.counterpartMenu = nil
+		}
 		outside := !workspace.Within(a.root, p)
 		if d := a.docs[p]; d != nil && d.untitled {
 			outside = false

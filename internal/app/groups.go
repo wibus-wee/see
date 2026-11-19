@@ -35,6 +35,8 @@ type group struct {
 	focusHandle     ui.Handle
 	relatedHandle   ui.Handle
 	relatedBounds   ui.Rect
+	relatedOpen     bool
+	counterpartMenu *counterpartMenu
 	// jumpFiles and jumpSymbols open the jump bar's file and symbol menus.
 	jumpFiles, jumpSymbols bool
 	pointerAnchor          ui.Point

@@ -894,6 +894,56 @@ func (msgs Messages) CommandShowOutline() string {
 	return Catalog.Format(msgs.locale, "commandShowOutline", nil)
 }
 
+// CommandShowDocumentItems says "Show Document Items"
+// in the language the app shows.
+func CommandShowDocumentItems() string { return In(i18n.Locale()).CommandShowDocumentItems() }
+
+// CommandShowDocumentItems says "Show Document Items"
+// in the language of msgs.
+func (msgs Messages) CommandShowDocumentItems() string {
+	return Catalog.Format(msgs.locale, "commandShowDocumentItems", nil)
+}
+
+// CommandShowGroupFiles says "Show Group Files"
+// in the language the app shows.
+func CommandShowGroupFiles() string { return In(i18n.Locale()).CommandShowGroupFiles() }
+
+// CommandShowGroupFiles says "Show Group Files"
+// in the language of msgs.
+func (msgs Messages) CommandShowGroupFiles() string {
+	return Catalog.Format(msgs.locale, "commandShowGroupFiles", nil)
+}
+
+// CommandNextCounterpart says "Next Counterpart"
+// in the language the app shows.
+func CommandNextCounterpart() string { return In(i18n.Locale()).CommandNextCounterpart() }
+
+// CommandNextCounterpart says "Next Counterpart"
+// in the language of msgs.
+func (msgs Messages) CommandNextCounterpart() string {
+	return Catalog.Format(msgs.locale, "commandNextCounterpart", nil)
+}
+
+// CommandPreviousCounterpart says "Previous Counterpart"
+// in the language the app shows.
+func CommandPreviousCounterpart() string { return In(i18n.Locale()).CommandPreviousCounterpart() }
+
+// CommandPreviousCounterpart says "Previous Counterpart"
+// in the language of msgs.
+func (msgs Messages) CommandPreviousCounterpart() string {
+	return Catalog.Format(msgs.locale, "commandPreviousCounterpart", nil)
+}
+
+// JumpNoSelection says "No Selection"
+// in the language the app shows.
+func JumpNoSelection() string { return In(i18n.Locale()).JumpNoSelection() }
+
+// JumpNoSelection says "No Selection"
+// in the language of msgs.
+func (msgs Messages) JumpNoSelection() string {
+	return Catalog.Format(msgs.locale, "jumpNoSelection", nil)
+}
+
 // OutlineTitle says "Outline"
 // in the language the app shows.
 func OutlineTitle() string { return In(i18n.Locale()).OutlineTitle() }
@@ -2202,6 +2252,26 @@ func MsgRelatedItems() string { return In(i18n.Locale()).MsgRelatedItems() }
 // in the language of msgs.
 func (msgs Messages) MsgRelatedItems() string {
 	return Catalog.Format(msgs.locale, "msgRelatedItems", nil)
+}
+
+// MsgCounterparts says "Counterparts"
+// in the language the app shows.
+func MsgCounterparts() string { return In(i18n.Locale()).MsgCounterparts() }
+
+// MsgCounterparts says "Counterparts"
+// in the language of msgs.
+func (msgs Messages) MsgCounterparts() string {
+	return Catalog.Format(msgs.locale, "msgCounterparts", nil)
+}
+
+// MsgNoCounterpartsFound says "No counterparts found."
+// in the language the app shows.
+func MsgNoCounterpartsFound() string { return In(i18n.Locale()).MsgNoCounterpartsFound() }
+
+// MsgNoCounterpartsFound says "No counterparts found."
+// in the language of msgs.
+func (msgs Messages) MsgNoCounterpartsFound() string {
+	return Catalog.Format(msgs.locale, "msgNoCounterpartsFound", nil)
 }
 
 // MsgCopied says "Copied "

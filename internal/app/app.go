@@ -87,6 +87,7 @@ type App struct {
 	scopeModeGroup      *group
 	scopeModePath       string
 	choices             *defChoices // several definitions to choose from
+	counterpartMiss     counterpartFeedback
 
 	lsp            *langserver.Server
 	cmakeLSP       *langserver.Server
