@@ -23,6 +23,7 @@ import (
 
 	"see/internal/langserver"
 	"see/internal/languages"
+	"see/internal/proc"
 	"see/internal/search"
 	"see/internal/shellpath"
 )
@@ -299,7 +300,7 @@ func installGopls(ctx context.Context, dest string) error {
 	if err := os.MkdirAll(bin, 0700); err != nil {
 		return err
 	}
-	cmd := exec.CommandContext(ctx, gocmd, "install", "golang.org/x/tools/gopls@"+goplsVersion)
+	cmd := proc.CommandContext(ctx, gocmd, "install", "golang.org/x/tools/gopls@"+goplsVersion)
 	cmd.Env = append(os.Environ(), "GOBIN="+bin)
 	output, err := cmd.CombinedOutput()
 	if err != nil {

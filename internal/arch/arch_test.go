@@ -5,7 +5,10 @@
 package arch
 
 import (
+	"go/ast"
 	"go/build"
+	"go/parser"
+	"go/token"
 	"os"
 	"path/filepath"
 	"slices"
@@ -78,6 +81,50 @@ func TestNobodyImportsApp(t *testing.T) {
 		for _, imp := range info.Imports {
 			if imp == "see/internal/app" {
 				t.Errorf("%s imports internal/app: the app composes its packages, not the other way round", pkg)
+			}
+		}
+	}
+}
+
+func TestChildCommandsUseProc(t *testing.T) {
+	dirs := []string{"."}
+	for _, pkg := range internalPackages(t) {
+		if pkg != "see/internal/proc" {
+			dirs = append(dirs, filepath.FromSlash(strings.TrimPrefix(pkg, "see/")))
+		}
+	}
+	fset := token.NewFileSet()
+	for _, dir := range dirs {
+		for _, name := range goFiles(t, dir) {
+			if strings.HasSuffix(name, "_test.go") {
+				continue
+			}
+			file, err := parser.ParseFile(fset, filepath.Join(root, dir, name), nil, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, imp := range file.Imports {
+				if imp.Path.Value != `"os/exec"` {
+					continue
+				}
+				pkg := "exec"
+				if imp.Name != nil {
+					pkg = imp.Name.Name
+				}
+				if pkg == "." {
+					t.Errorf("%s: do not dot-import os/exec; use internal/proc for child commands", fset.Position(imp.Pos()))
+					continue
+				}
+				ast.Inspect(file, func(n ast.Node) bool {
+					sel, ok := n.(*ast.SelectorExpr)
+					if !ok {
+						return true
+					}
+					if id, ok := sel.X.(*ast.Ident); ok && id.Name == pkg && (sel.Sel.Name == "Command" || sel.Sel.Name == "CommandContext") {
+						t.Errorf("%s: use internal/proc so the command does not open a Windows console", fset.Position(sel.Pos()))
+					}
+					return true
+				})
 			}
 		}
 	}

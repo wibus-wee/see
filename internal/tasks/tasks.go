@@ -4,10 +4,11 @@ package tasks
 import (
 	"context"
 	"fmt"
-	"os/exec"
 	"strings"
 	"sync"
 	"time"
+
+	"see/internal/proc"
 )
 
 const MaxOutput = 256 << 10
@@ -68,7 +69,7 @@ func Run(ctx context.Context, executable, root string, kind Kind, output *Output
 	if args == nil {
 		return fmt.Errorf("unknown Go task %q", kind)
 	}
-	cmd := exec.CommandContext(ctx, executable, args...)
+	cmd := proc.CommandContext(ctx, executable, args...)
 	cmd.Dir = root
 	cmd.Stdout, cmd.Stderr = output, output
 	cmd.WaitDelay = 2 * time.Second

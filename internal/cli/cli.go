@@ -7,9 +7,10 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"see/internal/proc"
 )
 
 // OpenArg is the argument the app process is started with to open a path,
@@ -46,7 +47,7 @@ func Run(args []string, stderr io.Writer) error {
 	if err != nil {
 		return err
 	}
-	cmd := exec.Command(exe, OpenArg, abs)
+	cmd := proc.Command(exe, OpenArg, abs)
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("cannot start See: %w", err)
 	}

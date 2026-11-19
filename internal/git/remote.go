@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"os/exec"
 	"strconv"
 	"strings"
 	"time"
+
+	"see/internal/proc"
 )
 
 // Network runs git in dir as Command does, for a command that talks to a
@@ -16,7 +17,7 @@ func Network(ctx context.Context, dir string, args ...string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 	args = append([]string{"-c", "core.fsmonitor=false", "-C", dir}, args...)
-	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd := proc.CommandContext(ctx, "git", args...)
 	cmd.Env = append(cmd.Environ(), "GIT_TERMINAL_PROMPT=0", "GIT_PAGER=cat", "GIT_LITERAL_PATHSPECS=1")
 	out, err := cmd.CombinedOutput()
 	if err != nil {

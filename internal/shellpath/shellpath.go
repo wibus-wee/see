@@ -8,11 +8,12 @@ import (
 	"bytes"
 	"context"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
+
+	"see/internal/proc"
 )
 
 // ready is set before any windows or workers start. A nil channel means
@@ -66,7 +67,7 @@ func loginShellPath(ctx context.Context, shell, inherited string) (string, error
 	if !filepath.IsAbs(shell) {
 		shell = "/bin/zsh"
 	}
-	cmd := exec.CommandContext(ctx, shell, "-ilc", `printf '\0%s\0' "$PATH"`)
+	cmd := proc.CommandContext(ctx, shell, "-ilc", `printf '\0%s\0' "$PATH"`)
 	cmd.WaitDelay = time.Second
 	out, err := cmd.Output()
 	if err != nil {

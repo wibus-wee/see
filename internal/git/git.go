@@ -5,10 +5,11 @@ package git
 import (
 	"context"
 	"fmt"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"see/internal/proc"
 )
 
 // Change is a path git status reports, with its status in the index and
@@ -25,7 +26,7 @@ func Command(ctx context.Context, dir string, args ...string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	args = append([]string{"-c", "core.fsmonitor=false", "-C", dir}, args...)
-	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd := proc.CommandContext(ctx, "git", args...)
 	cmd.Env = append(cmd.Environ(), "GIT_OPTIONAL_LOCKS=0", "GIT_TERMINAL_PROMPT=0", "GIT_PAGER=cat", "GIT_LITERAL_PATHSPECS=1")
 	out, err := cmd.CombinedOutput()
 	if err != nil {

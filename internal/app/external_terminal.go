@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"os/exec"
 	"runtime"
-	"see/locales"
 	"slices"
 	"strings"
+
+	"see/internal/proc"
+	"see/locales"
 )
 
 var externalTerminalNames = []string{"Terminal", "Ghostty", "Rex", "Seedmux", "Custom App"}
@@ -45,15 +47,15 @@ func externalTerminalCommand(name, appPath, dir, platform string) (*exec.Cmd, er
 		if strings.TrimSpace(appPath) == "" {
 			return nil, fmt.Errorf("choose an external terminal app in Settings first")
 		}
-		return exec.Command("open", "-a", appPath, dir), nil
+		return proc.Command("open", "-a", appPath, dir), nil
 	case "Seedmux":
-		return exec.Command("osascript", "-l", "JavaScript", "-e", seedmuxService, "--", dir), nil
+		return proc.Command("osascript", "-l", "JavaScript", "-e", seedmuxService, "--", dir), nil
 	case "Ghostty":
-		return exec.Command("open", "-b", "com.mitchellh.ghostty", dir), nil
+		return proc.Command("open", "-b", "com.mitchellh.ghostty", dir), nil
 	case "Rex":
-		return exec.Command("open", "-b", "com.superlogical.rex", dir), nil
+		return proc.Command("open", "-b", "com.superlogical.rex", dir), nil
 	default:
-		return exec.Command("open", "-b", "com.apple.Terminal", dir), nil
+		return proc.Command("open", "-b", "com.apple.Terminal", dir), nil
 	}
 }
 

@@ -18,6 +18,7 @@ import (
 
 	"github.com/sahilm/fuzzy"
 
+	"see/internal/proc"
 	"see/internal/workspace"
 )
 
@@ -165,7 +166,7 @@ func Run(ctx context.Context, rg, root string, o Options, emit func(File)) (Stat
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, rg, Args(o)...)
+	cmd := proc.CommandContext(ctx, rg, Args(o)...)
 	cmd.Dir = root
 	var stderr strings.Builder
 	cmd.Stderr = &stderr
@@ -296,7 +297,7 @@ func ListFiles(ctx context.Context, rg, root string, limit int, skipDir func(rel
 		return walkFiles(ctx, root, limit, skipDir)
 	}
 	args := append([]string{"--files", "--no-config"}, ignoreGlobs()...)
-	cmd := exec.CommandContext(ctx, rg, args...)
+	cmd := proc.CommandContext(ctx, rg, args...)
 	cmd.Dir = root
 	var stderr strings.Builder
 	cmd.Stderr = &stderr

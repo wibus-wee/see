@@ -10,6 +10,8 @@ import (
 	"os/exec"
 	"sync"
 	"time"
+
+	"see/internal/proc"
 )
 
 // Options configure a Client.
@@ -54,7 +56,7 @@ type Client struct {
 // Start runs the server command with stdin and stdout for the protocol
 // and stderr kept apart, then initializes it.
 func Start(ctx context.Context, command string, args []string, opts Options) (*Client, error) {
-	cmd := exec.Command(command, args...)
+	cmd := proc.Command(command, args...)
 	cmd.Dir = opts.RootPath
 	cmd.Env = os.Environ()
 	stdin, err := cmd.StdinPipe()

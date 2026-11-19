@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"strings"
 	"time"
+
+	"see/internal/proc"
 )
 
 // Ignored is what .gitignore and the other exclude files leave out of a
@@ -29,7 +31,7 @@ func ReadIgnored(ctx context.Context, dir string) (*Ignored, error) {
 	}
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "git", "-c", "core.fsmonitor=false", "-C", dir, "check-ignore", "--stdin", "-z")
+	cmd := proc.CommandContext(ctx, "git", "-c", "core.fsmonitor=false", "-C", dir, "check-ignore", "--stdin", "-z")
 	// Not GIT_LITERAL_PATHSPECS, which check-ignore refuses.
 	cmd.Env = append(cmd.Environ(), "GIT_OPTIONAL_LOCKS=0")
 	cmd.Stdin = bytes.NewReader(out)

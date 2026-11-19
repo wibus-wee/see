@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"see/internal/proc"
 	"see/internal/shellpath"
 )
 
@@ -78,9 +79,9 @@ func InstallTypeScript(ctx context.Context, dest string) error {
 	}
 	var cmd *exec.Cmd
 	if bunErr == nil {
-		cmd = exec.CommandContext(ctx, bun, "add", "--no-cache", "tsrs@0.20.1-ts7.1.0-beta")
+		cmd = proc.CommandContext(ctx, bun, "add", "--no-cache", "tsrs@0.20.1-ts7.1.0-beta")
 	} else {
-		cmd = exec.CommandContext(ctx, npm, "install", "--no-audit", "--no-fund", "--ignore-scripts", "tsrs@0.20.1-ts7.1.0-beta")
+		cmd = proc.CommandContext(ctx, npm, "install", "--no-audit", "--no-fund", "--ignore-scripts", "tsrs@0.20.1-ts7.1.0-beta")
 		cmd.Env = append(os.Environ(), "npm_config_cache="+filepath.Join(stage, ".npm-cache"))
 	}
 	cmd.Dir = stage
