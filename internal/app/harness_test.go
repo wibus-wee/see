@@ -109,7 +109,7 @@ func newHarness(t *testing.T, root string) *harness {
 	t.Cleanup(func() { releaseStandalonePaths(h.a) })
 	h.a.hasWelcome = true
 	h.a.host = h.host
-	h.a.post = platform.SchedulerFunc(func(fn func()) { h.q <- fn })
+	h.a.post.set(platform.SchedulerFunc(func(fn func()) { h.q <- fn }))
 	h.a.logf = testLogf(t)
 	resetNotify()
 	t.Cleanup(resetNotify)

@@ -796,13 +796,13 @@ func holdQuickHelpHover(h *harness) (chan struct{}, chan struct{}) {
 }
 
 func watchHarnessPosts(h *harness) (<-chan struct{}, func()) {
-	previous := h.a.post
+	previous := h.a.post.load()
 	posted := make(chan struct{}, 16)
-	h.a.post = platform.SchedulerFunc(func(fn func()) {
+	h.a.post.set(platform.SchedulerFunc(func(fn func()) {
 		previous.Post(fn)
 		posted <- struct{}{}
-	})
-	return posted, func() { h.a.post = previous }
+	}))
+	return posted, func() { h.a.post.set(previous) }
 }
 
 func waitForSignal(t *testing.T, signal <-chan struct{}, what string) {

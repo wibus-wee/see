@@ -114,7 +114,7 @@ func TestVideoRefreshPreservesUnchangedPlayer(t *testing.T) {
 	d := &doc{path: path, name: "clip.mp4", video: true, stamp: fileStamp{f.Size, f.ModTime}}
 	g := &group{active: path, videos: map[string]*videoPreview{path: {player: player}}}
 	callbacks := make(chan func(), 1)
-	a := &App{docs: map[string]*doc{path: d}, layout: &layout{g: g}, post: platform.SchedulerFunc(func(fn func()) { callbacks <- fn })}
+	a := &App{docs: map[string]*doc{path: d}, layout: &layout{g: g}, post: newPoster(platform.SchedulerFunc(func(fn func()) { callbacks <- fn }))}
 	a.loadDoc(d)
 	select {
 	case fn := <-callbacks:
