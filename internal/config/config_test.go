@@ -10,12 +10,17 @@ func TestRoundTrip(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "sub", "config.json")
 	c := Load(p)
 	c.LastWorkspace = "/w"
+	c.EditorFoldImports = true
+	c.Workspaces = map[string]Workspace{"/w": {Layout: &Layout{Tabs: []Tab{{Path: "/w/main.go", Folds: []int{2, 7}}, {Path: "/w/empty.go", Folds: []int{}}}}}}
 	c.Trust("/w")
 	c.AddRecent("/w")
 	if err := c.Save(); err != nil {
 		t.Fatal(err)
 	}
 	c2 := Load(p)
+	if !c2.EditorFoldImports || len(c2.Workspaces["/w"].Layout.Tabs[0].Folds) != 2 || c2.Workspaces["/w"].Layout.Tabs[1].Folds == nil {
+		t.Fatalf("folding preferences or session lost: %+v", c2)
+	}
 	if c2.LastWorkspace != "/w" || !c2.IsTrusted("/w") || len(c2.Recent) != 1 {
 		t.Fatalf("loaded %+v", c2)
 	}

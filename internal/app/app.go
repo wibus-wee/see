@@ -813,6 +813,9 @@ func (a *App) showLoaded(g *group, d *doc) {
 	if st == nil {
 		st = a.newEditor(g, d)
 		g.eds[d.path] = st
+		if g.pending[d.path].folds == nil && a.cfg.EditorFoldImports {
+			st.FoldImports()
+		}
 		if m := a.serverFor(d.path); m != nil && !a.cfg.IsTrusted(a.root) && !a.trustDismissed {
 			a.trustAsk = true
 		}
@@ -838,6 +841,14 @@ func (a *App) showLoaded(g *group, d *doc) {
 		return
 	}
 	st.GoTo(p)
+	if to.folds != nil {
+		st.Run(editor.UnfoldAll)
+		for _, line := range to.folds {
+			if line >= 0 && line < d.buf.LineCount() {
+				st.Fold(line)
+			}
+		}
+	}
 	if to.selLen > 0 {
 		off := d.buf.Offset(p)
 		st.Select(off, min(off+to.selLen, d.buf.Len()))

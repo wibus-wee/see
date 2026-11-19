@@ -194,6 +194,166 @@ func (msgs Messages) TypeDefinitionClose() string {
 	return Catalog.Format(msgs.locale, "typeDefinitionClose", nil)
 }
 
+// CommandFold says "Fold"
+// in the language the app shows.
+func CommandFold() string { return In(i18n.Locale()).CommandFold() }
+
+// CommandFold says "Fold"
+// in the language of msgs.
+func (msgs Messages) CommandFold() string {
+	return Catalog.Format(msgs.locale, "commandFold", nil)
+}
+
+// CommandUnfold says "Unfold"
+// in the language the app shows.
+func CommandUnfold() string { return In(i18n.Locale()).CommandUnfold() }
+
+// CommandUnfold says "Unfold"
+// in the language of msgs.
+func (msgs Messages) CommandUnfold() string {
+	return Catalog.Format(msgs.locale, "commandUnfold", nil)
+}
+
+// CommandToggleFold says "Toggle Fold"
+// in the language the app shows.
+func CommandToggleFold() string { return In(i18n.Locale()).CommandToggleFold() }
+
+// CommandToggleFold says "Toggle Fold"
+// in the language of msgs.
+func (msgs Messages) CommandToggleFold() string {
+	return Catalog.Format(msgs.locale, "commandToggleFold", nil)
+}
+
+// CommandFoldRecursively says "Fold Recursively"
+// in the language the app shows.
+func CommandFoldRecursively() string { return In(i18n.Locale()).CommandFoldRecursively() }
+
+// CommandFoldRecursively says "Fold Recursively"
+// in the language of msgs.
+func (msgs Messages) CommandFoldRecursively() string {
+	return Catalog.Format(msgs.locale, "commandFoldRecursively", nil)
+}
+
+// CommandUnfoldRecursively says "Unfold Recursively"
+// in the language the app shows.
+func CommandUnfoldRecursively() string { return In(i18n.Locale()).CommandUnfoldRecursively() }
+
+// CommandUnfoldRecursively says "Unfold Recursively"
+// in the language of msgs.
+func (msgs Messages) CommandUnfoldRecursively() string {
+	return Catalog.Format(msgs.locale, "commandUnfoldRecursively", nil)
+}
+
+// CommandFoldAll says "Fold All"
+// in the language the app shows.
+func CommandFoldAll() string { return In(i18n.Locale()).CommandFoldAll() }
+
+// CommandFoldAll says "Fold All"
+// in the language of msgs.
+func (msgs Messages) CommandFoldAll() string {
+	return Catalog.Format(msgs.locale, "commandFoldAll", nil)
+}
+
+// CommandUnfoldAll says "Unfold All"
+// in the language the app shows.
+func CommandUnfoldAll() string { return In(i18n.Locale()).CommandUnfoldAll() }
+
+// CommandUnfoldAll says "Unfold All"
+// in the language of msgs.
+func (msgs Messages) CommandUnfoldAll() string {
+	return Catalog.Format(msgs.locale, "commandUnfoldAll", nil)
+}
+
+// CommandFoldImports says "Fold Imports"
+// in the language the app shows.
+func CommandFoldImports() string { return In(i18n.Locale()).CommandFoldImports() }
+
+// CommandFoldImports says "Fold Imports"
+// in the language of msgs.
+func (msgs Messages) CommandFoldImports() string {
+	return Catalog.Format(msgs.locale, "commandFoldImports", nil)
+}
+
+// CommandFoldLevel1 says "Fold Level 1"
+// in the language the app shows.
+func CommandFoldLevel1() string { return In(i18n.Locale()).CommandFoldLevel1() }
+
+// CommandFoldLevel1 says "Fold Level 1"
+// in the language of msgs.
+func (msgs Messages) CommandFoldLevel1() string {
+	return Catalog.Format(msgs.locale, "commandFoldLevel1", nil)
+}
+
+// CommandFoldLevel2 says "Fold Level 2"
+// in the language the app shows.
+func CommandFoldLevel2() string { return In(i18n.Locale()).CommandFoldLevel2() }
+
+// CommandFoldLevel2 says "Fold Level 2"
+// in the language of msgs.
+func (msgs Messages) CommandFoldLevel2() string {
+	return Catalog.Format(msgs.locale, "commandFoldLevel2", nil)
+}
+
+// CommandFoldLevel3 says "Fold Level 3"
+// in the language the app shows.
+func CommandFoldLevel3() string { return In(i18n.Locale()).CommandFoldLevel3() }
+
+// CommandFoldLevel3 says "Fold Level 3"
+// in the language of msgs.
+func (msgs Messages) CommandFoldLevel3() string {
+	return Catalog.Format(msgs.locale, "commandFoldLevel3", nil)
+}
+
+// CommandFoldLevel4 says "Fold Level 4"
+// in the language the app shows.
+func CommandFoldLevel4() string { return In(i18n.Locale()).CommandFoldLevel4() }
+
+// CommandFoldLevel4 says "Fold Level 4"
+// in the language of msgs.
+func (msgs Messages) CommandFoldLevel4() string {
+	return Catalog.Format(msgs.locale, "commandFoldLevel4", nil)
+}
+
+// CommandFoldLevel5 says "Fold Level 5"
+// in the language the app shows.
+func CommandFoldLevel5() string { return In(i18n.Locale()).CommandFoldLevel5() }
+
+// CommandFoldLevel5 says "Fold Level 5"
+// in the language of msgs.
+func (msgs Messages) CommandFoldLevel5() string {
+	return Catalog.Format(msgs.locale, "commandFoldLevel5", nil)
+}
+
+// Folding says "Folding"
+// in the language the app shows.
+func Folding() string { return In(i18n.Locale()).Folding() }
+
+// Folding says "Folding"
+// in the language of msgs.
+func (msgs Messages) Folding() string {
+	return Catalog.Format(msgs.locale, "folding", nil)
+}
+
+// FoldImportsOnOpen says "Fold imports when opening a file"
+// in the language the app shows.
+func FoldImportsOnOpen() string { return In(i18n.Locale()).FoldImportsOnOpen() }
+
+// FoldImportsOnOpen says "Fold imports when opening a file"
+// in the language of msgs.
+func (msgs Messages) FoldImportsOnOpen() string {
+	return Catalog.Format(msgs.locale, "foldImportsOnOpen", nil)
+}
+
+// FoldImportsOnOpenDescription says "Automatically collapse imports in newly opened code files."
+// in the language the app shows.
+func FoldImportsOnOpenDescription() string { return In(i18n.Locale()).FoldImportsOnOpenDescription() }
+
+// FoldImportsOnOpenDescription says "Automatically collapse imports in newly opened code files."
+// in the language of msgs.
+func (msgs Messages) FoldImportsOnOpenDescription() string {
+	return Catalog.Format(msgs.locale, "foldImportsOnOpenDescription", nil)
+}
+
 // VideoPreview says "Video preview"
 // in the language the app shows.
 func VideoPreview() string { return In(i18n.Locale()).VideoPreview() }

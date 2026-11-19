@@ -62,10 +62,12 @@ func (a *App) captureSession() {
 				tab.Untitled, tab.Name = true, d.name
 			}
 			if ed := g.eds[path]; ed != nil {
+				tab.Folds = append([]int{}, ed.Folded()...)
 				p := ed.CursorPos()
 				tab.Line, tab.Column = p.Line, p.Col
 			} else if p := g.pending[path].pos; p != nil {
 				tab.Line, tab.Column = p.Line, p.Col
+				tab.Folds = g.pending[path].folds
 			}
 			s.Tabs = append(s.Tabs, tab)
 		}
@@ -239,7 +241,7 @@ func (a *App) restoreSession() {
 				a.activateIn(g, key)
 				a.showLoaded(g, d)
 			} else {
-				a.openIn(g, tab.Path, goTo{pos: &pos})
+				a.openIn(g, tab.Path, goTo{pos: &pos, folds: tab.Folds})
 			}
 			if tab.MarkdownPreview {
 				if g.markdownPreview == nil {

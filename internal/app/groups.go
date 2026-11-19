@@ -47,6 +47,7 @@ type group struct {
 // a server's, converted once the text is there, and how many bytes to
 // select from it.
 type goTo struct {
+	folds  []int
 	pos    *editor.Pos
 	lsp    *lsp.Position
 	enc    string

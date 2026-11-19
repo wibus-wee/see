@@ -681,6 +681,12 @@ func (a *App) editorPane(c *ui.Context) {
 				a.settingsChanged()
 			}
 		},
+		func() {
+			labeled(c, locales.FoldImportsOnOpen(), locales.FoldImportsOnOpenDescription())
+			if ui.Switch(c, &a.cfg.EditorFoldImports).Label(locales.FoldImportsOnOpen()).Changed() {
+				a.settingsChanged()
+			}
+		},
 	)
 }
 
