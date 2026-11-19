@@ -894,6 +894,36 @@ func (msgs Messages) CommandShowOutline() string {
 	return Catalog.Format(msgs.locale, "commandShowOutline", nil)
 }
 
+// CommandShowDocumentItems says "Show Document Items"
+// in the language the app shows.
+func CommandShowDocumentItems() string { return In(i18n.Locale()).CommandShowDocumentItems() }
+
+// CommandShowDocumentItems says "Show Document Items"
+// in the language of msgs.
+func (msgs Messages) CommandShowDocumentItems() string {
+	return Catalog.Format(msgs.locale, "commandShowDocumentItems", nil)
+}
+
+// CommandShowGroupFiles says "Show Group Files"
+// in the language the app shows.
+func CommandShowGroupFiles() string { return In(i18n.Locale()).CommandShowGroupFiles() }
+
+// CommandShowGroupFiles says "Show Group Files"
+// in the language of msgs.
+func (msgs Messages) CommandShowGroupFiles() string {
+	return Catalog.Format(msgs.locale, "commandShowGroupFiles", nil)
+}
+
+// JumpNoSelection says "No Selection"
+// in the language the app shows.
+func JumpNoSelection() string { return In(i18n.Locale()).JumpNoSelection() }
+
+// JumpNoSelection says "No Selection"
+// in the language of msgs.
+func (msgs Messages) JumpNoSelection() string {
+	return Catalog.Format(msgs.locale, "jumpNoSelection", nil)
+}
+
 // OutlineTitle says "Outline"
 // in the language the app shows.
 func OutlineTitle() string { return In(i18n.Locale()).OutlineTitle() }
@@ -6302,4 +6332,14 @@ func CommandToggleMinimap() string { return In(i18n.Locale()).CommandToggleMinim
 // in the language of msgs.
 func (msgs Messages) CommandToggleMinimap() string {
 	return Catalog.Format(msgs.locale, "commandToggleMinimap", nil)
+}
+
+// NotifyTerminalBell says "Terminal bell"
+// in the language the app shows.
+func NotifyTerminalBell() string { return In(i18n.Locale()).NotifyTerminalBell() }
+
+// NotifyTerminalBell says "Terminal bell"
+// in the language of msgs.
+func (msgs Messages) NotifyTerminalBell() string {
+	return Catalog.Format(msgs.locale, "notifyTerminalBell", nil)
 }

@@ -145,8 +145,8 @@ func Main() {
 			}
 			return false
 		}
-		win.OnFocus(func() { activate(primary) })
-		welcome.OnFocus(func() { activate(primary) })
+		win.OnFocus(func() { activate(primary); a.clearNotifyIncoming() })
+		welcome.OnFocus(func() { activate(primary); a.clearNotifyIncoming() })
 		createProject = func(path string) { openProject(path) }
 		openProject = func(path string) *projectWindow {
 			a.showWelcome = false
@@ -204,7 +204,7 @@ func Main() {
 					}
 				})
 			})
-			childWin.OnFocus(func() { activate(p) })
+			childWin.OnFocus(func() { activate(p); child.clearNotifyIncoming() })
 			childWin.OnClose(func(e *mygo.CloseEvent) {
 				if quitting {
 					return

@@ -131,6 +131,20 @@ func (a *App) newTerm(p *termPane) error {
 				}
 			})
 		},
+		OnBell: func() {
+			a.post.Post(func() {
+				if a.gen == gen {
+					a.notifyTerminal(p.title, "")
+				}
+			})
+		},
+		OnNotify: func(title, body string) {
+			a.post.Post(func() {
+				if a.gen == gen {
+					a.notifyTerminal(title, body)
+				}
+			})
+		},
 		OpenLink: func(link string) bool { return a.openTermLink(p, link) },
 	})
 	if err != nil {

@@ -23,6 +23,36 @@ import (
 func init() {
 	watchFiles = nil // tests feed file events themselves
 	avatarFetch = func(context.Context, *http.Client, string, []string) ([]byte, error) { return nil, avatar.ErrNone }
+	// Notifications need the running app; tests record what would fire
+	// through notifySent, notifyBadges and notifyBounces instead, and
+	// play the window's focus with notifyFocusedOn.
+	notifySend = func(title, body string, silent bool) {
+		notifySent = append(notifySent, sentNotification{title, body, silent})
+	}
+	notifyDockBadge = func(text string) { notifyBadges = append(notifyBadges, text) }
+	notifyDockBounce = func() { notifyBounces++ }
+	notifyFocused = func() bool { return notifyFocusedOn }
+}
+
+// sentNotification is what notifySend would have shown.
+type sentNotification struct {
+	title, body string
+	silent      bool
+}
+
+// The notifications tests' fakes recorded. Tests set notifyFocusedOn to
+// give the window focus, and the prefs to switch notifications on.
+var (
+	notifySent      []sentNotification
+	notifyBadges    []string
+	notifyBounces   int
+	notifyFocusedOn bool
+)
+
+// resetNotify clears the fakes and focuses the window; newHarness calls
+// it for every test.
+func resetNotify() {
+	notifySent, notifyBadges, notifyBounces, notifyFocusedOn = nil, nil, 0, true
 }
 
 func TestMain(m *testing.M) {
@@ -81,6 +111,8 @@ func newHarness(t *testing.T, root string) *harness {
 	h.a.host = h.host
 	h.a.post = platform.SchedulerFunc(func(fn func()) { h.q <- fn })
 	h.a.logf = testLogf(t)
+	resetNotify()
+	t.Cleanup(resetNotify)
 	h.a.startLSP = func(func(string, ...any)) langserver.Starter {
 		return func(ctx context.Context, root string, onExit func(error)) (langserver.Client, error) {
 			if h.fc.startErr != nil {

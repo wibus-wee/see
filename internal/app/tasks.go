@@ -81,6 +81,7 @@ func (a *App) runGoTask(kind tasks.Kind) {
 			default:
 				run.status = "taskSucceeded"
 			}
+			a.notifyTaskDone(run)
 		})
 	}()
 }
