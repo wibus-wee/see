@@ -17,11 +17,11 @@ func TestToggleBookmarkCommand(t *testing.T) {
 	d := h.open("a.txt")
 	st := h.a.focus.eds[d.path]
 	st.GoTo(editor.Pos{Line: 1})
-	h.tt.Key(ui.Alt|ui.Cmd, ui.KeyK)
+	h.tt.Key(ui.Alt|ui.Cmd, ui.KeyB)
 	if !h.a.bookmarks.Has(d.path, 1) {
 		t.Fatalf("toggle did not mark the line: %+v", h.a.bookmarks.List)
 	}
-	h.tt.Key(ui.Alt|ui.Cmd, ui.KeyK)
+	h.tt.Key(ui.Alt|ui.Cmd, ui.KeyB)
 	if h.a.bookmarks.Has(d.path, 1) {
 		t.Fatal("toggle did not unmark the line")
 	}
