@@ -324,6 +324,26 @@ func (msgs Messages) TypeDefinitionClose() string {
 	return Catalog.Format(msgs.locale, "typeDefinitionClose", nil)
 }
 
+// PeekDefinitionClose says "Close Definition Peek"
+// in the language the app shows.
+func PeekDefinitionClose() string { return In(i18n.Locale()).PeekDefinitionClose() }
+
+// PeekDefinitionClose says "Close Definition Peek"
+// in the language of msgs.
+func (msgs Messages) PeekDefinitionClose() string {
+	return Catalog.Format(msgs.locale, "peekDefinitionClose", nil)
+}
+
+// PeekDefinitionUnavailable says "Definition preview unavailable."
+// in the language the app shows.
+func PeekDefinitionUnavailable() string { return In(i18n.Locale()).PeekDefinitionUnavailable() }
+
+// PeekDefinitionUnavailable says "Definition preview unavailable."
+// in the language of msgs.
+func (msgs Messages) PeekDefinitionUnavailable() string {
+	return Catalog.Format(msgs.locale, "peekDefinitionUnavailable", nil)
+}
+
 // CommandFold says "Fold"
 // in the language the app shows.
 func CommandFold() string { return In(i18n.Locale()).CommandFold() }
@@ -894,6 +914,46 @@ func (msgs Messages) CommandShowOutline() string {
 	return Catalog.Format(msgs.locale, "commandShowOutline", nil)
 }
 
+// CommandShowBookmarks says "Show Bookmarks"
+// in the language the app shows.
+func CommandShowBookmarks() string { return In(i18n.Locale()).CommandShowBookmarks() }
+
+// CommandShowBookmarks says "Show Bookmarks"
+// in the language of msgs.
+func (msgs Messages) CommandShowBookmarks() string {
+	return Catalog.Format(msgs.locale, "commandShowBookmarks", nil)
+}
+
+// CommandToggleBookmark says "Toggle Bookmark"
+// in the language the app shows.
+func CommandToggleBookmark() string { return In(i18n.Locale()).CommandToggleBookmark() }
+
+// CommandToggleBookmark says "Toggle Bookmark"
+// in the language of msgs.
+func (msgs Messages) CommandToggleBookmark() string {
+	return Catalog.Format(msgs.locale, "commandToggleBookmark", nil)
+}
+
+// CommandRemoveBookmark says "Remove Bookmark"
+// in the language the app shows.
+func CommandRemoveBookmark() string { return In(i18n.Locale()).CommandRemoveBookmark() }
+
+// CommandRemoveBookmark says "Remove Bookmark"
+// in the language of msgs.
+func (msgs Messages) CommandRemoveBookmark() string {
+	return Catalog.Format(msgs.locale, "commandRemoveBookmark", nil)
+}
+
+// CommandClearBookmarks says "Clear Bookmarks"
+// in the language the app shows.
+func CommandClearBookmarks() string { return In(i18n.Locale()).CommandClearBookmarks() }
+
+// CommandClearBookmarks says "Clear Bookmarks"
+// in the language of msgs.
+func (msgs Messages) CommandClearBookmarks() string {
+	return Catalog.Format(msgs.locale, "commandClearBookmarks", nil)
+}
+
 // CommandShowDocumentItems says "Show Document Items"
 // in the language the app shows.
 func CommandShowDocumentItems() string { return In(i18n.Locale()).CommandShowDocumentItems() }
@@ -1022,6 +1082,46 @@ func OutlineLine(line string) string { return In(i18n.Locale()).OutlineLine(line
 // in the language of msgs.
 func (msgs Messages) OutlineLine(line string) string {
 	return Catalog.Format(msgs.locale, "outlineLine", map[string]any{"line": line})
+}
+
+// BookmarksTitle says "Bookmarks"
+// in the language the app shows.
+func BookmarksTitle() string { return In(i18n.Locale()).BookmarksTitle() }
+
+// BookmarksTitle says "Bookmarks"
+// in the language of msgs.
+func (msgs Messages) BookmarksTitle() string {
+	return Catalog.Format(msgs.locale, "bookmarksTitle", nil)
+}
+
+// FilterBookmarks says "Filter Bookmarks"
+// in the language the app shows.
+func FilterBookmarks() string { return In(i18n.Locale()).FilterBookmarks() }
+
+// FilterBookmarks says "Filter Bookmarks"
+// in the language of msgs.
+func (msgs Messages) FilterBookmarks() string {
+	return Catalog.Format(msgs.locale, "filterBookmarks", nil)
+}
+
+// BookmarksEmpty says "No bookmarks yet"
+// in the language the app shows.
+func BookmarksEmpty() string { return In(i18n.Locale()).BookmarksEmpty() }
+
+// BookmarksEmpty says "No bookmarks yet"
+// in the language of msgs.
+func (msgs Messages) BookmarksEmpty() string {
+	return Catalog.Format(msgs.locale, "bookmarksEmpty", nil)
+}
+
+// NoMatchingBookmarks says "No matching bookmarks"
+// in the language the app shows.
+func NoMatchingBookmarks() string { return In(i18n.Locale()).NoMatchingBookmarks() }
+
+// NoMatchingBookmarks says "No matching bookmarks"
+// in the language of msgs.
+func (msgs Messages) NoMatchingBookmarks() string {
+	return Catalog.Format(msgs.locale, "noMatchingBookmarks", nil)
 }
 
 // OutlineKindModule says "module"
@@ -5628,6 +5728,16 @@ func CommandGoToDefinition() string { return In(i18n.Locale()).CommandGoToDefini
 // in the language of msgs.
 func (msgs Messages) CommandGoToDefinition() string {
 	return Catalog.Format(msgs.locale, "commandGoToDefinition", nil)
+}
+
+// CommandPeekDefinition says "Peek Definition"
+// in the language the app shows.
+func CommandPeekDefinition() string { return In(i18n.Locale()).CommandPeekDefinition() }
+
+// CommandPeekDefinition says "Peek Definition"
+// in the language of msgs.
+func (msgs Messages) CommandPeekDefinition() string {
+	return Catalog.Format(msgs.locale, "commandPeekDefinition", nil)
 }
 
 // CommandSelectLastTab says "Select Last Tab"

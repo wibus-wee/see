@@ -30,6 +30,7 @@ func supportsNavigation(c langserver.Client, kind string) bool {
 		p, ok := c.(typeDefinitionClient)
 		return ok && p.HasTypeDefinition()
 	default:
+		// "definition" and "peek", which asks for the same locations.
 		return c.HasDefinition()
 	}
 }
@@ -74,6 +75,8 @@ func (a *App) commandEnabled(name string) bool {
 		return a.activeEditor() != nil && a.navigationEnabled(a.activePath(), "implementation")
 	case "Go to Type Definition":
 		return a.activeEditor() != nil && a.navigationEnabled(a.activePath(), "typeDefinition")
+	case "Peek Definition":
+		return a.activeEditor() != nil && a.navigationEnabled(a.activePath(), "peek")
 	}
 	return true
 }
@@ -81,7 +84,7 @@ func (a *App) commandEnabled(name string) bool {
 func (a *App) navigationMenuItems(run func(func())) []*mygo.MenuItem {
 	var items []*mygo.MenuItem
 	for _, cmd := range commands() {
-		if cmd.name != "Go to Definition" && cmd.name != "Go to Implementation" && cmd.name != "Go to Type Definition" {
+		if cmd.name != "Go to Definition" && cmd.name != "Peek Definition" && cmd.name != "Go to Implementation" && cmd.name != "Go to Type Definition" {
 			continue
 		}
 		items = append(items, &mygo.MenuItem{
@@ -93,7 +96,7 @@ func (a *App) navigationMenuItems(run func(func())) []*mygo.MenuItem {
 }
 
 func (a *App) refreshNavigationMenu() {
-	state := [3]bool{a.activeEditor() != nil, a.commandEnabled("Go to Implementation"), a.commandEnabled("Go to Type Definition")}
+	state := [4]bool{a.activeEditor() != nil, a.commandEnabled("Go to Implementation"), a.commandEnabled("Go to Type Definition"), a.commandEnabled("Peek Definition")}
 	if state != a.navigationMenuState {
 		a.navigationMenuState = state
 		a.host.RefreshMenu()
