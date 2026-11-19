@@ -5476,6 +5476,16 @@ func (msgs Messages) CommandCloseTab() string {
 	return Catalog.Format(msgs.locale, "commandCloseTab", nil)
 }
 
+// CommandReopenClosedTab says "Reopen Closed Tab"
+// in the language the app shows.
+func CommandReopenClosedTab() string { return In(i18n.Locale()).CommandReopenClosedTab() }
+
+// CommandReopenClosedTab says "Reopen Closed Tab"
+// in the language of msgs.
+func (msgs Messages) CommandReopenClosedTab() string {
+	return Catalog.Format(msgs.locale, "commandReopenClosedTab", nil)
+}
+
 // CommandAddEditorOnRight says "Add Editor on Right"
 // in the language the app shows.
 func CommandAddEditorOnRight() string { return In(i18n.Locale()).CommandAddEditorOnRight() }
@@ -6372,4 +6382,14 @@ func CommandToggleMinimap() string { return In(i18n.Locale()).CommandToggleMinim
 // in the language of msgs.
 func (msgs Messages) CommandToggleMinimap() string {
 	return Catalog.Format(msgs.locale, "commandToggleMinimap", nil)
+}
+
+// NotifyTerminalBell says "Terminal bell"
+// in the language the app shows.
+func NotifyTerminalBell() string { return In(i18n.Locale()).NotifyTerminalBell() }
+
+// NotifyTerminalBell says "Terminal bell"
+// in the language of msgs.
+func (msgs Messages) NotifyTerminalBell() string {
+	return Catalog.Format(msgs.locale, "notifyTerminalBell", nil)
 }

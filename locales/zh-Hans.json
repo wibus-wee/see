@@ -631,5 +631,6 @@
   "minimapLabel": "缩略图",
   "showMinimap": "显示缩略图",
   "minimapDescription": "在编辑器旁显示文件的缩略概览，如同 Xcode。",
-  "commandToggleMinimap": "切换缩略图"
+  "commandToggleMinimap": "切换缩略图",
+  "notifyTerminalBell": "终端响铃"
 }

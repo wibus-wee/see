@@ -44,6 +44,11 @@ type gitState struct {
 	autoFetch     bool
 	autoFetching  bool
 	lastFetch     time.Time
+	// notifiedBehind is the incoming count a background fetch last
+	// announced, so the next one tells only when it grew; fetchNotified
+	// marks the status read following one.
+	notifiedBehind int
+	fetchNotified  bool
 	// counts are the lines each change adds and deletes, staged and not,
 	// read while the Git navigator shows.
 	counts [2]map[string]git.FileStat
@@ -195,6 +200,13 @@ func (a *App) refreshGit() {
 			a.git.root, a.git.branch, a.git.changes, a.git.head = r, b, changes, head
 			a.git.pruneSelection()
 			a.git.upstream, a.git.ahead, a.git.behind = upstream, ahead, behind
+			if behind < a.git.notifiedBehind {
+				a.git.notifiedBehind = behind
+			}
+			if a.git.fetchNotified {
+				a.git.fetchNotified = false
+				a.notifyIncoming(behind)
+			}
 			if counting || len(changes) == 0 {
 				a.git.counts = counts
 			}
