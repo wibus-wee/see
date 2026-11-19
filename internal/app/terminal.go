@@ -58,14 +58,14 @@ type termPane struct {
 	pct    float32 // its share of the room it splits with those after it
 }
 
-// newTerm makes a terminal running the user's shell in the workspace.
+// newTerm makes a terminal running the user's shell in dir.
 // Its callbacks come from the terminal's goroutines: they go through
 // post, and are dropped once the pane or the workspace is gone.
-func (a *App) newTerm(p *termPane) error {
+func (a *App) newTerm(p *termPane, dir string) error {
 	gen := a.gen
 	var t *terminal.Terminal
 	t, err := terminal.New(terminal.Options{
-		Dir: a.root,
+		Dir: dir,
 		Command: func() []string {
 			if a.cfg.TermShell == "" {
 				return nil
@@ -194,9 +194,12 @@ func (a *App) toggleTerminal() {
 	}
 }
 
-// newTerminalTab opens a tab with a new terminal.
-func (a *App) newTerminalTab() {
-	if a.root == "" {
+// newTerminalTab opens a tab with a new terminal at the workspace root.
+func (a *App) newTerminalTab() { a.newTerminalTabAt(a.root) }
+
+// newTerminalTabAt opens a tab with a new terminal in dir.
+func (a *App) newTerminalTabAt(dir string) {
+	if dir == "" {
 		return
 	}
 	a.term.open = true
@@ -206,7 +209,7 @@ func (a *App) newTerminalTab() {
 		tp := &a.term
 		tp.nextID++
 		p := &termPane{id: tp.nextID, title: shellName()}
-		if err := a.newTerm(p); err != nil {
+		if err := a.newTerm(p, dir); err != nil {
 			a.note(locales.MsgCouldNotStartATerminal()+err.Error(), true)
 			return
 		}
@@ -227,7 +230,7 @@ func (a *App) splitTerminal() {
 	a.withTerminal(func() {
 		tp.nextID++
 		p := &termPane{id: tp.nextID, title: shellName()}
-		if err := a.newTerm(p); err != nil {
+		if err := a.newTerm(p, a.root); err != nil {
 			a.note(locales.MsgCouldNotStartATerminal()+err.Error(), true)
 			return
 		}
