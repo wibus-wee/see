@@ -77,9 +77,7 @@ func (a *App) switchCounterpart(step int) {
 	g := a.focus
 	names := a.counterpartNames(g)
 	if len(names) == 0 {
-		if a.activePath() != "" {
-			a.note(locales.MsgNoCounterpartsFound(), false)
-		}
+		a.counterpartMiss = a.activePath()
 		return
 	}
 	path := g.active
@@ -94,16 +92,14 @@ func (a *App) switchCounterpart(step int) {
 			if i := slices.Index(paths, path); len(paths) > 1 && i >= 0 {
 				a.jumpToCounterpart(g, paths[(i+step+len(paths))%len(paths)])
 			} else {
-				a.note(locales.MsgNoCounterpartsFound(), false)
+				a.counterpartMiss = path
 			}
 		})
 	}()
 }
 
 func (a *App) jumpToCounterpart(g *group, path string) {
-	if a.notice == locales.MsgNoCounterpartsFound() {
-		a.note("", false)
-	}
+	a.counterpartMiss = ""
 	a.jumpToFile(g, path)
 	a.requestGroupFocus(g)
 }

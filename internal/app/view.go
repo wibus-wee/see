@@ -103,6 +103,9 @@ func (a *App) view(c *ui.Context) {
 		return
 	}
 	a.shortcuts(c)
+	if a.counterpartMiss != a.activePath() {
+		a.counterpartMiss = ""
+	}
 	root := ui.Column(c).Fill()
 	target := float32(1)
 	if a.sidebarOff || a.root == "" {

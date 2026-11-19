@@ -88,7 +88,7 @@ func TestCounterpartShortcutsAndPalette(t *testing.T) {
 
 	h.open("internal/format2.go")
 	h.tt.Key(next.shortcutMods, next.shortcutKey)
-	h.settle(func() bool { return h.a.notice == "No counterparts found." })
+	h.settle(func() bool { return h.a.counterpartMiss != "" })
 	if !h.tt.HasText("No counterparts found.") || filepath.Base(h.a.activePath()) != "format2.go" {
 		t.Fatalf("unpaired file did not stay open with a notice: %v", h.tt.Texts())
 	}
@@ -97,6 +97,11 @@ func TestCounterpartShortcutsAndPalette(t *testing.T) {
 	}
 	if err := h.tt.ChooseMenuItem("Counterparts"); err == nil || !strings.Contains(err.Error(), "disabled") {
 		t.Fatalf("Counterparts should be disabled for an unpaired file: %v", err)
+	}
+	h.tt.CloseMenu()
+	h.open("internal/format.go")
+	if h.tt.HasText("No counterparts found.") {
+		t.Fatal("the no-match message followed the user to a different file")
 	}
 }
 
