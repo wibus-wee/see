@@ -2,6 +2,24 @@
 
 User-facing changes are grouped by release. Earlier releases are documented on the [Releases page](https://github.com/wibus-wee/see/releases).
 
+## 0.2.5
+
+### Added
+
+- Find and replace text in the current file with Replace in File, or across the workspace from the Find navigator with per-match previews and a confirmed Replace All.
+- Browse, filter and jump to the current file's symbols in the Outline navigator.
+- Go to Implementation and Go to Type Definition from the editor through the language server.
+- Fold and unfold code by block, recursively, by level or all at once, optionally fold imports when opening a file, and keep folds across sessions.
+- Show the current line's Git blame beside the code and reveal its commit in Git Log; turn inline blame off in Settings or from the command palette.
+- Show errors and warnings at the end of their lines with a subtle line tint; turn inline diagnostics off in Settings.
+
+### Fixed
+
+- Stop console windows from flashing on Windows when See runs Git, language servers, search and other tools.
+- Open the Welcome window when See starts on Windows, and install the `see` shell command as a launcher that works from PowerShell and Command Prompt.
+- Install ripgrep on Windows when its release publishes CertUtil-format checksum files.
+- Show relative dates in Git blame and the branch picker in the selected language.
+
 ## 0.2.4
 
 ### Added
