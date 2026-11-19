@@ -216,7 +216,9 @@ func (a *App) shortcuts(c *ui.Context) {
 			st.Run(editor.Find)
 		}
 	}
-	if c.Shortcut(0, ui.KeyEscape) {
+	if st := a.quickHelp; st != nil {
+		c.OnShortcut(0, ui.KeyEscape, func() { a.dismissQuickHelp(st) })
+	} else if c.Shortcut(0, ui.KeyEscape) {
 		a.choices = nil
 		if !a.quick.open {
 			a.git.peek = nil

@@ -314,6 +314,7 @@ func (a *App) showQuickHelpAtCaret() {
 	}
 	d, st := a.docs[g.active], a.activeEditor()
 	if d != nil && st != nil {
+		a.focusEditor = st
 		a.quickHelpAt(g, d, st, st.Cursor())
 	}
 }

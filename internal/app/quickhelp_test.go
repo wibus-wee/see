@@ -279,6 +279,65 @@ func TestQuickHelpCommandPaletteAndDismissal(t *testing.T) {
 	}
 }
 
+func TestQuickHelpCommandPaletteMouseEscapeRestoresEditor(t *testing.T) {
+	root := writeTree(t, map[string]string{
+		"main.go": "package main\n\nfunc main() {\n\tGreeting(\"Ada\")\n}\n",
+		"docs.go": "package main\n\n// Greeting returns a friendly welcome.\nfunc Greeting(name string) string { return name }\n",
+	})
+	h := newHarness(t, root)
+	h.a.cfg.Trust(root)
+	h.fc.hover = func(context.Context, string, lsp.Position) (string, *lsp.Range, error) {
+		return "```go\nfunc Greeting(name string) string\n```\n\nReturns a friendly welcome.", nil, nil
+	}
+	d := h.open("main.go")
+	st := h.a.activeEditor()
+	offset := strings.Index(d.buf.String(), "Greeting")
+	st.GoTo(d.buf.Pos(offset + 2))
+	h.tt.Frame()
+
+	h.tt.Key(ui.Cmd|ui.Shift, ui.KeyP)
+	waitForText(t, h, "Show Quick Help")
+	if err := h.tt.Click("Show Quick Help"); err != nil {
+		t.Fatal(err)
+	}
+	waitForQuickHelp(t, h, st, "Declaration")
+	bounds, ok := h.tt.Find("Quick Help")
+	if !ok || bounds.W <= 0 || bounds.H <= 0 {
+		t.Fatalf("Quick Help bounds = %+v, found=%v", bounds, ok)
+	}
+	h.tt.Move(bounds.X+bounds.W-1, bounds.Y+bounds.H/2)
+	h.tt.Frame()
+	h.tt.Key(0, ui.KeyEscape)
+	h.tt.Frame()
+	if h.tt.HasText("Declaration") || h.a.quickHelp != nil {
+		t.Fatal("Escape did not dismiss palette-opened Quick Help at the popover edge")
+	}
+
+	before := d.buf.String()
+	h.tt.TypeKey(0, ui.KeyX, "x")
+	h.tt.Frame()
+	if d.buf.String() == before {
+		t.Fatal("typing after palette selection did not reach the editor")
+	}
+
+	st.GoTo(d.buf.Pos(offset + 2))
+	h.tt.Frame()
+	quickHelpShortcut := jumpShortcut(t, "Show Quick Help")
+	h.tt.Key(quickHelpShortcut.shortcutMods, quickHelpShortcut.shortcutKey)
+	waitForQuickHelp(t, h, st, "Declaration")
+	bounds, ok = h.tt.Find("Quick Help")
+	if !ok || bounds.W <= 0 || bounds.H <= 0 {
+		t.Fatalf("shortcut Quick Help bounds = %+v, found=%v", bounds, ok)
+	}
+	h.tt.Move(bounds.X+bounds.W-1, bounds.Y+bounds.H/2)
+	h.tt.Frame()
+	h.tt.Key(0, ui.KeyEscape)
+	h.tt.Frame()
+	if h.tt.HasText("Declaration") || h.a.quickHelp != nil {
+		t.Fatal("Escape did not dismiss shortcut-opened Quick Help")
+	}
+}
+
 func TestQuickHelpDeclaredInJumpsToDefinition(t *testing.T) {
 	h, d, offset := quickHelpHarness(t)
 	st := h.a.activeEditor()
