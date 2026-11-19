@@ -97,6 +97,7 @@ var commandMessages = map[string]string{
 	"Find in File":          "commandFindInFile",
 	"Replace in File":       "commandReplaceInFile",
 	"Find References":       "commandFindReferences",
+	"Pin References":        "commandPinReferences",
 	"Find Callers":          "commandFindCallers",
 	"Go to Definition":      "commandGoToDefinition",
 	"Peek Definition":       "commandPeekDefinition",

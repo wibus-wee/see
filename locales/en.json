@@ -629,6 +629,7 @@
   "commandFindInFile": "Find in File",
   "commandReplaceInFile": "Replace in File",
   "commandFindReferences": "Find References",
+  "commandPinReferences": "Pin References",
   "commandFindCallers": "Find Callers",
   "commandGoToDefinition": "Go to Definition",
   "commandPeekDefinition": "Peek Definition",
@@ -738,5 +739,10 @@
   "scopeEditEmpty": "No semantic occurrences were found for this identifier.",
   "scopeEditFailed": "Could not find semantic occurrences: {error}",
   "scopeEditSearching": "Finding semantic occurrences… · Esc to cancel",
-  "scopeEditActive": "{count, plural, one {Editing # occurrence · Esc to finish} other {Editing # occurrences · Esc to finish}}"
+  "scopeEditActive": "{count, plural, one {Editing # occurrence · Esc to finish} other {Editing # occurrences · Esc to finish}}",
+  "msgReferences": "References",
+  "msgNoReferencesFound": "No references found.",
+  "msgReferencesMayMissUnopened": "The language server may not count references in files it has not opened.",
+  "msgNoPinnedReferences": "No pinned references yet. Pin a references list from its peek or run Pin References.",
+  "msgReferencesCountDInDFiles": "{count} references in {files} files"
 }

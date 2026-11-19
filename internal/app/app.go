@@ -98,6 +98,8 @@ type App struct {
 	choices             *defChoices // several definitions to choose from
 	counterpartMiss     counterpartFeedback
 	peek                *peekState // a definition peeked at from an editor
+	references          referenceList
+	referencesEmpty     bool // the last pin found no references
 
 	lsp        *langserver.Server
 	cmakeLSP   *langserver.Server
@@ -1827,11 +1829,19 @@ func (a *App) loadRelatedPreviews(ch *defChoices) {
 			}
 		}
 		a.post.Post(func() {
-			if a.gen == gen && a.choices == ch {
-				ch.locs = targets
-				ch.buffers = buffers
-				a.selectRelated(ch, ch.selected)
+			if a.gen != gen {
+				return
 			}
+			if a.choices != ch {
+				// The list left the peek: a pinned run may still own it.
+				run := a.references.activeRun()
+				if run == nil || run.choices != ch {
+					return
+				}
+			}
+			ch.locs = targets
+			ch.buffers = buffers
+			a.selectRelated(ch, ch.selected)
 		})
 	}()
 }

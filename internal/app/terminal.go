@@ -27,6 +27,7 @@ const (
 	panelTerminal panelView = iota
 	panelOutput
 	panelTasks
+	panelReferences
 )
 
 // termPanel is the bottom panel's state.
@@ -517,6 +518,8 @@ func (a *App) terminalPanel(c *ui.Context) {
 			switch {
 			case tp.view == panelTasks:
 				a.taskView(c)
+			case tp.view == panelReferences:
+				a.referencesView(c)
 			case tp.view == panelOutput:
 				a.logView(c)
 			case tp.loadErr != nil:
@@ -614,6 +617,15 @@ func (a *App) termTabList(c *ui.Context) {
 				}
 				taskRow.OnClick(a.showTasks)
 				taskRow.Children(func() { ui.Text(c, taskMessage("tasksTitle")).FontSize(12) })
+				refsRow := ui.Row(c.Key("references")).FillWidth().Height(24).Padding(0, 6).Gap(6).Radius(5).AlignItems(ui.Center)
+				if tp.view == panelReferences {
+					refsRow.Background(colors(c).SelectedRow)
+				}
+				refsRow.OnClick(func() { tp.view = panelReferences; tp.focus = nil })
+				refsRow.Children(func() {
+					symbolIcon(c, icPin, 16, colors(c).Muted)
+					ui.Text(c, locales.MsgReferences()).FontSize(12)
+				})
 				for i, tab := range tp.tabs {
 					a.termTabRow(c, i, tab)
 				}

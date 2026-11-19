@@ -6426,6 +6426,16 @@ func (msgs Messages) CommandFindReferences() string {
 	return Catalog.Format(msgs.locale, "commandFindReferences", nil)
 }
 
+// CommandPinReferences says "Pin References"
+// in the language the app shows.
+func CommandPinReferences() string { return In(i18n.Locale()).CommandPinReferences() }
+
+// CommandPinReferences says "Pin References"
+// in the language of msgs.
+func (msgs Messages) CommandPinReferences() string {
+	return Catalog.Format(msgs.locale, "commandPinReferences", nil)
+}
+
 // CommandFindCallers says "Find Callers"
 // in the language the app shows.
 func CommandFindCallers() string { return In(i18n.Locale()).CommandFindCallers() }
@@ -7458,4 +7468,56 @@ func ScopeEditActive(count int) string { return In(i18n.Locale()).ScopeEditActiv
 // in the language of msgs.
 func (msgs Messages) ScopeEditActive(count int) string {
 	return Catalog.Format(msgs.locale, "scopeEditActive", map[string]any{"count": count})
+}
+
+// MsgReferences says "References"
+// in the language the app shows.
+func MsgReferences() string { return In(i18n.Locale()).MsgReferences() }
+
+// MsgReferences says "References"
+// in the language of msgs.
+func (msgs Messages) MsgReferences() string {
+	return Catalog.Format(msgs.locale, "msgReferences", nil)
+}
+
+// MsgNoReferencesFound says "No references found."
+// in the language the app shows.
+func MsgNoReferencesFound() string { return In(i18n.Locale()).MsgNoReferencesFound() }
+
+// MsgNoReferencesFound says "No references found."
+// in the language of msgs.
+func (msgs Messages) MsgNoReferencesFound() string {
+	return Catalog.Format(msgs.locale, "msgNoReferencesFound", nil)
+}
+
+// MsgReferencesMayMissUnopened says "The language server may not count references in files it has not opened."
+// in the language the app shows.
+func MsgReferencesMayMissUnopened() string { return In(i18n.Locale()).MsgReferencesMayMissUnopened() }
+
+// MsgReferencesMayMissUnopened says "The language server may not count references in files it has not opened."
+// in the language of msgs.
+func (msgs Messages) MsgReferencesMayMissUnopened() string {
+	return Catalog.Format(msgs.locale, "msgReferencesMayMissUnopened", nil)
+}
+
+// MsgNoPinnedReferences says "No pinned references yet. Pin a references list from its peek or run Pin References."
+// in the language the app shows.
+func MsgNoPinnedReferences() string { return In(i18n.Locale()).MsgNoPinnedReferences() }
+
+// MsgNoPinnedReferences says "No pinned references yet. Pin a references list from its peek or run Pin References."
+// in the language of msgs.
+func (msgs Messages) MsgNoPinnedReferences() string {
+	return Catalog.Format(msgs.locale, "msgNoPinnedReferences", nil)
+}
+
+// MsgReferencesCountDInDFiles says "{count} references in {files} files"
+// in the language the app shows.
+func MsgReferencesCountDInDFiles(count string, files string) string {
+	return In(i18n.Locale()).MsgReferencesCountDInDFiles(count, files)
+}
+
+// MsgReferencesCountDInDFiles says "{count} references in {files} files"
+// in the language of msgs.
+func (msgs Messages) MsgReferencesCountDInDFiles(count string, files string) string {
+	return Catalog.Format(msgs.locale, "msgReferencesCountDInDFiles", map[string]any{"count": count, "files": files})
 }
