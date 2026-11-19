@@ -245,8 +245,11 @@ func splitQuickHelp(md string) quickHelpSections {
 	}
 	docLines := strings.Split(doc, "\n")
 	start := 0
-	for start < len(docLines) && strings.TrimSpace(docLines[start]) == "" {
+	for start < len(docLines) && (strings.TrimSpace(docLines[start]) == "" || markdownSeparator(docLines[start])) {
 		start++
+	}
+	if start == len(docLines) {
+		return section
 	}
 	end := start
 	for end < len(docLines) && strings.TrimSpace(docLines[end]) != "" {
@@ -276,6 +279,25 @@ func markdownFence(line string) (byte, int) {
 func markdownFenceClose(line string, fence byte, size int) bool {
 	marker, n := markdownFence(line)
 	return marker == fence && n >= size && strings.TrimSpace(line[n:]) == ""
+}
+
+func markdownSeparator(line string) bool {
+	marker := byte(0)
+	count := 0
+	for i := 0; i < len(line); i++ {
+		switch line[i] {
+		case '-', '*', '_':
+			if marker != 0 && line[i] != marker {
+				return false
+			}
+			marker = line[i]
+			count++
+		case ' ', '\t':
+		default:
+			return false
+		}
+	}
+	return count >= 3
 }
 
 func quickHelpText(key string) string {

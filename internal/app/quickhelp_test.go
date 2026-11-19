@@ -35,6 +35,27 @@ func TestSplitQuickHelp(t *testing.T) {
 	}
 }
 
+func TestSplitQuickHelpDropsLeadingMarkdownSeparators(t *testing.T) {
+	for _, separator := range []string{"---", "***"} {
+		t.Run(separator, func(t *testing.T) {
+			md := "\n\n```go\nfunc Greeting(name string) string\n```\n\n" + separator +
+				"\n\nGreeting returns a friendly welcome.\n\nThe caller supplies a name."
+			got := splitQuickHelp(md)
+			if got.declaration != "```go\nfunc Greeting(name string) string\n```" ||
+				got.summary != "Greeting returns a friendly welcome." || got.discussion != "The caller supplies a name." {
+				t.Fatalf("sections with leading %q = %+v", separator, got)
+			}
+		})
+	}
+}
+
+func TestSplitQuickHelpPreservesMarkdownAfterSummary(t *testing.T) {
+	got := splitQuickHelp("```go\nfunc Greeting() string\n```\n\nGreeting returns a welcome.\n\n---\n\nKeep this discussion.")
+	if got.summary != "Greeting returns a welcome." || got.discussion != "---\n\nKeep this discussion." {
+		t.Fatalf("sections = %+v", got)
+	}
+}
+
 func TestQuickHelpShortcutDoesNotConflict(t *testing.T) {
 	var quick command
 	for _, cmd := range commands() {
