@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"strings"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/i18n"
@@ -67,7 +68,11 @@ func (a *App) navigateActive(kind string) {
 	}
 }
 
+// commandEnabled reports whether a palette or menu command does
+// anything now, so commands that would silently no-op show disabled
+// instead.
 func (a *App) commandEnabled(name string) bool {
+	g := a.focus
 	switch name {
 	case "Reopen Closed Tab":
 		return len(a.closed) > 0
@@ -77,6 +82,72 @@ func (a *App) commandEnabled(name string) bool {
 		return a.activeEditor() != nil && a.navigationEnabled(a.activePath(), "typeDefinition")
 	case "Peek Definition":
 		return a.activeEditor() != nil && a.navigationEnabled(a.activePath(), "peek")
+	// Commands that only run an editor command or read the editor.
+	case "Find in File", "Replace in File", "Go to Definition",
+		"Next Problem", "Previous Problem", "Go to Line", "Search File Symbols",
+		"Show Document Items", "Fold", "Unfold", "Toggle Fold",
+		"Fold Recursively", "Unfold Recursively", "Fold All", "Unfold All",
+		"Fold Imports", "Fold Level 1", "Fold Level 2", "Fold Level 3",
+		"Fold Level 4", "Fold Level 5":
+		return a.activeEditor() != nil
+	// References and callers need a language server for the file.
+	case "Find References", "Find Callers":
+		return a.activeEditor() != nil && a.serverFor(a.activePath()) != nil
+	// Workspace-wide views and searches need an open folder.
+	case "Find in Workspace", "Replace in Workspace", "Search Workspace Symbols",
+		"Filter Files", "Open Quickly", "Show Outline", "Show Group Files":
+		return a.root != ""
+	// Commands that only read or act on the repository.
+	case "Show Git", "Git: Show History", "Git: Show Log", "Next Change",
+		"Previous Change", "Toggle Inline Diff", "Toggle Inline Git Blame":
+		return a.git.root != ""
+	case "Git: Fetch", "Git: Pull", "Git: Push", "Git: Switch Branch…":
+		return a.git.root != "" && !a.git.busy
+	// Go tasks need a folder; an untrusted one asks first, which is
+	// still something the command does.
+	case "Go: Build Workspace", "Go: Test Workspace", "Tasks: Stop", "Tasks: Show",
+		"Show Output":
+		return a.root != ""
+	// Markdown preview needs a markdown tab open.
+	case "Open Markdown Preview":
+		return g != nil && isMarkdown(tabPath(g.active)) && a.docs[tabPath(g.active)] != nil
+	case "Show Line's Commit in Git Log":
+		return a.canRevealLineCommit()
+	// Tab and group commands need a group with tabs, or more than one.
+	case "Next Tab", "Previous Tab":
+		return g != nil && len(g.order) >= 2
+	case "Move Tab to Next Editor", "Focus Next Editor", "Focus Previous Editor":
+		return len(a.groups()) >= 2 && (name != "Move Tab to Next Editor" || g != nil && g.active != "")
+	case "Save":
+		return a.activeEditor() != nil
+	case "Save All":
+		return len(a.dirtyDocs()) > 0
+	case "Close Tab":
+		return g == nil || g.active != "" // nil focus closes the window
+	case "Close Other Tabs", "Close Tabs to the Right":
+		return g != nil && len(g.order) >= 2
+	case "Close Saved Tabs":
+		if g == nil {
+			return false
+		}
+		for _, tab := range g.order {
+			if d := a.docs[tabPath(tab)]; d != nil && d.buf != nil && d.buf.Modified() {
+				continue
+			}
+			return true
+		}
+		return false
+	case "Keep Preview Tab":
+		return g != nil && g.preview != ""
+	case "Go Back":
+		return len(a.hist.Back) > 0
+	case "Go Forward":
+		return len(a.hist.Forward) > 0
+	case "Select Last Tab":
+		return g != nil && len(g.order) > 0
+	}
+	if strings.HasPrefix(name, "Select Tab ") {
+		return g != nil && len(g.order) > 0
 	}
 	return true
 }

@@ -80,6 +80,7 @@ func TestBlameUntrackedAndEmpty(t *testing.T) {
 
 func TestRevealBlameBeyondFirstPage(t *testing.T) {
 	root := gitRepo(t, map[string]string{"a.txt": "old\n"})
+	pinGitEnv(t)
 	ctx := context.Background()
 	hash := git.Head(ctx, root)
 	for i := 0; i < historyPage+1; i++ {

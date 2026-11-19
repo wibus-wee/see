@@ -75,6 +75,8 @@ type Server struct {
 	docs     map[string]*document // by URI
 	closed   bool
 	attempt  int // counts starts, so a late exit of an old server is ignored
+	ready    bool // the running client made it to Ready
+	retries  int // restarts since the last session that stayed up
 
 	// out sends the documents' notifications, in order, on a goroutine
 	// of its own: a write that blocks on a busy server never holds mu.
@@ -150,6 +152,7 @@ func (s *Server) get(ctx context.Context, recover bool) (Client, error) {
 	case Off:
 		s.starting = make(chan struct{})
 		s.attempt++
+		s.ready = false
 		s.setState(Starting, nil)
 		go s.run(s.starting, s.attempt)
 	}
@@ -198,6 +201,7 @@ func (s *Server) run(done chan struct{}, attempt int) {
 		return
 	}
 	s.client = c
+	s.ready = true
 	if dc, ok := c.(interface {
 		SetDiagnosticsHandler(func(string, *int, []lsp.Diagnostic))
 	}); ok {
@@ -205,7 +209,26 @@ func (s *Server) run(done chan struct{}, attempt int) {
 	}
 	s.docs = map[string]*document{}
 	s.setState(Ready, nil)
+	go func(attempt int) {
+		<-time.After(stableUptime)
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		if !s.closed && s.attempt == attempt && s.state == Ready {
+			s.retries = 0
+		}
+	}(s.attempt)
 }
+
+// A server that exits on its own comes back on its own too, but not
+// forever: only one that ran long enough to be Ready is restarted at
+// all, at most maxRestarts times on backoff, and a session that stays
+// up for stableUptime earns the retries back.
+const (
+	maxRestarts  = 2
+	stableUptime = 5 * time.Minute
+)
+
+var restartDelays = [maxRestarts]time.Duration{30 * time.Second, 2 * time.Minute}
 
 func (s *Server) exited(attempt int, err error) {
 	s.mu.Lock()
@@ -216,6 +239,27 @@ func (s *Server) exited(attempt int, err error) {
 	s.client = nil
 	s.docs = map[string]*document{}
 	s.setState(Failed, fmt.Errorf("%s stopped: %w", s.o.Name, err))
+	if s.ready && s.retries < maxRestarts {
+		s.retries++
+		s.afterRestart(restartDelays[s.retries-1])
+	}
+}
+
+// afterRestart forgets the failure after delay and starts the server
+// again in the background; a Retry or a Stop in between wins.
+func (s *Server) afterRestart(delay time.Duration) {
+	time.AfterFunc(delay, func() {
+		s.mu.Lock()
+		if s.closed || s.state != Failed || s.retries == 0 {
+			s.mu.Unlock()
+			return
+		}
+		s.setState(Off, nil)
+		s.mu.Unlock()
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+		defer cancel()
+		s.get(ctx, false) // its failure only sets the state again
+	})
 }
 
 // Retry forgets a failure, so the next request starts the server again.

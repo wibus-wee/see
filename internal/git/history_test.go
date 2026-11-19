@@ -11,6 +11,31 @@ import (
 
 func newRepo(t *testing.T) (string, func(args ...string) string) {
 	t.Helper()
+	// GIT_AUTHOR_* and GIT_COMMITTER_* exported by the caller's shell
+	// override the -c flags below, so the tests pin them too.
+	for _, kv := range [][2]string{
+		{"GIT_AUTHOR_NAME", "See"}, {"GIT_AUTHOR_EMAIL", "see@example.com"},
+		{"GIT_COMMITTER_NAME", "See"}, {"GIT_COMMITTER_EMAIL", "see@example.com"},
+	} {
+		t.Setenv(kv[0], kv[1])
+	}
+	// A GIT_DIR or GIT_WORK_TREE the shell exported would send commands
+	// elsewhere, and GIT_CONFIG_KEY_*/GIT_CONFIG_VALUE_* would inject
+	// config; git has no way to empty them, so unset and restore.
+	for _, v := range []string{"GIT_DIR", "GIT_WORK_TREE", "GIT_CONFIG_COUNT"} {
+		if old, ok := os.LookupEnv(v); ok {
+			t.Cleanup(func() { os.Setenv(v, old) })
+		}
+		os.Unsetenv(v)
+	}
+	for _, v := range os.Environ() {
+		if name, _, ok := strings.Cut(v, "="); ok && (strings.HasPrefix(name, "GIT_CONFIG_KEY_") || strings.HasPrefix(name, "GIT_CONFIG_VALUE_")) {
+			if old, ok := os.LookupEnv(name); ok {
+				t.Cleanup(func() { os.Setenv(name, old) })
+			}
+			os.Unsetenv(name)
+		}
+	}
 	root := t.TempDir()
 	ctx := context.Background()
 	run := func(args ...string) string {

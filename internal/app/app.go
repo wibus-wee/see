@@ -81,11 +81,8 @@ type App struct {
 	findingLabel        string
 	navigationMenuState [4]bool
 	choices             *defChoices // several definitions to choose from
-<<<<<<< HEAD
 	counterpartMiss     counterpartFeedback
-=======
 	peek                *peekState  // a definition peeked at from an editor
->>>>>>> feat/peek-definition
 
 	lsp            *langserver.Server
 	cmakeLSP       *langserver.Server

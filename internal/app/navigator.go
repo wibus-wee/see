@@ -271,17 +271,6 @@ func (a *App) fileTree(c *ui.Context, roots []string) {
 	}
 }
 
-// showInFolderLabel is the file manager's name where the platform has
-// named it: Finder on macOS, Explorer on Windows.
-func showInFolderLabel() string {
-	switch runtime.GOOS {
-	case "windows":
-		return "Show in Explorer"
-	default:
-		return "Show in Finder"
-	}
-}
-
 // The chosen row is already visible, so opening it need not reposition the tree.
 func (a *App) openFromTree(path string, preview bool) {
 	a.git.diffSeq++
@@ -470,6 +459,18 @@ func (a *App) treeItem(c *ui.Context, p string) {
 		}
 	}
 	row.Drag(&tabDrag{path: p})
+}
+
+// showInFolderLabel names the platform's file manager, as its own menus
+// do: Finder on macOS, Explorer on Windows.
+func showInFolderLabel() string {
+	switch runtime.GOOS {
+	case "windows":
+		return "Show in Explorer"
+	case "darwin":
+		return "Show in Finder"
+	}
+	return "Show in File Manager"
 }
 
 func (a *App) dirError(c *ui.Context, dir string, err error) {
