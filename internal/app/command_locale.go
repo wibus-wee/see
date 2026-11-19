@@ -91,6 +91,7 @@ var commandMessages = map[string]string{
 	"Go to Definition":      "commandGoToDefinition",
 	"Go to Implementation":  "commandGoToImplementation",
 	"Go to Type Definition": "commandGoToTypeDefinition",
+	"Edit All in Scope":     "commandEditAllInScope",
 	"Select Last Tab":       "commandSelectLastTab",
 }
 

@@ -32,17 +32,18 @@ type Options struct {
 // Client is a language client of one server: it initializes it, keeps
 // its documents in sync, asks for definitions and shuts it down.
 type Client struct {
-	conn            *Conn
-	opts            Options
-	encoding        string
-	sync            int
-	openNote        bool
-	defs            bool
-	implementations bool
-	typeDefinitions bool
-	pullDiagnostics bool
-	diagMu          sync.Mutex
-	onDiagnostics   func(string, *int, []Diagnostic)
+	conn               *Conn
+	opts               Options
+	encoding           string
+	sync               int
+	openNote           bool
+	defs               bool
+	documentHighlights bool
+	implementations    bool
+	typeDefinitions    bool
+	pullDiagnostics    bool
+	diagMu             sync.Mutex
+	onDiagnostics      func(string, *int, []Diagnostic)
 
 	cmd    *exec.Cmd
 	stdin  io.Closer
@@ -153,6 +154,9 @@ func (c *Client) Encoding() string { return c.encoding }
 // HasDefinition reports whether the server answers definition requests.
 func (c *Client) HasDefinition() bool { return c.defs }
 
+// HasDocumentHighlights reports whether the server provides semantic occurrences.
+func (c *Client) HasDocumentHighlights() bool { return c.documentHighlights }
+
 func (c *Client) HasImplementation() bool { return c.implementations }
 func (c *Client) HasTypeDefinition() bool { return c.typeDefinitions }
 
@@ -190,14 +194,15 @@ func (c *Client) initialize(ctx context.Context) error {
 				"positionEncodings": []string{UTF8, UTF16},
 			},
 			"textDocument": map[string]any{
-				"synchronization": map[string]any{"didSave": false, "dynamicRegistration": false},
-				"documentSymbol":  map[string]any{"hierarchicalDocumentSymbolSupport": true, "dynamicRegistration": false},
-				"references":      map[string]any{"dynamicRegistration": false},
-				"callHierarchy":   map[string]any{"dynamicRegistration": false},
-				"definition":      map[string]any{"linkSupport": true, "dynamicRegistration": false},
-				"implementation":  map[string]any{"linkSupport": true, "dynamicRegistration": false},
-				"typeDefinition":  map[string]any{"linkSupport": true, "dynamicRegistration": false},
-				"hover":           map[string]any{"contentFormat": []string{"markdown", "plaintext"}, "dynamicRegistration": false},
+				"synchronization":   map[string]any{"didSave": false, "dynamicRegistration": false},
+				"documentSymbol":    map[string]any{"hierarchicalDocumentSymbolSupport": true, "dynamicRegistration": false},
+				"references":        map[string]any{"dynamicRegistration": false},
+				"callHierarchy":     map[string]any{"dynamicRegistration": false},
+				"definition":        map[string]any{"linkSupport": true, "dynamicRegistration": false},
+				"documentHighlight": map[string]any{"dynamicRegistration": false},
+				"implementation":    map[string]any{"linkSupport": true, "dynamicRegistration": false},
+				"typeDefinition":    map[string]any{"linkSupport": true, "dynamicRegistration": false},
+				"hover":             map[string]any{"contentFormat": []string{"markdown", "plaintext"}, "dynamicRegistration": false},
 			},
 			"workspace": map[string]any{
 				"workspaceFolders": true,
@@ -218,6 +223,7 @@ func (c *Client) initialize(ctx context.Context) error {
 	c.encoding = NegotiatedEncoding(res.Capabilities.PositionEncoding)
 	c.sync, c.openNote = res.Capabilities.syncKind()
 	c.defs = res.Capabilities.hasDefinition()
+	c.documentHighlights = res.Capabilities.hasDocumentHighlights()
 	c.implementations = (serverCapabilities{DefinitionProvider: res.Capabilities.ImplementationProvider}).hasDefinition()
 	c.typeDefinitions = (serverCapabilities{DefinitionProvider: res.Capabilities.TypeDefinitionProvider}).hasDefinition()
 	c.pullDiagnostics = len(res.Capabilities.DiagnosticProvider) > 0 && string(res.Capabilities.DiagnosticProvider) != "null" && string(res.Capabilities.DiagnosticProvider) != "false"
@@ -259,6 +265,16 @@ func (c *Client) DidClose(uri string) error {
 // Definition asks where the symbol at pos of the document is defined.
 func (c *Client) Definition(ctx context.Context, uri string, pos Position) ([]Location, error) {
 	return c.locations(ctx, "textDocument/definition", uri, pos)
+}
+
+// DocumentHighlights asks where the symbol at pos occurs in this document.
+func (c *Client) DocumentHighlights(ctx context.Context, uri string, pos Position) ([]DocumentHighlight, error) {
+	var highlights []DocumentHighlight
+	err := c.conn.Call(ctx, "textDocument/documentHighlight", map[string]any{
+		"textDocument": map[string]any{"uri": uri},
+		"position":     pos,
+	}, &highlights)
+	return highlights, err
 }
 
 func (c *Client) Implementation(ctx context.Context, uri string, pos Position) ([]Location, error) {

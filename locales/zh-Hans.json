@@ -637,5 +637,13 @@
   "minimapLabel": "缩略图",
   "showMinimap": "显示缩略图",
   "minimapDescription": "在编辑器旁显示文件的缩略概览，如同 Xcode。",
-  "commandToggleMinimap": "切换缩略图"
+  "commandToggleMinimap": "切换缩略图",
+  "commandEditAllInScope": "编辑作用域中的所有位置",
+  "scopeEditSourceOnly": "请打开可编辑的源文件以编辑作用域中的标识符。",
+  "scopeEditIdentifier": "将光标放在标识符上以编辑其所有位置。",
+  "scopeEditUnsupported": "语言服务器不支持语义高亮。",
+  "scopeEditEmpty": "未找到此标识符的语义位置。",
+  "scopeEditFailed": "无法查找语义位置：{error}",
+  "scopeEditSearching": "正在查找语义位置… · 按 Esc 取消",
+  "scopeEditActive": "{count, plural, one {正在编辑 # 个位置 · 按 Esc 结束} other {正在编辑 # 个位置 · 按 Esc 结束}}"
 }
