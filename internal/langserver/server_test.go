@@ -261,10 +261,10 @@ func TestExitedServerRestartsOnBackoff(t *testing.T) {
 	restartDelays = [maxRestarts]time.Duration{10 * time.Millisecond, 10 * time.Millisecond}
 
 	var exits []func(error)
-	starts := 0
+	var starts atomic.Int32
 	s := New(Options{Name: "fake", Start: func(_ context.Context, _ string, onExit func(error)) (Client, error) {
 		exits = append(exits, onExit)
-		starts++
+		starts.Add(1)
 		return &fakeClient{}, nil
 	}})
 	defer s.StopWait(time.Second)
@@ -274,16 +274,16 @@ func TestExitedServerRestartsOnBackoff(t *testing.T) {
 	if st, _ := s.Status(); st != Failed {
 		t.Fatalf("state %v after the exit", st)
 	}
-	waitFor(t, func() bool { return starts == 2 && serverState(s) == Ready })
+	waitFor(t, func() bool { return starts.Load() == 2 && serverState(s) == Ready })
 
 	// A crash before Ready is not restarted again: exits[1] belongs to
 	// a live server, so it reports again, and the retries run out.
 	exits[1](errors.New("crashed"))
-	waitFor(t, func() bool { return starts == 3 && serverState(s) == Ready })
+	waitFor(t, func() bool { return starts.Load() == 3 && serverState(s) == Ready })
 	exits[2](errors.New("crashed"))
 	time.Sleep(50 * time.Millisecond)
-	if st, _ := s.Status(); st != Failed || starts != 3 {
-		t.Fatalf("state %v, starts %d after the retries ran out", st, starts)
+	if st, _ := s.Status(); st != Failed || starts.Load() != 3 {
+		t.Fatalf("state %v, starts %d after the retries ran out", st, starts.Load())
 	}
 }
 
