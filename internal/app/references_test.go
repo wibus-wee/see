@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"see/internal/lsp"
+	"see/internal/uri"
 
 	"github.com/egoist/mygo/ui/editor"
 )
@@ -26,15 +27,15 @@ func referencesFixture() map[string]string {
 // the caret of a.go and waits for the popover's list, as Shift+F12 leaves it.
 func findReferencesOf(t *testing.T, h *harness, d *doc) {
 	t.Helper()
-	h.fc.references = func(ctx context.Context, uri string, pos lsp.Position) ([]lsp.Location, error) {
+	h.fc.references = func(ctx context.Context, docURI string, pos lsp.Position) ([]lsp.Location, error) {
 		root := h.a.root
 		rng := func(line, c0, c1 int) lsp.Range {
 			return lsp.Range{Start: lsp.Position{Line: line, Character: c0}, End: lsp.Position{Line: line, Character: c1}}
 		}
 		return []lsp.Location{
-			{URI: "file://" + filepath.Join(root, "a.go"), Range: rng(2, 8, 14)},
-			{URI: "file://" + filepath.Join(root, "b.go"), Range: rng(2, 4, 10)},
-			{URI: "file://" + filepath.Join(root, "c.go"), Range: rng(2, 12, 18)},
+			{URI: uri.FromPath(filepath.Join(root, "a.go")), Range: rng(2, 8, 14)},
+			{URI: uri.FromPath(filepath.Join(root, "b.go")), Range: rng(2, 4, 10)},
+			{URI: uri.FromPath(filepath.Join(root, "c.go")), Range: rng(2, 12, 18)},
 		}, nil
 	}
 	h.a.cfg.Trust(h.a.root)
