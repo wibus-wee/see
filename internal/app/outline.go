@@ -73,7 +73,9 @@ func (a *App) refreshOutline() {
 		o.shown, o.symbols, o.err, o.followed = outlineKey{}, nil, nil, -1
 		o.list = ui.ListState{}
 	}
-	if d == nil || d.buf == nil || a.activeEditor() == nil || key.server == nil || a.wsCtx == nil {
+	// Asking for symbols would start the server: only a trusted
+	// workspace runs one, as hoverAt's check does.
+	if d == nil || d.buf == nil || a.activeEditor() == nil || key.server == nil || a.wsCtx == nil || !a.cfg.IsTrusted(a.root) {
 		o.loading = false
 		return
 	}

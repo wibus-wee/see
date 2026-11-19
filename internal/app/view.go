@@ -32,6 +32,7 @@ func editorBindings() []editor.Binding {
 		none(ui.Cmd, ui.KeyN),
 		none(ui.Cmd|ui.Shift, ui.KeyN),
 		none(ui.Cmd, ui.KeyP),
+		none(ui.Alt|ui.Cmd, ui.KeyK),
 		none(ui.Cmd, ui.KeyB),
 		none(ui.Cmd|ui.Shift, ui.KeyP),
 		none(ui.Cmd|ui.Shift, ui.KeyO),
@@ -39,6 +40,7 @@ func editorBindings() []editor.Binding {
 		none(ui.Cmd|ui.Shift, ui.KeyH),
 		none(ui.Cmd|ui.Shift, ui.KeyV),
 		none(ui.Cmd|ui.Shift, ui.KeyC),
+		none(ui.Cmd|ui.Shift, ui.KeyT),
 		none(ui.Cmd, ui.KeyBackslash),
 		none(ui.Cmd, ui.KeyD), // split, as iTerm; the reader selects no next occurrence to edit
 		none(ui.Cmd|ui.Shift, ui.KeyD),
@@ -46,6 +48,7 @@ func editorBindings() []editor.Binding {
 		none(ui.Ctrl|ui.Shift, ui.KeyTab),
 		none(ui.Ctrl, ui.KeyMinus),
 		none(ui.Cmd, ui.KeyF12),
+		none(ui.Alt, ui.KeyF12),
 		none(ui.Ctrl|ui.Shift, ui.KeyMinus),
 	}
 	for k := ui.Key1; k <= ui.Key9; k++ {
@@ -53,6 +56,8 @@ func editorBindings() []editor.Binding {
 	}
 	_, _, mods, key := fileReplaceShortcut()
 	bs = append(bs, none(mods, key))
+	_, _, scopeMods, scopeKey := editAllScopeShortcut(runtime.GOOS)
+	bs = append(bs, none(scopeMods, scopeKey))
 	if runtime.GOOS != "darwin" {
 		// Back and forward, as VS Code on Windows; the editor would move
 		// by subwords.
@@ -68,6 +73,12 @@ var startTime = time.Now()
 var startTrace = os.Getenv("SEE_TRACE_STARTUP") != ""
 
 func (a *App) view(c *ui.Context) {
+	a.quickHelpRendered = false
+	defer func() {
+		if st := a.quickHelp; st != nil && !a.quickHelpRendered {
+			a.dismissQuickHelp(st)
+		}
+	}()
 	defer a.refreshNavigationMenu()
 	if startTrace {
 		startTrace = false
@@ -76,6 +87,7 @@ func (a *App) view(c *ui.Context) {
 	a.pauseHiddenVideos()
 	a.applyAppearance(c)
 	a.modifiers = c.Modifiers()
+	a.settleTabCycles()
 	c.SetTheme(a.theme)
 	a.services = c.Services()
 	a.showCounterpartFeedback(c)
@@ -88,7 +100,7 @@ func (a *App) view(c *ui.Context) {
 	if !a.hover.cmd {
 		a.hideLink()
 	}
-	if a.root == "" && a.hasWelcome && len(a.docs) == 0 {
+	if a.root == "" && a.hasWelcome && len(a.docs) == 0 && !a.hasTabs() {
 		// The primary main window hides without a folder; its welcome
 		// window and folderless project windows show these actions.
 		if c.Shortcut(ui.Cmd|ui.Shift, ui.KeyN) {
@@ -104,7 +116,7 @@ func (a *App) view(c *ui.Context) {
 		return
 	}
 	a.shortcuts(c)
-	root := ui.Column(c).Fill()
+	root := ui.Column(c).Fill().ObserveInput(a.observeQuickHelp)
 	target := float32(1)
 	if a.sidebarOff || a.root == "" {
 		target = 0
@@ -139,6 +151,9 @@ func (a *App) view(c *ui.Context) {
 	}
 	if a.git.picker.open {
 		a.branchPickerPanel(c)
+	}
+	if a.jumpDate.open {
+		a.jumpToDatePanel(c)
 	}
 }
 
@@ -200,19 +215,39 @@ func (a *App) shortcuts(c *ui.Context) {
 	case fwd:
 		a.goForward()
 	case next:
-		a.cycleTab(1)
+		if runtime.GOOS == "darwin" {
+			a.cycleTab(1)
+		} else {
+			a.cycleTab(-1) // PageDown walks back, PageUp forward, as the browser's
+		}
 	case prev:
-		a.cycleTab(-1)
+		if runtime.GOOS == "darwin" {
+			a.cycleTab(-1)
+		} else {
+			a.cycleTab(1)
+		}
 	}
 	if c.Shortcut(ui.Cmd, ui.KeyF) {
 		if st := a.activeEditor(); st != nil {
 			st.Run(editor.Find)
 		}
 	}
-	if c.Shortcut(0, ui.KeyEscape) {
+	if st := a.quickHelp; st != nil {
+		c.OnShortcut(0, ui.KeyEscape, func() { a.dismissQuickHelp(st) })
+	} else if c.Shortcut(0, ui.KeyEscape) {
+		pendingScopeRequest := a.scopeCancel != nil
+		hasChoices := a.choices != nil
+		hasPeek := a.git.peek != nil
+		a.cancelScopeEditRequest()
 		a.choices = nil
+		a.peek = nil
 		if !a.quick.open {
 			a.git.peek = nil
+		}
+		if !pendingScopeRequest && !a.quick.open && !hasChoices && !hasPeek {
+			if st := a.activeEditor(); st != nil && st == a.scopeModeState {
+				st.Run(editor.Cancel)
+			}
 		}
 	}
 }

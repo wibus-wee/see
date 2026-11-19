@@ -13,7 +13,10 @@ import (
 )
 
 type fakeClient struct {
-	noDefinition bool
+	noDefinition  bool
+	changeStarted chan struct{}
+	releaseChange <-chan struct{}
+	changeErr     error
 
 	mu    sync.Mutex
 	calls []string
@@ -38,7 +41,14 @@ func (c *fakeClient) DidOpen(uri, language string, version int, text string) err
 	return c.record("open " + language + " " + text)
 }
 func (c *fakeClient) DidChange(uri string, version int, text string) error {
-	return c.record("change " + text)
+	if c.changeStarted != nil {
+		close(c.changeStarted)
+		<-c.releaseChange
+	}
+	if err := c.record("change " + text); err != nil {
+		return err
+	}
+	return c.changeErr
 }
 func (c *fakeClient) DidClose(uri string) error { return c.record("close") }
 func (c *fakeClient) Definition(context.Context, string, lsp.Position) ([]lsp.Location, error) {
@@ -172,6 +182,69 @@ func TestSyncOpensThenChangesInOrder(t *testing.T) {
 	}
 }
 
+func TestQueueSyncWaitsForInFlightChange(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		err  error
+	}{
+		{name: "success"},
+		{name: "error", err: errors.New("change failed")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			changeStarted := make(chan struct{})
+			releaseChange := make(chan struct{})
+			var releaseOnce sync.Once
+			release := func() { releaseOnce.Do(func() { close(releaseChange) }) }
+
+			fc := &fakeClient{
+				changeStarted: changeStarted,
+				releaseChange: releaseChange,
+				changeErr:     tc.err,
+			}
+			s := New(Options{Start: serving(fc, new(int))})
+			defer s.StopWait(time.Second)
+			defer release()
+			ctx := context.Background()
+			client, err := s.Get(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			buf := editor.NewBuffer("a")
+			const docURI = "file:///w/a.txt"
+			if err := s.Sync(ctx, client, docURI, buf.Snapshot()); err != nil {
+				t.Fatal(err)
+			}
+			buf.Set("ab")
+			s.Changed(docURI, buf.Snapshot())
+			select {
+			case <-changeStarted:
+			case <-time.After(time.Second):
+				t.Fatal("DidChange did not start")
+			}
+
+			s.mu.Lock()
+			wait := s.queueSync(client, docURI, buf.Snapshot())
+			s.mu.Unlock()
+			select {
+			case <-wait.done:
+				t.Fatalf("same-version Sync returned before the queued DidChange completed: %v", wait.err)
+			default:
+			}
+
+			release()
+			select {
+			case <-wait.done:
+				err := wait.err
+				if !errors.Is(err, tc.err) {
+					t.Fatalf("Sync error = %v, want %v", err, tc.err)
+				}
+			case <-time.After(time.Second):
+				t.Fatal("Sync did not finish after DidChange was released")
+			}
+		})
+	}
+}
+
 func TestStoppedServerRefuses(t *testing.T) {
 	starts := 0
 	s := New(Options{Start: serving(&fakeClient{}, &starts)})
@@ -179,4 +252,77 @@ func TestStoppedServerRefuses(t *testing.T) {
 	if _, err := s.Get(context.Background()); !errors.Is(err, context.Canceled) || starts != 0 {
 		t.Fatalf("err %v, starts %d", err, starts)
 	}
+}
+
+func TestExitedServerRestartsOnBackoff(t *testing.T) {
+	old := restartDelays
+	defer func() { restartDelays = old }()
+	restartDelays = [maxRestarts]time.Duration{10 * time.Millisecond, 10 * time.Millisecond}
+
+	var exits []func(error)
+	starts := 0
+	s := New(Options{Name: "fake", Start: func(_ context.Context, _ string, onExit func(error)) (Client, error) {
+		exits = append(exits, onExit)
+		starts++
+		return &fakeClient{}, nil
+	}})
+	defer s.StopWait(time.Second)
+	s.Get(context.Background())
+
+	exits[0](errors.New("crashed"))
+	if st, _ := s.Status(); st != Failed {
+		t.Fatalf("state %v after the exit", st)
+	}
+	waitFor(t, func() bool { return starts == 2 && serverState(s) == Ready })
+
+	// A crash before Ready is not restarted again: exits[1] belongs to
+	// a live server, so it reports again, and the retries run out.
+	exits[1](errors.New("crashed"))
+	waitFor(t, func() bool { return starts == 3 && serverState(s) == Ready })
+	exits[2](errors.New("crashed"))
+	time.Sleep(50 * time.Millisecond)
+	if st, _ := s.Status(); st != Failed || starts != 3 {
+		t.Fatalf("state %v, starts %d after the retries ran out", st, starts)
+	}
+}
+
+func TestNeverReadyExitIsNotRestarted(t *testing.T) {
+	old := restartDelays
+	defer func() { restartDelays = old }()
+	restartDelays = [maxRestarts]time.Duration{10 * time.Millisecond, 10 * time.Millisecond}
+
+	var exits []func(error)
+	starts := 0
+	s := New(Options{Name: "fake", Start: func(_ context.Context, _ string, onExit func(error)) (Client, error) {
+		exits = append(exits, onExit)
+		starts++
+		if starts == 1 {
+			return &fakeClient{}, nil
+		}
+		return nil, errors.New("won't start")
+	}})
+	defer s.StopWait(time.Second)
+	s.Get(context.Background())
+	exits[0](errors.New("crashed"))
+	waitFor(t, func() bool { return starts == 2 && serverState(s) == Failed })
+	time.Sleep(50 * time.Millisecond)
+	if st, _ := s.Status(); st != Failed || starts != 2 {
+		t.Fatalf("state %v, starts %d; the failed restart must not loop", st, starts)
+	}
+}
+
+func serverState(s *Server) State {
+	st, _ := s.Status()
+	return st
+}
+
+func waitFor(t *testing.T, ok func() bool) {
+	t.Helper()
+	for i := 0; i < 500; i++ {
+		if ok() {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("timed out waiting")
 }

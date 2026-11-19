@@ -74,7 +74,9 @@ type Server struct {
 	starting chan struct{}
 	docs     map[string]*document // by URI
 	closed   bool
-	attempt  int // counts starts, so a late exit of an old server is ignored
+	attempt  int  // counts starts, so a late exit of an old server is ignored
+	ready    bool // the running client made it to Ready
+	retries  int  // restarts since the last session that stayed up
 
 	// out sends the documents' notifications, in order, on a goroutine
 	// of its own: a write that blocks on a busy server never holds mu.
@@ -85,6 +87,36 @@ type document struct {
 	version    int    // the protocol's
 	bufVersion uint64 // of the buffer last sent
 	snap       editor.Snapshot
+	pending    *syncResult
+}
+
+type syncResult struct {
+	done chan struct{}
+	err  error
+}
+
+func newSyncResult() *syncResult {
+	return &syncResult{done: make(chan struct{})}
+}
+
+func completedSyncResult(err error) *syncResult {
+	result := newSyncResult()
+	result.complete(err)
+	return result
+}
+
+func (r *syncResult) complete(err error) {
+	r.err = err
+	close(r.done)
+}
+
+func (r *syncResult) wait(ctx context.Context) error {
+	select {
+	case <-r.done:
+		return r.err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // New returns a Server, stopped until the first Get.
@@ -150,6 +182,7 @@ func (s *Server) get(ctx context.Context, recover bool) (Client, error) {
 	case Off:
 		s.starting = make(chan struct{})
 		s.attempt++
+		s.ready = false
 		s.setState(Starting, nil)
 		go s.run(s.starting, s.attempt)
 	}
@@ -198,6 +231,7 @@ func (s *Server) run(done chan struct{}, attempt int) {
 		return
 	}
 	s.client = c
+	s.ready = true
 	if dc, ok := c.(interface {
 		SetDiagnosticsHandler(func(string, *int, []lsp.Diagnostic))
 	}); ok {
@@ -205,7 +239,26 @@ func (s *Server) run(done chan struct{}, attempt int) {
 	}
 	s.docs = map[string]*document{}
 	s.setState(Ready, nil)
+	go func(attempt int) {
+		<-time.After(stableUptime)
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		if !s.closed && s.attempt == attempt && s.state == Ready {
+			s.retries = 0
+		}
+	}(s.attempt)
 }
+
+// A server that exits on its own comes back on its own too, but not
+// forever: only one that ran long enough to be Ready is restarted at
+// all, at most maxRestarts times on backoff, and a session that stays
+// up for stableUptime earns the retries back.
+const (
+	maxRestarts  = 2
+	stableUptime = 5 * time.Minute
+)
+
+var restartDelays = [maxRestarts]time.Duration{30 * time.Second, 2 * time.Minute}
 
 func (s *Server) exited(attempt int, err error) {
 	s.mu.Lock()
@@ -216,6 +269,27 @@ func (s *Server) exited(attempt int, err error) {
 	s.client = nil
 	s.docs = map[string]*document{}
 	s.setState(Failed, fmt.Errorf("%s stopped: %w", s.o.Name, err))
+	if s.ready && s.retries < maxRestarts {
+		s.retries++
+		s.afterRestart(restartDelays[s.retries-1])
+	}
+}
+
+// afterRestart forgets the failure after delay and starts the server
+// again in the background; a Retry or a Stop in between wins.
+func (s *Server) afterRestart(delay time.Duration) {
+	time.AfterFunc(delay, func() {
+		s.mu.Lock()
+		if s.closed || s.state != Failed || s.retries == 0 {
+			s.mu.Unlock()
+			return
+		}
+		s.setState(Off, nil)
+		s.mu.Unlock()
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+		defer cancel()
+		s.get(ctx, false) // its failure only sets the state again
+	})
 }
 
 // Retry forgets a failure, so the next request starts the server again.
@@ -236,55 +310,65 @@ func (s *Server) Sync(ctx context.Context, c Client, docURI string, snap editor.
 		s.mu.Unlock()
 		return fmt.Errorf("%s restarted", s.o.Name)
 	}
-	send := s.queueSync(c, docURI, snap)
+	result := s.queueSync(c, docURI, snap)
 	s.mu.Unlock()
-	select {
-	case err := <-send:
-		return err
-	case <-ctx.Done():
-		return ctx.Err()
-	}
+	return result.wait(ctx)
 }
 
 // queueSync queues what brings the server's copy of a document up to
 // snap, with mu held so that versions go out in the order they are
-// numbered. The channel gets the result of sending it.
-func (s *Server) queueSync(c Client, docURI string, snap editor.Snapshot) <-chan error {
-	done := make(chan error, 1)
+// numbered. The returned result completes after it is sent.
+func (s *Server) queueSync(c Client, docURI string, snap editor.Snapshot) *syncResult {
 	d := s.docs[docURI]
 	switch {
 	case d == nil:
-		d = &document{version: 1, bufVersion: snap.Version(), snap: snap}
+		result := newSyncResult()
+		d = &document{version: 1, bufVersion: snap.Version(), snap: snap, pending: result}
 		s.docs[docURI] = d
 		path, _ := uri.ToPath(docURI)
 		language := s.o.Language(path)
 		s.out.push(func() {
 			err := c.DidOpen(docURI, language, 1, snap.String())
-			done <- err
+			s.completeSync(docURI, d, result, err)
 			if err == nil {
 				s.pull(c, docURI, snap)
 			} else {
 				s.logf("document open failed: %v", err)
 			}
 		})
+		return result
 	case d.bufVersion == snap.Version():
-		done <- nil
+		if d.pending != nil {
+			return d.pending
+		}
+		return completedSyncResult(nil)
 	default:
+		result := newSyncResult()
 		d.version++
 		d.bufVersion = snap.Version()
 		d.snap = snap
+		d.pending = result
 		v := d.version
 		s.out.push(func() {
 			err := c.DidChange(docURI, v, snap.String())
-			done <- err
+			s.completeSync(docURI, d, result, err)
 			if err == nil {
 				s.pull(c, docURI, snap)
 			} else {
 				s.logf("document change failed: %v", err)
 			}
 		})
+		return result
 	}
-	return done
+}
+
+func (s *Server) completeSync(docURI string, d *document, result *syncResult, err error) {
+	result.complete(err)
+	s.mu.Lock()
+	if s.docs[docURI] == d && d.pending == result {
+		d.pending = nil
+	}
+	s.mu.Unlock()
 }
 
 func (s *Server) logf(format string, args ...any) {

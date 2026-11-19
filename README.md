@@ -192,7 +192,23 @@ The application UI and workspace orchestration live in the root package. `intern
 
 Settings and recent folders are stored in `See/config.json` under the operating system's user configuration directory.
 
-### Release
+#### Language servers
+
+See wires in gopls, tsrs, clangd and cmake-language-server for the files they cover. Point it at another server with the `lsp` array of the configuration file:
+
+```json
+"lsp": [
+  {
+    "name": "rust-analyzer",
+    "extensions": [".rs"],
+    "command": ["rust-analyzer"]
+  }
+]
+```
+
+`name` is what Settings, the toolbar and the logs call the server. `extensions` are the file extensions it covers, `command` the executable and its arguments. `languages`, the LSP language IDs the server reports for them, default to the first; `"env"` adds environment variables and `"initializationOptions"` is sent verbatim when the server starts.
+
+A configured server claims only a file no built-in server covers, and like the built-in ones it runs only in a folder the user trusts — See asks before starting any of them.
 
 Prepare user-facing notes from the commits since the last release. Run `python3 scripts/changelog/changelog.py context` to collect the commit messages and changed files; use `--from <tag> --to <ref>` for another range. The [AI drafting prompt](./scripts/changelog/AI-PROMPT.md) explains how to turn that evidence into an Unreleased draft and verify it against the code. Fetch tags first if the checkout is shallow or missing tags.
 

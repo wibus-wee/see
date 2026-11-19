@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"time"
 
@@ -20,6 +21,9 @@ type Options struct {
 	RootPath, RootURI string
 	// InitializationOptions are passed to the server during initialization.
 	InitializationOptions any
+	// Env adds environment variables to the server's process, as
+	// "NAME=value", merged over the inherited environment.
+	Env []string
 	// Name names the workspace folder.
 	Name string
 	// Logf receives the client's diagnostics; never the documents' text.
@@ -32,17 +36,18 @@ type Options struct {
 // Client is a language client of one server: it initializes it, keeps
 // its documents in sync, asks for definitions and shuts it down.
 type Client struct {
-	conn            *Conn
-	opts            Options
-	encoding        string
-	sync            int
-	openNote        bool
-	defs            bool
-	implementations bool
-	typeDefinitions bool
-	pullDiagnostics bool
-	diagMu          sync.Mutex
-	onDiagnostics   func(string, *int, []Diagnostic)
+	conn               *Conn
+	opts               Options
+	encoding           string
+	sync               int
+	openNote           bool
+	defs               bool
+	documentHighlights bool
+	implementations    bool
+	typeDefinitions    bool
+	pullDiagnostics    bool
+	diagMu             sync.Mutex
+	onDiagnostics      func(string, *int, []Diagnostic)
 
 	cmd    *exec.Cmd
 	stdin  io.Closer
@@ -58,7 +63,7 @@ type Client struct {
 func Start(ctx context.Context, command string, args []string, opts Options) (*Client, error) {
 	cmd := proc.Command(command, args...)
 	cmd.Dir = opts.RootPath
-	cmd.Env = os.Environ()
+	cmd.Env = mergeEnv(os.Environ(), opts.Env)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, err
@@ -94,6 +99,38 @@ func Start(ctx context.Context, command string, args []string, opts Options) (*C
 		return nil, err
 	}
 	return c, nil
+}
+
+// mergeEnv returns base with each "NAME=value" of extra applied: a NAME
+// base already carries is replaced, the others are appended.
+func mergeEnv(base, extra []string) []string {
+	if len(extra) == 0 {
+		return base
+	}
+	overrides := map[string]string{}
+	for _, kv := range extra {
+		name, _, _ := strings.Cut(kv, "=")
+		overrides[name] = kv
+	}
+	out := make([]string, 0, len(base)+len(extra))
+	seen := map[string]bool{}
+	for _, kv := range base {
+		name, _, _ := strings.Cut(kv, "=")
+		if v, ok := overrides[name]; ok {
+			out = append(out, v)
+			seen[name] = true
+		} else {
+			out = append(out, kv)
+		}
+	}
+	for _, kv := range extra {
+		name, _, _ := strings.Cut(kv, "=")
+		if !seen[name] {
+			out = append(out, kv)
+			seen[name] = true
+		}
+	}
+	return out
 }
 
 // Connect makes a client of a server already reached through r and w, as
@@ -153,6 +190,9 @@ func (c *Client) Encoding() string { return c.encoding }
 // HasDefinition reports whether the server answers definition requests.
 func (c *Client) HasDefinition() bool { return c.defs }
 
+// HasDocumentHighlights reports whether the server provides semantic occurrences.
+func (c *Client) HasDocumentHighlights() bool { return c.documentHighlights }
+
 func (c *Client) HasImplementation() bool { return c.implementations }
 func (c *Client) HasTypeDefinition() bool { return c.typeDefinitions }
 
@@ -190,14 +230,15 @@ func (c *Client) initialize(ctx context.Context) error {
 				"positionEncodings": []string{UTF8, UTF16},
 			},
 			"textDocument": map[string]any{
-				"synchronization": map[string]any{"didSave": false, "dynamicRegistration": false},
-				"documentSymbol":  map[string]any{"hierarchicalDocumentSymbolSupport": true, "dynamicRegistration": false},
-				"references":      map[string]any{"dynamicRegistration": false},
-				"callHierarchy":   map[string]any{"dynamicRegistration": false},
-				"definition":      map[string]any{"linkSupport": true, "dynamicRegistration": false},
-				"implementation":  map[string]any{"linkSupport": true, "dynamicRegistration": false},
-				"typeDefinition":  map[string]any{"linkSupport": true, "dynamicRegistration": false},
-				"hover":           map[string]any{"contentFormat": []string{"markdown", "plaintext"}, "dynamicRegistration": false},
+				"synchronization":   map[string]any{"didSave": false, "dynamicRegistration": false},
+				"documentSymbol":    map[string]any{"hierarchicalDocumentSymbolSupport": true, "dynamicRegistration": false},
+				"references":        map[string]any{"dynamicRegistration": false},
+				"callHierarchy":     map[string]any{"dynamicRegistration": false},
+				"definition":        map[string]any{"linkSupport": true, "dynamicRegistration": false},
+				"documentHighlight": map[string]any{"dynamicRegistration": false},
+				"implementation":    map[string]any{"linkSupport": true, "dynamicRegistration": false},
+				"typeDefinition":    map[string]any{"linkSupport": true, "dynamicRegistration": false},
+				"hover":             map[string]any{"contentFormat": []string{"markdown", "plaintext"}, "dynamicRegistration": false},
 			},
 			"workspace": map[string]any{
 				"workspaceFolders": true,
@@ -218,6 +259,7 @@ func (c *Client) initialize(ctx context.Context) error {
 	c.encoding = NegotiatedEncoding(res.Capabilities.PositionEncoding)
 	c.sync, c.openNote = res.Capabilities.syncKind()
 	c.defs = res.Capabilities.hasDefinition()
+	c.documentHighlights = res.Capabilities.hasDocumentHighlights()
 	c.implementations = (serverCapabilities{DefinitionProvider: res.Capabilities.ImplementationProvider}).hasDefinition()
 	c.typeDefinitions = (serverCapabilities{DefinitionProvider: res.Capabilities.TypeDefinitionProvider}).hasDefinition()
 	c.pullDiagnostics = len(res.Capabilities.DiagnosticProvider) > 0 && string(res.Capabilities.DiagnosticProvider) != "null" && string(res.Capabilities.DiagnosticProvider) != "false"
@@ -259,6 +301,16 @@ func (c *Client) DidClose(uri string) error {
 // Definition asks where the symbol at pos of the document is defined.
 func (c *Client) Definition(ctx context.Context, uri string, pos Position) ([]Location, error) {
 	return c.locations(ctx, "textDocument/definition", uri, pos)
+}
+
+// DocumentHighlights asks where the symbol at pos occurs in this document.
+func (c *Client) DocumentHighlights(ctx context.Context, uri string, pos Position) ([]DocumentHighlight, error) {
+	var highlights []DocumentHighlight
+	err := c.conn.Call(ctx, "textDocument/documentHighlight", map[string]any{
+		"textDocument": map[string]any{"uri": uri},
+		"position":     pos,
+	}, &highlights)
+	return highlights, err
 }
 
 func (c *Client) Implementation(ctx context.Context, uri string, pos Position) ([]Location, error) {

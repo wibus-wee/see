@@ -6,6 +6,53 @@ import (
 	"testing"
 )
 
+func TestLSPConfigParses(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "config.json")
+	json := `{
+		"lsp": [
+			{
+				"name": "rust-analyzer",
+				"extensions": [".rs"],
+				"command": ["rust-analyzer"],
+				"env": {"RA_LOG": "info"},
+				"initializationOptions": {"check": {"command": "clippy"}}
+			},
+			{
+				"name": "pyright",
+				"languages": ["python"],
+				"command": ["pyright-langserver", "--stdio"]
+			}
+		]
+	}`
+	if err := os.WriteFile(p, []byte(json), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	c := Load(p)
+	if len(c.LSP) != 2 {
+		t.Fatalf("parsed %d servers, want 2: %+v", len(c.LSP), c.LSP)
+	}
+	rust := c.LSP[0]
+	if rust.Name != "rust-analyzer" || len(rust.Extensions) != 1 || rust.Extensions[0] != ".rs" {
+		t.Fatalf("rust-analyzer parsed wrong: %+v", rust)
+	}
+	if len(rust.Command) != 1 || rust.Command[0] != "rust-analyzer" {
+		t.Fatalf("command: %+v", rust.Command)
+	}
+	if rust.Env["RA_LOG"] != "info" {
+		t.Fatalf("env: %+v", rust.Env)
+	}
+	if rust.InitializationOptions == nil {
+		t.Fatal("initializationOptions dropped")
+	}
+	py := c.LSP[1]
+	if py.Name != "pyright" || len(py.Languages) != 1 || py.Languages[0] != "python" {
+		t.Fatalf("pyright parsed wrong: %+v", py)
+	}
+	if len(py.Command) != 2 || py.Command[1] != "--stdio" {
+		t.Fatalf("command args: %+v", py.Command)
+	}
+}
+
 func TestRoundTrip(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "sub", "config.json")
 	c := Load(p)

@@ -159,6 +159,7 @@ func (a *App) removed(p string) {
 			delete(a.dirs, dir)
 		}
 	}
+	a.bookmarks.Forget(p)
 }
 
 // readIgnored is what git ignores in root, nothing outside a repository;

@@ -280,6 +280,9 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 				{locales.Close(), func() { a.closeTab(g, g.active) }},
 			})
 		}
+		if status := a.scopeEditStatus(st); status != "" {
+			ui.Text(c, status).FontSize(11).TextColor(colors(c).Muted).Padding(6, 12).FillWidth().Background(colors(c).TabBar)
+		}
 		if d.plain || d.lossy {
 			msg := "Large file: syntax highlighting is off."
 			if d.lossy {
@@ -301,6 +304,10 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 		st.SetInlays(a.editorInlays(d, st))
 		backgrounds := st.LineBackgrounds
 		st.LineBackgrounds = a.diagnosticLineBackgrounds(d, st)
+		st.LineBackgrounds = append(st.LineBackgrounds, bookmarkLineBackgrounds(a.bookmarkedLines(d.path), st.Theme)...)
+		gutterMarks := st.GutterMarks
+		st.GutterMarks = a.bookmarkGutterMarks(d.path)
+		st.OnGutterClick = func(line int) { a.bookmarks.Toggle(d.path, line); a.saveConfigSoon() }
 		var ed ui.Element
 		minimap := a.showsMinimap(g, d)
 		ui.Row(c).Grow(1).FillWidth().Children(func() {
@@ -312,6 +319,8 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 			}
 		})
 		st.LineBackgrounds = backgrounds
+		st.GutterMarks = gutterMarks
+		st.OnGutterClick = nil
 		if row := ed.LayoutBounds().W; row > 0 {
 			m := g.minimapOf(d.path)
 			m.room = row
@@ -396,12 +405,22 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 			}
 		}
 		origin := ui.Point{X: bounds.X, Y: bounds.Y}
-		st.OnInput = func(ev ui.InputEvent) bool { return a.changeBarInput(g, d, st, origin, ev) }
+		st.OnInput = func(ev ui.InputEvent) bool {
+			if a.changeBarInput(g, d, st, origin, ev) {
+				return true
+			}
+			return a.quickHelpEditorInput(g, d, st, ev)
+		}
 		if peek := a.git.peek; peek != nil && peek.doc == d && peek.group == g {
 			a.editorPeek(c, bounds, st, peek.line, d.name+" — Git changes", "Close Change Preview", diffHeight(st, peek.diff), func() { a.git.peek = nil }, func() {
 				ui.Scroll(c).Grow(1).FillWidth().TrackScroll(&peek.scroll).Label(locales.MsgGitChangePreview()).Children(func() {
 					editor.DiffView(c, peek.diff).FillWidth()
 				})
+			})
+		}
+		if p := a.peek; p != nil && p.group == g && p.doc == d {
+			a.editorPeek(c, bounds, st, p.from.Line, a.peekTitle(p.t), locales.PeekDefinitionClose(), peekContentHeight(st, p), func() { a.peek = nil }, func() {
+				a.peekView(c, p)
 			})
 		}
 		if ch := a.choices; ch != nil && ch.g == g && ch.from.Path == d.path {
