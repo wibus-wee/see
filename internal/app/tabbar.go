@@ -194,7 +194,11 @@ func (a *App) jumpBar(c *ui.Context, g *group) {
 	tab := g.active
 	p := tabPath(tab)
 	if p == "" {
+		g.jumpFiles, g.jumpSymbols = false, false
 		return
+	}
+	if g == a.focus {
+		a.refreshOutline()
 	}
 	ui.Row(c).FillWidth().Height(26).Padding(0, 6).Gap(2).AlignItems(ui.Center).Background(colors(c).Editor).
 		BorderWidth(0, 0, 1, 0).BorderColor(colors(c).Separator).Children(func() {
@@ -231,13 +235,13 @@ func (a *App) jumpBar(c *ui.Context, g *group) {
 		} else if outside {
 			parts = []string{filepath.Base(p)}
 		}
+		filesMenu := !outside && !(a.docs[p] != nil && a.docs[p].untitled)
 		for i, part := range parts {
 			if i > 0 {
 				symbolIcon(c, icChevron, 9, colors(c).Dim)
 			}
 			last := i == len(parts)-1
-			crumb := ui.Row(c.Key(i)).Gap(4).AlignItems(ui.Center).Padding(1, 3).Radius(4)
-			crumb.Children(func() {
+			children := func() {
 				if last {
 					fileIcon(c, part, 12)
 				} else {
@@ -254,21 +258,28 @@ func (a *App) jumpBar(c *ui.Context, g *group) {
 						ui.Text(c, "●").FontSize(9).TextColor(c.Theme().Accent)
 					}
 				}
-			})
+			}
+			if !filesMenu {
+				ui.Row(c.Key(i)).Gap(4).AlignItems(ui.Center).Padding(1, 3).Children(children)
+				continue
+			}
+			item := filepath.Join(append([]string{a.root}, parts[:i+1]...)...)
+			var open *bool
+			if last {
+				open = &g.jumpFiles
+			}
+			crumb := jumpCrumb(c, i, part, open, children, func(m *ui.Menu) { a.jumpFilesMenu(m, g, filepath.Dir(item), p, false) })
 			if last && crumb.DoubleClicked() && g.preview == p {
 				g.preview = ""
 			}
-			if !last {
-				dir := filepath.Join(append([]string{a.root}, parts[:i+1]...)...)
-				if crumb.Hovered() {
-					crumb.Background(colors(c).Pill)
-				}
-				crumb.OnClick(func() {
-					a.sidebarOff, a.navigator = false, navFiles
-					a.revealInTree(filepath.Join(dir, "x"))
-					a.reveal = dir
-				})
-			}
+		}
+		if !filesMenu {
+			g.jumpFiles = false
+		}
+		if a.jumpSymbolsShown(g, p) {
+			a.jumpSymbols(c, g)
+		} else {
+			g.jumpSymbols = false
 		}
 		showClose := len(g.order) == 1 && len(a.groups()) == 1
 		if showClose || isMarkdown(p) || a.canViewBytes(p) {

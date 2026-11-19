@@ -34,8 +34,10 @@ type group struct {
 	focusHandle     ui.Handle
 	relatedHandle   ui.Handle
 	relatedBounds   ui.Rect
-	pointerAnchor   ui.Point
-	pointerInEditor bool
+	// jumpFiles and jumpSymbols open the jump bar's file and symbol menus.
+	jumpFiles, jumpSymbols bool
+	pointerAnchor          ui.Point
+	pointerInEditor        bool
 	// changeBars are the Git change bars the editor shows, in the window,
 	// and changeBarPress is whether a press on one is being taken.
 	changeBars     []changeBar

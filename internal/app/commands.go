@@ -22,6 +22,7 @@ type command struct {
 
 func commands() []command {
 	replaceLabel, replaceKeyName, replaceMods, replaceKey := fileReplaceShortcut()
+	docItemsLabel, docItemsKeyName, docItemsMods, docItemsKey, groupFilesLabel, groupFilesKeyName, groupFilesMods, groupFilesKey := jumpBarShortcuts()
 	cmds := []command{
 		{"New File", "Cmd+", "N", ui.Cmd, ui.KeyN, func(a *App) { a.newFile() }},
 		{"Command Palette", "Cmd+Shift+", "P", ui.Cmd | ui.Shift, ui.KeyP, func(a *App) { a.openPalette() }},
@@ -48,6 +49,8 @@ func commands() []command {
 			a.sidebarOff, a.navigator, a.find.focus, a.find.showReplace = false, navFind, true, true
 		}},
 		{"Show Outline", "", "", 0, 0, func(a *App) { a.sidebarOff, a.navigator = false, navOutline }},
+		{"Show Document Items", docItemsLabel, docItemsKeyName, docItemsMods, docItemsKey, func(a *App) { a.focus.jumpSymbols = true }},
+		{"Show Group Files", groupFilesLabel, groupFilesKeyName, groupFilesMods, groupFilesKey, func(a *App) { a.focus.jumpFiles = true }},
 		{"Show Git", "", "", 0, 0, func(a *App) { a.sidebarOff, a.navigator = false, navGit; a.refreshGit() }},
 		{"Git: Show History", "", "", 0, 0, func(a *App) {
 			a.sidebarOff, a.navigator, a.git.historyClosed = false, navGit, false
@@ -138,6 +141,15 @@ func commands() []command {
 	}
 	return append(cmds, foldingCommands()...)
 
+}
+
+// jumpBarShortcuts are Xcode's Show Document Items (Control-6) and Show
+// Group Files (Control-5); Control and a digit select tabs elsewhere.
+func jumpBarShortcuts() (string, string, ui.Modifiers, ui.Key, string, string, ui.Modifiers, ui.Key) {
+	if runtime.GOOS == "darwin" {
+		return "Ctrl+", "6", ui.Ctrl, ui.Key6, "Ctrl+", "5", ui.Ctrl, ui.Key5
+	}
+	return "Ctrl+Shift+", ".", ui.Ctrl | ui.Shift, ui.KeyPeriod, "Ctrl+Shift+", ";", ui.Ctrl | ui.Shift, ui.KeySemicolon
 }
 
 func fileReplaceShortcut() (string, string, ui.Modifiers, ui.Key) {

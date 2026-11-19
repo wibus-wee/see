@@ -87,6 +87,9 @@
   "problemHint": "Hint",
 
   "commandShowOutline": "Show Outline",
+  "commandShowDocumentItems": "Show Document Items",
+  "commandShowGroupFiles": "Show Group Files",
+  "jumpNoSelection": "No Selection",
   "outlineTitle": "Outline",
   "filterSymbols": "Filter Symbols",
   "outlineUpdating": "Updating…",
