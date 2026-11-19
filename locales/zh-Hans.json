@@ -610,6 +610,7 @@
   "commandFindInFile": "在文件中查找",
   "commandReplaceInFile": "在文件中替换",
   "commandFindReferences": "查找引用",
+  "commandPinReferences": "固定引用",
   "commandFindCallers": "查找调用者",
   "commandGoToDefinition": "跳转到定义",
   "commandPeekDefinition": "速览定义",
@@ -719,5 +720,10 @@
   "scopeEditEmpty": "未找到此标识符的语义位置。",
   "scopeEditFailed": "无法查找语义位置：{error}",
   "scopeEditSearching": "正在查找语义位置… · 按 Esc 取消",
-  "scopeEditActive": "{count, plural, one {正在编辑 # 个位置 · 按 Esc 结束} other {正在编辑 # 个位置 · 按 Esc 结束}}"
+  "scopeEditActive": "{count, plural, one {正在编辑 # 个位置 · 按 Esc 结束} other {正在编辑 # 个位置 · 按 Esc 结束}}",
+  "msgReferences": "引用",
+  "msgNoReferencesFound": "未找到引用。",
+  "msgReferencesMayMissUnopened": "语言服务器可能不会统计尚未打开的文件中的引用。",
+  "msgNoPinnedReferences": "还没有固定的引用列表。可从预览固定列表，或运行“固定引用”。",
+  "msgReferencesCountDInDFiles": "{files} 个文件中的 {count} 处引用"
 }

@@ -191,6 +191,7 @@ type fakeClient struct {
 	def            func(ctx context.Context, uri string, pos lsp.Position) ([]lsp.Location, error)
 	implementation func(context.Context, string, lsp.Position) ([]lsp.Location, error)
 	typeDefinition func(context.Context, string, lsp.Position) ([]lsp.Location, error)
+	references     func(context.Context, string, lsp.Position) ([]lsp.Location, error)
 	noNavigation   bool
 	hover          func(ctx context.Context, uri string, pos lsp.Position) (string, *lsp.Range, error)
 	log            []string
@@ -226,6 +227,13 @@ func (f *fakeClient) TypeDefinition(ctx context.Context, uri string, pos lsp.Pos
 		return nil, nil
 	}
 	return f.typeDefinition(ctx, uri, pos)
+}
+func (f *fakeClient) References(ctx context.Context, uri string, pos lsp.Position) ([]lsp.Location, error) {
+	f.record("references")
+	if f.references == nil {
+		return nil, nil
+	}
+	return f.references(ctx, uri, pos)
 }
 func (f *fakeClient) DidOpen(uri, lang string, v int, text string) error {
 	f.record("open " + filepath.Base(uri))

@@ -431,7 +431,12 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 			if ch.navigation != "" {
 				closeLabel = navigationText(ch.navigation, "Close")
 			}
-			a.editorPeek(c, bounds, st, ch.from.Line, fmt.Sprintf("%d %s", len(ch.locs), ch.title), closeLabel, 264, func() { a.choices = nil }, func() { a.relatedView(c, ch) })
+			var pin *peekAction
+			if ch.title == "references" {
+				pin = &peekAction{icon: icPin, label: commandLabel("Pin References"), tip: commandLabel("Pin References"), do: func() { a.pinReferences(ch) }}
+			}
+			a.editorPeekAction(c, bounds, st, ch.from.Line, fmt.Sprintf("%d %s", len(ch.locs), ch.title), closeLabel, 264,
+				pin, func() { a.choices = nil }, func() { a.relatedView(c, ch) })
 		}
 		line := d.buf.Line(pos.Line)
 		prefix := strings.ReplaceAll(line[:min(pos.Col, len(line))], "\t", "    ")
@@ -552,14 +557,6 @@ func (a *App) relatedView(c *ui.Context, ch *defChoices) {
 	if ch.collapsed == nil {
 		ch.collapsed = make(map[string]bool)
 	}
-	paths := make([]string, 0)
-	groups := make(map[string][]int)
-	for i, t := range ch.locs {
-		if _, ok := groups[t.path]; !ok {
-			paths = append(paths, t.path)
-		}
-		groups[t.path] = append(groups[t.path], i)
-	}
 	ui.Row(c).Fill().AlignItems(ui.Stretch).Children(func() {
 		ui.Column(c).Grow(2).FillHeight().Clip().Children(func() {
 			if ch.previewEditor == nil {
@@ -575,54 +572,22 @@ func (a *App) relatedView(c *ui.Context, ch *defChoices) {
 		ui.Column(c).Grow(1).FillHeight().BorderWidth(0, 0, 0, 1).BorderColor(colors(c).Separator).Children(func() {
 			ui.Scroll(c).Grow(1).FillWidth().Label(locales.MsgNavigationResults()).Children(func() {
 				ui.Column(c).FillWidth().Children(func() {
-					for _, path := range paths {
-						indices := groups[path]
-						file := ui.ButtonBase(c.Key(path)).FillWidth().Padding(5, 8).Gap(6).Label(locales.MsgToggle() + ch.title + locales.MsgIn() + workspace.RelPath(a.root, path)).Tooltip(path)
-						if file.Hovered() {
-							file.Background(colors(c).Pill)
-						}
-						file.Children(func() {
-							arrow := "▾"
-							if ch.collapsed[path] {
-								arrow = "▸"
-							}
-							ui.Text(c, arrow).TextColor(colors(c).Muted)
-							ui.Text(c, filepath.Base(path)).FontSize(12).SingleLine().Shrink(1)
-							ui.Text(c, workspace.RelPath(a.root, filepath.Dir(path))).FontSize(11).TextColor(colors(c).Muted).SingleLine().Grow(1).Shrink(1)
-							ui.Text(c, fmt.Sprint(len(indices))).FontSize(11).TextColor(colors(c).Muted)
-						})
-						file.OnClick(func() { ch.collapsed[path] = !ch.collapsed[path] })
-						if ch.collapsed[path] {
-							continue
-						}
-						for _, i := range indices {
-							t := ch.locs[i]
-							label := fmt.Sprintf("%s:%d", workspace.RelPath(a.root, t.path), t.pos.Line+1)
-							text := t.name
-							if n := t.pos.Line - t.previewStart; n >= 0 && n < len(t.preview) {
-								text = strings.TrimSpace(t.preview[n])
-							}
-							if text == "" {
-								text = label
-							}
-							row := ui.ButtonBase(c.Key(i)).FillWidth().Padding(4, 8, 4, 25).Radius(4).Justify(ui.Start).Label(label).Tooltip(locales.MsgSelectToPreviewDoubleClickToOpen())
-							if i == ch.selected {
-								row.Background(colors(c).SelectedRow)
-							} else if row.Hovered() {
-								row.Background(colors(c).Pill)
-							}
-							row.Children(func() { ui.Text(c, text).FontSize(12).SingleLine().Shrink(1) })
-							if row.DoubleClicked() {
-								a.jump(ch.g, ch.from, t, ch.enc)
-							} else {
-								row.OnClick(func() { a.selectRelated(ch, i) })
-							}
-						}
-					}
+					a.relatedList(c, ch, ch.collapsed, "", nil,
+						func(i int) { a.selectRelated(ch, i) },
+						func(i int) { a.jump(ch.g, ch.from, ch.locs[i], ch.enc) })
 				})
 			})
 		})
 	})
+}
+
+// peekAction is a second button of a peek's header, beside its close
+// button, as the references peek's pin.
+type peekAction struct {
+	icon  *ui.SVG
+	label string
+	tip   string
+	do    func()
 }
 
 // editorPeek shows content in a popover at a line of the editor, as
@@ -632,6 +597,12 @@ func (a *App) relatedView(c *ui.Context, ch *defChoices) {
 // contentHeight, the height content would take, up to a third of a
 // screenful; content scrolls past that.
 func (a *App) editorPeek(c *ui.Context, bounds ui.Rect, st *editor.State, line int, title, closeLabel string, contentHeight float32, close, content func()) {
+	a.editorPeekAction(c, bounds, st, line, title, closeLabel, contentHeight, nil, close, content)
+}
+
+// editorPeekAction is editorPeek with a second header action before the
+// close button, or none for a nil action.
+func (a *App) editorPeekAction(c *ui.Context, bounds ui.Rect, st *editor.State, line int, title, closeLabel string, contentHeight float32, act *peekAction, close, content func()) {
 	const inset, gap = 12, 4
 	fontSize := st.Font.Size
 	if fontSize <= 0 {
@@ -666,6 +637,9 @@ func (a *App) editorPeek(c *ui.Context, bounds ui.Rect, st *editor.State, line i
 					ui.Text(c, detail).FontSize(12).TextColor(pal.Muted).SingleLine().Shrink(2)
 				}
 				ui.Box(c).Grow(1)
+				if act != nil && glyphButton(c, act.icon, act.label, act.tip, false, false).Clicked() {
+					act.do()
+				}
 				if glyphButton(c, icClose, closeLabel, "Close", false, false).Clicked() {
 					close()
 				}
