@@ -173,3 +173,62 @@ func TestRealGoplsQuickHelpHover(t *testing.T) {
 		t.Fatalf("Greeting summary = %q; hover Markdown = %q", sections.summary, md)
 	}
 }
+
+// TestRealGoplsCallHierarchy asks a real gopls for the calls of a Go
+// function, through the same prepare + incomingCalls pair the panel
+// runs. It runs when SEE_GOPLS names gopls.
+func TestRealGoplsCallHierarchy(t *testing.T) {
+	if os.Getenv("SEE_GOPLS") == "" {
+		t.Skip("set SEE_GOPLS to the path of gopls")
+	}
+	root := writeTree(t, map[string]string{
+		"go.mod":  "module example.com/calls\n\ngo 1.21\n",
+		"main.go": "package main\n\nfunc main() {\n\thelper()\n}\n\nfunc helper() int {\n\treturn 1\n}\n",
+	})
+	h := newHarness(t, root)
+	h.a.startLSP = languages.StartGopls
+	h.a.lsp = langserver.New(langserver.Options{
+		Name: "gopls", Root: h.a.root, Start: h.a.startLSP(testLogf(t)),
+	})
+	defer h.a.lsp.StopWait(5 * time.Second)
+	d := h.open("main.go")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	client, err := h.a.lsp.Get(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snap := d.buf.Snapshot()
+	if err := h.a.lsp.Sync(ctx, client, d.uri, snap); err != nil {
+		t.Fatal(err)
+	}
+	cc, ok := client.(callClient)
+	if !ok || !cc.HasCallHierarchy() {
+		t.Fatalf("gopls has no call hierarchy: %v %T", ok, client)
+	}
+	offset := strings.Index(d.buf.String(), "func helper")
+	pos := snap.Pos(offset + len("func he"))
+	items, err := cc.PrepareCallHierarchy(ctx, d.uri, lsp.Position{
+		Line: pos.Line, Character: lsp.ColumnToLSP(snap.Line(pos.Line), pos.Col, client.Encoding()),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 || items[0].Name != "helper" {
+		t.Fatalf("prepare = %+v", items)
+	}
+	in, err := cc.IncomingCalls(ctx, items[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(in) != 1 || in[0].Item.Name != "main" || len(in[0].FromRanges) != 1 || in[0].FromRanges[0].Start.Line != 3 {
+		t.Fatalf("incoming = %+v", in)
+	}
+	out, err := cc.OutgoingCalls(ctx, items[0])
+	if err != nil {
+		t.Logf("gopls outgoingCalls: %v", err)
+	} else if len(out) != 0 {
+		t.Logf("helper's outgoing calls: %+v", out)
+	}
+}

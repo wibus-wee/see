@@ -138,7 +138,7 @@ func TestCounterpartsJumpBar(t *testing.T) {
 		result := h.a.focus.counterpartMenu
 		return result != nil && len(result.paths) == 2
 	})
-	if got := h.tt.Menu(); !slices.Equal(got, []string{"Counterparts", "-", "Callers", "References"}) {
+	if got := h.tt.Menu(); !slices.Equal(got, []string{"Counterparts", "-", "Callers", "References", "Call Hierarchy"}) {
 		t.Fatalf("related items = %v", got)
 	}
 	h.tt.Key(0, ui.KeyDown)

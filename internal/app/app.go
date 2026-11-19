@@ -54,6 +54,7 @@ type App struct {
 	dirs     map[string]*dirState
 	tree     ui.OutlineState[string]
 	outline  outlineState
+	calls    calls
 	treeRow  int
 	reveal   string // a path to choose in the tree once its row shows
 	filter   treeFilter
@@ -308,6 +309,7 @@ func newApp(cfg *config.Config) *App {
 	a.tree.List.Selected = &a.treeRow
 	a.resetLayout()
 	a.find.init()
+	a.callsInit()
 	return a
 }
 
@@ -498,6 +500,10 @@ func (a *App) closeWorkspace() {
 	a.tree = ui.OutlineState[string]{}
 	a.treeRow = -1
 	a.tree.List.Selected = &a.treeRow
+	a.callsStop()
+	a.calls.tree = ui.OutlineState[int]{}
+	a.calls.row = -1
+	a.calls.tree.List.Selected = &a.calls.row
 	a.reveal = ""
 	a.filter = treeFilter{}
 	a.docs = map[string]*doc{}

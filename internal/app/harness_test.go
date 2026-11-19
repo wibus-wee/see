@@ -196,8 +196,18 @@ type fakeClient struct {
 	hover          func(ctx context.Context, uri string, pos lsp.Position) (string, *lsp.Range, error)
 	inlayHints     func(ctx context.Context, uri string, r lsp.Range) ([]lsp.InlayHint, error)
 	signature      func(ctx context.Context, uri string, pos lsp.Position) (*lsp.SignatureHelp, error) // nil: no signature help
+	callHier       callFake
+	noCalls        bool
 	log            []string
 	shutdown       bool
+}
+
+// callFake answers the hierarchy requests tests give it.
+type callFake struct {
+	items    []lsp.CallItem
+	prepare  error
+	incoming func(lsp.CallItem) ([]lsp.CallEdge, error)
+	outgoing func(lsp.CallItem) ([]lsp.CallEdge, error)
 }
 
 func (f *fakeClient) record(s string) {
@@ -277,6 +287,32 @@ func (f *fakeClient) Shutdown(time.Duration) {
 	f.mu.Lock()
 	f.shutdown = true
 	f.mu.Unlock()
+}
+
+func (f *fakeClient) HasCallHierarchy() bool { return !f.noCalls }
+
+func (f *fakeClient) PrepareCallHierarchy(ctx context.Context, uri string, pos lsp.Position) ([]lsp.CallItem, error) {
+	f.record("prepareCallHierarchy")
+	if f.callHier.prepare != nil {
+		return nil, f.callHier.prepare
+	}
+	return f.callHier.items, nil
+}
+
+func (f *fakeClient) IncomingCalls(ctx context.Context, item lsp.CallItem) ([]lsp.CallEdge, error) {
+	f.record("incomingCalls " + item.Name)
+	if f.callHier.incoming == nil {
+		return nil, nil
+	}
+	return f.callHier.incoming(item)
+}
+
+func (f *fakeClient) OutgoingCalls(ctx context.Context, item lsp.CallItem) ([]lsp.CallEdge, error) {
+	f.record("outgoingCalls " + item.Name)
+	if f.callHier.outgoing == nil {
+		return nil, nil
+	}
+	return f.callHier.outgoing(item)
 }
 
 func writeTree(t *testing.T, files map[string]string) string {

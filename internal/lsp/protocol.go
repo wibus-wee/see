@@ -40,6 +40,40 @@ type Location struct {
 	Range Range  `json:"range"`
 }
 
+// CallItem is a call hierarchy item: a symbol calls reach or leave,
+// with the data a hierarchy item carries, which the server wants back
+// when its calls are asked for.
+type CallItem struct {
+	ID             int             `json:"-"`
+	Name           string          `json:"name"`
+	Kind           int             `json:"kind"`
+	Detail         string          `json:"detail,omitempty"`
+	URI            string          `json:"uri"`
+	Range          Range           `json:"range"`
+	SelectionRange Range           `json:"selectionRange"`
+	Data           json.RawMessage `json:"data,omitempty"`
+}
+
+// CallEdge is one answer to incomingCalls or outgoingCalls: an item on
+// the other side of the direction, and the ranges the call sites cover
+// on the caller's side (fromRanges for both requests).
+type CallEdge struct {
+	Item       CallItem
+	FromRanges []Range
+}
+
+// A hierarchy item keeps what the protocol carries back and forth: the
+// data field servers give to prepare answers and want returned verbatim.
+type callItemWire struct {
+	Name           string          `json:"name"`
+	Kind           int             `json:"kind"`
+	Detail         string          `json:"detail,omitempty"`
+	URI            string          `json:"uri"`
+	Range          Range           `json:"range"`
+	SelectionRange Range           `json:"selectionRange"`
+	Data           json.RawMessage `json:"data,omitempty"`
+}
+
 type locationLink struct {
 	OriginSelectionRange *Range `json:"originSelectionRange,omitempty"`
 	TargetURI            string `json:"targetUri"`
@@ -122,6 +156,7 @@ type serverCapabilities struct {
 	DocumentHighlightProvider json.RawMessage `json:"documentHighlightProvider"`
 	ImplementationProvider    json.RawMessage `json:"implementationProvider"`
 	TypeDefinitionProvider    json.RawMessage `json:"typeDefinitionProvider"`
+	CallHierarchyProvider     json.RawMessage `json:"callHierarchyProvider"`
 	DiagnosticProvider        json.RawMessage `json:"diagnosticProvider"`
 	InlayHintProvider         json.RawMessage `json:"inlayHintProvider"`
 	SignatureHelpProvider     json.RawMessage `json:"signatureHelpProvider"`
@@ -236,6 +271,11 @@ func inlayLabel(raw json.RawMessage) (string, error) {
 
 func (s serverCapabilities) hasSignatureHelp() bool {
 	raw := bytes.TrimSpace(s.SignatureHelpProvider)
+	return len(raw) > 0 && !bytes.Equal(raw, []byte("false")) && !bytes.Equal(raw, []byte("null"))
+}
+
+func (s serverCapabilities) hasCallHierarchy() bool {
+	raw := bytes.TrimSpace(s.CallHierarchyProvider)
 	return len(raw) > 0 && !bytes.Equal(raw, []byte("false")) && !bytes.Equal(raw, []byte("null"))
 }
 
