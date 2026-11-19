@@ -540,6 +540,22 @@ func TestDiffLayoutAndChanges(t *testing.T) {
 			t.Fatalf("after %+d: hunk %d, want %d", step.dir, i, step.want)
 		}
 	}
+
+	// In the file's own editor, the same commands step through its
+	// uncommitted changes, around, leaving the caret at their lines.
+	d := h.open("a.txt")
+	h.settle(func() bool { return d.gitChanges != nil && len(d.gitChanges.Hunks()) == 2 })
+	st := h.a.focus.eds[d.path]
+	for _, step := range []struct {
+		dir, want int
+	}{
+		{1, 1}, {1, 10}, {1, 1}, {-1, 10}, {-1, 1}, {-1, 10},
+	} {
+		h.a.goToChange(step.dir)
+		if got := st.CursorPos().Line; got != step.want {
+			t.Fatalf("after %+d: caret line %d, want %d", step.dir, got, step.want)
+		}
+	}
 }
 
 type idleWatcher struct{}
