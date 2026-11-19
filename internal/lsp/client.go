@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"time"
 
@@ -20,6 +21,9 @@ type Options struct {
 	RootPath, RootURI string
 	// InitializationOptions are passed to the server during initialization.
 	InitializationOptions any
+	// Env adds environment variables to the server's process, as
+	// "NAME=value", merged over the inherited environment.
+	Env []string
 	// Name names the workspace folder.
 	Name string
 	// Logf receives the client's diagnostics; never the documents' text.
@@ -58,7 +62,7 @@ type Client struct {
 func Start(ctx context.Context, command string, args []string, opts Options) (*Client, error) {
 	cmd := proc.Command(command, args...)
 	cmd.Dir = opts.RootPath
-	cmd.Env = os.Environ()
+	cmd.Env = mergeEnv(os.Environ(), opts.Env)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, err
@@ -94,6 +98,38 @@ func Start(ctx context.Context, command string, args []string, opts Options) (*C
 		return nil, err
 	}
 	return c, nil
+}
+
+// mergeEnv returns base with each "NAME=value" of extra applied: a NAME
+// base already carries is replaced, the others are appended.
+func mergeEnv(base, extra []string) []string {
+	if len(extra) == 0 {
+		return base
+	}
+	overrides := map[string]string{}
+	for _, kv := range extra {
+		name, _, _ := strings.Cut(kv, "=")
+		overrides[name] = kv
+	}
+	out := make([]string, 0, len(base)+len(extra))
+	seen := map[string]bool{}
+	for _, kv := range base {
+		name, _, _ := strings.Cut(kv, "=")
+		if v, ok := overrides[name]; ok {
+			out = append(out, v)
+			seen[name] = true
+		} else {
+			out = append(out, kv)
+		}
+	}
+	for _, kv := range extra {
+		name, _, _ := strings.Cut(kv, "=")
+		if !seen[name] {
+			out = append(out, kv)
+			seen[name] = true
+		}
+	}
+	return out
 }
 
 // Connect makes a client of a server already reached through r and w, as

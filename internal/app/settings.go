@@ -788,6 +788,23 @@ func (a *App) intelligencePane(c *ui.Context) {
 		a.toolRow(c.Key("clangd"), toolRow{id: "clangd", language: "C / C++ / Objective-C", server: "clangd", path: clangPath, findErr: clangErr, state: a.clangState, serverErr: a.clangErr, retry: a.retryClangd, hint: "https://clangd.llvm.org/installation"})
 		ui.Box(c).Height(1).FillWidth().Background(theme.Of(c).Separator)
 		a.toolRow(c.Key("cmake"), toolRow{id: "cmake", language: "CMake", server: "cmake-language-server", path: cmakePath, findErr: cmakeErr, state: a.cmakeState, serverErr: a.cmakeErr, retry: a.retryCMake, hint: "pip install cmake-language-server"})
+		for i, spec := range a.customLSPSpecs {
+			ui.Box(c).Height(1).FillWidth().Background(theme.Of(c).Separator)
+			st := struct {
+				state langserver.State
+				err   error
+			}{}
+			if s, ok := a.customStates[i]; ok {
+				st = s
+			}
+			idx := i
+			a.toolRow(c.Key("custom-"+spec.Name), toolRow{
+				id: spec.Name, language: customLanguageLabel(spec), server: spec.Name,
+				path: configuredPath(a.root, spec), state: st.state, serverErr: st.err,
+				retry: func() { a.retryCustomLSP(idx) },
+				hint:  strings.Join(spec.Command, " "),
+			})
+		}
 	})
 	heading(c, locales.TrustedFolders())
 	ui.Text(c, locales.TrustedDescription()).FontSize(12).TextColor(theme.Of(c).Muted).Padding(0, 4, 4, 4)
@@ -809,6 +826,28 @@ func (a *App) intelligencePane(c *ui.Context) {
 		})
 	}
 	card(c, rows...)
+}
+
+// customLanguageLabel names the files a configured server covers, for its
+// Settings row: its extensions, or its languages, or the command's name.
+func customLanguageLabel(spec config.LSPConfig) string {
+	if len(spec.Extensions) > 0 {
+		return strings.Join(spec.Extensions, " ")
+	}
+	if len(spec.Languages) > 0 {
+		return strings.Join(spec.Languages, ", ")
+	}
+	return spec.Name
+}
+
+// configuredPath resolves a configured server's executable for display,
+// or "" when it is not found.
+func configuredPath(root string, spec config.LSPConfig) string {
+	p, err := languages.FindConfigured(root, spec)
+	if err != nil {
+		return ""
+	}
+	return p
 }
 
 // toolRow is a tool in Settings: a language server, or ripgrep, with See's
