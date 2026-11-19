@@ -77,6 +77,7 @@ type App struct {
 	quickHelpRendered bool
 	quickHelpRequest  *editor.State
 	quickHelpSeq      uint64
+	inspector         quickHelpInspector
 
 	// Navigation.
 	hist                nav.History

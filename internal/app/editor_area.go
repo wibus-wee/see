@@ -30,8 +30,18 @@ func (a *App) editorArea(c *ui.Context) {
 		a.focusGroupTarget = nil
 	}
 	ui.Column(c).Fill().Background(colors(c).Editor).Children(func() {
-		a.editorsAndPanel(c, func() {
-			ui.Column(c).Fill().Children(func() { a.layoutView(c, a.layout) })
+		ui.Row(c).Fill().AlignItems(ui.Stretch).Children(func() {
+			ui.Column(c).Grow(1).FillHeight().Children(func() {
+				a.editorsAndPanel(c, func() {
+					ui.Column(c).Fill().Children(func() { a.layoutView(c, a.layout) })
+				})
+			})
+			if a.inspectorOpen() {
+				ui.Column(c).Width(a.inspectorW()).FillHeight().Shrink(0).Children(func() {
+					a.inspectorDivider(c)
+					a.inspectorView(c)
+				})
+			}
 		})
 	})
 }

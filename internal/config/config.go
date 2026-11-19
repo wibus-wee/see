@@ -16,9 +16,11 @@ type Config struct {
 	Recent               []string             `json:"recentWorkspaces,omitempty"`    // newest first
 	ReopenLast           bool                 `json:"reopenLastWorkspace,omitempty"` // else the welcome window shows at launch
 	SidebarWidth         float32              `json:"sidebarWidth,omitempty"`
-	Appearance           string               `json:"appearance,omitempty"` // "light", "dark", or "" for the system's
-	Language             string               `json:"language,omitempty"`   // "system", or a language tag
-	Vibrancy             bool                 `json:"vibrancy,omitempty"`   // the window's material under the wash
+	QuickHelpInspector   bool                 `json:"quickHelpInspector,omitempty"` // the inspector beside the editors
+	QuickHelpWidth       float32              `json:"quickHelpWidth,omitempty"`     // its width; 0 is the default
+	Appearance           string               `json:"appearance,omitempty"`         // "light", "dark", or "" for the system's
+	Language             string               `json:"language,omitempty"`           // "system", or a language tag
+	Vibrancy             bool                 `json:"vibrancy,omitempty"`           // the window's material under the wash
 	Trusted              []string             `json:"trustedWorkspaces,omitempty"`
 	FontFamily           string               `json:"editorFontFamily,omitempty"`
 	TermFontFallback     string               `json:"terminalFontFallback,omitempty"`

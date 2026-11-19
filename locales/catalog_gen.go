@@ -1134,6 +1134,18 @@ func (msgs Messages) CommandShowQuickHelp() string {
 	return Catalog.Format(msgs.locale, "commandShowQuickHelp", nil)
 }
 
+// CommandToggleQuickHelpInspector says "Toggle Quick Help Inspector"
+// in the language the app shows.
+func CommandToggleQuickHelpInspector() string {
+	return In(i18n.Locale()).CommandToggleQuickHelpInspector()
+}
+
+// CommandToggleQuickHelpInspector says "Toggle Quick Help Inspector"
+// in the language of msgs.
+func (msgs Messages) CommandToggleQuickHelpInspector() string {
+	return Catalog.Format(msgs.locale, "commandToggleQuickHelpInspector", nil)
+}
+
 // QuickHelp says "Quick Help"
 // in the language the app shows.
 func QuickHelp() string { return In(i18n.Locale()).QuickHelp() }
@@ -1182,6 +1194,158 @@ func QuickHelpDeclaredIn() string { return In(i18n.Locale()).QuickHelpDeclaredIn
 // in the language of msgs.
 func (msgs Messages) QuickHelpDeclaredIn() string {
 	return Catalog.Format(msgs.locale, "quickHelpDeclaredIn", nil)
+}
+
+// InspectorPane says "Quick Help Inspector"
+// in the language the app shows.
+func InspectorPane() string { return In(i18n.Locale()).InspectorPane() }
+
+// InspectorPane says "Quick Help Inspector"
+// in the language of msgs.
+func (msgs Messages) InspectorPane() string {
+	return Catalog.Format(msgs.locale, "inspectorPane", nil)
+}
+
+// InspectorShow says "Show Quick Help Inspector"
+// in the language the app shows.
+func InspectorShow() string { return In(i18n.Locale()).InspectorShow() }
+
+// InspectorShow says "Show Quick Help Inspector"
+// in the language of msgs.
+func (msgs Messages) InspectorShow() string {
+	return Catalog.Format(msgs.locale, "inspectorShow", nil)
+}
+
+// InspectorShowTip says "Show or hide the Quick Help inspector (Alt+Cmd+I)"
+// in the language the app shows.
+func InspectorShowTip() string { return In(i18n.Locale()).InspectorShowTip() }
+
+// InspectorShowTip says "Show or hide the Quick Help inspector (Alt+Cmd+I)"
+// in the language of msgs.
+func (msgs Messages) InspectorShowTip() string {
+	return Catalog.Format(msgs.locale, "inspectorShowTip", nil)
+}
+
+// InspectorNoSymbol says "No Symbol"
+// in the language the app shows.
+func InspectorNoSymbol() string { return In(i18n.Locale()).InspectorNoSymbol() }
+
+// InspectorNoSymbol says "No Symbol"
+// in the language of msgs.
+func (msgs Messages) InspectorNoSymbol() string {
+	return Catalog.Format(msgs.locale, "inspectorNoSymbol", nil)
+}
+
+// InspectorEmpty says "Move the caret onto a symbol to see its documentation."
+// in the language the app shows.
+func InspectorEmpty() string { return In(i18n.Locale()).InspectorEmpty() }
+
+// InspectorEmpty says "Move the caret onto a symbol to see its documentation."
+// in the language of msgs.
+func (msgs Messages) InspectorEmpty() string {
+	return Catalog.Format(msgs.locale, "inspectorEmpty", nil)
+}
+
+// InspectorNoDoc says "No documentation for this symbol."
+// in the language the app shows.
+func InspectorNoDoc() string { return In(i18n.Locale()).InspectorNoDoc() }
+
+// InspectorNoDoc says "No documentation for this symbol."
+// in the language of msgs.
+func (msgs Messages) InspectorNoDoc() string {
+	return Catalog.Format(msgs.locale, "inspectorNoDoc", nil)
+}
+
+// InspectorStale says "(stale)"
+// in the language the app shows.
+func InspectorStale() string { return In(i18n.Locale()).InspectorStale() }
+
+// InspectorStale says "(stale)"
+// in the language of msgs.
+func (msgs Messages) InspectorStale() string {
+	return Catalog.Format(msgs.locale, "inspectorStale", nil)
+}
+
+// InspectorPin says "Pin"
+// in the language the app shows.
+func InspectorPin() string { return In(i18n.Locale()).InspectorPin() }
+
+// InspectorPin says "Pin"
+// in the language of msgs.
+func (msgs Messages) InspectorPin() string {
+	return Catalog.Format(msgs.locale, "inspectorPin", nil)
+}
+
+// InspectorPinTip says "Pin the current symbol so the inspector stops following the caret"
+// in the language the app shows.
+func InspectorPinTip() string { return In(i18n.Locale()).InspectorPinTip() }
+
+// InspectorPinTip says "Pin the current symbol so the inspector stops following the caret"
+// in the language of msgs.
+func (msgs Messages) InspectorPinTip() string {
+	return Catalog.Format(msgs.locale, "inspectorPinTip", nil)
+}
+
+// InspectorRefresh says "Refresh"
+// in the language the app shows.
+func InspectorRefresh() string { return In(i18n.Locale()).InspectorRefresh() }
+
+// InspectorRefresh says "Refresh"
+// in the language of msgs.
+func (msgs Messages) InspectorRefresh() string {
+	return Catalog.Format(msgs.locale, "inspectorRefresh", nil)
+}
+
+// InspectorCallers says "Callers"
+// in the language the app shows.
+func InspectorCallers() string { return In(i18n.Locale()).InspectorCallers() }
+
+// InspectorCallers says "Callers"
+// in the language of msgs.
+func (msgs Messages) InspectorCallers() string {
+	return Catalog.Format(msgs.locale, "inspectorCallers", nil)
+}
+
+// InspectorReferences says "References"
+// in the language the app shows.
+func InspectorReferences() string { return In(i18n.Locale()).InspectorReferences() }
+
+// InspectorReferences says "References"
+// in the language of msgs.
+func (msgs Messages) InspectorReferences() string {
+	return Catalog.Format(msgs.locale, "inspectorReferences", nil)
+}
+
+// InspectorImplementations says "Implementations"
+// in the language the app shows.
+func InspectorImplementations() string { return In(i18n.Locale()).InspectorImplementations() }
+
+// InspectorImplementations says "Implementations"
+// in the language of msgs.
+func (msgs Messages) InspectorImplementations() string {
+	return Catalog.Format(msgs.locale, "inspectorImplementations", nil)
+}
+
+// MsgQuickHelpInspector says "Quick Help Inspector"
+// in the language the app shows.
+func MsgQuickHelpInspector() string { return In(i18n.Locale()).MsgQuickHelpInspector() }
+
+// MsgQuickHelpInspector says "Quick Help Inspector"
+// in the language of msgs.
+func (msgs Messages) MsgQuickHelpInspector() string {
+	return Catalog.Format(msgs.locale, "msgQuickHelpInspector", nil)
+}
+
+// MsgShowsDeclarationAndDocumentationForTheSymbolUnderTheCaret says "Shows the declaration and documentation for the symbol under the caret."
+// in the language the app shows.
+func MsgShowsDeclarationAndDocumentationForTheSymbolUnderTheCaret() string {
+	return In(i18n.Locale()).MsgShowsDeclarationAndDocumentationForTheSymbolUnderTheCaret()
+}
+
+// MsgShowsDeclarationAndDocumentationForTheSymbolUnderTheCaret says "Shows the declaration and documentation for the symbol under the caret."
+// in the language of msgs.
+func (msgs Messages) MsgShowsDeclarationAndDocumentationForTheSymbolUnderTheCaret() string {
+	return Catalog.Format(msgs.locale, "msgShowsDeclarationAndDocumentationForTheSymbolUnderTheCaret", nil)
 }
 
 // Navigate says "Navigate"

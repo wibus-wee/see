@@ -409,13 +409,13 @@ func (a *App) quickHelpAt(g *group, d *doc, st *editor.State, offset int) {
 					if declared != nil {
 						a.jump(g, from, *declared, enc)
 					}
-				}, a.root)
+				}, a.root, a.openDocLink)
 			})
 		})
 	}()
 }
 
-func quickHelpContent(c *ui.Context, md string, declared *target, open func(), root string) {
+func quickHelpContent(c *ui.Context, md string, declared *target, open func(), root string, onLink func(string)) {
 	sections := splitQuickHelp(md)
 	ui.Scroll(c).Width(480).MaxWidthPercent(100).MaxHeight(400).Shrink(1).Children(func() {
 		ui.Column(c).FillWidth().Padding(4).Gap(12).Children(func() {
@@ -425,7 +425,7 @@ func quickHelpContent(c *ui.Context, md string, declared *target, open func(), r
 				}
 				ui.Column(c).FillWidth().Gap(5).Children(func() {
 					ui.Text(c, quickHelpText(label)).FontSize(12).FontWeight(600).TextColor(colors(c).Muted).SingleLine()
-					markdown.View(c, body, nil)
+					markdown.View(c, body, &markdown.Options{OnLink: onLink})
 				})
 			}
 			render("quickHelpSummary", sections.summary)
@@ -449,6 +449,8 @@ func quickHelpContent(c *ui.Context, md string, declared *target, open func(), r
 				})
 			}
 			render("quickHelpDiscussion", sections.discussion)
+			// onLink is nil until set, as a doc link the pane should open
+			// rather than the popover's default.
 			if declared != nil {
 				path := declared.path
 				if rel, err := filepath.Rel(root, path); err == nil && root != "" {

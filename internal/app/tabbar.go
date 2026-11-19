@@ -378,5 +378,9 @@ func (a *App) jumpBar(c *ui.Context, g *group) {
 				}
 			}
 		}
+		ui.Box(c).Grow(1)
+		if iconButton(c, icInspector, inspectorText("inspectorShow"), inspectorText("inspectorShowTip"), a.inspectorOpen()).Clicked() {
+			a.toggleInspector()
+		}
 	})
 }

@@ -116,6 +116,9 @@ func (a *App) view(c *ui.Context) {
 		return
 	}
 	a.shortcuts(c)
+	if a.inspectorOpen() {
+		a.followInspector()
+	}
 	root := ui.Column(c).Fill().ObserveInput(a.observeQuickHelp)
 	target := float32(1)
 	if a.sidebarOff || a.root == "" {
