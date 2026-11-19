@@ -148,22 +148,16 @@ func (a *App) welcomeAction(c *ui.Context, icon *ui.SVG, title, detail, shortcut
 func (a *App) welcomeRecent(c *ui.Context) {
 	ui.Column(c).Width(280).Shrink(0).FillHeight().Background(colors(c).WelcomeRight).
 		BorderWidth(0, 0, 0, 1).BorderColor(colors(c).Separator).Padding(10, 8).Children(func() {
+		// The window's buttons sit over the top-right on Linux and
+		// Windows; keep the first row clear of them.
+		if bar := c.TitleBar(); bar.Right > 0 {
+			ui.Box(c).Height(max(bar.Bottom-10, 0))
+		}
 		recent := a.cfg.Recent
 		if len(recent) == 0 {
 			ui.Column(c).Grow(1).FillWidth().Center().Gap(4).Children(func() {
 				ui.Text(c, locales.MsgNoRecentFolders()).FontSize(13).TextColor(colors(c).Dim)
 				ui.Text(c, welcomeText("welcomeNoRecentFoldersDetail")).FontSize(11).TextColor(colors(c).Muted)
-			})
-			return
-		}
-		// A filter appears once the list is longer than a screen of rows.
-		if len(recent) > 5 {
-			ui.SearchField(c, &a.recentQuery).Label(welcomeText("welcomeFilterRecent")).Placeholder(welcomeText("welcomeFilterRecent")).FontSize(12).FillWidth().Padding(0, 0, 4, 0)
-			recent = recentMatching(recent, a.recentQuery)
-		}
-		if len(recent) == 0 {
-			ui.Column(c).Grow(1).FillWidth().Center().Children(func() {
-				ui.Text(c, welcomeText("welcomeNoMatchingFolders")).FontSize(12).TextColor(colors(c).Dim)
 			})
 			return
 		}
@@ -178,28 +172,12 @@ func (a *App) welcomeRecent(c *ui.Context) {
 		})
 		switch {
 		case clear:
-			a.recentQuery = ""
 			a.cfg.ClearRecent()
 		case forget != "":
 			a.cfg.RemoveRecent(forget)
 			a.saveConfig()
 		}
 	})
-}
-
-// recentMatching is the folders whose name or path holds the query.
-func recentMatching(recent []string, query string) []string {
-	query = strings.ToLower(strings.TrimSpace(query))
-	if query == "" {
-		return recent
-	}
-	var out []string
-	for _, p := range recent {
-		if strings.Contains(strings.ToLower(p), query) {
-			out = append(out, p)
-		}
-	}
-	return out
 }
 
 func (a *App) recentRow(c *ui.Context, p string, forget *string, clear *bool) {

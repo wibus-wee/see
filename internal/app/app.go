@@ -161,7 +161,6 @@ type App struct {
 	services              ui.Services             // the window's clipboard and browser, for menus built without a context
 	branchHandle          ui.Handle               // the toolbar's branch, under which the branch picker shows
 	welcomeNote           string
-	recentQuery           string       // the welcome window's filter of recent folders
 	clone                 welcomeClone // the welcome window's Clone Repository dialog
 	showWelcome           bool         // the welcome window over an open workspace
 	hasWelcome            bool         // this app owns the welcome window

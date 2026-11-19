@@ -93,6 +93,9 @@ func (a *App) toolbar(c *ui.Context, sidebarProgress float32, vibrant bool) {
 			if glassToolbarButton(c, icPanel, "Show Terminal", "Hide or Show the Terminal ("+keyLabel("Cmd+Shift+", "Y")+")", a.term.open).Clicked() {
 				a.toggleTerminal()
 			}
+			if glassToolbarButton(c, icInspector, inspectorText("inspectorShow"), inspectorText("inspectorShowTip"), a.inspectorOpen()).Clicked() {
+				a.toggleInspector()
+			}
 		})
 		if centerQuick {
 			a.quickButton(c, true, center-quickWidth/2, (max(bar.Height, toolbarHeight)-32)/2)

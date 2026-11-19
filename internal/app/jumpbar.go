@@ -141,7 +141,10 @@ func (a *App) jumpSymbolsMenu(m *ui.Menu, g *group, parent, current int) {
 func symbolCrumbContent(c *ui.Context, s lsp.DocumentSymbol, text ui.Color, size float32) {
 	kind, color := symbolKind(c, s.Kind)
 	ui.Box(c).Width(size + 1).Height(size + 1).Radius(3).Shrink(0).Background(color.Alpha(0.16)).AlignItems(ui.Center).Justify(ui.Center).Children(func() {
-		ui.Text(c, kind).FontSize(size - 4).Bold().TextColor(color).SingleLine()
+		// The kind letter's line box leaves room under it for a descent
+		// that letters don't have; a small bottom margin puts the glyph
+		// back in the square's middle.
+		ui.Text(c, kind).FontSize(size - 4).Bold().TextColor(color).SingleLine().Margin(0, 0, 2, 0)
 	})
 	ui.Text(c, s.Name).FontSize(size).TextColor(text).SingleLine().Ellipsis("…")
 }

@@ -210,11 +210,12 @@ func (a *App) readingPinRow(c *ui.Context, g *group, d *doc, st *editor.State) {
 		return
 	}
 	p.first, p.shown = first, path[len(path)-1].index
-	ui.Row(c).FillWidth().Height(22).Padding(0, 10).Gap(4).AlignItems(ui.Center).
+	ui.Row(c).FillWidth().Height(22).Padding(0, 10).Gap(2).AlignItems(ui.Center).
 		Background(colors(c).Editor).BorderWidth(0, 0, 1, 0).BorderColor(colors(c).Separator).
 		Label(locales.ReadingPositionPin()).Children(func() {
 		if path[0].hops > 0 {
 			ui.Text(c, "…").FontSize(12).TextColor(colors(c).Dim).SingleLine()
+			symbolIcon(c, icChevron, 9, colors(c).Dim)
 		}
 		for k, scope := range path {
 			if k > 0 {
