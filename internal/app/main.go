@@ -389,6 +389,7 @@ func Main() {
 					{Label: locales.CommandPalette(), Click: func(*mygo.MenuItem, *mygo.Window) { currentWin.Update(currentApp.openPalette) }},
 				}, currentApp.navigationMenuItems(currentWin.Update)...), []*mygo.MenuItem{
 					{Label: locales.Appearance(), Submenu: appearanceMenu(currentApp)},
+					{Label: locales.Folding(), Submenu: currentApp.foldingMenu(currentWin.Update)},
 				}...)}, {Role: mygo.RoleWindowMenu},
 			}))
 			mygo.App.Dock.SetMenu(mygo.NewMenu(dockRecentItems(cfg.Recent, func(path string) {

@@ -8,6 +8,19 @@ import (
 )
 
 var commandMessages = map[string]string{
+	"Fold":                       "commandFold",
+	"Unfold":                     "commandUnfold",
+	"Toggle Fold":                "commandToggleFold",
+	"Fold Recursively":           "commandFoldRecursively",
+	"Unfold Recursively":         "commandUnfoldRecursively",
+	"Fold All":                   "commandFoldAll",
+	"Unfold All":                 "commandUnfoldAll",
+	"Fold Imports":               "commandFoldImports",
+	"Fold Level 1":               "commandFoldLevel1",
+	"Fold Level 2":               "commandFoldLevel2",
+	"Fold Level 3":               "commandFoldLevel3",
+	"Fold Level 4":               "commandFoldLevel4",
+	"Fold Level 5":               "commandFoldLevel5",
 	"Show Problems":              "commandShowProblems",
 	"Show Outline":               "commandShowOutline",
 	"Search File Symbols":        "commandSearchFileSymbols",

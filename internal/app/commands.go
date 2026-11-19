@@ -134,7 +134,7 @@ func commands() []command {
 		}
 		cmds = append(cmds, command{label, "Cmd+", fmt.Sprint(n), ui.Cmd, ui.Key1 + ui.Key(n-1), func(a *App) { a.activateTabNumber(n) }})
 	}
-	return cmds
+	return append(cmds, foldingCommands()...)
 
 }
 

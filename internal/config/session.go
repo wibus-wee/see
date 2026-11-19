@@ -43,6 +43,7 @@ type Layout struct {
 }
 
 type Tab struct {
+	Folds           []int  `json:"folds"`
 	Path            string `json:"path"`
 	Untitled        bool   `json:"untitled,omitempty"`
 	Name            string `json:"name,omitempty"`
