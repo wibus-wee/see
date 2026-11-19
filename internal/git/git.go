@@ -43,27 +43,181 @@ func commandInput(ctx context.Context, dir string, input []byte, args ...string)
 	return out, nil
 }
 
+// State is what a refresh of a repository's status shows.
+type State struct {
+	// Root is the repository's top level; Branch the name HEAD names, or
+	// HEAD's short hash detached. Head is HEAD's commit, "" without one.
+	Root, Branch, Head string
+	Changes            []Change
+	// Upstream is the branch HEAD's tracks, and Ahead and Behind how far
+	// apart they are; "" without one.
+	Upstream      string
+	Ahead, Behind int
+	Remotes       []string // the repository's remotes, origin first
+	Web           string   // the web page of the remote Upstream names
+	// Refs is a fingerprint of every ref and its target, for staleness:
+	// a push, tag or branch switch can change history without moving
+	// HEAD. RefsErr holds for-each-ref's error when it failed.
+	Refs    string
+	RefsErr error
+	// Staged and Unstaged are each changed file's added and deleted
+	// lines, read only when asked for.
+	Staged, Unstaged map[string]FileStat
+}
+
 // Read returns the root of the repository holding dir, its branch (or
 // HEAD's short hash when detached) and its changes, untracked files among
 // them.
 func Read(ctx context.Context, dir string) (root, branch string, changes []Change, err error) {
+	s, err := Sync(ctx, dir, false)
+	return s.Root, s.Branch, s.Changes, err
+}
+
+// Sync reads everything a status refresh shows, in as few git calls as it
+// can: the root, then one status --porcelain=v2 --branch that names HEAD's
+// commit and the branch it tracks as well as the changes, one for-each-ref
+// and one remote listing; counts asks for the lines each change adds and
+// deletes besides.
+func Sync(ctx context.Context, dir string, counts bool) (State, error) {
+	var s State
 	out, err := Command(ctx, dir, "rev-parse", "--show-toplevel")
 	if err != nil {
-		return "", "", nil, err
+		return s, err
 	}
-	root = strings.TrimSpace(string(out))
-	b, err := Command(ctx, root, "symbolic-ref", "--quiet", "--short", "HEAD")
+	s.Root = strings.TrimSpace(string(out))
+	out, err = Command(ctx, s.Root, "status", "--porcelain=v2", "--branch", "-z", "--untracked-files=all")
 	if err != nil {
-		b, err = Command(ctx, root, "rev-parse", "--short", "HEAD")
+		return s, err
 	}
-	if err != nil {
-		return "", "", nil, err
+	s.Branch, s.Head, s.Changes = parseStatusV2(out)
+	if s.Head != "" && s.Branch == "" {
+		// Detached: the branch shows as the commit's short hash, as
+		// rev-parse --short HEAD gave it; its length scales with the
+		// repository's size, so it is not the hash's first seven.
+		if b, err := Command(ctx, s.Root, "rev-parse", "--short", "HEAD"); err == nil {
+			s.Branch = strings.TrimSpace(string(b))
+		}
+		if s.Branch == "" {
+			s.Branch = shortHash(s.Head)
+		}
 	}
-	out, err = Command(ctx, root, "status", "--porcelain=v1", "-z", "--untracked-files=all")
-	if err != nil {
-		return "", "", nil, err
+	s.Upstream, s.Ahead, s.Behind = parseBranchStatus(out)
+	s.Refs, s.RefsErr = refs(ctx, s.Root)
+	if counts && len(s.Changes) > 0 {
+		s.Staged, s.Unstaged = LineCounts(ctx, s.Root)
 	}
-	return root, strings.TrimSpace(string(b)), ParseStatus(out), nil
+	s.Remotes, s.Web = remoteInfo(ctx, s.Root, s.Upstream)
+	return s, nil
+}
+
+// refs includes names as well as targets: a push, tag or branch switch
+// can change history decorations without changing HEAD.
+func refs(ctx context.Context, root string) (string, error) {
+	out, err := Command(ctx, root, "for-each-ref", "--format=%(refname)%00%(objectname)%00%(symref)", "refs/heads", "refs/remotes", "refs/tags")
+	return string(out), err
+}
+
+// parseStatusV2 reads the headers of git status --porcelain=v2 --branch
+// -z for the branch and HEAD's commit, and the entries for the changes.
+func parseStatusV2(out []byte) (branch, head string, changes []Change) {
+	for _, p := range strings.Split(string(out), "\x00") {
+		for _, line := range strings.Split(p, "\n") {
+			switch {
+			case strings.HasPrefix(line, "# branch.oid "):
+				if oid := line[len("# branch.oid "):]; oid != "(initial)" {
+					head = oid
+				}
+			case strings.HasPrefix(line, "# branch.head "):
+				if b := line[len("# branch.head "):]; b != "(detached)" {
+					branch = b
+				}
+			}
+		}
+	}
+	return branch, head, parseEntriesV2(string(out))
+}
+
+// parseEntriesV2 reads the change entries of porcelain v2's -z output:
+// 1 and 2 entries as v1's two letters, ? as untracked, u as a conflict.
+func parseEntriesV2(out string) []Change {
+	parts := strings.Split(out, "\x00")
+	var changes []Change
+	for i := 0; i < len(parts); i++ {
+		p := parts[i]
+		switch {
+		case len(p) > 3 && p[0] == '1' && p[1] == ' ':
+			// 1 <XY> <sub> <mH> <mI> <mW> <hH> <hI> <path>: the path,
+			// spaces included, follows the 8th field's end.
+			ch := Change{Index: v1Status(p[2]), Work: v1Status(p[3])}
+			ch.Path = fieldAfter(p, 8)
+			changes = append(changes, ch)
+		case len(p) > 3 && p[0] == 'u' && p[1] == ' ':
+			// u <XY> <sub> <m1> <m2> <m3> <mW> <h1> <h2> <h3> <path>.
+			ch := Change{Index: v1Status(p[2]), Work: v1Status(p[3])}
+			ch.Path = fieldAfter(p, 10)
+			changes = append(changes, ch)
+		case len(p) > 3 && p[0] == '2' && p[1] == ' ':
+			// 2 <XY> <sub> <mH> <mI> <mW> <hH> <hI> <X><score> <path>,
+			// then <origPath> in the field after.
+			ch := Change{Index: v1Status(p[2]), Work: v1Status(p[3])}
+			ch.Path = fieldAfter(p, 9)
+			i++
+			if i < len(parts) {
+				ch.OldPath = parts[i]
+			}
+			changes = append(changes, ch)
+		case len(p) > 2 && p[0] == '?':
+			changes = append(changes, Change{Path: p[2:], Index: '?', Work: '?'})
+		}
+	}
+	return changes
+}
+
+// parseBranchStatus reads the tracking headers of git status
+// --porcelain=v2 --branch: the branch HEAD's tracks, and how many commits
+// apart they are.
+func parseBranchStatus(out []byte) (upstream string, ahead, behind int) {
+	for _, p := range strings.Split(string(out), "\x00") {
+		for _, line := range strings.Split(p, "\n") {
+			switch {
+			case strings.HasPrefix(line, "# branch.upstream "):
+				upstream = line[len("# branch.upstream "):]
+			case strings.HasPrefix(line, "# branch.ab "):
+				fmt.Sscanf(line, "# branch.ab +%d -%d", &ahead, &behind)
+			}
+		}
+	}
+	return upstream, ahead, behind
+}
+
+// fieldAfter returns the rest of a porcelain record past its nth
+// space-separated field, spaces and all: the path fields it ends with.
+func fieldAfter(p string, n int) string {
+	for i, j := 0, 0; i < len(p); i++ {
+		if p[i] == ' ' {
+			j++
+			if j == n {
+				return p[i+1:]
+			}
+		}
+	}
+	return ""
+}
+
+// v1Status turns porcelain v2's '.' (unchanged) into v1's ' ', which is
+// what a Change's Index and Work hold for an unchanged side.
+func v1Status(c byte) byte {
+	if c == '.' {
+		return ' '
+	}
+	return c
+}
+
+func shortHash(head string) string {
+	if len(head) > 7 {
+		return head[:7]
+	}
+	return head
 }
 
 // Head returns the commit HEAD names, or "" in a repository without
