@@ -39,24 +39,26 @@ type Options struct {
 // Client is a language client of one server: it initializes it, keeps
 // its documents in sync, asks for definitions and shuts it down.
 type Client struct {
-	conn               *Conn
-	opts               Options
-	encoding           string
-	sync               int
-	openNote           bool
-	defs               bool
-	documentHighlights bool
-	implementations    bool
-	typeDefinitions    bool
-	inlayHints         bool
-	callHierarchy      bool
-	pullDiagnostics    bool
-	signatureHelp      bool
-	semanticFull       bool
-	semanticRange      bool
-	semanticLegend     semanticTokensLegend
-	diagMu             sync.Mutex
-	onDiagnostics      func(string, *int, []Diagnostic)
+	conn                *Conn
+	opts                Options
+	encoding            string
+	sync                int
+	openNote            bool
+	defs                bool
+	documentHighlights  bool
+	implementations     bool
+	typeDefinitions     bool
+	inlayHints          bool
+	documentLinks       bool
+	documentLinkResolve bool
+	callHierarchy       bool
+	pullDiagnostics     bool
+	signatureHelp       bool
+	semanticFull        bool
+	semanticRange       bool
+	semanticLegend      semanticTokensLegend
+	diagMu              sync.Mutex
+	onDiagnostics       func(string, *int, []Diagnostic)
 
 	cmd    *exec.Cmd
 	stdin  io.Closer
@@ -208,6 +210,13 @@ func (c *Client) HasTypeDefinition() bool { return c.typeDefinitions }
 // HasInlayHints reports whether the server provides inlay hints.
 func (c *Client) HasInlayHints() bool { return c.inlayHints }
 
+// HasDocumentLinks reports whether the server provides document links.
+func (c *Client) HasDocumentLinks() bool { return c.documentLinks }
+
+// DocumentLinkResolveSupport reports whether the server fills a link's
+// target on documentLink/resolve; its links arrive without one.
+func (c *Client) DocumentLinkResolveSupport() bool { return c.documentLinkResolve }
+
 // HasSignatureHelp reports whether the server answers signature help.
 func (c *Client) HasSignatureHelp() bool { return c.signatureHelp }
 
@@ -272,6 +281,7 @@ func (c *Client) initialize(ctx context.Context) error {
 				"implementation":    map[string]any{"linkSupport": true, "dynamicRegistration": false},
 				"typeDefinition":    map[string]any{"linkSupport": true, "dynamicRegistration": false},
 				"inlayHint":         map[string]any{},
+				"documentLink":      map[string]any{"tooltipSupport": true, "dynamicRegistration": false},
 				"hover":             map[string]any{"contentFormat": []string{"markdown", "plaintext"}, "dynamicRegistration": false},
 				"signatureHelp":     map[string]any{"signatureInformation": map[string]any{"documentationFormat": []string{"markdown", "plaintext"}, "parameterInformation": map[string]any{"labelOffsetSupport": true}}, "dynamicRegistration": false},
 				"semanticTokens": map[string]any{
@@ -307,6 +317,8 @@ func (c *Client) initialize(ctx context.Context) error {
 	c.implementations = (serverCapabilities{DefinitionProvider: res.Capabilities.ImplementationProvider}).hasDefinition()
 	c.typeDefinitions = (serverCapabilities{DefinitionProvider: res.Capabilities.TypeDefinitionProvider}).hasDefinition()
 	c.inlayHints = res.Capabilities.hasInlayHints()
+	c.documentLinks = res.Capabilities.hasDocumentLinks()
+	c.documentLinkResolve = res.Capabilities.documentLinkResolve()
 	c.signatureHelp = res.Capabilities.hasSignatureHelp()
 	c.callHierarchy = res.Capabilities.hasCallHierarchy()
 	c.pullDiagnostics = len(res.Capabilities.DiagnosticProvider) > 0 && string(res.Capabilities.DiagnosticProvider) != "null" && string(res.Capabilities.DiagnosticProvider) != "false"
@@ -451,6 +463,33 @@ var standardSemanticTokenTypes = []string{
 var standardSemanticTokenModifiers = []string{
 	"declaration", "definition", "readonly", "static", "deprecated",
 	"abstract", "async", "modification", "documentation", "defaultLibrary",
+}
+
+// DocumentLinks asks for the links of the whole document: its import
+// paths, the URLs of its comments and the files its directives name.
+// Where the server resolves lazily, a link's Target is empty until
+// DocumentLinkResolve fills it.
+func (c *Client) DocumentLinks(ctx context.Context, uri string) ([]DocumentLink, error) {
+	var raw json.RawMessage
+	err := c.conn.Call(ctx, "textDocument/documentLink", map[string]any{
+		"textDocument": map[string]any{"uri": uri},
+	}, &raw)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDocumentLinks(raw)
+}
+
+// DocumentLinkResolve asks the server to fill link's Target, for a link
+// whose answer left it empty. link's Data goes back to the server, as
+// the protocol wants.
+func (c *Client) DocumentLinkResolve(ctx context.Context, link *DocumentLink) (*DocumentLink, error) {
+	var resolved DocumentLink
+	err := c.conn.Call(ctx, "documentLink/resolve", link, &resolved)
+	if err != nil {
+		return nil, err
+	}
+	return &resolved, nil
 }
 
 // SignatureHelp asks for the signatures of the call at pos.

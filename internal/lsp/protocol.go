@@ -40,6 +40,16 @@ type Location struct {
 	Range Range  `json:"range"`
 }
 
+// DocumentLink is a span of a document that is a link, as an import
+// path or a URL in a comment: where Target is empty, documentLink/resolve
+// fills it, with Data the server's own handle to the link.
+type DocumentLink struct {
+	Range   Range           `json:"range"`
+	Target  string          `json:"target,omitempty"`
+	Tooltip string          `json:"tooltip,omitempty"`
+	Data    json.RawMessage `json:"data,omitempty"`
+}
+
 // CallItem is a call hierarchy item: a symbol calls reach or leave,
 // with the data a hierarchy item carries, which the server wants back
 // when its calls are asked for.
@@ -159,6 +169,7 @@ type serverCapabilities struct {
 	CallHierarchyProvider     json.RawMessage `json:"callHierarchyProvider"`
 	DiagnosticProvider        json.RawMessage `json:"diagnosticProvider"`
 	InlayHintProvider         json.RawMessage `json:"inlayHintProvider"`
+	DocumentLinkProvider      json.RawMessage `json:"documentLinkProvider"`
 	SignatureHelpProvider     json.RawMessage `json:"signatureHelpProvider"`
 	SemanticTokensProvider    json.RawMessage `json:"semanticTokensProvider"`
 }
@@ -203,6 +214,24 @@ func (s serverCapabilities) hasInlayHints() bool {
 	return len(raw) > 0 && !bytes.Equal(raw, []byte("false")) && !bytes.Equal(raw, []byte("null"))
 }
 
+func (s serverCapabilities) hasDocumentLinks() bool {
+	raw := bytes.TrimSpace(s.DocumentLinkProvider)
+	return len(raw) > 0 && !bytes.Equal(raw, []byte("false")) && !bytes.Equal(raw, []byte("null"))
+}
+
+// documentLinkResolve reports whether the server fills a link's target
+// on documentLink/resolve rather than in the documentLink answer.
+func (s serverCapabilities) documentLinkResolve() bool {
+	raw := bytes.TrimSpace(s.DocumentLinkProvider)
+	if len(raw) == 0 || raw[0] != '{' {
+		return false
+	}
+	var opts struct {
+		ResolveProvider bool `json:"resolveProvider"`
+	}
+	return json.Unmarshal(raw, &opts) == nil && opts.ResolveProvider
+}
+
 // InlayHint is a type or parameter name the server would draw inside a
 // line: at Position, the Label's text, padded as it asks.
 type InlayHint struct {
@@ -243,6 +272,20 @@ func ParseInlayHints(raw json.RawMessage) ([]InlayHint, error) {
 		out = append(out, InlayHint{Position: it.Position, Label: label, Kind: it.Kind, PaddingLeft: it.PaddingLeft, PaddingRight: it.PaddingRight})
 	}
 	return out, nil
+}
+
+// ParseDocumentLinks decodes a textDocument/documentLink result: null
+// or a list of DocumentLink.
+func ParseDocumentLinks(raw json.RawMessage) ([]DocumentLink, error) {
+	raw = bytes.TrimSpace(raw)
+	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
+		return nil, nil
+	}
+	var links []DocumentLink
+	if err := json.Unmarshal(raw, &links); err != nil {
+		return nil, fmt.Errorf("lsp: bad document links: %w", err)
+	}
+	return links, nil
 }
 
 func inlayLabel(raw json.RawMessage) (string, error) {

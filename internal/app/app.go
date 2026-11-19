@@ -248,6 +248,12 @@ type doc struct {
 	inlaySeq          int
 	inlayTimer        *time.Timer
 	inlayCancel       context.CancelFunc
+	docLinks          []docLink
+	linkBufVer        uint64 // the buffer's version docLinks were built of
+	linkVersion       uint64 // the buffer's version links were last asked for
+	linkSeq           int
+	linkTimer         *time.Timer
+	linkCancel        context.CancelFunc
 }
 
 type draftCache struct {
@@ -1397,6 +1403,12 @@ func (a *App) activateTabNumber(n int) {
 // and goes there, in g. Only the latest navigation the user asked for
 // wins: a response to an older one is dropped.
 func (a *App) goToDefinition(g *group, d *doc, offset int) {
+	// A Cmd+click on a document link opens its target instead of asking
+	// for a definition; anything else falls through to the server.
+	if l := linkAt(d, offset); l != nil {
+		a.openDocLinkTarget(d, l)
+		return
+	}
 	a.goToLocation(g, d, offset, "definition")
 }
 
