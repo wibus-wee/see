@@ -32,6 +32,7 @@ func editorBindings() []editor.Binding {
 		none(ui.Cmd, ui.KeyN),
 		none(ui.Cmd|ui.Shift, ui.KeyN),
 		none(ui.Cmd, ui.KeyP),
+		none(ui.Alt|ui.Cmd, ui.KeyK),
 		none(ui.Cmd, ui.KeyB),
 		none(ui.Cmd|ui.Shift, ui.KeyP),
 		none(ui.Cmd|ui.Shift, ui.KeyO),
@@ -70,6 +71,12 @@ var startTime = time.Now()
 var startTrace = os.Getenv("SEE_TRACE_STARTUP") != ""
 
 func (a *App) view(c *ui.Context) {
+	a.quickHelpRendered = false
+	defer func() {
+		if st := a.quickHelp; st != nil && !a.quickHelpRendered {
+			a.dismissQuickHelp(st)
+		}
+	}()
 	defer a.refreshNavigationMenu()
 	if startTrace {
 		startTrace = false
@@ -106,7 +113,7 @@ func (a *App) view(c *ui.Context) {
 		return
 	}
 	a.shortcuts(c)
-	root := ui.Column(c).Fill()
+	root := ui.Column(c).Fill().ObserveInput(a.observeQuickHelp)
 	target := float32(1)
 	if a.sidebarOff || a.root == "" {
 		target = 0
@@ -211,7 +218,9 @@ func (a *App) shortcuts(c *ui.Context) {
 			st.Run(editor.Find)
 		}
 	}
-	if c.Shortcut(0, ui.KeyEscape) {
+	if st := a.quickHelp; st != nil {
+		c.OnShortcut(0, ui.KeyEscape, func() { a.dismissQuickHelp(st) })
+	} else if c.Shortcut(0, ui.KeyEscape) {
 		pendingScopeRequest := a.scopeCancel != nil
 		hasChoices := a.choices != nil
 		hasPeek := a.git.peek != nil

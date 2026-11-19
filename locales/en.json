@@ -76,6 +76,13 @@
   "gitLogLoadMore": "Load More Commits",
 
   "commandShowProblems": "Show Problems",
+  "commandShowQuickHelp": "Show Quick Help",
+  "quickHelp": "Quick Help",
+  "quickHelpDeclaration": "Declaration",
+  "quickHelpSummary": "Summary",
+  "quickHelpDiscussion": "Discussion",
+  "quickHelpDeclaredIn": "Declared In",
+  "navigate": "Navigate",
   "filterProblems": "Filter Problems",
   "problemsOpenFiles": "Diagnostics from open files",
   "noProblemsOpenFiles": "No problems in open files",

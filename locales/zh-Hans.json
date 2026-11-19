@@ -76,6 +76,13 @@
   "gitLogLoadMore": "加载更多提交",
 
   "commandShowProblems": "显示问题",
+  "commandShowQuickHelp": "显示快速帮助",
+  "quickHelp": "快速帮助",
+  "quickHelpDeclaration": "声明",
+  "quickHelpSummary": "摘要",
+  "quickHelpDiscussion": "讨论",
+  "quickHelpDeclaredIn": "声明位置",
+  "navigate": "导航",
   "filterProblems": "筛选问题",
   "problemsOpenFiles": "已打开文件中的诊断",
   "noProblemsOpenFiles": "已打开的文件中没有问题",

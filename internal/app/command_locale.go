@@ -26,6 +26,7 @@ var commandMessages = map[string]string{
 	"Toggle Minimap":                "commandToggleMinimap",
 
 	"Show Problems":              "commandShowProblems",
+	"Show Quick Help":            "commandShowQuickHelp",
 	"Show Outline":               "commandShowOutline",
 	"Show Document Items":        "commandShowDocumentItems",
 	"Show Group Files":           "commandShowGroupFiles",

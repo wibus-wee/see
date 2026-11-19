@@ -63,13 +63,18 @@ type App struct {
 	git      gitState
 
 	// Documents, by path, and the editor groups showing them.
-	docs             map[string]*doc
-	layout           *layout
-	focus            *group
-	focusGroupTarget *group
-	nextGroup        int
-	focusEditor      *editor.State // an editor to give the keyboard to
-	focusImage       string        // an image preview to give the keyboard to once loaded
+	docs              map[string]*doc
+	layout            *layout
+	focus             *group
+	focusGroupTarget  *group
+	nextGroup         int
+	focusEditor       *editor.State // an editor to give the keyboard to
+	focusImage        string        // an image preview to give the keyboard to once loaded
+	quickHelp         *editor.State
+	quickHelpBounds   ui.Rect
+	quickHelpRendered bool
+	quickHelpRequest  *editor.State
+	quickHelpSeq      uint64
 
 	// Navigation.
 	hist                nav.History
@@ -1128,7 +1133,9 @@ func (a *App) newEditor(g *group, d *doc) *editor.State {
 		}
 	}
 	st.OnHover = func(r editor.HoverRequest) { a.hoverAt(d, st, r) }
-	st.RenderHover = a.renderHover
+	st.RenderHover = func(c *ui.Context, panel ui.Element, h *editor.HoverCard) {
+		a.renderHover(st, c, panel, h)
+	}
 	return st
 }
 
