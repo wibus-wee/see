@@ -2,12 +2,14 @@ package app
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"runtime"
 	"slices"
 	"strings"
 
 	"see/internal/proc"
+	"see/internal/workspace"
 	"see/locales"
 )
 
@@ -64,7 +66,22 @@ func (a *App) openExternalTerminal() {
 		a.note(locales.MsgOpenAFolderFirst(), true)
 		return
 	}
-	name, dir, gen := externalTerminalName(a.cfg.ExternalTerminal), a.root, a.gen
+	a.openExternalTerminalAt(a.root)
+}
+
+// terminalDirOK reports whether an external terminal can open at dir:
+// the folder is still on disk inside the workspace.
+func (a *App) terminalDirOK(dir string) bool {
+	if dir == "" || !workspace.Within(a.root, dir) {
+		return false
+	}
+	st, err := os.Stat(dir)
+	return err == nil && st.IsDir()
+}
+
+// openExternalTerminalAt opens the configured external terminal in dir.
+func (a *App) openExternalTerminalAt(dir string) {
+	name, gen := externalTerminalName(a.cfg.ExternalTerminal), a.gen
 	cmd, err := externalTerminalCommand(name, a.cfg.ExternalTerminalPath, dir, runtime.GOOS)
 	if err != nil {
 		a.note(err.Error(), true)

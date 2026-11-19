@@ -2,14 +2,42 @@ package app
 
 import (
 	"path/filepath"
+	"runtime"
 	"see/locales"
 	"slices"
 	"strings"
 
+	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 
 	"see/internal/workspace"
 )
+
+// tabFileMenu adds to a file tab's context menu the items the
+// navigator's rows offer for a file. Diff, log and other tabs without a
+// file on disk get none of them.
+func (a *App) tabFileMenu(c *ui.Context, m *ui.Menu, tab string, d *doc, diff *gitDiffTab) {
+	if diff != nil || isDiffTab(tab) || d.untitled {
+		return
+	}
+	path := tabPath(tab)
+	services := c.Services()
+	if m.Item("Reveal in Navigator").Disabled(!workspace.Within(a.root, path) || path == a.root).Chosen() {
+		a.revealInTree(path)
+	}
+	if m.Item("Copy Path").Chosen() {
+		services.WriteClipboard(path)
+	}
+	if runtime.GOOS == "darwin" && m.Item(locales.QuickLook()).Chosen() {
+		if err := a.host.PreviewItem(path); err != nil {
+			a.note(locales.MsgCouldNotPreviewFile()+err.Error(), true)
+		}
+	}
+	if m.Item(showInFolderLabel()).Chosen() {
+		mygo.Shell.ShowItemInFolder(path)
+	}
+	m.Separator()
+}
 
 func (a *App) tabBar(c *ui.Context, g *group) {
 	// Names shown by more than one tab get their folder too.
@@ -47,10 +75,11 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 				g.preview = ""
 			}
 			tab.ContextMenu(func(m *ui.Menu) {
+				a.tabFileMenu(c, m, p, d, diff)
 				if m.Item(commandLabel("Close Tab")).Chosen() {
 					a.closeTab(g, p)
 				}
-				if m.Item(commandLabel("Keep Preview Tab")).Chosen() && g.preview == p {
+				if g.preview == p && m.Item(commandLabel("Keep Preview Tab")).Chosen() {
 					g.preview = ""
 				}
 				if m.Item(commandLabel("Close Other Tabs")).Chosen() {

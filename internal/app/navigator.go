@@ -268,6 +268,17 @@ func (a *App) fileTree(c *ui.Context, roots []string) {
 	}
 }
 
+// showInFolderLabel is the file manager's name where the platform has
+// named it: Finder on macOS, Explorer on Windows.
+func showInFolderLabel() string {
+	switch runtime.GOOS {
+	case "windows":
+		return "Show in Explorer"
+	default:
+		return "Show in Finder"
+	}
+}
+
 // The chosen row is already visible, so opening it need not reposition the tree.
 func (a *App) openFromTree(path string, preview bool) {
 	a.git.diffSeq++
@@ -402,7 +413,7 @@ func (a *App) treeItem(c *ui.Context, p string) {
 				a.note(locales.MsgCouldNotPreviewFile()+err.Error(), true)
 			}
 		}
-		if m.Item("Show in Finder").Chosen() {
+		if m.Item(showInFolderLabel()).Chosen() {
 			mygo.Shell.ShowItemInFolder(p)
 		}
 		if !e.Dir && m.Item("Open with External Editor").Chosen() {
@@ -412,6 +423,15 @@ func (a *App) treeItem(c *ui.Context, p string) {
 			m.Separator()
 			if m.Item("Open").Chosen() {
 				a.openFromTree(p, false)
+			}
+		}
+		if e.Dir {
+			m.Separator()
+			if m.Item(commandLabel("New Terminal") + " Here").Chosen() {
+				a.newTerminalTabAt(p)
+			}
+			if m.Item("Open in External Terminal Here").Disabled(!a.terminalDirOK(p)).Chosen() {
+				a.openExternalTerminalAt(p)
 			}
 		}
 		m.Separator()
