@@ -77,6 +77,7 @@ func (a *App) view(c *ui.Context) {
 	a.pauseHiddenVideos()
 	a.applyAppearance(c)
 	a.modifiers = c.Modifiers()
+	a.settleTabCycles()
 	c.SetTheme(a.theme)
 	a.services = c.Services()
 	a.showCounterpartFeedback(c)
@@ -201,9 +202,17 @@ func (a *App) shortcuts(c *ui.Context) {
 	case fwd:
 		a.goForward()
 	case next:
-		a.cycleTab(1)
+		if runtime.GOOS == "darwin" {
+			a.cycleTab(1)
+		} else {
+			a.cycleTab(-1) // PageDown walks back, PageUp forward, as the browser's
+		}
 	case prev:
-		a.cycleTab(-1)
+		if runtime.GOOS == "darwin" {
+			a.cycleTab(-1)
+		} else {
+			a.cycleTab(1)
+		}
 	}
 	if c.Shortcut(ui.Cmd, ui.KeyF) {
 		if st := a.activeEditor(); st != nil {
