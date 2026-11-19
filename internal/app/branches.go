@@ -219,7 +219,7 @@ func (a *App) branchButton(c *ui.Context) {
 	b.Children(func() {
 		ui.Row(c).Gap(4).AlignItems(ui.Center).Children(func() {
 			symbolIcon(c, icGit, 11, colors(c).Muted).Shrink(0)
-			ui.Text(c, a.git.branch).FontSize(11).TextColor(colors(c).Muted).SingleLine().Shrink(1)
+			ui.Text(c, a.git.branch).FontSize(11).TextColor(colors(c).Muted).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 			if s := aheadBehind(a.git.ahead, a.git.behind); s != "" {
 				ui.Text(c, s).FontSize(10).TextColor(colors(c).Dim).SingleLine().Shrink(0)
 			}
@@ -348,7 +348,7 @@ func (a *App) branchRow(c *ui.Context, items []branchItem, i int) {
 	row.Children(func() {
 		if it.create != "" {
 			symbolIcon(c, icPlus, 13, text)
-			ui.Text(c, locales.MsgCreateBranch()+it.create+"”").FontSize(13).TextColor(text).SingleLine().Shrink(1)
+			ui.Text(c, locales.MsgCreateBranch()+it.create+"”").FontSize(13).TextColor(text).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 			return
 		}
 		b := it.branch
@@ -357,12 +357,12 @@ func (a *App) branchRow(c *ui.Context, items []branchItem, i int) {
 			check.Children(func() { symbolIcon(c, icCheck, 13, text) })
 		}
 		ui.Column(c).Grow(1).Shrink(1).Children(func() {
-			ui.Text(c, b.Name).FontSize(13).TextColor(text).SingleLine()
+			ui.Text(c, b.Name).FontSize(13).TextColor(text).SingleLine().Ellipsis("…")
 			detail := b.Subject
 			if b.Track != "" {
 				detail = b.Track + " · " + detail
 			}
-			ui.Text(c, detail).FontSize(11).TextColor(sub).SingleLine()
+			ui.Text(c, detail).FontSize(11).TextColor(sub).SingleLine().Ellipsis("…")
 		})
 		if !b.Date.IsZero() {
 			ui.Text(c, relativeTime(b.Date, time.Now())).FontSize(11).TextColor(sub).SingleLine().Shrink(0)

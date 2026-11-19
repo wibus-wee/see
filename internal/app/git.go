@@ -13,6 +13,7 @@ import (
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 
+	"see/internal/filekind"
 	"see/internal/git"
 	"see/internal/workspace"
 )
@@ -60,6 +61,10 @@ type gitState struct {
 	// repository is known.
 	pendingTabs []pendingTab
 	history     gitHistory
+	// kindOpen are the change groups opened in the navigator; tests,
+	// docs and generated files start folded, as Peek's, and a click on
+	// the group's name opens it.
+	kindOpen map[filekind.Kind]bool
 }
 
 type gitPeek struct {
@@ -136,9 +141,69 @@ func (v *gitDiffTab) diffStates() []*editor.DiffState {
 func (a *App) newGitDiffTab(p editor.FilePatch, name string, staged bool) *gitDiffTab {
 	d := &editor.DiffState{Theme: a.edTheme}
 	a.applyDiffPrefs(d)
-	d.SetPatch(p)
+	setPatch(d, p)
 	d.GoToHunk(0)
 	return &gitDiffTab{state: d, patch: p, name: name, staged: staged}
+}
+
+// setPatch shows p in d. A patch holding both of the files whole, as
+// the ones made with --unified=max are, becomes a diff of them whose
+// unchanged stretches collapse; any other is shown hunk by hunk.
+func setPatch(d *editor.DiffState, p editor.FilePatch) {
+	if old, nw, ok := patchFiles(p); ok && d.SetPatchFiles(p, old, nw) == nil {
+		return
+	}
+	d.SetPatch(p)
+}
+
+// patchFiles rebuilds the texts of a patch holding one hunk starting
+// at the files' first line — the shape a --unified=max diff has, and
+// the only one that proves it leaves nothing out.
+func patchFiles(p editor.FilePatch) (old, new string, ok bool) {
+	if len(p.Hunks) != 1 || p.Binary {
+		return "", "", false
+	}
+	h := p.Hunks[0]
+	if h.OldStart > 1 || h.NewStart > 1 {
+		return "", "", false
+	}
+	var oldB, newB strings.Builder
+	oldLine, newLine := 0, 0
+	prev := byte(0)
+	oldEOL, newEOL := true, true
+	for _, l := range h.Lines {
+		if l != "" && l[0] == '\\' {
+			oldEOL = oldEOL && prev != '-' && prev != ' '
+			newEOL = newEOL && prev != '+' && prev != ' '
+			continue
+		}
+		if l == "" {
+			continue
+		}
+		prev = l[0]
+		text := strings.TrimSuffix(l[1:], "\r")
+		if l[0] != '+' {
+			if oldLine > 0 {
+				oldB.WriteByte('\n')
+			}
+			oldB.WriteString(text)
+			oldLine++
+		}
+		if l[0] != '-' {
+			if newLine > 0 {
+				newB.WriteByte('\n')
+			}
+			newB.WriteString(text)
+			newLine++
+		}
+	}
+	if oldEOL && oldLine > 0 {
+		oldB.WriteByte('\n')
+	}
+	if newEOL && newLine > 0 {
+		newB.WriteByte('\n')
+	}
+	return oldB.String(), newB.String(), true
 }
 
 func (a *App) startGit() {
@@ -763,19 +828,11 @@ func (a *App) gitNavigator(c *ui.Context) {
 				if staged > 0 {
 					a.gitSection(c, "Staged Changes", staged)
 				}
-				for _, ch := range a.git.changes {
-					if ch.Index != ' ' && ch.Index != '?' {
-						a.gitRow(c, ch, true)
-					}
-				}
+				a.gitRowsByKind(c, true)
 				if unstaged > 0 && staged > 0 {
 					a.gitSection(c, "Changes", unstaged)
 				}
-				for _, ch := range a.git.changes {
-					if ch.Work != ' ' || ch.Index == '?' {
-						a.gitRow(c, ch, false)
-					}
-				}
+				a.gitRowsByKind(c, false)
 			})
 		})
 	}
@@ -801,6 +858,75 @@ func (a *App) gitNavigator(c *ui.Context) {
 		changes()
 		ui.Column(c).Grow(1).FillWidth().Children(history)
 	}
+}
+
+// gitRowsByKind lists the staged or unstaged changes grouped by what
+// they hold: code rows flat, then tests, docs and generated files under
+// headers that fold, opened by a click.
+func (a *App) gitRowsByKind(c *ui.Context, staged bool) {
+	if a.git.kindOpen == nil {
+		a.git.kindOpen = map[filekind.Kind]bool{}
+	}
+	isRow := func(ch git.Change) bool {
+		if staged {
+			return ch.Index != ' ' && ch.Index != '?'
+		}
+		return ch.Work != ' ' || ch.Index == '?'
+	}
+	groups := map[filekind.Kind][]git.Change{}
+	for _, ch := range a.git.changes {
+		if isRow(ch) {
+			k := filekind.Of(filepath.ToSlash(ch.Path))
+			groups[k] = append(groups[k], ch)
+		}
+	}
+	for _, ch := range groups[filekind.Code] {
+		a.gitRow(c, ch, staged)
+	}
+	for _, k := range []filekind.Kind{filekind.Test, filekind.Docs, filekind.Generated} {
+		rows := groups[k]
+		if len(rows) == 0 {
+			continue
+		}
+		open := a.git.kindOpen[k]
+		a.gitKindHeader(c, k, len(rows), open, func() { a.git.kindOpen[k] = !open })
+		if !open {
+			continue
+		}
+		for _, ch := range rows {
+			a.gitRow(c, ch, staged)
+		}
+	}
+}
+
+// kindName is the change group's name in the window's language.
+func kindName(k filekind.Kind) string {
+	switch k {
+	case filekind.Test:
+		return logText("gitKindTests")
+	case filekind.Docs:
+		return logText("gitKindDocs")
+	case filekind.Generated:
+		return logText("gitKindGenerated")
+	}
+	return filekind.Names[k]
+}
+
+// gitKindHeader is a change group's name: an arrow, the name and the
+// count, which a click folds or unfolds.
+func (a *App) gitKindHeader(c *ui.Context, k filekind.Kind, count int, open bool, toggle func()) {
+	row := ui.Row(c.Key("kind:"+fmt.Sprint(int(k)))).FillWidth().Padding(9, 16, 4, 16).Gap(5).AlignItems(ui.Center).
+		Cursor(ui.CursorPointer).Label(kindName(k))
+	row.OnClick(toggle)
+	row.Children(func() {
+		turn := float32(90)
+		if !open {
+			turn = 0
+		}
+		symbolIcon(c, icChevron, 9, colors(c).Dim).Rotate(turn)
+		ui.Text(c, kindName(k)).FontSize(11).Bold().TextColor(colors(c).Muted)
+		ui.Text(c, fmt.Sprint(count)).FontSize(11).TextColor(colors(c).Dim)
+	})
 }
 
 func (a *App) gitSection(c *ui.Context, name string, count int) {
@@ -830,10 +956,10 @@ func (a *App) gitRow(c *ui.Context, ch git.Change, staged bool) {
 		row.Children(func() {
 			ui.Row(c).FillWidth().Gap(6).AlignItems(ui.Center).Children(func() {
 				fileIcon(c, filepath.Base(ch.Path), 15)
-				ui.Text(c, filepath.Base(ch.Path)).FontSize(12).SingleLine().Shrink(1)
+				ui.Text(c, filepath.Base(ch.Path)).FontSize(12).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(1)
 				dir := filepath.Dir(ch.Path)
 				if dir != "." {
-					ui.Text(c, filepath.ToSlash(dir)).FontSize(11).TextColor(colors(c).Dim).SingleLine().Shrink(1)
+					ui.Text(c, filepath.ToSlash(dir)).FontSize(11).TextColor(colors(c).Dim).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(1)
 				}
 			})
 		})

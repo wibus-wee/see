@@ -116,6 +116,9 @@ func TestBranchDiffPickerAndTabs(t *testing.T) {
 		t.Fatalf("comparison mode exposes staging controls: %v", h.tt.Texts())
 	}
 
+	if err := h.tt.Click(logText("gitKindDocs")); err != nil {
+		t.Fatal(err)
+	}
 	if err := h.tt.Click("zz-target.txt"); err != nil {
 		t.Fatal(err)
 	}

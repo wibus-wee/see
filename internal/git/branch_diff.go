@@ -45,7 +45,7 @@ func CompareBranch(ctx context.Context, root, baseRef string) (BranchDiffResult,
 	if err != nil {
 		return result, err
 	}
-	patch, err := Command(ctx, root, "diff", "--no-ext-diff", "--no-textconv", "--no-color", "-M", mergeBaseHash, "--")
+	patch, err := Command(ctx, root, "diff", "--no-ext-diff", "--no-textconv", "--no-color", "-M", "--unified=2147483647", mergeBaseHash, "--")
 	if err != nil {
 		return result, err
 	}
@@ -70,7 +70,7 @@ func CompareBranch(ctx context.Context, root, baseRef string) (BranchDiffResult,
 		if len(files) > 0 {
 			f.Added, f.Deleted = files[0].Added, files[0].Deleted
 		}
-		filePatch, err := noIndexDiff(ctx, root, path)
+		filePatch, err := noIndexDiff(ctx, root, path, "--unified=2147483647")
 		if err != nil {
 			return result, fmt.Errorf("read untracked file %q: %w", path, err)
 		}

@@ -222,7 +222,7 @@ func (a *App) gitLogContent(c *ui.Context, g *group, v *gitLogView) {
 					Label(logText("gitLogFileScope") + " " + v.path).Tooltip(v.path)
 				chip.Children(func() {
 					fileIcon(c, filepath.Base(v.path), 13)
-					ui.Text(c, v.path).FontSize(11).TextColor(colors(c).Muted).SingleLine().Shrink(1).MaxWidth(200)
+					ui.Text(c, v.path).FontSize(11).TextColor(colors(c).Muted).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(1).MaxWidth(200)
 					cl := ui.ButtonBase(c).Label(locales.MsgShowTheWholeHistory()).Tooltip(locales.MsgShowTheWholeHistory()).Size(14, 14).Radius(3).Center()
 					if cl.Hovered() {
 						cl.Background(colors(c).Separator)
@@ -420,7 +420,7 @@ func (a *App) logRow(c *ui.Context, v *gitLogView, cm git.Commit, columns logTab
 			}
 		}
 		ui.Row(c).Grow(1).Shrink(1).Basis(0).Gap(5).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, cm.Subject).FontSize(12).SingleLine().Shrink(1)
+			ui.Text(c, cm.Subject).FontSize(12).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 			if a.git.history.unpushed[cm.Hash] {
 				ui.Text(c, "↑").FontSize(11).Bold().TextColor(c.Theme().Accent).Shrink(0).Tooltip(locales.MsgNotPushedYet())
 			}
@@ -513,7 +513,7 @@ func (a *App) logCommitFiles(c *ui.Context, g *group, lc *logCommit) {
 				if f.oldPath != "" {
 					name = filepath.ToSlash(f.oldPath) + " → " + name
 				}
-				ui.Text(c, name).FontSize(12).Bold().SingleLine().Shrink(1)
+				ui.Text(c, name).FontSize(12).Bold().SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 				ui.Box(c).Grow(1)
 				if f.added < 0 {
 					ui.Text(c, locales.MsgBinary()).FontSize(11).TextColor(colors(c).Muted)

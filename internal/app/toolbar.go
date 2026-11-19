@@ -2,6 +2,7 @@ package app
 
 import (
 	"path/filepath"
+	"strings"
 	"see/internal/languages"
 	"see/locales"
 
@@ -131,7 +132,7 @@ func (a *App) projectTitle(c *ui.Context) {
 	})
 	b.Children(func() {
 		ui.Row(c).Gap(4).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, filepath.Base(a.root)).Bold().SingleLine().Shrink(1)
+			ui.Text(c, filepath.Base(a.root)).Bold().SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 			symbolIcon(c, icChevron, 9, colors(c).Dim).Shrink(0)
 		})
 	})
@@ -258,9 +259,20 @@ func (a *App) activityView(c *ui.Context) {
 		switch {
 		case a.finding:
 			ui.Spinner(c).FontSize(11)
-			ui.Text(c, a.findingLabel).FontSize(12).TextColor(colors(c).Muted).SingleLine()
+			ui.Text(c, a.findingLabel).FontSize(12).TextColor(colors(c).Muted).SingleLine().Ellipsis("…")
+		case a.task != nil && a.task.status == "taskRunning":
+			ui.Spinner(c).FontSize(11)
+			ui.Text(c, "go "+strings.Join(a.task.kind.Args(), " ")).FontSize(12).TextColor(colors(c).Muted).SingleLine().Ellipsis("…").Shrink(1).MinWidth(0)
+			stop := ui.ButtonBase(c).Label(taskMessage("tasksStop")).Tooltip(commandLabel("Tasks: Stop")).Padding(0, 2).Radius(4)
+			if stop.Hovered() {
+				stop.Background(colors(c).Pill)
+			}
+			stop.Children(func() { symbolIcon(c, icStop, 10, colors(c).Muted) })
+			if stop.Clicked() {
+				a.stopGoTask()
+			}
 		case a.notice != "":
-			t := ui.Text(c, a.notice).FontSize(12).SingleLine().Shrink(1).Tooltip(a.notice)
+			t := ui.Text(c, a.notice).FontSize(12).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1).Tooltip(a.notice)
 			if a.noticeError {
 				t.TextColor(colors(c).Err)
 			}
@@ -270,6 +282,16 @@ func (a *App) activityView(c *ui.Context) {
 		case a.find.running:
 			ui.Spinner(c).FontSize(11)
 			ui.Text(c, locales.Searching()).FontSize(12).TextColor(colors(c).Muted)
+			if a.find.cancel != nil {
+				stop := ui.ButtonBase(c).Label(taskMessage("tasksStop")).Tooltip(locales.MsgCancelSearch()).Padding(0, 2).Radius(4)
+				if stop.Hovered() {
+					stop.Background(colors(c).Pill)
+				}
+				stop.Children(func() { symbolIcon(c, icStop, 10, colors(c).Muted) })
+				if stop.Clicked() {
+					a.find.cancel()
+				}
+			}
 		case state == langserver.Starting:
 			ui.Spinner(c).FontSize(11)
 			ui.Text(c, locales.MsgStarting()+name+"…").FontSize(12).TextColor(colors(c).Muted)
@@ -278,7 +300,7 @@ func (a *App) activityView(c *ui.Context) {
 			if serverErr != nil {
 				msg = name + ": " + shortErr(serverErr)
 			}
-			ui.Text(c, msg).FontSize(12).TextColor(colors(c).Err).SingleLine().Shrink(1)
+			ui.Text(c, msg).FontSize(12).TextColor(colors(c).Err).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 			if ui.Button(c, locales.Retry()).Label(locales.MsgRetry()+name).Padding(0, 6).FontSize(11).Clicked() {
 				retry()
 			}

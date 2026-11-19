@@ -109,8 +109,8 @@ func (a *App) quickRow(c *ui.Context, i int) {
 		}
 		row.OnClick(func() { a.chooseQuick(i) })
 		row.Children(func() {
-			ui.Text(c, s.name).Grow(1).SingleLine()
-			ui.Text(c, fmt.Sprintf("%s:%d", workspace.RelPath(a.root, s.target.path), s.target.pos.Line+1)).TextColor(colors(c).Muted).SingleLine()
+			ui.Text(c, s.name).Grow(1).SingleLine().Ellipsis("…").MinWidth(0)
+			ui.Text(c, fmt.Sprintf("%s:%d", workspace.RelPath(a.root, s.target.path), s.target.pos.Line+1)).TextColor(colors(c).Muted).SingleLine().Ellipsis("…")
 		})
 		return
 	}
@@ -128,7 +128,7 @@ func (a *App) quickRow(c *ui.Context, i int) {
 		}
 		row.OnClick(func() { a.chooseQuick(i) })
 		row.Children(func() {
-			ui.Text(c, r.Path).Grow(1).SingleLine()
+			ui.Text(c, r.Path).Grow(1).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0)
 			for _, cmd := range commands() {
 				if commandLabel(cmd.name) == r.Path && cmd.key != "" {
 					ui.Text(c, keyLabel(cmd.mods, cmd.key)).TextColor(colors(c).Muted)
@@ -175,7 +175,7 @@ func highlightTextStyle(c *ui.Context, name string, hits []int, off int, fontSiz
 			if run == "" {
 				return
 			}
-			t := ui.Text(c, run).FontSize(fontSize).TextColor(color).SingleLine()
+			t := ui.Text(c, run).FontSize(fontSize).TextColor(color).SingleLine().Ellipsis("…")
 			if bold {
 				t.Bold().Underline()
 			}

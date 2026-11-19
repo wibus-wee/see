@@ -178,7 +178,7 @@ func (a *App) taskView(c *ui.Context) {
 					row.Background(colors(c).Pill)
 				}
 				row.OnClick(func() { a.openTaskLocation(path, pos) })
-				row.Children(func() { ui.Text(c, line).FontSize(12).SingleLine().TextColor(c.Theme().Accent) })
+				row.Children(func() { ui.Text(c, line).FontSize(12).SingleLine().Ellipsis("…").TextColor(c.Theme().Accent) })
 			} else {
 				ui.Text(c.Key(i), line).FontSize(12).Padding(2, 12).Selectable()
 			}

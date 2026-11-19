@@ -278,7 +278,7 @@ func (a *App) settingsSidebar(c *ui.Context) {
 			ui.Image(c, appIcon).Size(34, 34).Shrink(0)
 			ui.Column(c).Grow(1).Shrink(1).Gap(1).Children(func() {
 				ui.Text(c, "See").FontSize(13).Bold().SingleLine().TextColor(rowText(chosen, theme.Of(c).Text))
-				ui.Text(c, a.versionLabel()).FontSize(11).SingleLine().TextColor(rowText(chosen, theme.Of(c).Muted))
+				ui.Text(c, a.versionLabel()).FontSize(11).SingleLine().Ellipsis("…").TextColor(rowText(chosen, theme.Of(c).Muted))
 			})
 		})
 	}
@@ -299,13 +299,13 @@ func (a *App) settingsSidebar(c *ui.Context) {
 		chosen := s.pane == p.id
 		sidebarRow(c.Key(p.id), chosen, p.title, func() { a.settingsGo(p.id) }).Children(func() {
 			iconTile(c, p.icon, p.tile, 20)
-			ui.Text(c, p.title).FontSize(13).SingleLine().Shrink(1).TextColor(rowText(chosen, theme.Of(c).Text))
+			ui.Text(c, p.title).FontSize(13).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1).TextColor(rowText(chosen, theme.Of(c).Text))
 		})
 	}
 	if shown == 0 {
 		ui.Column(c).FillWidth().Padding(24, 8).Gap(4).AlignItems(ui.Center).Children(func() {
 			ui.Text(c, locales.MsgNoResults()).Bold().TextColor(theme.Of(c).Muted)
-			ui.Text(c, locales.MsgFor()+strings.TrimSpace(s.query)+"”").FontSize(11).TextColor(theme.Of(c).Dim).SingleLine()
+			ui.Text(c, locales.MsgFor()+strings.TrimSpace(s.query)+"”").FontSize(11).TextColor(theme.Of(c).Dim).SingleLine().Ellipsis("…")
 		})
 	}
 	// Up and Down go from pane to pane, as in System Settings, unless
@@ -963,7 +963,7 @@ func (a *App) toolRow(c *ui.Context, r toolRow) {
 	ui.Column(c).FillWidth().Padding(12, 0).Gap(10).Children(func() {
 		ui.Row(c).FillWidth().Gap(12).AlignItems(ui.Center).Children(func() {
 			ui.Column(c).Grow(1).Shrink(1).Gap(3).Children(func() {
-				ui.Text(c, r.language).Bold().SingleLine().Shrink(1)
+				ui.Text(c, r.language).Bold().SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 				ui.Row(c).FillWidth().Gap(6).AlignItems(ui.Center).Children(func() {
 					dot := theme.Of(c).Muted
 					if r.state == langserver.Ready {
@@ -973,7 +973,7 @@ func (a *App) toolRow(c *ui.Context, r toolRow) {
 					}
 					ui.Box(c).Size(6, 6).Radius(3).Background(dot).Shrink(0)
 					ui.Text(c, status).FontSize(12).TextColor(color).SingleLine().Shrink(0)
-					ui.Text(c, "· "+detail).FontSize(12).TextColor(theme.Of(c).Muted).SingleLine().Shrink(1).Tooltip(detail)
+					ui.Text(c, "· "+detail).FontSize(12).TextColor(theme.Of(c).Muted).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1).Tooltip(detail)
 				})
 			})
 			a.toolButtons(c, r)
@@ -1391,7 +1391,7 @@ func (a *App) externalTerminalPicker(c *ui.Context) {
 		if name == "Custom App" && a.cfg.ExternalTerminalPath != "" {
 			display = strings.TrimSuffix(filepath.Base(a.cfg.ExternalTerminalPath), ".app")
 		}
-		ui.Text(c, display).SingleLine()
+		ui.Text(c, display).SingleLine().Ellipsis("…")
 	}
 	sel.Trigger.Label(locales.MsgExternalTerminalApp()).Gap(8).Padding(6, 10).Radius(8).Background(t.Surface).Border(1, t.Border).AlignItems(ui.Center).Children(func() {
 		label(a.cfg.ExternalTerminal)

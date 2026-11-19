@@ -226,8 +226,8 @@ func (a *App) recentRow(c *ui.Context, p string, forget *string, clear *bool) {
 	row.Children(func() {
 		symbolIcon(c, folderIcon, 22, colors(c).Folder)
 		ui.Column(c).Grow(1).Shrink(1).Gap(1).Children(func() {
-			ui.Text(c, filepath.Base(p)).FontSize(13).Bold().TextColor(colors(c).Text).SingleLine()
-			ui.Text(c, tildePath(filepath.Dir(p))).FontSize(11).TextColor(colors(c).Muted).SingleLine()
+			ui.Text(c, filepath.Base(p)).FontSize(13).Bold().TextColor(colors(c).Text).SingleLine().Ellipsis("…").TruncateMiddle()
+			ui.Text(c, tildePath(filepath.Dir(p))).FontSize(11).TextColor(colors(c).Muted).SingleLine().Ellipsis("…").TruncateMiddle()
 		})
 	})
 }

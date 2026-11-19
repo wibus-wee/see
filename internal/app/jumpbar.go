@@ -85,7 +85,7 @@ func (a *App) jumpFilesMenu(m *ui.Menu, g *group, dir, current string, nested bo
 				} else {
 					fileIcon(x.Context, e.Name, 13)
 				}
-				ui.Text(x.Context, e.Name).FontSize(13).TextColor(x.Text).SingleLine()
+				ui.Text(x.Context, e.Name).FontSize(13).TextColor(x.Text).SingleLine().Ellipsis("…")
 			})
 		}
 		if e.Dir && !nested {
@@ -143,7 +143,7 @@ func symbolCrumbContent(c *ui.Context, s lsp.DocumentSymbol, text ui.Color, size
 	ui.Box(c).Width(size + 1).Height(size + 1).Radius(3).Shrink(0).Background(color.Alpha(0.16)).AlignItems(ui.Center).Justify(ui.Center).Children(func() {
 		ui.Text(c, kind).FontSize(size - 4).Bold().TextColor(color).SingleLine()
 	})
-	ui.Text(c, s.Name).FontSize(size).TextColor(text).SingleLine()
+	ui.Text(c, s.Name).FontSize(size).TextColor(text).SingleLine().Ellipsis("…")
 }
 
 // jumpSymbols is the jump bar's path from the file down to the symbol

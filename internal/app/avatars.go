@@ -102,14 +102,14 @@ func (a *App) personLine(c *ui.Context, p git.Person, role, detail string) {
 		a.personAvatar(c, p.Name, p.Email, 24)
 		ui.Column(c).Grow(1).Shrink(1).Children(func() {
 			ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
-				ui.Text(c, p.Name).FontSize(13).Bold().SingleLine()
+				ui.Text(c, p.Name).FontSize(13).Bold().SingleLine().Ellipsis("…")
 				if role != "" {
 					ui.Text(c, role).FontSize(11).TextColor(colors(c).Muted).Background(colors(c).Pill).Padding(0, 5).Radius(4).SingleLine()
 				} else {
-					ui.Text(c, p.Email).FontSize(12).TextColor(colors(c).Muted).SingleLine().Shrink(1)
+					ui.Text(c, p.Email).FontSize(12).TextColor(colors(c).Muted).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 				}
 			})
-			ui.Text(c, detail).FontSize(12).TextColor(colors(c).Muted).SingleLine()
+			ui.Text(c, detail).FontSize(12).TextColor(colors(c).Muted).SingleLine().Ellipsis("…")
 		})
 	})
 }

@@ -535,12 +535,12 @@ func hoverContent(c *ui.Context, md string, location *hoverLocation) {
 			ui.Row(c).FillWidth().Gap(6).AlignItems(ui.Center).Tooltip(fmt.Sprintf("%s:%d", location.path, location.line)).Children(func() {
 				fileIcon(c, filepath.Base(location.path), 13)
 				ui.Row(c).Gap(0).Shrink(1).Children(func() {
-					ui.Text(c, filepath.Base(location.path)).FontSize(12).TextColor(colors(c).Text).SingleLine().Shrink(1)
+					ui.Text(c, filepath.Base(location.path)).FontSize(12).TextColor(colors(c).Text).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(1)
 					ui.Text(c, fmt.Sprintf(":%d", location.line)).FontSize(12).TextColor(colors(c).Text).SingleLine().Shrink(0)
 				})
 				parent := filepath.Base(filepath.Dir(location.path))
 				if parent != "." && parent != string(filepath.Separator) {
-					ui.Text(c, parent).FontSize(11).TextColor(colors(c).Muted).SingleLine().Shrink(1)
+					ui.Text(c, parent).FontSize(11).TextColor(colors(c).Muted).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(1)
 				}
 			})
 		}
