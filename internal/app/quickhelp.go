@@ -52,6 +52,9 @@ type quickHelpInspector struct {
 	hasPending bool
 	timer      *time.Timer
 	scroll     ui.ScrollState
+	// fileScroll and history are the pane's other pages' state.
+	fileScroll ui.ScrollState
+	history    inspectorFileHistory
 }
 
 // inspectorSubject identifies a symbol request and its answer.
@@ -271,11 +274,19 @@ func (a *App) refreshInspector() {
 func (a *App) inspectorView(c *ui.Context) {
 	in := &a.inspector
 	ui.Column(c).Fill().Background(colors(c).Sidebar).BorderWidth(0, 0, 0, 1).BorderColor(colors(c).Separator).Children(func() {
-		a.inspectorHeader(c)
-		if in.loading {
-			ui.Box(c).FillWidth().Height(1).Background(c.Theme().Accent).Shrink(0)
+		a.inspectorTabs(c)
+		switch a.inspectorTab() {
+		case "file":
+			a.inspectorFilePage(c)
+		case "history":
+			a.inspectorHistoryPage(c)
+		default:
+			a.inspectorHeader(c)
+			if in.loading {
+				ui.Box(c).FillWidth().Height(1).Background(c.Theme().Accent).Shrink(0)
+			}
+			a.inspectorBody(c)
 		}
-		a.inspectorBody(c)
 	})
 }
 
@@ -418,7 +429,33 @@ func (a *App) inspectorContent(c *ui.Context) {
 		if in.declared != nil {
 			a.inspectorSourceRow(c)
 		}
+		a.inspectorDocButton(c)
 		a.inspectorActions(c)
+	})
+}
+
+// inspectorDocButton is the pane's way into the library's full
+// documentation, as Xcode's "Open in Developer Documentation" button:
+// the first web address of the doc comment, when one is there.
+func (a *App) inspectorDocButton(c *ui.Context) {
+	u := docURL.FindString(a.inspector.markdown)
+	if u == "" {
+		return
+	}
+	inspectorSection(c, inspectorText("inspectorDocs"), func() {
+		row := ui.ButtonBase(c).Label(inspectorText("inspectorOpenDocs")).Tooltip(u).FillWidth().Padding(7, 10)
+		if row.Hovered() {
+			row.Background(colors(c).Pill)
+		}
+		row.Children(func() {
+			ui.Row(c).FillWidth().Gap(9).AlignItems(ui.Center).Children(func() {
+				symbolIcon(c, icExternal, 13, colors(c).Muted)
+				ui.Text(c, inspectorText("inspectorOpenDocs")).FontSize(12).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
+				ui.Box(c).Grow(1)
+				symbolIcon(c, icChevron, 9, colors(c).Dim)
+			})
+		})
+		row.OnClick(func() { a.openDocLink(u) })
 	})
 }
 
