@@ -77,7 +77,7 @@ func (a *App) setInspectorTabIdx(i int) {
 // the navigator bar uses, over a thumb that slides to the choice.
 func (a *App) inspectorTabs(c *ui.Context) {
 	t := c.Theme()
-	ui.Row(c).FillWidth().Padding(0, 10, 10, 10).Children(func() {
+	ui.Row(c).FillWidth().Padding(8, 10, 10, 10).Children(func() {
 		// The pane is narrow, so the three segments share the track
 		// equally; the thumb's pitch is the share the layout gives them.
 		const segGap = 2
