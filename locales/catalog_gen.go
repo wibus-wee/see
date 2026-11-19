@@ -5378,6 +5378,156 @@ func (msgs Messages) WelcomeReopenRecent() string {
 	return Catalog.Format(msgs.locale, "welcomeReopenRecent", nil)
 }
 
+// WelcomeFilterRecent says "Filter folders"
+// in the language the app shows.
+func WelcomeFilterRecent() string { return In(i18n.Locale()).WelcomeFilterRecent() }
+
+// WelcomeFilterRecent says "Filter folders"
+// in the language of msgs.
+func (msgs Messages) WelcomeFilterRecent() string {
+	return Catalog.Format(msgs.locale, "welcomeFilterRecent", nil)
+}
+
+// WelcomeNoMatchingFolders says "No matching folders"
+// in the language the app shows.
+func WelcomeNoMatchingFolders() string { return In(i18n.Locale()).WelcomeNoMatchingFolders() }
+
+// WelcomeNoMatchingFolders says "No matching folders"
+// in the language of msgs.
+func (msgs Messages) WelcomeNoMatchingFolders() string {
+	return Catalog.Format(msgs.locale, "welcomeNoMatchingFolders", nil)
+}
+
+// WelcomeRemoveFromRecents says "Remove from Recents"
+// in the language the app shows.
+func WelcomeRemoveFromRecents() string { return In(i18n.Locale()).WelcomeRemoveFromRecents() }
+
+// WelcomeRemoveFromRecents says "Remove from Recents"
+// in the language of msgs.
+func (msgs Messages) WelcomeRemoveFromRecents() string {
+	return Catalog.Format(msgs.locale, "welcomeRemoveFromRecents", nil)
+}
+
+// WelcomeShowInFinder says "Show in Finder"
+// in the language the app shows.
+func WelcomeShowInFinder() string { return In(i18n.Locale()).WelcomeShowInFinder() }
+
+// WelcomeShowInFinder says "Show in Finder"
+// in the language of msgs.
+func (msgs Messages) WelcomeShowInFinder() string {
+	return Catalog.Format(msgs.locale, "welcomeShowInFinder", nil)
+}
+
+// WelcomeShowInExplorer says "Show in Explorer"
+// in the language the app shows.
+func WelcomeShowInExplorer() string { return In(i18n.Locale()).WelcomeShowInExplorer() }
+
+// WelcomeShowInExplorer says "Show in Explorer"
+// in the language of msgs.
+func (msgs Messages) WelcomeShowInExplorer() string {
+	return Catalog.Format(msgs.locale, "welcomeShowInExplorer", nil)
+}
+
+// WelcomeShowInFileManager says "Show in File Manager"
+// in the language the app shows.
+func WelcomeShowInFileManager() string { return In(i18n.Locale()).WelcomeShowInFileManager() }
+
+// WelcomeShowInFileManager says "Show in File Manager"
+// in the language of msgs.
+func (msgs Messages) WelcomeShowInFileManager() string {
+	return Catalog.Format(msgs.locale, "welcomeShowInFileManager", nil)
+}
+
+// WelcomeCloneRepository says "Clone Repository…"
+// in the language the app shows.
+func WelcomeCloneRepository() string { return In(i18n.Locale()).WelcomeCloneRepository() }
+
+// WelcomeCloneRepository says "Clone Repository…"
+// in the language of msgs.
+func (msgs Messages) WelcomeCloneRepository() string {
+	return Catalog.Format(msgs.locale, "welcomeCloneRepository", nil)
+}
+
+// WelcomeCloneDetail says "Get a project from a git URL"
+// in the language the app shows.
+func WelcomeCloneDetail() string { return In(i18n.Locale()).WelcomeCloneDetail() }
+
+// WelcomeCloneDetail says "Get a project from a git URL"
+// in the language of msgs.
+func (msgs Messages) WelcomeCloneDetail() string {
+	return Catalog.Format(msgs.locale, "welcomeCloneDetail", nil)
+}
+
+// WelcomeCloneURL says "Repository URL"
+// in the language the app shows.
+func WelcomeCloneURL() string { return In(i18n.Locale()).WelcomeCloneURL() }
+
+// WelcomeCloneURL says "Repository URL"
+// in the language of msgs.
+func (msgs Messages) WelcomeCloneURL() string {
+	return Catalog.Format(msgs.locale, "welcomeCloneURL", nil)
+}
+
+// WelcomeCloneLocation says "Clone into folder"
+// in the language the app shows.
+func WelcomeCloneLocation() string { return In(i18n.Locale()).WelcomeCloneLocation() }
+
+// WelcomeCloneLocation says "Clone into folder"
+// in the language of msgs.
+func (msgs Messages) WelcomeCloneLocation() string {
+	return Catalog.Format(msgs.locale, "welcomeCloneLocation", nil)
+}
+
+// WelcomeCloneChoose says "Choose…"
+// in the language the app shows.
+func WelcomeCloneChoose() string { return In(i18n.Locale()).WelcomeCloneChoose() }
+
+// WelcomeCloneChoose says "Choose…"
+// in the language of msgs.
+func (msgs Messages) WelcomeCloneChoose() string {
+	return Catalog.Format(msgs.locale, "welcomeCloneChoose", nil)
+}
+
+// WelcomeCloneButton says "Clone"
+// in the language the app shows.
+func WelcomeCloneButton() string { return In(i18n.Locale()).WelcomeCloneButton() }
+
+// WelcomeCloneButton says "Clone"
+// in the language of msgs.
+func (msgs Messages) WelcomeCloneButton() string {
+	return Catalog.Format(msgs.locale, "welcomeCloneButton", nil)
+}
+
+// WelcomeCloneEnterURL says "Enter a repository URL."
+// in the language the app shows.
+func WelcomeCloneEnterURL() string { return In(i18n.Locale()).WelcomeCloneEnterURL() }
+
+// WelcomeCloneEnterURL says "Enter a repository URL."
+// in the language of msgs.
+func (msgs Messages) WelcomeCloneEnterURL() string {
+	return Catalog.Format(msgs.locale, "welcomeCloneEnterURL", nil)
+}
+
+// WelcomeCloning says "Cloning %s…"
+// in the language the app shows.
+func WelcomeCloning() string { return In(i18n.Locale()).WelcomeCloning() }
+
+// WelcomeCloning says "Cloning %s…"
+// in the language of msgs.
+func (msgs Messages) WelcomeCloning() string {
+	return Catalog.Format(msgs.locale, "welcomeCloning", nil)
+}
+
+// WelcomeCloneFailed says "Could not clone: "
+// in the language the app shows.
+func WelcomeCloneFailed() string { return In(i18n.Locale()).WelcomeCloneFailed() }
+
+// WelcomeCloneFailed says "Could not clone: "
+// in the language of msgs.
+func (msgs Messages) WelcomeCloneFailed() string {
+	return Catalog.Format(msgs.locale, "welcomeCloneFailed", nil)
+}
+
 // MsgOpenFolder2 says "Open Folder"
 // in the language the app shows.
 func MsgOpenFolder2() string { return In(i18n.Locale()).MsgOpenFolder2() }
