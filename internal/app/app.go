@@ -72,7 +72,8 @@ type App struct {
 
 	// Navigation.
 	hist                nav.History
-	navSeq              uint64 // bumped by every navigation the user asks for
+	bookmarks           nav.Bookmarks // the workspace's waypoints, by path and line
+	navSeq              uint64        // bumped by every navigation the user asks for
 	navCancel           context.CancelFunc
 	finding             bool // a navigation request is on its way
 	findingLabel        string
@@ -109,6 +110,7 @@ type App struct {
 	settings      settingsState
 	find          findState
 	problems      problemsState
+	bookmarksUI   bookmarksState
 	quick         quickOpen
 	confirm       *confirmation
 	deleteConfirm *confirmation
@@ -149,6 +151,7 @@ const (
 	navGit
 	navProblems
 	navOutline
+	navBookmarks
 )
 
 // dirState is a directory of the tree: unread until opened.
@@ -443,6 +446,8 @@ func (a *App) closeWorkspace() {
 	a.find.reset()
 	a.quick = quickOpen{}
 	a.problems = problemsState{}
+	a.bookmarksUI = bookmarksState{}
+	a.bookmarks = nav.Bookmarks{}
 	releaseStandalonePaths(a)
 	a.standaloneSessionDocs = make(map[string]struct{})
 	a.discardedSessionDocs = make(map[string]struct{})

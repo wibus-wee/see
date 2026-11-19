@@ -14,6 +14,16 @@ type Workspace struct {
 	GitLogSplit   float32 `json:"gitLogSplit,omitempty"` // the commits' share of the Git log's tab, as a percentage
 	WindowWidth   int     `json:"windowWidth,omitempty"`
 	WindowHeight  int     `json:"windowHeight,omitempty"`
+	// Bookmarks are the waypoints the workspace keeps, in the order the
+	// user marked them.
+	Bookmarks []Bookmark `json:"bookmarks,omitempty"`
+}
+
+// Bookmark is a line of a file the workspace remembers: a path as the
+// app's documents are keyed, and a line from 0.
+type Bookmark struct {
+	Path string `json:"path"`
+	Line int    `json:"line"`
 }
 
 // WorkspaceSize is the window size a workspace remembers, or the default

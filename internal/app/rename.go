@@ -199,6 +199,7 @@ func (a *App) renamed(old, dst string) {
 			delete(a.dirs, dir)
 		}
 	}
+	a.bookmarks.Renamed(old, dst)
 	a.refreshDir(filepath.Dir(old))
 	a.quick.files = nil
 	a.filter.forQuery = ""
