@@ -101,7 +101,8 @@ type App struct {
 	counterpartMiss     counterpartFeedback
 	peek                *peekState // a definition peeked at from an editor
 	references          referenceList
-	referencesEmpty     bool // the last pin found no references
+	referencesEmpty     bool         // the last pin found no references
+	codeActions         *codeActions // the code actions a request found, for its menu
 
 	lsp        *langserver.Server
 	cmakeLSP   *langserver.Server
@@ -402,6 +403,7 @@ func (a *App) openWorkspace(dir string) {
 		OnDiagnostics: a.diagnosticsHandler(gen),
 		Logf:          a.serverLog("gopls"),
 	})
+	a.wireApplyEdit(a.lsp)
 	a.resetTypeScriptServer()
 	a.clangLSP = languages.NewClangdServer(root, func(s langserver.State, err error) {
 		a.post.Post(func() {
@@ -419,6 +421,8 @@ func (a *App) openWorkspace(dir string) {
 			}
 		})
 	}, a.diagnosticsHandler(gen), a.serverLog("cmake-language-server"))
+	a.wireApplyEdit(a.clangLSP)
+	a.wireApplyEdit(a.cmakeLSP)
 	a.customLSPSpecs = languages.ConfiguredSpecs(a.cfg.LSP)
 	a.customLSPs = map[int]*langserver.Server{}
 	a.customCovers = map[int]func(string) bool{}
@@ -440,6 +444,7 @@ func (a *App) openWorkspace(dir string) {
 				}
 			})
 		}, a.diagnosticsHandler(gen), a.serverLog(name))
+		a.wireApplyEdit(a.customLSPs[i])
 	}
 	a.loadDir(root)
 	a.startWatch()
@@ -1234,6 +1239,9 @@ func (a *App) newEditor(g *group, d *doc) *editor.State {
 		if menu.Item(commandLabel("Peek Definition")).Shortcut(ui.Alt, ui.KeyF12).Disabled(!a.navigationEnabled(d.path, "peek")).Chosen() {
 			a.peekDefinition(g, d, st.Buffer.Offset(st.CursorPos()))
 		}
+		if menu.Item(commandLabel("Show Code Actions")).Disabled(!a.codeActionsEnabled(d.path)).Chosen() {
+			a.codeActionAtPoint(g, d, st, false)
+		}
 		for _, kind := range []string{"implementation", "typeDefinition"} {
 			item := menu.Item(commandLabel(navigationCommand(kind))).Disabled(!a.navigationEnabled(d.path, kind))
 			if kind == "implementation" {
@@ -1707,6 +1715,7 @@ func (a *App) resetTypeScriptServer() {
 			}
 		})
 	}, a.diagnosticsHandler(gen), a.serverLog("tsrs"))
+	a.wireApplyEdit(a.tsLSP)
 }
 
 func (a *App) openLanguageDocument(m *langserver.Server, ctx context.Context, d *doc, docURI string, snap editor.Snapshot) {

@@ -201,6 +201,10 @@ type fakeClient struct {
 	semanticTypes  []string // the legend fake answers, when semanticTokens is set
 	callHier       callFake
 	noCalls        bool
+	codeActions    []lsp.CodeAction
+	codeActionsErr error
+	noCommands     bool
+	lastCommand    lsp.Command
 	log            []string
 	shutdown       bool
 }
@@ -313,6 +317,27 @@ func (f *fakeClient) Shutdown(time.Duration) {
 	f.mu.Lock()
 	f.shutdown = true
 	f.mu.Unlock()
+}
+
+func (f *fakeClient) HasCodeActions() bool { return f.codeActions != nil || f.codeActionsErr != nil }
+func (f *fakeClient) CodeActionKinds() []string {
+	return []string{"quickfix"}
+}
+func (f *fakeClient) HasExecuteCommand() bool { return !f.noCommands }
+func (f *fakeClient) CodeActions(ctx context.Context, uri string, r lsp.Range, ds []lsp.Diagnostic) ([]lsp.CodeAction, error) {
+	f.record("codeActions")
+	return f.codeActions, f.codeActionsErr
+}
+func (f *fakeClient) ResolveCodeAction(ctx context.Context, action lsp.CodeAction) (*lsp.CodeAction, error) {
+	f.record("resolveCodeAction " + action.Title)
+	return &action, nil
+}
+func (f *fakeClient) ExecuteCommand(ctx context.Context, command lsp.Command) error {
+	f.record("executeCommand " + command.Command)
+	f.mu.Lock()
+	f.lastCommand = command
+	f.mu.Unlock()
+	return nil
 }
 
 func (f *fakeClient) HasCallHierarchy() bool { return !f.noCalls }

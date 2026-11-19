@@ -105,6 +105,7 @@ var commandMessages = map[string]string{
 	"Peek Definition":       "commandPeekDefinition",
 	"Go to Implementation":  "commandGoToImplementation",
 	"Go to Type Definition": "commandGoToTypeDefinition",
+	"Show Code Actions":     "commandShowCodeActions",
 	"Edit All in Scope":     "commandEditAllInScope",
 	"Select Last Tab":       "commandSelectLastTab",
 }

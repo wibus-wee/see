@@ -55,7 +55,12 @@ type Options struct {
 	// OnDiagnostics is called, from any goroutine, with the diagnostics
 	// of a document at the snapshot they are of.
 	OnDiagnostics func(s *Server, uri string, snap editor.Snapshot, ds []lsp.Diagnostic, encoding string)
-	Logf          func(string, ...any)
+	// ApplyEdit, when set, answers a server's workspace/applyEdit
+	// request by applying the edit it asks for, reporting failure to it.
+	// The client registers it only when the started client exposes a
+	// SetApplyEditHandler.
+	ApplyEdit func(s *Server, edit *lsp.WorkspaceEdit) error
+	Logf      func(string, ...any)
 	// Recover, when the server has failed with err, reports whether it
 	// may start now, as when the missing server has been installed since.
 	// Get then starts it again, once.
@@ -127,6 +132,15 @@ func New(o Options) *Server {
 	s := &Server{o: o, docs: map[string]*document{}, out: newOutbox()}
 	go s.out.loop()
 	return s
+}
+
+// SetApplyEdit is the ApplyEdit option named at run time, for a
+// constructor that wraps New without exposing its Options. It is read
+// when a client starts, so it answers servers it has not yet started.
+func (s *Server) SetApplyEdit(fn func(s *Server, edit *lsp.WorkspaceEdit) error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.o.ApplyEdit = fn
 }
 
 // Status returns the state and, when failed, why.
@@ -236,6 +250,13 @@ func (s *Server) run(done chan struct{}, attempt int) {
 		SetDiagnosticsHandler(func(string, *int, []lsp.Diagnostic))
 	}); ok {
 		dc.SetDiagnosticsHandler(func(uri string, version *int, ds []lsp.Diagnostic) { s.published(c, uri, version, ds) })
+	}
+	if s.o.ApplyEdit != nil {
+		if ac, ok := c.(interface {
+			SetApplyEditHandler(func(*lsp.WorkspaceEdit) error)
+		}); ok {
+			ac.SetApplyEditHandler(func(edit *lsp.WorkspaceEdit) error { return s.o.ApplyEdit(s, edit) })
+		}
 	}
 	s.docs = map[string]*document{}
 	s.setState(Ready, nil)
