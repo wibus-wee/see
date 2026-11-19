@@ -224,7 +224,7 @@ func (a *App) showDirDiff(old, new string) {
 // diff, which shows added and removed files too; no repository is
 // needed. A difference is exit 1, not an error.
 func dirDiff(ctx context.Context, old, new string) ([]byte, error) {
-	out, err := git.Command(ctx, ".", "diff", "--no-index", "--no-ext-diff", "--no-color", "--", old, new)
+	out, err := git.Command(ctx, ".", "diff", "--no-index", "--no-ext-diff", "--no-color", "--unified=2147483647", "--", old, new)
 	if len(out) > 0 {
 		err = nil
 	}

@@ -56,6 +56,9 @@ func TestGitRangeSelectionAndStageAll(t *testing.T) {
 	h.a.navigator = navGit
 	h.a.git.historyClosed = true
 	h.tt.Frame()
+	if err := h.tt.Click(logText("gitKindDocs")); err != nil {
+		t.Fatal(err)
+	}
 	if err := h.tt.Click("Unstaged diff: a.txt"); err != nil {
 		t.Fatal(err)
 	}

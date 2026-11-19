@@ -23,6 +23,7 @@ import (
 	"github.com/egoist/mygo/ui/markdown"
 
 	"see/internal/config"
+	"see/internal/filenesting"
 	"see/internal/git"
 	"see/internal/lsp"
 	"see/internal/nav"
@@ -192,6 +193,9 @@ const (
 // dirState is a directory of the tree: unread until opened.
 type dirState struct {
 	entries []workspace.Entry
+	// nested are each nesting parent's children, the files the nesting
+	// rules fold under it, by their paths; nil until entries are read.
+	nested  map[string][]string
 	loading bool
 	loaded  bool
 	err     error
@@ -587,6 +591,7 @@ func (a *App) loadDir(dir string) {
 				return
 			}
 			d.entries, d.err, d.loaded = es, nil, true
+			a.computeNested(d)
 		})
 	}()
 }
@@ -603,6 +608,15 @@ func (a *App) children(p string) []string {
 		return nil
 	}
 	if e, ok := a.entry(p); !ok || !e.Dir {
+		if ok && !e.Dir {
+			// A file the nesting rules give children is expandable,
+			// as a folder is; the outline shows them while it is open.
+			if d := a.dirs[filepath.Dir(p)]; d != nil {
+				if kids := d.nested[p]; len(kids) > 0 {
+					return kids
+				}
+			}
+		}
 		return nil
 	}
 	d := a.dirs[p]
@@ -630,13 +644,42 @@ func (a *App) children(p string) []string {
 }
 
 func (a *App) entryPaths(d *dirState) []string {
+	nestedChild := map[string]bool{}
+	for _, kids := range d.nested {
+		for _, k := range kids {
+			nestedChild[k] = true
+		}
+	}
 	out := make([]string, 0, len(d.entries))
 	for _, e := range d.entries {
-		if !a.hiddenPath(e.Path) {
+		if !a.hiddenPath(e.Path) && !nestedChild[e.Path] {
 			out = append(out, e.Path)
 		}
 	}
 	return out
+}
+
+// computeNested groups the directory's files under their parents, by
+// vscode-file-nesting-config's rules: a component's tests and styles,
+// a config's sibling dotfiles.
+func (a *App) computeNested(d *dirState) {
+	names := make([]string, 0, len(d.entries))
+	byName := map[string]workspace.Entry{}
+	for _, e := range d.entries {
+		if e.Dir || a.hiddenPath(e.Path) {
+			continue
+		}
+		names = append(names, e.Name)
+		byName[e.Name] = e
+	}
+	d.nested = map[string][]string{}
+	for child, parent := range filenesting.Parents(names) {
+		pe, ce := byName[parent], byName[child]
+		if pe.Path == "" || ce.Path == "" {
+			continue
+		}
+		d.nested[pe.Path] = append(d.nested[pe.Path], ce.Path)
+	}
 }
 
 func (a *App) hiddenPath(p string) bool {

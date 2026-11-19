@@ -90,6 +90,7 @@
   "gitNoTextDiff": "此更改没有可用的文本差异。",
   "gitUntracked": "未跟踪",
   "gitShowMoreFiles": "再显示 %d 个文件",
+  "gitViewed": "已查看",
   "gitLogTable": "提交表格",
   "gitLogRefs": "分支 / 标签",
   "gitLogGraph": "拓扑",
@@ -762,5 +763,8 @@
   "callHierarchySelectToPreview": "选择一个调用以预览",
   "callHierarchyPreview": "调用代码预览",
   "callHierarchyMakeRoot": "设为根节点",
-  "callHierarchyCopyLocation": "复制位置"
+  "callHierarchyCopyLocation": "复制位置",
+  "gitKindTests": "测试",
+  "gitKindDocs": "文档",
+  "gitKindGenerated": "生成的文件"
 }

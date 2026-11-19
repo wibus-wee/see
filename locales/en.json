@@ -90,6 +90,7 @@
   "gitNoTextDiff": "No text diff is available for this change.",
   "gitUntracked": "Untracked",
   "gitShowMoreFiles": "Show %d more files",
+  "gitViewed": "Viewed",
   "gitLogTable": "Commit table",
   "gitLogRefs": "Branch / Tag",
   "gitLogGraph": "Graph",
@@ -762,5 +763,8 @@
   "callHierarchySelectToPreview": "Select a call to preview it",
   "callHierarchyPreview": "Call code preview",
   "callHierarchyMakeRoot": "Make Root",
-  "callHierarchyCopyLocation": "Copy Location"
+  "callHierarchyCopyLocation": "Copy Location",
+  "gitKindTests": "Tests",
+  "gitKindDocs": "Docs",
+  "gitKindGenerated": "Generated"
 }
