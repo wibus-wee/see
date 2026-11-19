@@ -247,6 +247,10 @@ func TestEditAllInScopeEditorContextMenuTargetsClickedPane(t *testing.T) {
 	if target == active {
 		t.Fatal("split did not create a separate editor group")
 	}
+	// A real pointer moves before it presses, and the first move settles
+	// the element tree's pointer-in transition; pressing without a prior
+	// move leaves the asked context menu's element id stale for a frame.
+	h.tt.Move(400, 140)
 	h.tt.RightClickAt(400, 140)
 	menu := h.tt.Menu()
 	if len(menu) == 0 {
