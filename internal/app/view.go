@@ -241,6 +241,7 @@ func (a *App) shortcuts(c *ui.Context) {
 		pendingScopeRequest := a.scopeCancel != nil
 		hasChoices := a.choices != nil
 		hasPeek := a.git.peek != nil
+		a.dismissSignature()
 		a.cancelScopeEditRequest()
 		a.choices = nil
 		a.peek = nil

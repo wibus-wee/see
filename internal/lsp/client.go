@@ -50,6 +50,7 @@ type Client struct {
 	typeDefinitions    bool
 	inlayHints         bool
 	pullDiagnostics    bool
+	signatureHelp      bool
 	diagMu             sync.Mutex
 	onDiagnostics      func(string, *int, []Diagnostic)
 
@@ -203,6 +204,9 @@ func (c *Client) HasTypeDefinition() bool { return c.typeDefinitions }
 // HasInlayHints reports whether the server provides inlay hints.
 func (c *Client) HasInlayHints() bool { return c.inlayHints }
 
+// HasSignatureHelp reports whether the server answers signature help.
+func (c *Client) HasSignatureHelp() bool { return c.signatureHelp }
+
 // WorkspaceSymbols searches declarations across the workspace.
 type WorkspaceSymbol struct {
 	Name     string   `json:"name"`
@@ -247,6 +251,7 @@ func (c *Client) initialize(ctx context.Context) error {
 				"typeDefinition":    map[string]any{"linkSupport": true, "dynamicRegistration": false},
 				"inlayHint":         map[string]any{},
 				"hover":             map[string]any{"contentFormat": []string{"markdown", "plaintext"}, "dynamicRegistration": false},
+				"signatureHelp":     map[string]any{"signatureInformation": map[string]any{"documentationFormat": []string{"markdown", "plaintext"}, "parameterInformation": map[string]any{"labelOffsetSupport": true}}, "dynamicRegistration": false},
 			},
 			"workspace": map[string]any{
 				"workspaceFolders": true,
@@ -271,6 +276,7 @@ func (c *Client) initialize(ctx context.Context) error {
 	c.implementations = (serverCapabilities{DefinitionProvider: res.Capabilities.ImplementationProvider}).hasDefinition()
 	c.typeDefinitions = (serverCapabilities{DefinitionProvider: res.Capabilities.TypeDefinitionProvider}).hasDefinition()
 	c.inlayHints = res.Capabilities.hasInlayHints()
+	c.signatureHelp = res.Capabilities.hasSignatureHelp()
 	c.pullDiagnostics = len(res.Capabilities.DiagnosticProvider) > 0 && string(res.Capabilities.DiagnosticProvider) != "null" && string(res.Capabilities.DiagnosticProvider) != "false"
 	return c.conn.Notify("initialized", map[string]any{})
 }
@@ -368,6 +374,19 @@ func (c *Client) InlayHints(ctx context.Context, uri string, r Range) ([]InlayHi
 		return nil, err
 	}
 	return ParseInlayHints(raw)
+}
+
+// SignatureHelp asks for the signatures of the call at pos.
+func (c *Client) SignatureHelp(ctx context.Context, uri string, pos Position) (*SignatureHelp, error) {
+	var raw json.RawMessage
+	err := c.conn.Call(ctx, "textDocument/signatureHelp", map[string]any{
+		"textDocument": map[string]any{"uri": uri},
+		"position":     pos,
+	}, &raw)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSignatureHelp(raw)
 }
 
 // SetDiagnosticsHandler receives published diagnostics from the server.

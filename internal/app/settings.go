@@ -717,6 +717,18 @@ func (a *App) editorPane(c *ui.Context) {
 			}
 		},
 		func() {
+			labeled(c, locales.MsgParameterHelp(), locales.MsgParameterHelpDescription())
+			mode := a.cfg.ParameterHelp
+			if mode == "" {
+				mode = "always"
+			}
+			i := map[string]int{"always": 0, "trigger": 1, "off": 2}[mode]
+			if ui.Segmented(c, &i, locales.MsgAlways(), locales.MsgOnTrigger(), locales.MsgOff()).Label(locales.MsgParameterHelp()).Changed() {
+				a.cfg.ParameterHelp = []string{"always", "trigger", "off"}[i]
+				a.settingsChanged()
+			}
+		},
+		func() {
 			labeled(c, locales.FoldImportsOnOpen(), locales.FoldImportsOnOpenDescription())
 			if ui.Switch(c, &a.cfg.EditorFoldImports).Label(locales.FoldImportsOnOpen()).Changed() {
 				a.settingsChanged()

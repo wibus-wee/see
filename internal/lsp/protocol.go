@@ -124,6 +124,7 @@ type serverCapabilities struct {
 	TypeDefinitionProvider    json.RawMessage `json:"typeDefinitionProvider"`
 	DiagnosticProvider        json.RawMessage `json:"diagnosticProvider"`
 	InlayHintProvider         json.RawMessage `json:"inlayHintProvider"`
+	SignatureHelpProvider     json.RawMessage `json:"signatureHelpProvider"`
 }
 
 // syncKind reads textDocumentSync, a number or TextDocumentSyncOptions,
@@ -231,6 +232,11 @@ func inlayLabel(raw json.RawMessage) (string, error) {
 		return sb.String(), nil
 	}
 	return "", fmt.Errorf("lsp: bad inlay hint label %.20q", raw)
+}
+
+func (s serverCapabilities) hasSignatureHelp() bool {
+	raw := bytes.TrimSpace(s.SignatureHelpProvider)
+	return len(raw) > 0 && !bytes.Equal(raw, []byte("false")) && !bytes.Equal(raw, []byte("null"))
 }
 
 // ParseHover decodes a Hover result into Markdown: its contents are

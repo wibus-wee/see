@@ -1146,6 +1146,26 @@ func (msgs Messages) CommandToggleQuickHelpInspector() string {
 	return Catalog.Format(msgs.locale, "commandToggleQuickHelpInspector", nil)
 }
 
+// CommandShowSignatureHelp says "Show Signature Help"
+// in the language the app shows.
+func CommandShowSignatureHelp() string { return In(i18n.Locale()).CommandShowSignatureHelp() }
+
+// CommandShowSignatureHelp says "Show Signature Help"
+// in the language of msgs.
+func (msgs Messages) CommandShowSignatureHelp() string {
+	return Catalog.Format(msgs.locale, "commandShowSignatureHelp", nil)
+}
+
+// SignatureHelp says "Signature Help"
+// in the language the app shows.
+func SignatureHelp() string { return In(i18n.Locale()).SignatureHelp() }
+
+// SignatureHelp says "Signature Help"
+// in the language of msgs.
+func (msgs Messages) SignatureHelp() string {
+	return Catalog.Format(msgs.locale, "signatureHelp", nil)
+}
+
 // QuickHelp says "Quick Help"
 // in the language the app shows.
 func QuickHelp() string { return In(i18n.Locale()).QuickHelp() }
@@ -3666,6 +3686,46 @@ func MsgOff() string { return In(i18n.Locale()).MsgOff() }
 // in the language of msgs.
 func (msgs Messages) MsgOff() string {
 	return Catalog.Format(msgs.locale, "msgOff", nil)
+}
+
+// MsgParameterHelp says "Parameter Help"
+// in the language the app shows.
+func MsgParameterHelp() string { return In(i18n.Locale()).MsgParameterHelp() }
+
+// MsgParameterHelp says "Parameter Help"
+// in the language of msgs.
+func (msgs Messages) MsgParameterHelp() string {
+	return Catalog.Format(msgs.locale, "msgParameterHelp", nil)
+}
+
+// MsgParameterHelpDescription says "The signature of the call the caret is inside, with the argument it is on marked."
+// in the language the app shows.
+func MsgParameterHelpDescription() string { return In(i18n.Locale()).MsgParameterHelpDescription() }
+
+// MsgParameterHelpDescription says "The signature of the call the caret is inside, with the argument it is on marked."
+// in the language of msgs.
+func (msgs Messages) MsgParameterHelpDescription() string {
+	return Catalog.Format(msgs.locale, "msgParameterHelpDescription", nil)
+}
+
+// MsgAlways says "Always"
+// in the language the app shows.
+func MsgAlways() string { return In(i18n.Locale()).MsgAlways() }
+
+// MsgAlways says "Always"
+// in the language of msgs.
+func (msgs Messages) MsgAlways() string {
+	return Catalog.Format(msgs.locale, "msgAlways", nil)
+}
+
+// MsgOnTrigger says "On Trigger"
+// in the language the app shows.
+func MsgOnTrigger() string { return In(i18n.Locale()).MsgOnTrigger() }
+
+// MsgOnTrigger says "On Trigger"
+// in the language of msgs.
+func (msgs Messages) MsgOnTrigger() string {
+	return Catalog.Format(msgs.locale, "msgOnTrigger", nil)
 }
 
 // MsgWrapLines says "Wrap Lines"
