@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 )
 
 func newRepo(t *testing.T) (string, func(args ...string) string) {
@@ -230,6 +231,56 @@ func splitLines(s string) []string {
 		}
 	}
 	return out
+}
+
+// LogFile reads the commits that changed a file, following its
+// renames; Resolve names a revision's hash, CommitBefore the newest
+// commit at or before a date.
+func TestLogFileResolveAndCommitBefore(t *testing.T) {
+	root, run := newRepo(t)
+	ctx := context.Background()
+	write(t, root, "old", "a\n")
+	write(t, root, "other", "o\n")
+	run("add", ".")
+	run("commit", "-qm", "first")
+	run("mv", "old", "new")
+	run("commit", "-qm", "renamed")
+	write(t, root, "new", "a\nb\n")
+	run("commit", "-qam", "more")
+
+	commits, err := LogFile(ctx, root, false, 0, 100, "new")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var subjects []string
+	for _, cm := range commits {
+		subjects = append(subjects, cm.Subject)
+	}
+	if !slices.Equal(subjects, []string{"more", "renamed", "first"}) {
+		t.Fatalf("the file's history, rename followed: %q", subjects)
+	}
+	commits, err = LogFile(ctx, root, false, 0, 100, "other")
+	if err != nil || len(commits) != 1 || commits[0].Subject != "first" {
+		t.Fatalf("other's history: %+v, %v", commits, err)
+	}
+
+	hash := strings.TrimSpace(run("rev-parse", "HEAD"))
+	if got := Resolve(ctx, root, "HEAD"); got != hash {
+		t.Fatalf("HEAD = %q, not %q", got, hash)
+	}
+	if got := Resolve(ctx, root, "no-such-ref"); got != "" {
+		t.Fatalf("no-such-ref = %q", got)
+	}
+	today := time.Now().Format(time.DateOnly)
+	if got, err := CommitBefore(ctx, root, today); err != nil || got != hash {
+		t.Fatalf("before %s = %q, %v", today, got, err)
+	}
+	if got, err := CommitBefore(ctx, root, "2000-01-01"); err != nil || got != "" {
+		t.Fatalf("before 2000 = %q, %v", got, err)
+	}
+	if _, err := CommitBefore(ctx, root, "not a date"); err == nil {
+		t.Fatal("a bad date is an error")
+	}
 }
 
 func TestParseNumstatRename(t *testing.T) {

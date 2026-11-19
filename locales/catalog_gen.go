@@ -584,6 +584,36 @@ func (msgs Messages) CommandShowLineCommit() string {
 	return Catalog.Format(msgs.locale, "commandShowLineCommit", nil)
 }
 
+// CommandShowFileHistory says "Show File History"
+// in the language the app shows.
+func CommandShowFileHistory() string { return In(i18n.Locale()).CommandShowFileHistory() }
+
+// CommandShowFileHistory says "Show File History"
+// in the language of msgs.
+func (msgs Messages) CommandShowFileHistory() string {
+	return Catalog.Format(msgs.locale, "commandShowFileHistory", nil)
+}
+
+// CommandGitRevealHeadInLog says "Git: Reveal HEAD in Log"
+// in the language the app shows.
+func CommandGitRevealHeadInLog() string { return In(i18n.Locale()).CommandGitRevealHeadInLog() }
+
+// CommandGitRevealHeadInLog says "Git: Reveal HEAD in Log"
+// in the language of msgs.
+func (msgs Messages) CommandGitRevealHeadInLog() string {
+	return Catalog.Format(msgs.locale, "commandGitRevealHeadInLog", nil)
+}
+
+// CommandGitJumpToDate says "Git: Jump to Date…"
+// in the language the app shows.
+func CommandGitJumpToDate() string { return In(i18n.Locale()).CommandGitJumpToDate() }
+
+// CommandGitJumpToDate says "Git: Jump to Date…"
+// in the language of msgs.
+func (msgs Messages) CommandGitJumpToDate() string {
+	return Catalog.Format(msgs.locale, "commandGitJumpToDate", nil)
+}
+
 // CommandToggleInlineBlame says "Toggle Inline Git Blame"
 // in the language the app shows.
 func CommandToggleInlineBlame() string { return In(i18n.Locale()).CommandToggleInlineBlame() }
@@ -802,6 +832,86 @@ func GitLogLoadMore() string { return In(i18n.Locale()).GitLogLoadMore() }
 // in the language of msgs.
 func (msgs Messages) GitLogLoadMore() string {
 	return Catalog.Format(msgs.locale, "gitLogLoadMore", nil)
+}
+
+// GitLogFileScope says "History of"
+// in the language the app shows.
+func GitLogFileScope() string { return In(i18n.Locale()).GitLogFileScope() }
+
+// GitLogFileScope says "History of"
+// in the language of msgs.
+func (msgs Messages) GitLogFileScope() string {
+	return Catalog.Format(msgs.locale, "gitLogFileScope", nil)
+}
+
+// GitLogJump says "Jump in the log"
+// in the language the app shows.
+func GitLogJump() string { return In(i18n.Locale()).GitLogJump() }
+
+// GitLogJump says "Jump in the log"
+// in the language of msgs.
+func (msgs Messages) GitLogJump() string {
+	return Catalog.Format(msgs.locale, "gitLogJump", nil)
+}
+
+// GitLogRevealHEAD says "Reveal HEAD"
+// in the language the app shows.
+func GitLogRevealHEAD() string { return In(i18n.Locale()).GitLogRevealHEAD() }
+
+// GitLogRevealHEAD says "Reveal HEAD"
+// in the language of msgs.
+func (msgs Messages) GitLogRevealHEAD() string {
+	return Catalog.Format(msgs.locale, "gitLogRevealHEAD", nil)
+}
+
+// GitLogRevealBranch says "Reveal in Git Log: "
+// in the language the app shows.
+func GitLogRevealBranch() string { return In(i18n.Locale()).GitLogRevealBranch() }
+
+// GitLogRevealBranch says "Reveal in Git Log: "
+// in the language of msgs.
+func (msgs Messages) GitLogRevealBranch() string {
+	return Catalog.Format(msgs.locale, "gitLogRevealBranch", nil)
+}
+
+// GitLogJumpToDate says "Jump to Date"
+// in the language the app shows.
+func GitLogJumpToDate() string { return In(i18n.Locale()).GitLogJumpToDate() }
+
+// GitLogJumpToDate says "Jump to Date"
+// in the language of msgs.
+func (msgs Messages) GitLogJumpToDate() string {
+	return Catalog.Format(msgs.locale, "gitLogJumpToDate", nil)
+}
+
+// GitLogNotADate says "Type a date as 2006-01-02."
+// in the language the app shows.
+func GitLogNotADate() string { return In(i18n.Locale()).GitLogNotADate() }
+
+// GitLogNotADate says "Type a date as 2006-01-02."
+// in the language of msgs.
+func (msgs Messages) GitLogNotADate() string {
+	return Catalog.Format(msgs.locale, "gitLogNotADate", nil)
+}
+
+// GitLogNoCommitOnOrBefore says "No commit on or before "
+// in the language the app shows.
+func GitLogNoCommitOnOrBefore() string { return In(i18n.Locale()).GitLogNoCommitOnOrBefore() }
+
+// GitLogNoCommitOnOrBefore says "No commit on or before "
+// in the language of msgs.
+func (msgs Messages) GitLogNoCommitOnOrBefore() string {
+	return Catalog.Format(msgs.locale, "gitLogNoCommitOnOrBefore", nil)
+}
+
+// GitLogNoRevision says "No revision "
+// in the language the app shows.
+func GitLogNoRevision() string { return In(i18n.Locale()).GitLogNoRevision() }
+
+// GitLogNoRevision says "No revision "
+// in the language of msgs.
+func (msgs Messages) GitLogNoRevision() string {
+	return Catalog.Format(msgs.locale, "gitLogNoRevision", nil)
 }
 
 // CommandShowProblems says "Show Problems"
@@ -6272,6 +6382,16 @@ func (msgs Messages) MsgOpenOn() string {
 	return Catalog.Format(msgs.locale, "msgOpenOn", nil)
 }
 
+// MsgOpenCompareOn says "Open Compare on "
+// in the language the app shows.
+func MsgOpenCompareOn() string { return In(i18n.Locale()).MsgOpenCompareOn() }
+
+// MsgOpenCompareOn says "Open Compare on "
+// in the language of msgs.
+func (msgs Messages) MsgOpenCompareOn() string {
+	return Catalog.Format(msgs.locale, "msgOpenCompareOn", nil)
+}
+
 // MsgOpenParent says "Open parent "
 // in the language the app shows.
 func MsgOpenParent() string { return In(i18n.Locale()).MsgOpenParent() }
@@ -6280,6 +6400,56 @@ func MsgOpenParent() string { return In(i18n.Locale()).MsgOpenParent() }
 // in the language of msgs.
 func (msgs Messages) MsgOpenParent() string {
 	return Catalog.Format(msgs.locale, "msgOpenParent", nil)
+}
+
+// MsgCopyChangedFilePaths says "Copy Changed File Paths"
+// in the language the app shows.
+func MsgCopyChangedFilePaths() string { return In(i18n.Locale()).MsgCopyChangedFilePaths() }
+
+// MsgCopyChangedFilePaths says "Copy Changed File Paths"
+// in the language of msgs.
+func (msgs Messages) MsgCopyChangedFilePaths() string {
+	return Catalog.Format(msgs.locale, "msgCopyChangedFilePaths", nil)
+}
+
+// MsgTheCommitChangesNoFiles says "The commit changes no files."
+// in the language the app shows.
+func MsgTheCommitChangesNoFiles() string { return In(i18n.Locale()).MsgTheCommitChangesNoFiles() }
+
+// MsgTheCommitChangesNoFiles says "The commit changes no files."
+// in the language of msgs.
+func (msgs Messages) MsgTheCommitChangesNoFiles() string {
+	return Catalog.Format(msgs.locale, "msgTheCommitChangesNoFiles", nil)
+}
+
+// MsgShowTheWholeHistory says "Show the whole history"
+// in the language the app shows.
+func MsgShowTheWholeHistory() string { return In(i18n.Locale()).MsgShowTheWholeHistory() }
+
+// MsgShowTheWholeHistory says "Show the whole history"
+// in the language of msgs.
+func (msgs Messages) MsgShowTheWholeHistory() string {
+	return Catalog.Format(msgs.locale, "msgShowTheWholeHistory", nil)
+}
+
+// MsgNoHistoryFor says "No history for "
+// in the language the app shows.
+func MsgNoHistoryFor() string { return In(i18n.Locale()).MsgNoHistoryFor() }
+
+// MsgNoHistoryFor says "No history for "
+// in the language of msgs.
+func (msgs Messages) MsgNoHistoryFor() string {
+	return Catalog.Format(msgs.locale, "msgNoHistoryFor", nil)
+}
+
+// MsgNotInTheRepository says ": the file is not in the repository."
+// in the language the app shows.
+func MsgNotInTheRepository() string { return In(i18n.Locale()).MsgNotInTheRepository() }
+
+// MsgNotInTheRepository says ": the file is not in the repository."
+// in the language of msgs.
+func (msgs Messages) MsgNotInTheRepository() string {
+	return Catalog.Format(msgs.locale, "msgNotInTheRepository", nil)
 }
 
 // MsgCouldNotInstallSV says "Could not install %s: %v"

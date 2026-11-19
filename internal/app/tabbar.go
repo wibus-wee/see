@@ -25,6 +25,9 @@ func (a *App) tabFileMenu(c *ui.Context, m *ui.Menu, tab string, d *doc, diff *g
 	if m.Item("Reveal in Navigator").Disabled(!workspace.Within(a.root, path) || path == a.root).Chosen() {
 		a.revealInTree(path)
 	}
+	if m.Item("Show File History").Disabled(a.git.root == "").Chosen() {
+		a.showFileHistory(path)
+	}
 	if m.Item("Copy Path").Chosen() {
 		services.WriteClipboard(path)
 	}

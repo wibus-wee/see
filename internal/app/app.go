@@ -82,7 +82,7 @@ type App struct {
 	navigationMenuState [4]bool
 	choices             *defChoices // several definitions to choose from
 	counterpartMiss     counterpartFeedback
-	peek                *peekState  // a definition peeked at from an editor
+	peek                *peekState // a definition peeked at from an editor
 
 	lsp            *langserver.Server
 	cmakeLSP       *langserver.Server
@@ -116,6 +116,7 @@ type App struct {
 	problems      problemsState
 	bookmarksUI   bookmarksState
 	quick         quickOpen
+	jumpDate      jumpToDate
 	confirm       *confirmation
 	deleteConfirm *confirmation
 	createEntry   *entryPrompt
@@ -1139,6 +1140,9 @@ func (a *App) newEditor(g *group, d *doc) *editor.State {
 		if menu.Item("Find Callers").Chosen() {
 			a.focus = g
 			a.findUsagesAt(true, g.pointerAnchor, g.pointerInEditor)
+		}
+		if !d.untitled && menu.Item("Show File History").Chosen() {
+			a.showFileHistory(d.path)
 		}
 		a.linkItems(menu, d, st)
 	}

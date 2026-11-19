@@ -3,6 +3,8 @@ package git
 import (
 	"context"
 	"errors"
+	"fmt"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -130,6 +132,13 @@ const emptyTree = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 // all, skipping the first skip, newest first and each before its parents,
 // with the lanes of the graph laid out.
 func Log(ctx context.Context, root string, all bool, skip, n int) ([]Commit, error) {
+	return LogFile(ctx, root, all, skip, n, "")
+}
+
+// LogFile reads the history as Log does, of only the commits that
+// changed path when it is not "": path names a file in the repository,
+// whose renames git follows.
+func LogFile(ctx context.Context, root string, all bool, skip, n int, path string) ([]Commit, error) {
 	args := []string{"log", "--topo-order", "--decorate=short", "--no-color",
 		logFormat,
 		"--skip=" + strconv.Itoa(skip), "-n", strconv.Itoa(n)}
@@ -141,11 +150,39 @@ func Log(ctx context.Context, root string, all bool, skip, n int) ([]Commit, err
 			args = append(args, strings.TrimSpace(string(upstream)))
 		}
 	}
+	if path != "" {
+		// --full-history keeps every parent in the walk, so a commit's
+		// parents stay connected in the graph the page draws over it.
+		args = append(args, "--full-history", "--follow", "--", filepath.ToSlash(path))
+	}
 	out, err := Command(ctx, root, args...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseLog(out), nil
+}
+
+// CommitBefore is the hash of the newest commit at or before date, in
+// the format time.DateOnly (2006-01-02), or "" when the date is not
+// one or no commit is that old.
+func CommitBefore(ctx context.Context, root, date string) (string, error) {
+	if _, err := time.Parse(time.DateOnly, date); err != nil {
+		return "", fmt.Errorf("%q is not a date as 2006-01-02", date)
+	}
+	out, err := Command(ctx, root, "log", "-1", "--before="+date+" 23:59:59", "--format=%H")
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+// Resolve is the full hash revision names, or "" when it does not.
+func Resolve(ctx context.Context, root, revision string) string {
+	out, err := Command(ctx, root, "rev-parse", "--verify", "--quiet", revision)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
 }
 
 // ReadCommit reads one commit's log line, without the graph.

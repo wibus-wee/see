@@ -333,8 +333,19 @@ func (a *App) rankQuick() {
 		all := commands()
 		var names []string
 		for _, cmd := range all {
-			if cmd.name == "Show Line's Commit in Git Log" && !a.canRevealLineCommit() {
-				continue
+			switch cmd.name {
+			case "Show Line's Commit in Git Log":
+				if !a.canRevealLineCommit() {
+					continue
+				}
+			case "Show File History":
+				if !a.canShowFileHistory() {
+					continue
+				}
+			case "Git: Reveal HEAD in Log", "Git: Jump to Date…", "Git: Show Log", "Git: Show History":
+				if a.git.root == "" {
+					continue
+				}
 			}
 			names = append(names, commandLabel(cmd.name))
 		}

@@ -412,6 +412,9 @@ func (a *App) treeItem(c *ui.Context, p string) {
 			_ = mygo.Shell.OpenPath(p)
 		}
 		if !e.Dir {
+			if m.Item("Show File History").Chosen() {
+				a.showFileHistory(p)
+			}
 			m.Separator()
 			if m.Item("Open").Chosen() {
 				a.openFromTree(p, false)

@@ -113,6 +113,10 @@ func (a *App) commandEnabled(name string) bool {
 		return g != nil && isMarkdown(tabPath(g.active)) && a.docs[tabPath(g.active)] != nil
 	case "Show Line's Commit in Git Log":
 		return a.canRevealLineCommit()
+	case "Show File History":
+		return a.canShowFileHistory()
+	case "Git: Reveal HEAD in Log", "Git: Jump to Date…":
+		return a.git.root != ""
 	// Tab and group commands need a group with tabs, or more than one.
 	case "Next Tab", "Previous Tab":
 		return g != nil && len(g.order) >= 2

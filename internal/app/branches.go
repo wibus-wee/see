@@ -284,6 +284,15 @@ func (a *App) branchRow(c *ui.Context, items []branchItem, i int) {
 		row.Background(colors(c).Pill)
 	}
 	row.OnClick(func() { a.chooseBranch(it) })
+	if it.branch != nil {
+		b := it.branch
+		row.ContextMenu(func(m *ui.Menu) {
+			if m.Item(logText("gitLogRevealBranch") + b.Name).Chosen() {
+				p.open = false
+				a.revealLogRef(b.Name)
+			}
+		})
+	}
 	row.Children(func() {
 		if it.create != "" {
 			symbolIcon(c, icPlus, 13, text)
