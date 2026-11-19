@@ -434,28 +434,35 @@ func (a *App) branchDiffContent(c *ui.Context, g *group, v *branchDiffView) {
 }
 
 func (a *App) branchDiffStatusBar(c *ui.Context, g *group, v *branchDiffView) {
+	palette := colors(c)
+	baseTint, treeTint := laneColor(1), laneColor(3)
+	baseBackground := palette.WarnBg
+	treeBackground := palette.Editor.Mix(treeTint, 0.14)
 	ui.Row(c).FillWidth().Height(26).Padding(0, 8).Gap(7).AlignItems(ui.Center).
-		BorderWidth(1, 0, 0, 0).BorderColor(colors(c).Separator).Background(colors(c).Editor).Children(func() {
+		BorderWidth(1, 0, 0, 0).BorderColor(palette.Separator).Background(palette.Editor).Children(func() {
 		base := ui.ButtonBase(c).Label(branchDiffText("gitChangeBase")).Tooltip(branchDiffText("gitChangeBase")).
-			Padding(3, 7).Radius(4).KeepFocus()
+			Height(20).Padding(0, 7).Radius(10).KeepFocus()
+		base.Background(baseBackground)
 		if base.Hovered() {
-			base.Background(colors(c).Pill)
+			base.Background(baseBackground.Mix(palette.Text, 0.06))
 		}
 		base.Children(func() {
 			ui.Row(c).Gap(5).AlignItems(ui.Center).Children(func() {
-				ui.Text(c, branchDiffText("gitBase")+" "+v.baseName).FontSize(11).SingleLine().Shrink(1)
-				symbolIcon(c, icChevron, 9, colors(c).Muted)
+				ui.Text(c, branchDiffText("gitBase")+" "+v.baseName).FontSize(11).TextColor(palette.Text.Mix(baseTint, 0.22)).SingleLine().Shrink(1)
+				symbolIcon(c, icChevron, 9, palette.Muted)
 			})
 		})
 		if base.Clicked() {
 			a.openBaseBranchPicker(base.Bounds(), g)
 		}
-		ui.Text(c, "→").FontSize(11).TextColor(colors(c).Dim).SingleLine()
-		ui.Text(c, branchDiffText("gitWorkingTree")).FontSize(11).TextColor(colors(c).Muted).SingleLine()
+		ui.Text(c, "→").FontSize(11).TextColor(palette.Dim).SingleLine()
+		ui.Row(c).Height(20).Padding(0, 7).Radius(10).AlignItems(ui.Center).Background(treeBackground).Children(func() {
+			ui.Text(c, branchDiffText("gitWorkingTree")).FontSize(11).TextColor(palette.Text.Mix(treeTint, 0.22)).SingleLine()
+		})
 		ui.Box(c).Grow(1)
 		if v.result != nil {
 			added, deleted := branchDiffTotals(v.files)
-			ui.Text(c, fmt.Sprintf("%d", len(v.files))).FontSize(11).TextColor(colors(c).Muted).SingleLine()
+			ui.Text(c, fmt.Sprintf("%d", len(v.files))).FontSize(11).TextColor(palette.Muted).SingleLine()
 			ui.Text(c, fmt.Sprintf("+%d", added)).FontSize(11).TextColor(a.gitStatusColor('A')).SingleLine()
 			ui.Text(c, fmt.Sprintf("−%d", deleted)).FontSize(11).TextColor(a.gitStatusColor('D')).SingleLine()
 		}

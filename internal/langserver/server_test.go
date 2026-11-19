@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -292,11 +293,10 @@ func TestNeverReadyExitIsNotRestarted(t *testing.T) {
 	restartDelays = [maxRestarts]time.Duration{10 * time.Millisecond, 10 * time.Millisecond}
 
 	var exits []func(error)
-	starts := 0
+	var starts atomic.Int32
 	s := New(Options{Name: "fake", Start: func(_ context.Context, _ string, onExit func(error)) (Client, error) {
 		exits = append(exits, onExit)
-		starts++
-		if starts == 1 {
+		if starts.Add(1) == 1 {
 			return &fakeClient{}, nil
 		}
 		return nil, errors.New("won't start")
@@ -304,10 +304,10 @@ func TestNeverReadyExitIsNotRestarted(t *testing.T) {
 	defer s.StopWait(time.Second)
 	s.Get(context.Background())
 	exits[0](errors.New("crashed"))
-	waitFor(t, func() bool { return starts == 2 && serverState(s) == Failed })
+	waitFor(t, func() bool { return starts.Load() == 2 && serverState(s) == Failed })
 	time.Sleep(50 * time.Millisecond)
-	if st, _ := s.Status(); st != Failed || starts != 2 {
-		t.Fatalf("state %v, starts %d; the failed restart must not loop", st, starts)
+	if st, _ := s.Status(); st != Failed || starts.Load() != 2 {
+		t.Fatalf("state %v, starts %d; the failed restart must not loop", st, starts.Load())
 	}
 }
 
