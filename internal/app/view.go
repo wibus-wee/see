@@ -40,6 +40,7 @@ func editorBindings() []editor.Binding {
 		none(ui.Cmd|ui.Shift, ui.KeyH),
 		none(ui.Cmd|ui.Shift, ui.KeyV),
 		none(ui.Cmd|ui.Shift, ui.KeyC),
+		none(ui.Cmd|ui.Shift, ui.KeyT),
 		none(ui.Cmd, ui.KeyBackslash),
 		none(ui.Cmd, ui.KeyD), // split, as iTerm; the reader selects no next occurrence to edit
 		none(ui.Cmd|ui.Shift, ui.KeyD),
@@ -47,6 +48,7 @@ func editorBindings() []editor.Binding {
 		none(ui.Ctrl|ui.Shift, ui.KeyTab),
 		none(ui.Ctrl, ui.KeyMinus),
 		none(ui.Cmd, ui.KeyF12),
+		none(ui.Alt, ui.KeyF12),
 		none(ui.Ctrl|ui.Shift, ui.KeyMinus),
 	}
 	for k := ui.Key1; k <= ui.Key9; k++ {
@@ -85,6 +87,7 @@ func (a *App) view(c *ui.Context) {
 	a.pauseHiddenVideos()
 	a.applyAppearance(c)
 	a.modifiers = c.Modifiers()
+	a.settleTabCycles()
 	c.SetTheme(a.theme)
 	a.services = c.Services()
 	a.showCounterpartFeedback(c)
@@ -97,7 +100,7 @@ func (a *App) view(c *ui.Context) {
 	if !a.hover.cmd {
 		a.hideLink()
 	}
-	if a.root == "" && a.hasWelcome && len(a.docs) == 0 {
+	if a.root == "" && a.hasWelcome && len(a.docs) == 0 && !a.hasTabs() {
 		// The primary main window hides without a folder; its welcome
 		// window and folderless project windows show these actions.
 		if c.Shortcut(ui.Cmd|ui.Shift, ui.KeyN) {
@@ -148,6 +151,9 @@ func (a *App) view(c *ui.Context) {
 	}
 	if a.git.picker.open {
 		a.branchPickerPanel(c)
+	}
+	if a.jumpDate.open {
+		a.jumpToDatePanel(c)
 	}
 }
 
@@ -209,9 +215,17 @@ func (a *App) shortcuts(c *ui.Context) {
 	case fwd:
 		a.goForward()
 	case next:
-		a.cycleTab(1)
+		if runtime.GOOS == "darwin" {
+			a.cycleTab(1)
+		} else {
+			a.cycleTab(-1) // PageDown walks back, PageUp forward, as the browser's
+		}
 	case prev:
-		a.cycleTab(-1)
+		if runtime.GOOS == "darwin" {
+			a.cycleTab(-1)
+		} else {
+			a.cycleTab(1)
+		}
 	}
 	if c.Shortcut(ui.Cmd, ui.KeyF) {
 		if st := a.activeEditor(); st != nil {
@@ -226,6 +240,7 @@ func (a *App) shortcuts(c *ui.Context) {
 		hasPeek := a.git.peek != nil
 		a.cancelScopeEditRequest()
 		a.choices = nil
+		a.peek = nil
 		if !a.quick.open {
 			a.git.peek = nil
 		}

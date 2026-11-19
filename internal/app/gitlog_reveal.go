@@ -12,6 +12,12 @@ func (a *App) revealLogCommit(hash string) {
 	}
 	a.openGitLog()
 	v := a.focus.diffs[gitLogTab].log
+	if v.path != "" {
+		// A commit named from outside the file's history is not its,
+		// so the reveal reads the repository's again.
+		v.path = ""
+		a.git.history.stale = true
+	}
 	v.query, v.pending, v.reading = "", hash, false
 }
 

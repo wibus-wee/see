@@ -10,6 +10,7 @@ import (
 
 	"see/internal/config"
 	"see/internal/git"
+	"see/internal/nav"
 )
 
 func (a *App) resizedWorkspace(width, height int) {
@@ -76,7 +77,8 @@ func (a *App) captureSession() {
 	if a.cfg.Workspaces == nil {
 		a.cfg.Workspaces = make(map[string]config.Workspace)
 	}
-	workspace := config.Workspace{Layout: snapshot(a.layout), SidebarHidden: a.sidebarOff, Navigator: a.navigator, ChangesClosed: a.git.changesClosed, HistoryClosed: a.git.historyClosed, GitSplit: a.git.split, GitLogSplit: a.git.logSplit, WindowWidth: a.windowWidth, WindowHeight: a.windowHeight}
+	workspace := config.Workspace{Layout: snapshot(a.layout), SidebarHidden: a.sidebarOff, Navigator: a.navigator, ChangesClosed: a.git.changesClosed, HistoryClosed: a.git.historyClosed, GitSplit: a.git.split, GitLogSplit: a.git.logSplit, WindowWidth: a.windowWidth, WindowHeight: a.windowHeight, Bookmarks: a.sessionBookmarks()}
+	workspace.Terminals, workspace.ActiveTerminal, workspace.PanelOpen = a.termSession()
 	if a.root == "" {
 		a.mergeStandaloneSession(workspace)
 		return
@@ -163,6 +165,18 @@ func standaloneActive(layout *config.Layout) (string, bool) {
 	return layout.Active, layout.ActivePreview
 }
 
+// sessionBookmarks is what of the workspace's waypoints the session
+// keeps: those of files in it.
+func (a *App) sessionBookmarks() []config.Bookmark {
+	var out []config.Bookmark
+	for _, bm := range a.bookmarks.List {
+		if filepath.IsAbs(bm.Path) {
+			out = append(out, config.Bookmark{Path: bm.Path, Line: bm.Line})
+		}
+	}
+	return out
+}
+
 func (a *App) restoreSession() {
 	if a.root == "" && !a.ownsStandaloneSession {
 		return
@@ -174,10 +188,16 @@ func (a *App) restoreSession() {
 	a.restoringSession = true
 	defer func() { a.restoringSession = false }()
 	a.sidebarOff = s.SidebarHidden
-	if s.Navigator >= navFiles && s.Navigator <= navGit || s.Navigator == navOutline {
+	if s.Navigator >= navFiles && s.Navigator <= navBookmarks {
 		a.navigator = s.Navigator
 	}
 	a.git.changesClosed, a.git.historyClosed, a.git.split, a.git.logSplit = s.ChangesClosed, s.HistoryClosed, s.GitSplit, s.GitLogSplit
+	a.openRestoredTerminals(s)
+	for _, bm := range s.Bookmarks {
+		if filepath.IsAbs(bm.Path) && bm.Line >= 0 {
+			a.bookmarks.Add(nav.Bookmark{Path: bm.Path, Line: bm.Line})
+		}
+	}
 	var focused *group
 	var restore func(*config.Layout, *layout, int) *layout
 	restore = func(saved *config.Layout, parent *layout, depth int) *layout {
@@ -285,7 +305,7 @@ func (a *App) restoreSession() {
 // cannot read again.
 func diffTabSpec(v *gitDiffTab) *config.DiffTab {
 	switch {
-	case v == nil || v.log != nil:
+	case v == nil || v.log != nil || v.cli:
 		return nil
 	case v.commit != nil || v.rev != "":
 		if v.hash == "" {

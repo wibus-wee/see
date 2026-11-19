@@ -22,6 +22,9 @@ type group struct {
 	order           []string // the tabs, left to right
 	mru             []string // most recently active last
 	active          string
+	cycle           []string     // the Ctrl+Tab walk left to do: tabs by recency, active first
+	cycleMod        ui.Modifiers // the modifier the walk began under; letting it go lands the walk
+	cycleActive     bool         // Ctrl+Tab is walking cycle: activating does not touch mru
 	preview         string
 	eds             map[string]*editor.State
 	minimaps        map[string]*minimap
@@ -39,6 +42,7 @@ type group struct {
 	counterpartMenu *counterpartMenu
 	// jumpFiles and jumpSymbols open the jump bar's file and symbol menus.
 	jumpFiles, jumpSymbols bool
+	closing                bool // its tabs are going away with the group
 	pointerAnchor          ui.Point
 	pointerInEditor        bool
 	// changeBars are the Git change bars the editor shows, in the window,
@@ -83,7 +87,7 @@ func (a *App) tabFile(g *group, tab string) string {
 		return tabPath(tab)
 	}
 	v := g.diffs[tab]
-	if v == nil || v.page() || a.git.root == "" {
+	if v == nil || v.page() || v.cli || a.git.root == "" {
 		return ""
 	}
 	return workspace.DocPath(a.root, a.realRoot, filepath.Join(a.git.root, filepath.FromSlash(v.name)))
@@ -137,6 +141,18 @@ func (n *layout) find(g *group) *layout {
 
 // groups lists the groups, left to right and top to bottom.
 func (a *App) groups() []*group { return a.layout.leaves(nil) }
+
+// hasTabs is whether any group has a tab open — a document, a diff, or
+// another kind. A folderless window that shows only `see --diff` tabs
+// has no documents, and the main window would hide without this.
+func (a *App) hasTabs() bool {
+	for _, g := range a.groups() {
+		if len(g.order) > 0 {
+			return true
+		}
+	}
+	return false
+}
 
 func (a *App) newGroup() *group {
 	a.nextGroup++
@@ -216,14 +232,206 @@ func (a *App) activateIn(g *group, path string) {
 	if !g.has(path) {
 		return
 	}
+	if g.cycleActive && !slices.Contains(g.cycle, path) {
+		a.endTabCycle() // something else activated: the walk is over
+	}
 	a.focus = g
 	g.active = path
-	g.mru = slices.DeleteFunc(g.mru, func(p string) bool { return p == path })
-	g.mru = append(g.mru, path)
+	if !g.cycleActive {
+		g.mru = slices.DeleteFunc(g.mru, func(p string) bool { return p == path })
+		g.mru = append(g.mru, path)
+		if !isDiffTab(path) && !isMarkdownTab(path) {
+			a.recents = slices.DeleteFunc(a.recents, func(p string) bool { return p == path })
+			a.recents = append(a.recents, path)
+			if len(a.recents) > maxRecents {
+				a.recents = slices.Delete(a.recents, 0, len(a.recents)-maxRecents)
+			}
+		}
+	}
 	if p := a.tabFile(g, path); p != "" {
 		a.revealInTree(p)
 	}
 	a.saveConfigSoon()
+}
+
+// closedTab is a closed file tab Reopen Closed Tab brings back, its
+// place in the text kept when its group's editor had one.
+type closedTab struct {
+	path     string
+	pos      *editor.Pos
+	scrollY  float64
+	preview  bool
+	markdown bool
+}
+
+// maxClosedTabs is how many closed tabs a window remembers.
+const maxClosedTabs = 20
+
+// recordClosedTab remembers a file tab of g for Reopen Closed Tab; a
+// Git tab or a markdown preview's own tab is left out, as is a file
+// with unsaved edits: its unsaved text would reopen as its saved text.
+func (a *App) recordClosedTab(g *group, path string) {
+	if isDiffTab(path) {
+		return
+	}
+	e := closedTab{path: tabPath(path), preview: g.preview == path, markdown: isMarkdownTab(path)}
+	if d := a.docs[e.path]; d == nil || d.untitled || (d.buf != nil && d.buf.Modified()) {
+		return
+	}
+	if !e.markdown {
+		if st := g.eds[e.path]; st != nil {
+			p, y := st.CursorPos(), st.ScrollY()
+			e.pos, e.scrollY = &p, y
+		} else if p := g.pending[e.path].pos; p != nil {
+			pos := *p
+			e.pos = &pos
+		}
+	}
+	a.closed = slices.DeleteFunc(a.closed, func(t closedTab) bool { return t.path == e.path && t.markdown == e.markdown })
+	a.closed = append(a.closed, e)
+	if len(a.closed) > maxClosedTabs {
+		a.closed = a.closed[len(a.closed)-maxClosedTabs:]
+	}
+}
+
+// reopenClosedTab opens the last closed tab again, in its group when it
+// is still there, as browsers do.
+func (a *App) reopenClosedTab() {
+	if len(a.closed) == 0 {
+		return
+	}
+	e := a.closed[len(a.closed)-1]
+	a.closed = a.closed[:len(a.closed)-1]
+	g := a.focus
+	if g == nil {
+		return
+	}
+	key := e.path
+	if e.markdown {
+		key = markdownTab(e.path)
+	}
+	if g.has(key) {
+		a.activateIn(g, key)
+		return
+	}
+	if e.markdown {
+		d := a.openIn(g, e.path, goTo{})
+		if d != nil {
+			a.openMarkdownTab(g)
+		}
+		return
+	}
+	a.openIn(g, e.path, goTo{pos: e.pos})
+	if e.scrollY > 0 {
+		if st := g.eds[e.path]; st != nil {
+			st.SetScrollY(e.scrollY)
+		}
+	}
+	if e.preview && g.preview == "" && slices.Contains(g.order, e.path) {
+		g.preview = e.path
+	}
+}
+
+// maxRecents bounds the activated files recents keeps.
+const maxRecents = 60
+
+// endTabCycle lands the Ctrl+Tab walk: the tab it reached is the most
+// recent again, and the rest of the list keeps the order it had.
+func (a *App) endTabCycle() {
+	for _, g := range a.groups() {
+		if g.cycleActive {
+			a.landTabCycle(g)
+		}
+	}
+}
+
+// noteRecent lands a file in recents as endTabCycle's walk does: the
+// tab reached counts as the file active most lately.
+func (a *App) noteRecent(path string) {
+	if isDiffTab(path) || isMarkdownTab(path) {
+		return
+	}
+	a.recents = slices.DeleteFunc(a.recents, func(p string) bool { return p == path })
+	a.recents = append(a.recents, path)
+	if len(a.recents) > maxRecents {
+		a.recents = slices.Delete(a.recents, 0, len(a.recents)-maxRecents)
+	}
+}
+
+// settleTabCycles lands the walks whose modifier is no longer held.
+func (a *App) settleTabCycles() {
+	for _, g := range a.groups() {
+		if g.cycleActive && a.modifiers&g.cycleMod == 0 {
+			a.landTabCycle(g)
+		}
+	}
+}
+
+// landTabCycle ends g's walk: the tab it reached is the most recent
+// again, and the rest of the list keeps the order it had.
+func (a *App) landTabCycle(g *group) {
+	g.cycleActive = false
+	g.cycle, g.cycleMod = nil, 0
+	if g.active != "" {
+		g.mru = slices.DeleteFunc(g.mru, func(p string) bool { return p == g.active })
+		g.mru = append(g.mru, g.active)
+		a.noteRecent(g.active)
+	}
+}
+
+// cycleTab activates a tab of the focused group in most-recent order:
+// dir 1 back through the history, -1 back toward the latest. While Ctrl
+// is held the walk goes on, the active tab changing but mru not moving;
+// letting Ctrl go ends it, and the tab reached becomes the most recent.
+// A group without the two activations the walk needs cycles the tabs
+// left to right, as before.
+func (a *App) cycleTab(dir int) {
+	g := a.focus
+	if g == nil || len(g.order) < 2 {
+		return
+	}
+	if !g.cycleActive {
+		g.cycle = mruOrder(g)
+		if len(g.cycle) < 2 {
+			i := slices.Index(g.order, g.active)
+			a.userActivate(g.order[(i+dir+len(g.order))%len(g.order)])
+			return
+		}
+		g.cycleMod = a.modifiers & (ui.Ctrl | ui.Cmd)
+		g.cycleActive = true
+	}
+	// The walk moves dir through cycle, past tabs closed since it began.
+	i := slices.Index(g.cycle, g.active)
+	if i < 0 {
+		i = 0 // the active tab closed: the walk goes on from its start
+	}
+	for n := 0; n < len(g.cycle); n++ {
+		i = (i + dir + len(g.cycle)) % len(g.cycle)
+		if g.has(g.cycle[i]) {
+			if g.cycle[i] != g.active {
+				a.userActivate(g.cycle[i])
+			}
+			return
+		}
+	}
+}
+
+// mruOrder lists g's tabs most recently active first: mru back to
+// front, then any tab of order the history lost, as a session restored
+// before it tracked activations leaves.
+func mruOrder(g *group) []string {
+	out := make([]string, 0, len(g.order))
+	for i := len(g.mru) - 1; i >= 0; i-- {
+		if g.has(g.mru[i]) {
+			out = append(out, g.mru[i])
+		}
+	}
+	for _, tab := range g.order {
+		if !slices.Contains(out, tab) {
+			out = append(out, tab)
+		}
+	}
+	return out
 }
 
 // closeTab closes a tab of g. A document no group shows any more is let
@@ -248,11 +456,15 @@ func (a *App) closeTab(g *group, path string) {
 			return
 		}
 	}
+	if !g.closing {
+		a.recordClosedTab(g, path)
+	}
 	if g.preview == path {
 		g.preview = ""
 	}
 	g.order = slices.DeleteFunc(g.order, func(p string) bool { return p == path })
 	g.mru = slices.DeleteFunc(g.mru, func(p string) bool { return p == path })
+	g.cycle = slices.DeleteFunc(g.cycle, func(p string) bool { return p == path })
 	if !g.hasDocument(docPath) {
 		g.closeVideo(docPath)
 		delete(g.eds, docPath)
@@ -273,7 +485,7 @@ func (a *App) closeTab(g *group, path string) {
 		}
 	}
 	a.releaseIfUnused(docPath)
-	if a.root == "" && len(a.docs) == 0 {
+	if a.root == "" && len(a.docs) == 0 && !a.hasTabs() {
 		a.host.SetTitle("See")
 	}
 	if len(g.order) == 0 && len(a.groups()) > 1 {
@@ -343,6 +555,7 @@ func (a *App) moveTab(from *group, path string, to *group, s side, at int) {
 		delete(from.diffs, path)
 		from.order = slices.DeleteFunc(from.order, func(p string) bool { return p == path })
 		from.mru = slices.DeleteFunc(from.mru, func(p string) bool { return p == path })
+		from.cycle = slices.DeleteFunc(from.cycle, func(p string) bool { return p == path })
 		if from.active == path {
 			from.active = ""
 			if n := len(from.mru); n > 0 {
@@ -363,6 +576,7 @@ func (a *App) moveTab(from *group, path string, to *group, s side, at int) {
 		}
 		from.order = slices.DeleteFunc(from.order, func(p string) bool { return p == path })
 		from.mru = slices.DeleteFunc(from.mru, func(p string) bool { return p == path })
+		from.cycle = slices.DeleteFunc(from.cycle, func(p string) bool { return p == path })
 		if !from.hasDocument(underlying) {
 			delete(from.eds, underlying)
 			delete(from.minimaps, underlying)
@@ -441,6 +655,7 @@ func (a *App) moveTab(from *group, path string, to *group, s side, at int) {
 	// Close it in from without letting the document go.
 	from.order = slices.DeleteFunc(from.order, func(p string) bool { return p == path })
 	from.mru = slices.DeleteFunc(from.mru, func(p string) bool { return p == path })
+	from.cycle = slices.DeleteFunc(from.cycle, func(p string) bool { return p == path })
 	if !from.hasDocument(path) {
 		delete(from.eds, path)
 	}

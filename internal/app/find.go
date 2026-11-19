@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -18,6 +19,7 @@ import (
 	"see/internal/nav"
 	"see/internal/search"
 	uriutil "see/internal/uri"
+	"see/internal/workspace"
 
 	"see/internal/langserver"
 )
@@ -331,8 +333,19 @@ func (a *App) rankQuick() {
 		all := commands()
 		var names []string
 		for _, cmd := range all {
-			if cmd.name == "Show Line's Commit in Git Log" && !a.canRevealLineCommit() {
-				continue
+			switch cmd.name {
+			case "Show Line's Commit in Git Log":
+				if !a.canRevealLineCommit() {
+					continue
+				}
+			case "Show File History":
+				if !a.canShowFileHistory() {
+					continue
+				}
+			case "Git: Reveal HEAD in Log", "Git: Jump to Date…", "Git: Show Log", "Git: Show History":
+				if a.git.root == "" {
+					continue
+				}
 			}
 			names = append(names, commandLabel(cmd.name))
 		}
@@ -359,7 +372,11 @@ func (a *App) rankQuick() {
 			q.line, q.col = line, col
 			query = path
 		}
-		q.results = search.Files(q.files, query, 60)
+		if query == "" {
+			q.results = a.recentTabs()
+		} else {
+			q.results = search.Files(q.files, query, 60)
+		}
 	}
 	q.sel = 0
 }
@@ -508,6 +525,31 @@ func (a *App) chooseQuick(i int) {
 }
 
 func joinRoot(root, rel string) string { return filepath.Join(root, filepath.FromSlash(rel)) }
+
+// maxQuickRecents bounds the files an empty Open Quickly lists.
+const maxQuickRecents = 15
+
+// recentTabs lists the files activated lately for Open Quickly's
+// empty query, the one active most lately first. A file activated and
+// since closed still lists, so it can be opened again without typing,
+// while a file gone from disk or outside the workspace does not; and
+// the current document sits it out, first as it would be.
+func (a *App) recentTabs() []search.Scored {
+	var out []search.Scored
+	for i := len(a.recents) - 1; i >= 0 && len(out) < maxQuickRecents; i-- {
+		path := a.recents[i]
+		if a.root == "" || !workspace.Within(a.root, path) || path == a.activePath() {
+			continue
+		}
+		if fi, err := os.Stat(path); err != nil || !fi.Mode().IsRegular() {
+			continue
+		}
+		if rel := workspace.RelPath(a.root, path); rel != path {
+			out = append(out, search.Scored{Path: rel})
+		}
+	}
+	return out
+}
 
 // splitQuickPosition splits a trailing :line or :line:col from an Open
 // Quickly query, so that "foo.go:42" opens foo.go at line 42.

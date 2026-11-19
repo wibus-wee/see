@@ -65,11 +65,13 @@ type App struct {
 	// Documents, by path, and the editor groups showing them.
 	docs              map[string]*doc
 	layout            *layout
+	recents           []string // the files activated lately, across groups, most recent last
 	focus             *group
 	focusGroupTarget  *group
 	nextGroup         int
 	focusEditor       *editor.State // an editor to give the keyboard to
 	focusImage        string        // an image preview to give the keyboard to once loaded
+	closed            []closedTab   // tabs Reopen Closed Tab can bring back, most recent last
 	quickHelp         *editor.State
 	quickHelpBounds   ui.Rect
 	quickHelpRendered bool
@@ -78,11 +80,12 @@ type App struct {
 
 	// Navigation.
 	hist                nav.History
-	navSeq              uint64 // bumped by every navigation the user asks for
+	bookmarks           nav.Bookmarks // the workspace's waypoints, by path and line
+	navSeq              uint64        // bumped by every navigation the user asks for
 	navCancel           context.CancelFunc
 	finding             bool // a navigation request is on its way
 	findingLabel        string
-	navigationMenuState [3]bool
+	navigationMenuState [4]bool
 	scopeSeq            uint64
 	scopeCancel         context.CancelFunc
 	scopePendingState   *editor.State
@@ -93,18 +96,28 @@ type App struct {
 	scopeModePath       string
 	choices             *defChoices // several definitions to choose from
 	counterpartMiss     counterpartFeedback
+	peek                *peekState // a definition peeked at from an editor
 
-	lsp            *langserver.Server
-	cmakeLSP       *langserver.Server
-	cmakeState     langserver.State
-	cmakeErr       error
-	clangLSP       *langserver.Server
-	clangState     langserver.State
-	clangErr       error
-	tsLSP          *langserver.Server
-	tsState        langserver.State
-	tsErr          error
-	tsEpoch        uint64
+	lsp        *langserver.Server
+	cmakeLSP   *langserver.Server
+	cmakeState langserver.State
+	cmakeErr   error
+	clangLSP   *langserver.Server
+	clangState langserver.State
+	clangErr   error
+	tsLSP      *langserver.Server
+	tsState    langserver.State
+	tsErr      error
+	tsEpoch    uint64
+	// customLSPs are the configured language servers, by the index of
+	// their config.LSP entry; customStates tracks each one's state.
+	customLSPs     map[int]*langserver.Server
+	customLSPSpecs []config.LSPConfig
+	customCovers   map[int]func(path string) bool
+	customStates   map[int]struct {
+		state langserver.State
+		err   error
+	}
 	serverJob      bool
 	serverJobName  string // the tool an installation or a removal is of
 	serverJobErr   string
@@ -124,7 +137,9 @@ type App struct {
 	settings      settingsState
 	find          findState
 	problems      problemsState
+	bookmarksUI   bookmarksState
 	quick         quickOpen
+	jumpDate      jumpToDate
 	confirm       *confirmation
 	deleteConfirm *confirmation
 	createEntry   *entryPrompt
@@ -140,9 +155,11 @@ type App struct {
 	services              ui.Services             // the window's clipboard and browser, for menus built without a context
 	branchHandle          ui.Handle               // the toolbar's branch, under which the branch picker shows
 	welcomeNote           string
-	showWelcome           bool   // the welcome window over an open workspace
-	hasWelcome            bool   // this app owns the welcome window
-	version               string // the app's, shown on the welcome window
+	recentQuery           string       // the welcome window's filter of recent folders
+	clone                 welcomeClone // the welcome window's Clone Repository dialog
+	showWelcome           bool         // the welcome window over an open workspace
+	hasWelcome            bool         // this app owns the welcome window
+	version               string       // the app's, shown on the welcome window
 	sidebarW              float32
 	saveTimer             *time.Timer // a settings save waiting for changes to stop
 	restoringSession      bool
@@ -164,6 +181,7 @@ const (
 	navGit
 	navProblems
 	navOutline
+	navBookmarks
 )
 
 // dirState is a directory of the tree: unread until opened.
@@ -382,6 +400,28 @@ func (a *App) openWorkspace(dir string) {
 			}
 		})
 	}, a.diagnosticsHandler(gen), a.serverLog("cmake-language-server"))
+	a.customLSPSpecs = languages.ConfiguredSpecs(a.cfg.LSP)
+	a.customLSPs = map[int]*langserver.Server{}
+	a.customCovers = map[int]func(string) bool{}
+	a.customStates = map[int]struct {
+		state langserver.State
+		err   error
+	}{}
+	for i, spec := range a.customLSPSpecs {
+		a.customCovers[i] = languages.ConfiguredCovers(spec)
+		idx, name := i, spec.Name
+		a.customLSPs[i] = languages.NewConfiguredServer(spec, root, func(s langserver.State, err error) {
+			a.post.Post(func() {
+				if a.gen == gen {
+					a.customStates[idx] = struct {
+						state langserver.State
+						err   error
+					}{s, err}
+					a.serverStateLog(name, s, err)
+				}
+			})
+		}, a.diagnosticsHandler(gen), a.serverLog(name))
+	}
 	a.loadDir(root)
 	a.startWatch()
 	a.startGit()
@@ -408,6 +448,7 @@ func (a *App) closeWorkspace() {
 		a.wsCancel()
 	}
 	a.cancelNav()
+	a.endTabCycle()
 	a.stopGoTask()
 	a.task = nil
 	a.taskList = ui.ListState{}
@@ -436,7 +477,15 @@ func (a *App) closeWorkspace() {
 		a.cmakeLSP = nil
 	}
 	a.cmakeState, a.cmakeErr = langserver.Off, nil
+	for _, m := range a.customLSPs {
+		m.Stop()
+	}
+	a.customLSPs = nil
+	a.customLSPSpecs = nil
+	a.customCovers = nil
+	a.customStates = nil
 	a.root, a.realRoot = "", ""
+	a.recents = nil
 	a.dirs = map[string]*dirState{}
 	a.tree = ui.OutlineState[string]{}
 	a.treeRow = -1
@@ -444,9 +493,11 @@ func (a *App) closeWorkspace() {
 	a.reveal = ""
 	a.filter = treeFilter{}
 	a.docs = map[string]*doc{}
+	a.closed = nil
 	a.resetLayout()
 	a.hist.Clear()
 	a.choices = nil
+	a.peek = nil
 	a.trustAsk, a.afterTrust = false, nil
 	a.trustDismissed = false
 	a.lspState, a.lspErr = langserver.Off, nil
@@ -458,6 +509,8 @@ func (a *App) closeWorkspace() {
 	a.find.reset()
 	a.quick = quickOpen{}
 	a.problems = problemsState{}
+	a.bookmarksUI = bookmarksState{}
+	a.bookmarks = nav.Bookmarks{}
 	releaseStandalonePaths(a)
 	a.standaloneSessionDocs = make(map[string]struct{})
 	a.discardedSessionDocs = make(map[string]struct{})
@@ -769,9 +822,24 @@ func standaloneDocForPath(a *App, path string) *doc {
 }
 
 // openFile shows the document of path in the focused group, opening it
-// if needed, at pos when given.
+// if needed, at pos when given. When another group already shows the
+// document it shows there instead, so jumps like Go Back never open a
+// second tab of it.
 func (a *App) openFile(path string, pos *editor.Pos) *doc {
-	return a.openIn(a.focus, path, goTo{pos: pos})
+	g := a.focus
+	docPath := workspace.DocPath(a.root, a.realRoot, path)
+	if d := a.docs[docPath]; d != nil {
+		docPath = d.path
+	}
+	if !g.hasDocument(docPath) {
+		for _, other := range a.groups() {
+			if other != g && other.hasDocument(docPath) {
+				g = other
+				break
+			}
+		}
+	}
+	return a.openIn(g, path, goTo{pos: pos})
 }
 
 // openIn shows path in g, at the place to says, if any.
@@ -1101,6 +1169,9 @@ func (a *App) newEditor(g *group, d *doc) *editor.State {
 	st.OnDefinition = func(offset int) { a.goToDefinition(g, d, offset) }
 	a.loadGitBase(d)
 	st.ContextMenu = func(menu *ui.Menu) {
+		if menu.Item(commandLabel("Peek Definition")).Shortcut(ui.Alt, ui.KeyF12).Disabled(!a.navigationEnabled(d.path, "peek")).Chosen() {
+			a.peekDefinition(g, d, st.Buffer.Offset(st.CursorPos()))
+		}
 		for _, kind := range []string{"implementation", "typeDefinition"} {
 			item := menu.Item(commandLabel(navigationCommand(kind))).Disabled(!a.navigationEnabled(d.path, kind))
 			if kind == "implementation" {
@@ -1123,6 +1194,9 @@ func (a *App) newEditor(g *group, d *doc) *editor.State {
 		if menu.Item("Find Callers").Chosen() {
 			a.focus = g
 			a.findUsagesAt(true, g.pointerAnchor, g.pointerInEditor)
+		}
+		if !d.untitled && menu.Item("Show File History").Chosen() {
+			a.showFileHistory(d.path)
 		}
 		a.linkItems(menu, d, st)
 		menu.Separator()
@@ -1150,6 +1224,7 @@ func (a *App) cancelNav() {
 	}
 	a.finding = false
 	a.choices = nil
+	a.peek = nil
 }
 
 // here is the reading position of the focused group's document.
@@ -1223,6 +1298,7 @@ func (a *App) userActivateIn(g *group, path string) {
 }
 
 func (a *App) goBack() {
+	a.peek = nil
 	cur, ok := a.here()
 	if !ok {
 		return
@@ -1234,6 +1310,7 @@ func (a *App) goBack() {
 }
 
 func (a *App) goForward() {
+	a.peek = nil
 	cur, ok := a.here()
 	if !ok {
 		return
@@ -1260,20 +1337,18 @@ func (a *App) activateTabNumber(n int) {
 	}
 }
 
-func (a *App) cycleTab(dir int) {
-	g := a.focus
-	if len(g.order) < 2 {
-		return
-	}
-	i := slices.Index(g.order, g.active)
-	a.userActivate(g.order[(i+dir+len(g.order))%len(g.order)])
-}
-
 // goToDefinition asks the language server where the symbol at offset of d is defined
 // and goes there, in g. Only the latest navigation the user asked for
 // wins: a response to an older one is dropped.
 func (a *App) goToDefinition(g *group, d *doc, offset int) {
 	a.goToLocation(g, d, offset, "definition")
+}
+
+// peekDefinition asks for the definition of the symbol at offset of d,
+// as Go to Definition does, but shows it in a peek of the editor instead
+// of going there.
+func (a *App) peekDefinition(g *group, d *doc, offset int) {
+	a.goToLocation(g, d, offset, "peek")
 }
 
 func (a *App) goToLocation(g *group, d *doc, offset int, kind string) {
@@ -1302,7 +1377,7 @@ func (a *App) goToLocation(g *group, d *doc, offset int, kind string) {
 	a.navCancel = cancel
 	a.finding = true
 	a.findingLabel = "Finding definition…"
-	if kind != "definition" {
+	if kind != "definition" && kind != "peek" {
 		a.findingLabel = navigationText(kind, "Finding")
 	}
 	a.notice = ""
@@ -1350,6 +1425,9 @@ func locationRequest(ctx context.Context, m *langserver.Server, docURI string, s
 	}
 	enc := c.Encoding()
 	position := lsp.Position{Line: pos.Line, Character: lsp.ColumnToLSP(line, pos.Col, enc)}
+	if kind == "peek" {
+		kind = "definition"
+	}
 	var locs []lsp.Location
 	switch kind {
 	case "implementation":
@@ -1367,6 +1445,10 @@ func (a *App) definitionFound(g *group, from nav.Entry, targets []target, enc st
 }
 
 func (a *App) locationFound(g *group, from nav.Entry, targets []target, enc string, skipped int, err error, kind string) {
+	if kind == "peek" {
+		a.peekFound(g, from, targets, enc, skipped, err)
+		return
+	}
 	switch {
 	case err != nil:
 		a.lspFailure(err)
@@ -1476,7 +1558,59 @@ func (a *App) serverFor(path string) *langserver.Server {
 	if languages.ClangLanguage(path) != "" {
 		return a.clangLSP
 	}
+	// A configured server handles what no built-in server claims.
+	for i := range a.customLSPSpecs {
+		if m := a.customLSPs[i]; m != nil && a.customCovers[i](path) {
+			return m
+		}
+	}
 	return nil
+}
+
+// customServerFor returns the configured server for path, or nil when a
+// built-in server already claims it or none is configured for it.
+func (a *App) customServerFor(path string) *langserver.Server {
+	if path == "" {
+		return nil
+	}
+	if strings.EqualFold(filepath.Ext(path), ".go") ||
+		languages.TypeScriptLanguage(path) != "" ||
+		languages.CMakeLanguage(path) != "" ||
+		languages.ClangLanguage(path) != "" {
+		return nil
+	}
+	for i := range a.customLSPSpecs {
+		if m := a.customLSPs[i]; m != nil && a.customCovers[i](path) {
+			return m
+		}
+	}
+	return nil
+}
+
+// customIndex finds a configured server's index by its Server.
+func (a *App) customIndex(m *langserver.Server) int {
+	for i, s := range a.customLSPs {
+		if s == m {
+			return i
+		}
+	}
+	return -1
+}
+
+func (a *App) retryCustomLSP(idx int) {
+	m := a.customLSPs[idx]
+	if m == nil {
+		return
+	}
+	a.invalidateHover()
+	m.Retry()
+	s, err := m.Status()
+	a.customStates[idx] = struct {
+		state langserver.State
+		err   error
+	}{s, err}
+	a.notice = ""
+	a.openServerDocuments(m)
 }
 
 func (a *App) retryTypeScriptLSP() {

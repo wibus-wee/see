@@ -253,3 +253,76 @@ func TestStoppedServerRefuses(t *testing.T) {
 		t.Fatalf("err %v, starts %d", err, starts)
 	}
 }
+
+func TestExitedServerRestartsOnBackoff(t *testing.T) {
+	old := restartDelays
+	defer func() { restartDelays = old }()
+	restartDelays = [maxRestarts]time.Duration{10 * time.Millisecond, 10 * time.Millisecond}
+
+	var exits []func(error)
+	starts := 0
+	s := New(Options{Name: "fake", Start: func(_ context.Context, _ string, onExit func(error)) (Client, error) {
+		exits = append(exits, onExit)
+		starts++
+		return &fakeClient{}, nil
+	}})
+	defer s.StopWait(time.Second)
+	s.Get(context.Background())
+
+	exits[0](errors.New("crashed"))
+	if st, _ := s.Status(); st != Failed {
+		t.Fatalf("state %v after the exit", st)
+	}
+	waitFor(t, func() bool { return starts == 2 && serverState(s) == Ready })
+
+	// A crash before Ready is not restarted again: exits[1] belongs to
+	// a live server, so it reports again, and the retries run out.
+	exits[1](errors.New("crashed"))
+	waitFor(t, func() bool { return starts == 3 && serverState(s) == Ready })
+	exits[2](errors.New("crashed"))
+	time.Sleep(50 * time.Millisecond)
+	if st, _ := s.Status(); st != Failed || starts != 3 {
+		t.Fatalf("state %v, starts %d after the retries ran out", st, starts)
+	}
+}
+
+func TestNeverReadyExitIsNotRestarted(t *testing.T) {
+	old := restartDelays
+	defer func() { restartDelays = old }()
+	restartDelays = [maxRestarts]time.Duration{10 * time.Millisecond, 10 * time.Millisecond}
+
+	var exits []func(error)
+	starts := 0
+	s := New(Options{Name: "fake", Start: func(_ context.Context, _ string, onExit func(error)) (Client, error) {
+		exits = append(exits, onExit)
+		starts++
+		if starts == 1 {
+			return &fakeClient{}, nil
+		}
+		return nil, errors.New("won't start")
+	}})
+	defer s.StopWait(time.Second)
+	s.Get(context.Background())
+	exits[0](errors.New("crashed"))
+	waitFor(t, func() bool { return starts == 2 && serverState(s) == Failed })
+	time.Sleep(50 * time.Millisecond)
+	if st, _ := s.Status(); st != Failed || starts != 2 {
+		t.Fatalf("state %v, starts %d; the failed restart must not loop", st, starts)
+	}
+}
+
+func serverState(s *Server) State {
+	st, _ := s.Status()
+	return st
+}
+
+func waitFor(t *testing.T, ok func() bool) {
+	t.Helper()
+	for i := 0; i < 500; i++ {
+		if ok() {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("timed out waiting")
+}

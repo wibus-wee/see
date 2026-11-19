@@ -118,6 +118,7 @@ func (a *App) closeTabTargets(g *group, targets []tabCloseTarget, generation int
 	}) {
 		return
 	}
+	g.closing = true // these are removed in bulk, not stacked to reopen
 	for _, tab := range candidates {
 		inherited := a.allowDirty
 		d := a.docs[tabPath(tab)]
@@ -126,4 +127,5 @@ func (a *App) closeTabTargets(g *group, targets []tabCloseTarget, generation int
 		a.closeTab(g, tab)
 		a.allowDirty = inherited
 	}
+	g.closing = false
 }

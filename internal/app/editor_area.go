@@ -298,6 +298,10 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 		st.SetInlays(a.editorInlays(d, st))
 		backgrounds := st.LineBackgrounds
 		st.LineBackgrounds = a.diagnosticLineBackgrounds(d, st)
+		st.LineBackgrounds = append(st.LineBackgrounds, bookmarkLineBackgrounds(a.bookmarkedLines(d.path), st.Theme)...)
+		gutterMarks := st.GutterMarks
+		st.GutterMarks = a.bookmarkGutterMarks(d.path)
+		st.OnGutterClick = func(line int) { a.bookmarks.Toggle(d.path, line); a.saveConfigSoon() }
 		var ed ui.Element
 		minimap := a.showsMinimap(g, d)
 		ui.Row(c).Grow(1).FillWidth().Children(func() {
@@ -309,6 +313,8 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 			}
 		})
 		st.LineBackgrounds = backgrounds
+		st.GutterMarks = gutterMarks
+		st.OnGutterClick = nil
 		if row := ed.LayoutBounds().W; row > 0 {
 			m := g.minimapOf(d.path)
 			m.room = row
@@ -404,6 +410,11 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 				ui.Scroll(c).Grow(1).FillWidth().TrackScroll(&peek.scroll).Label(locales.MsgGitChangePreview()).Children(func() {
 					editor.DiffView(c, peek.diff).FillWidth()
 				})
+			})
+		}
+		if p := a.peek; p != nil && p.group == g && p.doc == d {
+			a.editorPeek(c, bounds, st, p.from.Line, a.peekTitle(p.t), locales.PeekDefinitionClose(), peekContentHeight(st, p), func() { a.peek = nil }, func() {
+				a.peekView(c, p)
 			})
 		}
 		if ch := a.choices; ch != nil && ch.g == g && ch.from.Path == d.path {

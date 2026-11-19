@@ -64,9 +64,15 @@ func (a *App) runSyncGit(doing, done string, background bool, args ...string) {
 					a.note(locales.MsgGit()+gitErrLine(err), true)
 				}
 			} else {
-				if !background {
+				if background {
+					// The status read that follows reports newly incoming
+					// commits; a fetch of the user's does not, they are
+					// already looking.
+					a.git.fetchNotified = true
+				} else {
 					a.note(done, false)
 					a.git.history.stale = true
+					a.clearNotifyIncoming()
 				}
 				if args[0] == "pull" && !a.watching {
 					a.refreshAll()

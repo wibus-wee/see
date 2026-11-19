@@ -56,6 +56,8 @@ func commandsFor(goos string) []command {
 			a.sidebarOff, a.navigator, a.find.focus, a.find.showReplace = false, navFind, true, true
 		}},
 		{"Show Outline", "", "", 0, 0, func(a *App) { a.sidebarOff, a.navigator = false, navOutline }},
+		{"Show Bookmarks", "", "", 0, 0, func(a *App) { a.sidebarOff, a.navigator = false, navBookmarks }},
+		{"Toggle Bookmark", "Alt+Cmd+", "B", ui.Alt | ui.Cmd, ui.KeyB, func(a *App) { a.toggleBookmark() }},
 		{"Show Document Items", docItemsLabel, docItemsKeyName, docItemsMods, docItemsKey, func(a *App) { a.focus.jumpSymbols = true }},
 		{"Show Group Files", groupFilesLabel, groupFilesKeyName, groupFilesMods, groupFilesKey, func(a *App) { a.focus.jumpFiles = true }},
 		{"Next Counterpart", counterpartLabel, "↓", counterpartMods, ui.KeyDown, func(a *App) { a.switchCounterpart(1) }},
@@ -66,6 +68,9 @@ func commandsFor(goos string) []command {
 			a.refreshGit()
 		}},
 		{"Git: Show Log", "", "", 0, 0, func(a *App) { a.openGitLog() }},
+		{"Show File History", "", "", 0, 0, func(a *App) { a.showActiveFileHistory() }},
+		{"Git: Reveal HEAD in Log", "", "", 0, 0, func(a *App) { a.revealLogRef("HEAD") }},
+		{"Git: Jump to Date…", "", "", 0, 0, func(a *App) { a.openJumpToDate() }},
 		{"Show Line's Commit in Git Log", "", "", 0, 0, func(a *App) { a.revealLineCommit() }},
 		{"Toggle Minimap", "", "", 0, 0, func(a *App) { a.cfg.HideMinimap = !a.cfg.HideMinimap; a.settingsChanged() }},
 		{"Toggle Inline Git Blame", "", "", 0, 0, func(a *App) { a.cfg.HideInlineBlame = !a.cfg.HideInlineBlame; a.settingsChanged() }},
@@ -89,6 +94,7 @@ func commandsFor(goos string) []command {
 		{"Previous Tab", "Ctrl+Shift+", "Tab", ui.Ctrl | ui.Shift, ui.KeyTab, func(a *App) { a.cycleTab(-1) }},
 		{"Save", "Cmd+", "S", ui.Cmd, ui.KeyS, func(a *App) { a.saveActive() }},
 		{"Save All", "Cmd+Shift+", "S", ui.Cmd | ui.Shift, ui.KeyS, func(a *App) { a.saveAll() }},
+		{"Reopen Closed Tab", "Cmd+Shift+", "T", ui.Cmd | ui.Shift, ui.KeyT, func(a *App) { a.reopenClosedTab() }},
 		{"Close Tab", "Cmd+", "W", ui.Cmd, ui.KeyW, func(a *App) {
 			// As Xcode: the tab, and the window once no tab is left.
 			if p := a.focus.active; p != "" {
@@ -139,6 +145,7 @@ func commandsFor(goos string) []command {
 				st.OnDefinition(st.Buffer.Offset(st.CursorPos()))
 			}
 		}},
+		command{"Peek Definition", "Alt+", "F12", ui.Alt, ui.KeyF12, func(a *App) { a.navigateActive("peek") }},
 		command{"Go to Implementation", "Cmd+", "F12", ui.Cmd, ui.KeyF12, func(a *App) { a.navigateActive("implementation") }},
 		command{"Go to Type Definition", "", "", 0, 0, func(a *App) { a.navigateActive("typeDefinition") }},
 		command{"Edit All in Scope", scopeLabel, scopeKeyName, scopeMods, scopeKey, func(a *App) { a.editAllInScope() }},

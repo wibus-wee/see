@@ -230,6 +230,17 @@ func (a *App) activityView(c *ui.Context) {
 		state, serverErr, name = a.cmakeState, a.cmakeErr, "cmake-language-server"
 		retry = a.retryCMake
 	}
+	if a.focus != nil {
+		if m := a.customServerFor(a.activePath()); m != nil {
+			idx := a.customIndex(m)
+			if st, ok := a.customStates[idx]; ok {
+				state, serverErr, name = st.state, st.err, a.customLSPSpecs[idx].Name
+			}
+			if idx >= 0 {
+				retry = func() { a.retryCustomLSP(idx) }
+			}
+		}
+	}
 	pill := ui.Row(c).Height(16).MaxWidth(260).Shrink(1).Gap(5).AlignItems(ui.Center)
 	pill.Children(func() {
 		// The dot tells the state at a glance, as Peek's toolbar does: the

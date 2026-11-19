@@ -28,6 +28,8 @@ func (a *App) navigatorPane(c *ui.Context, vibrant bool) {
 			a.problemsNavigator(c)
 		} else if a.navigator == navOutline {
 			a.outlineNavigator(c)
+		} else if a.navigator == navBookmarks {
+			a.bookmarksNavigator(c)
 		} else if a.navigator == navFind {
 			a.findNavigator(c)
 		} else {
@@ -52,7 +54,7 @@ func (a *App) navigatorBar(c *ui.Context) {
 	t := c.Theme()
 	ui.Row(c).FillWidth().Padding(0, 10, 10, 10).Children(func() {
 		const segW, segGap = 38, 2
-		parts := ui.SegmentedBase(c, &a.navigator, 5)
+		parts := ui.SegmentedBase(c, &a.navigator, 6)
 		parts.Track.FillWidth().Height(30).Padding(3).Gap(segGap).Radius(15).Background(t.Text.Alpha(0.06)).Label(locales.MsgNavigator())
 		if c.Preferences().HighContrast {
 			parts.Track.Border(1, t.Border)
@@ -66,6 +68,7 @@ func (a *App) navigatorBar(c *ui.Context) {
 			{icGit, "Show the Git Navigator"},
 			{icProblems, commandLabel("Show Problems")},
 			{icOutline, commandLabel("Show Outline")},
+			{icBookmark, commandLabel("Show Bookmarks")},
 		}
 		// The chosen segment's glass slides to it, as a segmented control's
 		// thumb does: in the flow, first, so that it paints under the
@@ -402,16 +405,28 @@ func (a *App) treeItem(c *ui.Context, p string) {
 				a.note(locales.MsgCouldNotPreviewFile()+err.Error(), true)
 			}
 		}
-		if m.Item("Show in Finder").Chosen() {
+		if m.Item(showInFolderLabel()).Chosen() {
 			mygo.Shell.ShowItemInFolder(p)
 		}
 		if !e.Dir && m.Item("Open with External Editor").Chosen() {
 			_ = mygo.Shell.OpenPath(p)
 		}
 		if !e.Dir {
+			if m.Item("Show File History").Chosen() {
+				a.showFileHistory(p)
+			}
 			m.Separator()
 			if m.Item("Open").Chosen() {
 				a.openFromTree(p, false)
+			}
+		}
+		if e.Dir {
+			m.Separator()
+			if m.Item(commandLabel("New Terminal") + " Here").Chosen() {
+				a.newTerminalTabAt(p)
+			}
+			if m.Item("Open in External Terminal Here").Disabled(!a.terminalDirOK(p)).Chosen() {
+				a.openExternalTerminalAt(p)
 			}
 		}
 		m.Separator()

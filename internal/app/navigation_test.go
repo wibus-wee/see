@@ -9,6 +9,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"see/internal/lsp"
+	"see/internal/nav"
 	"see/internal/uri"
 )
 
@@ -103,5 +104,44 @@ func TestImplementationShortcutDoesNotConflict(t *testing.T) {
 		if cmd.name == "Go to Type Definition" && cmd.shortcutKey != 0 {
 			t.Fatal("type definition has a default shortcut")
 		}
+	}
+}
+
+func TestGoBackReusesTabInAnotherGroup(t *testing.T) {
+	h := newHarness(t, writeTree(t, map[string]string{"a.txt": "first file\n", "b.txt": "second file\n"}))
+	b := h.open("b.txt")
+	h.a.activeEditor().GoTo(b.buf.Pos(1))
+	h.a.hist.Push(nav.Entry{Path: b.path, Line: 0, ByteColumn: 0})
+	h.a.splitActive(sideRight)
+	right := h.a.focus
+	if len(h.a.groups()) != 2 || !right.has(b.path) {
+		t.Fatal("split did not show the document in a second group")
+	}
+	a := h.open("a.txt") // a.txt opens in the focused right group
+	h.a.activeEditor().GoTo(a.buf.Pos(4))
+	left := right // b.txt's other group
+	for _, g := range h.a.groups() {
+		if g != right {
+			left = g
+		}
+	}
+	h.a.closeTab(right, b.path) // now only the left group shows b.txt
+	h.a.goBack()
+	if h.a.focus != left || left.active != b.path {
+		t.Fatalf("Go Back did not focus the group already showing the file: focus=%v active=%q", h.a.focus == left, left.active)
+	}
+	n := 0
+	for _, g := range h.a.groups() {
+		for _, p := range g.order {
+			if p == b.path {
+				n++
+			}
+		}
+	}
+	if n != 1 {
+		t.Fatalf("Go Back opened a duplicate tab: %d tabs of b.txt", n)
+	}
+	if got := h.a.activeEditor().Cursor(); got != 0 {
+		t.Fatalf("Go Back did not restore the recorded position: cursor %d", got)
 	}
 }
