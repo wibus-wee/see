@@ -464,18 +464,6 @@ func (a *App) treeItem(c *ui.Context, p string) {
 	row.Drag(&tabDrag{path: p})
 }
 
-// showInFolderLabel names the platform's file manager, as its own menus
-// do: Finder on macOS, Explorer on Windows.
-func showInFolderLabel() string {
-	switch runtime.GOOS {
-	case "windows":
-		return "Show in Explorer"
-	case "darwin":
-		return "Show in Finder"
-	}
-	return "Show in File Manager"
-}
-
 func (a *App) dirError(c *ui.Context, dir string, err error) {
 	ui.Column(c).Padding(8, 12).Gap(6).Children(func() {
 		ui.Text(c, locales.MsgCouldNotReadThisFolder()+describeErr(err)).TextColor(colors(c).Err)

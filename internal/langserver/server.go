@@ -74,9 +74,9 @@ type Server struct {
 	starting chan struct{}
 	docs     map[string]*document // by URI
 	closed   bool
-	attempt  int // counts starts, so a late exit of an old server is ignored
+	attempt  int  // counts starts, so a late exit of an old server is ignored
 	ready    bool // the running client made it to Ready
-	retries  int // restarts since the last session that stayed up
+	retries  int  // restarts since the last session that stayed up
 
 	// out sends the documents' notifications, in order, on a goroutine
 	// of its own: a write that blocks on a busy server never holds mu.

@@ -96,8 +96,8 @@ func TestOpenPath(t *testing.T) {
 
 func TestParseFlags(t *testing.T) {
 	for _, tc := range []struct {
-		args []string
-		want Request
+		args  []string
+		want  Request
 		fails bool
 	}{
 		{[]string{"--diff", "a", "b"}, Request{Diff: [2]string{"a", "b"}}, false},

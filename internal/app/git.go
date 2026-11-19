@@ -71,7 +71,7 @@ type gitDiffTab struct {
 	patch  editor.FilePatch
 	name   string
 	staged bool
-	cli    bool // `see --diff`'s: it compares paths, not repository changes
+	cli    bool        // `see --diff`'s: it compares paths, not repository changes
 	rev    string      // the commit's short hash, for a file of a commit
 	commit *commitView // a commit, which shows in place of a diff
 	log    *gitLogView // the log, which shows in place of a diff
