@@ -45,7 +45,7 @@ func (a *App) scopeEditDocumentFor(g *group, d *doc, st *editor.State) (*doc, *e
 		d.path == "" || g.active != d.path || g.eds[d.path] != st || a.docs[d.path] != d ||
 		d.buf == nil || st.Buffer != d.buf || st.ReadOnly ||
 		d.untitled || d.loading || d.err != nil || d.gone || d.kind != workspace.Text ||
-		d.plain || d.lossy || d.video || d.image != nil || d.hex != nil ||
+		d.plain || d.lossy || d.video || d.image != nil || g.hexPreview[d.path] ||
 		isMarkdown(d.path) || isMarkdownTab(g.active) {
 		return nil, nil
 	}

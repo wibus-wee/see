@@ -184,6 +184,51 @@ func TestEditAllInScopeShortcutAndPalette(t *testing.T) {
 	}
 }
 
+func TestEditAllInScopeAfterClosingBytesPreview(t *testing.T) {
+	offsets := scopeOffsets(scopeEditFixture, "名字")
+	outer := []int{offsets[0], offsets[1], offsets[4]}
+	h, d, _ := newScopeHarness(t, func(context.Context, string, lsp.Position) ([]lsp.DocumentHighlight, error) {
+		return scopeHighlights(scopeEditFixture, outer, "名字", lsp.UTF16), nil
+	})
+	g, st := h.a.focus, h.a.activeEditor()
+	st.GoTo(d.buf.Pos(offsets[1]))
+	h.tt.Frame()
+
+	if err := h.tt.Click("Show File Bytes"); err != nil {
+		t.Fatal(err)
+	}
+	h.tt.Frame()
+	if !g.hexPreview[d.path] || d.hex == nil {
+		t.Fatal("byte preview did not open and populate its cache")
+	}
+	if h.a.commandEnabled("Edit All in Scope") {
+		t.Fatal("Edit All in Scope should be disabled while the byte preview is active")
+	}
+
+	if err := h.tt.Click("Show File"); err != nil {
+		t.Fatal(err)
+	}
+	h.tt.Frame()
+	if g.hexPreview[d.path] || d.hex == nil {
+		t.Fatal("closing the byte preview should retain only its cached state")
+	}
+	st.GoTo(d.buf.Pos(offsets[1]))
+	h.tt.Frame()
+	if !h.a.commandEnabled("Edit All in Scope") {
+		t.Fatal("cached byte-preview state disabled Edit All in Scope after returning to source")
+	}
+
+	h.a.openPalette()
+	h.a.quick.query = ">Edit All in Scope"
+	h.a.rankQuick()
+	h.tt.Frame()
+	h.tt.Key(0, ui.KeyEnter)
+	h.settle(func() bool { return len(st.Selections()) == 3 || h.a.notice != "" })
+	if len(st.Selections()) != 3 {
+		t.Fatalf("Edit All in Scope did not select the source occurrences after closing the byte preview: selections=%+v notice=%q", st.Selections(), h.a.notice)
+	}
+}
+
 func TestEditAllInScopeEditorContextMenuTargetsClickedPane(t *testing.T) {
 	offsets := scopeOffsets(scopeEditFixture, "名字")
 	outer := []int{offsets[0], offsets[1], offsets[4]}
