@@ -53,6 +53,8 @@ func editorBindings() []editor.Binding {
 	}
 	_, _, mods, key := fileReplaceShortcut()
 	bs = append(bs, none(mods, key))
+	_, _, scopeMods, scopeKey := editAllScopeShortcut(runtime.GOOS)
+	bs = append(bs, none(scopeMods, scopeKey))
 	if runtime.GOOS != "darwin" {
 		// Back and forward, as VS Code on Windows; the editor would move
 		// by subwords.
@@ -209,9 +211,18 @@ func (a *App) shortcuts(c *ui.Context) {
 		}
 	}
 	if c.Shortcut(0, ui.KeyEscape) {
+		pendingScopeRequest := a.scopeCancel != nil
+		hasChoices := a.choices != nil
+		hasPeek := a.git.peek != nil
+		a.cancelScopeEditRequest()
 		a.choices = nil
 		if !a.quick.open {
 			a.git.peek = nil
+		}
+		if !pendingScopeRequest && !a.quick.open && !hasChoices && !hasPeek {
+			if st := a.activeEditor(); st != nil && st == a.scopeModeState {
+				st.Run(editor.Cancel)
+			}
 		}
 	}
 }

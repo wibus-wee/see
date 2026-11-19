@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 	"see/internal/languages"
 	"see/locales"
 	"slices"
@@ -77,6 +78,14 @@ type App struct {
 	finding             bool // a navigation request is on its way
 	findingLabel        string
 	navigationMenuState [3]bool
+	scopeSeq            uint64
+	scopeCancel         context.CancelFunc
+	scopePendingState   *editor.State
+	scopePendingGroup   *group
+	scopePendingPath    string
+	scopeModeState      *editor.State
+	scopeModeGroup      *group
+	scopeModePath       string
 	choices             *defChoices // several definitions to choose from
 
 	lsp            *langserver.Server
@@ -1110,6 +1119,12 @@ func (a *App) newEditor(g *group, d *doc) *editor.State {
 			a.findUsagesAt(true, g.pointerAnchor, g.pointerInEditor)
 		}
 		a.linkItems(menu, d, st)
+		menu.Separator()
+		_, _, mods, key := editAllScopeShortcut(runtime.GOOS)
+		item := menu.Item(commandLabel("Edit All in Scope")).Disabled(!a.scopeEditCommandEnabled(g, d, st)).Shortcut(mods, key)
+		if item.Chosen() {
+			a.editAllInScopeFor(g, d, st)
+		}
 	}
 	st.OnHover = func(r editor.HoverRequest) { a.hoverAt(d, st, r) }
 	st.RenderHover = a.renderHover

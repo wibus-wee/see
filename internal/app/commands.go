@@ -21,8 +21,13 @@ type command struct {
 }
 
 func commands() []command {
-	replaceLabel, replaceKeyName, replaceMods, replaceKey := fileReplaceShortcut()
-	docItemsLabel, docItemsKeyName, docItemsMods, docItemsKey, groupFilesLabel, groupFilesKeyName, groupFilesMods, groupFilesKey := jumpBarShortcuts()
+	return commandsFor(runtime.GOOS)
+}
+
+func commandsFor(goos string) []command {
+	replaceLabel, replaceKeyName, replaceMods, replaceKey := fileReplaceShortcutFor(goos)
+	docItemsLabel, docItemsKeyName, docItemsMods, docItemsKey, groupFilesLabel, groupFilesKeyName, groupFilesMods, groupFilesKey := jumpBarShortcutsFor(goos)
+	scopeLabel, scopeKeyName, scopeMods, scopeKey := editAllScopeShortcut(goos)
 	cmds := []command{
 		{"New File", "Cmd+", "N", ui.Cmd, ui.KeyN, func(a *App) { a.newFile() }},
 		{"Command Palette", "Cmd+Shift+", "P", ui.Cmd | ui.Shift, ui.KeyP, func(a *App) { a.openPalette() }},
@@ -132,6 +137,7 @@ func commands() []command {
 		}},
 		command{"Go to Implementation", "Cmd+", "F12", ui.Cmd, ui.KeyF12, func(a *App) { a.navigateActive("implementation") }},
 		command{"Go to Type Definition", "", "", 0, 0, func(a *App) { a.navigateActive("typeDefinition") }},
+		command{"Edit All in Scope", scopeLabel, scopeKeyName, scopeMods, scopeKey, func(a *App) { a.editAllInScope() }},
 	)
 	for n := 1; n <= 9; n++ {
 		label := fmt.Sprintf("Select Tab %d", n)
@@ -140,21 +146,63 @@ func commands() []command {
 		}
 		cmds = append(cmds, command{label, "Cmd+", fmt.Sprint(n), ui.Cmd, ui.Key1 + ui.Key(n-1), func(a *App) { a.activateTabNumber(n) }})
 	}
-	return append(cmds, foldingCommands()...)
+	cmds = append(cmds, foldingCommands()...)
+	for i := range cmds {
+		cmds[i].shortcutMods = effectiveShortcutModifiers(goos, cmds[i].mods)
+	}
+	return cmds
+}
 
+func effectiveShortcutModifiers(goos, label string) ui.Modifiers {
+	var mods ui.Modifiers
+	for _, part := range strings.Split(strings.TrimSuffix(label, "+"), "+") {
+		switch part {
+		case "":
+		case "Cmd":
+			if goos == "darwin" {
+				mods |= ui.Super
+			} else {
+				mods |= ui.Ctrl
+			}
+		case "Ctrl":
+			mods |= ui.Ctrl
+		case "Shift":
+			mods |= ui.Shift
+		case "Alt":
+			mods |= ui.Alt
+		default:
+			panic(fmt.Sprintf("unknown command modifier %q", part))
+		}
+	}
+	return mods
+}
+
+func editAllScopeShortcut(goos string) (string, string, ui.Modifiers, ui.Key) {
+	if goos == "darwin" {
+		return "Ctrl+Cmd+", "E", ui.Ctrl | ui.Super, ui.KeyE
+	}
+	return "Ctrl+Shift+", "E", ui.Ctrl | ui.Shift, ui.KeyE
 }
 
 // jumpBarShortcuts are Xcode's Show Document Items (Control-6) and Show
 // Group Files (Control-5); Control and a digit select tabs elsewhere.
 func jumpBarShortcuts() (string, string, ui.Modifiers, ui.Key, string, string, ui.Modifiers, ui.Key) {
-	if runtime.GOOS == "darwin" {
+	return jumpBarShortcutsFor(runtime.GOOS)
+}
+
+func jumpBarShortcutsFor(goos string) (string, string, ui.Modifiers, ui.Key, string, string, ui.Modifiers, ui.Key) {
+	if goos == "darwin" {
 		return "Ctrl+", "6", ui.Ctrl, ui.Key6, "Ctrl+", "5", ui.Ctrl, ui.Key5
 	}
 	return "Ctrl+Shift+", ".", ui.Ctrl | ui.Shift, ui.KeyPeriod, "Ctrl+Shift+", ";", ui.Ctrl | ui.Shift, ui.KeySemicolon
 }
 
 func fileReplaceShortcut() (string, string, ui.Modifiers, ui.Key) {
-	if runtime.GOOS == "darwin" {
+	return fileReplaceShortcutFor(runtime.GOOS)
+}
+
+func fileReplaceShortcutFor(goos string) (string, string, ui.Modifiers, ui.Key) {
+	if goos == "darwin" {
 		return "Alt+Cmd+", "F", ui.Alt | ui.Cmd, ui.KeyF
 	}
 	return "Ctrl+", "H", ui.Ctrl, ui.KeyH

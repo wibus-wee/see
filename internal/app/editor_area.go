@@ -274,6 +274,9 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 				{locales.Close(), func() { a.closeTab(g, g.active) }},
 			})
 		}
+		if status := a.scopeEditStatus(st); status != "" {
+			ui.Text(c, status).FontSize(11).TextColor(colors(c).Muted).Padding(6, 12).FillWidth().Background(colors(c).TabBar)
+		}
 		if d.plain || d.lossy {
 			msg := "Large file: syntax highlighting is off."
 			if d.lossy {
