@@ -259,9 +259,12 @@ func TestExitedServerRestartsOnBackoff(t *testing.T) {
 	defer func() { restartDelays = old }()
 	restartDelays = [maxRestarts]time.Duration{10 * time.Millisecond, 10 * time.Millisecond}
 
+	var mu sync.Mutex
 	var exits []func(error)
 	starts := 0
 	s := New(Options{Name: "fake", Start: func(_ context.Context, _ string, onExit func(error)) (Client, error) {
+		mu.Lock()
+		defer mu.Unlock()
 		exits = append(exits, onExit)
 		starts++
 		return &fakeClient{}, nil
@@ -269,20 +272,31 @@ func TestExitedServerRestartsOnBackoff(t *testing.T) {
 	defer s.StopWait(time.Second)
 	s.Get(context.Background())
 
-	exits[0](errors.New("crashed"))
+	started := func() int {
+		mu.Lock()
+		defer mu.Unlock()
+		return starts
+	}
+	exitAt := func(i int) func(error) {
+		mu.Lock()
+		defer mu.Unlock()
+		return exits[i]
+	}
+
+	exitAt(0)(errors.New("crashed"))
 	if st, _ := s.Status(); st != Failed {
 		t.Fatalf("state %v after the exit", st)
 	}
-	waitFor(t, func() bool { return starts == 2 && serverState(s) == Ready })
+	waitFor(t, func() bool { return started() == 2 && serverState(s) == Ready })
 
 	// A crash before Ready is not restarted again: exits[1] belongs to
 	// a live server, so it reports again, and the retries run out.
-	exits[1](errors.New("crashed"))
-	waitFor(t, func() bool { return starts == 3 && serverState(s) == Ready })
-	exits[2](errors.New("crashed"))
+	exitAt(1)(errors.New("crashed"))
+	waitFor(t, func() bool { return started() == 3 && serverState(s) == Ready })
+	exitAt(2)(errors.New("crashed"))
 	time.Sleep(50 * time.Millisecond)
-	if st, _ := s.Status(); st != Failed || starts != 3 {
-		t.Fatalf("state %v, starts %d after the retries ran out", st, starts)
+	if st, _ := s.Status(); st != Failed || started() != 3 {
+		t.Fatalf("state %v, starts %d after the retries ran out", st, started())
 	}
 }
 
@@ -291,9 +305,12 @@ func TestNeverReadyExitIsNotRestarted(t *testing.T) {
 	defer func() { restartDelays = old }()
 	restartDelays = [maxRestarts]time.Duration{10 * time.Millisecond, 10 * time.Millisecond}
 
+	var mu sync.Mutex
 	var exits []func(error)
 	starts := 0
 	s := New(Options{Name: "fake", Start: func(_ context.Context, _ string, onExit func(error)) (Client, error) {
+		mu.Lock()
+		defer mu.Unlock()
 		exits = append(exits, onExit)
 		starts++
 		if starts == 1 {
@@ -303,9 +320,18 @@ func TestNeverReadyExitIsNotRestarted(t *testing.T) {
 	}})
 	defer s.StopWait(time.Second)
 	s.Get(context.Background())
-	exits[0](errors.New("crashed"))
-	waitFor(t, func() bool { return starts == 2 && serverState(s) == Failed })
+	mu.Lock()
+	exit := exits[0]
+	mu.Unlock()
+	exit(errors.New("crashed"))
+	waitFor(t, func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return starts == 2 && serverState(s) == Failed
+	})
 	time.Sleep(50 * time.Millisecond)
+	mu.Lock()
+	defer mu.Unlock()
 	if st, _ := s.Status(); st != Failed || starts != 2 {
 		t.Fatalf("state %v, starts %d; the failed restart must not loop", st, starts)
 	}
