@@ -408,6 +408,8 @@ func (a *App) saveUntitled(d *doc, done func(bool)) {
 						d.stamp = fileStamp{fi.Size(), fi.ModTime()}
 					}
 					a.docs[path] = d
+					d.blameKey = ""
+					a.syncBlame(d)
 					for _, g := range a.groups() {
 						for i, p := range g.order {
 							if p == old {
@@ -498,6 +500,8 @@ func (a *App) saveDoc(d *doc, overwrite bool) bool {
 		d.stamp = fileStamp{fi.Size(), fi.ModTime()}
 	}
 	d.gone, d.conflict = false, false
+	d.blameKey = ""
+	a.syncBlame(d)
 	if a.root == "" {
 		// A clean saved file is no longer crash-recovery state.
 		a.saveConfig()

@@ -54,6 +54,8 @@ func commands() []command {
 			a.refreshGit()
 		}},
 		{"Git: Show Log", "", "", 0, 0, func(a *App) { a.openGitLog() }},
+		{"Show Line's Commit in Git Log", "", "", 0, 0, func(a *App) { a.revealLineCommit() }},
+		{"Toggle Inline Git Blame", "", "", 0, 0, func(a *App) { a.cfg.HideInlineBlame = !a.cfg.HideInlineBlame; a.settingsChanged() }},
 		{"Toggle Inline Diff", "", "", 0, 0, func(a *App) { a.toggleDiffLayout() }},
 		{"Next Change", "", "", 0, 0, func(a *App) { a.goToChange(1) }},
 		{"Previous Change", "", "", 0, 0, func(a *App) { a.goToChange(-1) }},

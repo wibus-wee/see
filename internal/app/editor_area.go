@@ -96,6 +96,7 @@ func (a *App) groupView(c *ui.Context, g *group) {
 			column := utf8.RuneCountInString(line[:min(pos.Col, len(line))]) + 1
 			ui.Row(c).FillWidth().Height(24).Padding(0, 10).AlignItems(ui.Center).
 				BorderWidth(1, 0, 0, 0).BorderColor(colors(c).Separator).Background(colors(c).Editor).Children(func() {
+				a.blameStatus(c, a.docs[g.active], st)
 				ui.Box(c).Grow(1)
 				ui.Text(c, fmt.Sprintf(locales.MsgLineDColumnD(), pos.Line+1, column)).FontSize(11).TextColor(colors(c).Muted).SingleLine()
 			})
@@ -290,6 +291,8 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 		if base == nil {
 			st.DiffBase = st.Buffer
 		}
+		a.syncBlame(d)
+		st.SetInlays(a.editorInlays(d, st))
 		ed := editor.View(c.Key(d.path), st).Grow(1).FillWidth()
 		st.DiffBase = base
 		x, y, over := ed.PointerPosition()

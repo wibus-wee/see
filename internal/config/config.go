@@ -49,6 +49,7 @@ type Config struct {
 	LineNumbers          int                  `json:"editorLineNumbers,omitempty"` // 0 on, 1 relative, 2 off
 	SoftWrap             bool                 `json:"editorSoftWrap,omitempty"`
 	EditorFoldImports    bool                 `json:"editorFoldImports,omitempty"`
+	HideInlineBlame      bool                 `json:"hideInlineGitBlame,omitempty"`
 	DiffUnified          bool                 `json:"diffUnified,omitempty"` // diffs inline rather than side by side
 	DiffLayout           string               `json:"diffLayout,omitempty"`  // "auto", "unified", "split"
 	GitStatus            bool                 `json:"gitStatus,omitempty"`

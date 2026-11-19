@@ -195,6 +195,14 @@ type doc struct {
 	gitChanges        *editor.DiffState
 	gitBaseSeq        uint64
 	gitBaseKey        string // what the committed version was read for; see loadGitBase
+	blame             []git.BlameLine
+	blameKey          string
+	blameVersion      uint64
+	blameReady        bool
+	blameSeq          uint64
+	blameTimer        *time.Timer
+	blameCancel       context.CancelFunc
+	languageInlays    []editor.Inlay
 }
 
 type draftCache struct {
@@ -1086,6 +1094,12 @@ func (a *App) newEditor(g *group, d *doc) *editor.State {
 			if item.Chosen() {
 				a.goToLocation(g, d, st.Buffer.Offset(st.CursorPos()), kind)
 			}
+		}
+		if b, ok := a.lineBlame(d, st); ok && !b.Uncommitted {
+			if menu.Item(commandLabel("Show Line's Commit in Git Log")).Chosen() {
+				a.revealLogCommit(b.Hash)
+			}
+			menu.Separator()
 		}
 		if menu.Item("Find References").Shortcut(ui.Shift, ui.KeyF12).Chosen() {
 			a.focus = g

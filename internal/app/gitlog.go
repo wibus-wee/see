@@ -28,6 +28,8 @@ const gitLogTab = diffTabPrefix + "log"
 const logFilesAtOnce = 20
 
 type gitLogView struct {
+	pending    string
+	reading    bool
 	query      string
 	selected   string // the commit chosen, by hash
 	list       ui.ListState
@@ -99,6 +101,7 @@ func logMatches(cm git.Commit, q string) bool {
 // chooseLogCommit shows a commit under the log's rows, reading its
 // message and its patch.
 func (a *App) chooseLogCommit(v *gitLogView, cm git.Commit) {
+	v.pending = ""
 	if v.detail != nil && v.detail.hash == cm.Hash {
 		return
 	}
@@ -160,13 +163,14 @@ func (a *App) logFiles(stats []git.FileStat, patches []editor.FilePatch) []logFi
 func (a *App) gitLogContent(c *ui.Context, g *group, v *gitLogView) {
 	h := &a.git.history
 	a.syncHistory()
+	a.resolveLogTarget(v)
 	var rows []int
 	for i, cm := range h.commits {
 		if logMatches(cm, v.query) {
 			rows = append(rows, i)
 		}
 	}
-	if v.selected == "" && len(rows) > 0 {
+	if v.selected == "" && v.pending == "" && len(rows) > 0 {
 		a.chooseLogCommit(v, h.commits[rows[0]])
 	}
 	width := g.focusHandle.Bounds(c).W

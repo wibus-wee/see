@@ -3,6 +3,7 @@
 package git
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"path/filepath"
@@ -23,10 +24,17 @@ type Change struct {
 // Command runs git in dir, without locks, prompts, pagers or pathspec
 // magic, giving up after 30 seconds. Its error holds git's output.
 func Command(ctx context.Context, dir string, args ...string) ([]byte, error) {
+	return commandInput(ctx, dir, nil, args...)
+}
+
+func commandInput(ctx context.Context, dir string, input []byte, args ...string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	args = append([]string{"-c", "core.fsmonitor=false", "-C", dir}, args...)
 	cmd := proc.CommandContext(ctx, "git", args...)
+	if input != nil {
+		cmd.Stdin = bytes.NewReader(input)
+	}
 	cmd.Env = append(cmd.Environ(), "GIT_OPTIONAL_LOCKS=0", "GIT_TERMINAL_PROMPT=0", "GIT_PAGER=cat", "GIT_LITERAL_PATHSPECS=1")
 	out, err := cmd.CombinedOutput()
 	if err != nil {

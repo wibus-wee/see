@@ -354,6 +354,76 @@ func (msgs Messages) FoldImportsOnOpenDescription() string {
 	return Catalog.Format(msgs.locale, "foldImportsOnOpenDescription", nil)
 }
 
+// ShowInlineBlame says "Show inline Git blame"
+// in the language the app shows.
+func ShowInlineBlame() string { return In(i18n.Locale()).ShowInlineBlame() }
+
+// ShowInlineBlame says "Show inline Git blame"
+// in the language of msgs.
+func (msgs Messages) ShowInlineBlame() string {
+	return Catalog.Format(msgs.locale, "showInlineBlame", nil)
+}
+
+// InlineBlameDescription says "Show the author and commit beside the current line."
+// in the language the app shows.
+func InlineBlameDescription() string { return In(i18n.Locale()).InlineBlameDescription() }
+
+// InlineBlameDescription says "Show the author and commit beside the current line."
+// in the language of msgs.
+func (msgs Messages) InlineBlameDescription() string {
+	return Catalog.Format(msgs.locale, "inlineBlameDescription", nil)
+}
+
+// BlameUncommitted says "You • Uncommitted changes"
+// in the language the app shows.
+func BlameUncommitted() string { return In(i18n.Locale()).BlameUncommitted() }
+
+// BlameUncommitted says "You • Uncommitted changes"
+// in the language of msgs.
+func (msgs Messages) BlameUncommitted() string {
+	return Catalog.Format(msgs.locale, "blameUncommitted", nil)
+}
+
+// BlameInlineFormat says "%s, %s • %s"
+// in the language the app shows.
+func BlameInlineFormat() string { return In(i18n.Locale()).BlameInlineFormat() }
+
+// BlameInlineFormat says "%s, %s • %s"
+// in the language of msgs.
+func (msgs Messages) BlameInlineFormat() string {
+	return Catalog.Format(msgs.locale, "blameInlineFormat", nil)
+}
+
+// BlameRevealFailed says "Could not reveal commit: "
+// in the language the app shows.
+func BlameRevealFailed() string { return In(i18n.Locale()).BlameRevealFailed() }
+
+// BlameRevealFailed says "Could not reveal commit: "
+// in the language of msgs.
+func (msgs Messages) BlameRevealFailed() string {
+	return Catalog.Format(msgs.locale, "blameRevealFailed", nil)
+}
+
+// CommandShowLineCommit says "Show Line's Commit in Git Log"
+// in the language the app shows.
+func CommandShowLineCommit() string { return In(i18n.Locale()).CommandShowLineCommit() }
+
+// CommandShowLineCommit says "Show Line's Commit in Git Log"
+// in the language of msgs.
+func (msgs Messages) CommandShowLineCommit() string {
+	return Catalog.Format(msgs.locale, "commandShowLineCommit", nil)
+}
+
+// CommandToggleInlineBlame says "Toggle Inline Git Blame"
+// in the language the app shows.
+func CommandToggleInlineBlame() string { return In(i18n.Locale()).CommandToggleInlineBlame() }
+
+// CommandToggleInlineBlame says "Toggle Inline Git Blame"
+// in the language of msgs.
+func (msgs Messages) CommandToggleInlineBlame() string {
+	return Catalog.Format(msgs.locale, "commandToggleInlineBlame", nil)
+}
+
 // VideoPreview says "Video preview"
 // in the language the app shows.
 func VideoPreview() string { return In(i18n.Locale()).VideoPreview() }

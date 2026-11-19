@@ -205,6 +205,7 @@ func (a *App) refreshGit() {
 			for _, d := range a.docs {
 				if d.buf != nil {
 					a.loadGitBase(d)
+					a.syncBlame(d)
 				}
 			}
 			a.git.err = ""

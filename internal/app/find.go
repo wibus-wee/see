@@ -329,9 +329,12 @@ func (a *App) rankQuick() {
 		}
 	} else if strings.HasPrefix(q.query, ">") {
 		all := commands()
-		names := make([]string, len(all))
-		for i, cmd := range all {
-			names[i] = commandLabel(cmd.name)
+		var names []string
+		for _, cmd := range all {
+			if cmd.name == "Show Line's Commit in Git Log" && !a.canRevealLineCommit() {
+				continue
+			}
+			names = append(names, commandLabel(cmd.name))
 		}
 		q.results = search.Fuzzy(names, strings.TrimSpace(q.query[1:]), len(names))
 	} else if strings.HasPrefix(q.query, "@") {

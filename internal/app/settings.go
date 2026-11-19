@@ -687,6 +687,14 @@ func (a *App) editorPane(c *ui.Context) {
 				a.settingsChanged()
 			}
 		},
+		func() {
+			labeled(c, logText("showInlineBlame"), logText("inlineBlameDescription"))
+			enabled := !a.cfg.HideInlineBlame
+			ui.Switch(c, &enabled).Label(logText("showInlineBlame")).OnClick(func() {
+				a.cfg.HideInlineBlame = !enabled
+				a.settingsChanged()
+			})
+		},
 	)
 }
 
