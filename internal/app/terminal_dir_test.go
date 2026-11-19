@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+
+	"see/internal/config"
 )
 
 func TestTerminalDirOK(t *testing.T) {
@@ -32,6 +34,32 @@ func TestTerminalDirOK(t *testing.T) {
 		if got := a.terminalDirOK(tc.dir); got != tc.want {
 			t.Errorf("terminalDirOK(%q) = %v, want %v", tc.dir, got, tc.want)
 		}
+	}
+}
+
+func TestPaneDirFallsBackToWorkspaceRoot(t *testing.T) {
+	a := &App{root: t.TempDir()}
+	if got := a.paneDir(nil); got != a.root {
+		t.Fatalf("no pane: %q, want root", got)
+	}
+	// A pane without a running shell reports no directory; the split
+	// falls back to the workspace's root.
+	p := &termPane{id: 1}
+	if got := a.paneDir(p); got != a.root {
+		t.Fatalf("no shell: %q, want root", got)
+	}
+}
+
+func TestShellTitleIsTheShellThatRuns(t *testing.T) {
+	// A terminal of the configured shell shows its name, not $SHELL's,
+	// until the shell's first OSC title arrives.
+	a := &App{cfg: &config.Config{TermShell: "/usr/local/bin/fish"}}
+	if got := a.shellTitle(); got != "fish" {
+		t.Fatalf("configured shell: %q, want fish", got)
+	}
+	a = &App{cfg: &config.Config{}}
+	if got := a.shellTitle(); got != shellName() {
+		t.Fatalf("default shell: %q, want %q", got, shellName())
 	}
 }
 
