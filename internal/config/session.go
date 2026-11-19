@@ -14,6 +14,24 @@ type Workspace struct {
 	GitLogSplit   float32 `json:"gitLogSplit,omitempty"` // the commits' share of the Git log's tab, as a percentage
 	WindowWidth   int     `json:"windowWidth,omitempty"`
 	WindowHeight  int     `json:"windowHeight,omitempty"`
+	// Terminals are the panel's tabs, each its shells side by side; a
+	// shell's scrollback and command history are not kept.
+	Terminals      []TermTab `json:"terminals,omitempty"`
+	PanelOpen      bool      `json:"panelOpen,omitempty"`
+	ActiveTerminal int       `json:"activeTerminal,omitempty"`
+}
+
+// TermTab is a terminal tab of the bottom panel: shells side by side.
+type TermTab struct {
+	Panes  []TermPane `json:"panes,omitempty"`
+	Active int        `json:"active,omitempty"`
+}
+
+// TermPane is one shell of a terminal tab: the directory it worked in
+// and the title its tab showed.
+type TermPane struct {
+	Dir   string `json:"dir,omitempty"`
+	Title string `json:"title,omitempty"`
 }
 
 // WorkspaceSize is the window size a workspace remembers, or the default

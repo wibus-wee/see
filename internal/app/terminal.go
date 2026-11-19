@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"see/internal/config"
+	"see/internal/workspace"
 	"see/locales"
 	"slices"
 	"strconv"
@@ -58,14 +60,15 @@ type termPane struct {
 	pct    float32 // its share of the room it splits with those after it
 }
 
-// newTerm makes a terminal running the user's shell in dir.
-// Its callbacks come from the terminal's goroutines: they go through
-// post, and are dropped once the pane or the workspace is gone.
+// newTerm makes a terminal running the user's shell in dir, or in the
+// workspace when dir is empty or gone. Its callbacks come from the
+// terminal's goroutines: they go through post, and are dropped once the
+// pane or the workspace is gone.
 func (a *App) newTerm(p *termPane, dir string) error {
 	gen := a.gen
 	var t *terminal.Terminal
 	t, err := terminal.New(terminal.Options{
-		Dir: dir,
+		Dir: a.termDir(dir),
 		Command: func() []string {
 			if a.cfg.TermShell == "" {
 				return nil
@@ -230,7 +233,7 @@ func (a *App) splitTerminal() {
 	a.withTerminal(func() {
 		tp.nextID++
 		p := &termPane{id: tp.nextID, title: shellName()}
-		if err := a.newTerm(p, a.root); err != nil {
+		if err := a.newTerm(p, ""); err != nil {
 			a.note(locales.MsgCouldNotStartATerminal()+err.Error(), true)
 			return
 		}
@@ -287,6 +290,93 @@ func (a *App) closePane(p *termPane) {
 	}
 }
 
+// termSession is what of the panel a session keeps: each tab's shells,
+// their directories and titles, which tab was active, and whether the
+// panel showed terminals at all.
+func (a *App) termSession() (tabs []config.TermTab, active int, open bool) {
+	tp := &a.term
+	if tp.view != panelTerminal {
+		return nil, 0, false
+	}
+	for _, tab := range tp.tabs {
+		saved := config.TermTab{}
+		for j, p := range tab.panes {
+			sp := config.TermPane{Title: p.title}
+			if p.term != nil {
+				sp.Dir = p.term.Dir()
+			}
+			if tab.active == p {
+				saved.Active = j
+			}
+			saved.Panes = append(saved.Panes, sp)
+		}
+		if len(saved.Panes) == 0 {
+			continue
+		}
+		if tp.active == tab {
+			active = len(tabs)
+		}
+		tabs = append(tabs, saved)
+	}
+	if len(tabs) == 0 {
+		return nil, 0, false
+	}
+	return tabs, active, tp.open
+}
+
+// openRestoredTerminals recreates the panel's tabs of the last session:
+// a fresh shell at each one's directory, with its title. The first
+// failure ends the restore; terminals opened before it stay.
+func (a *App) openRestoredTerminals(s config.Workspace) {
+	if len(s.Terminals) == 0 || a.root == "" {
+		return
+	}
+	tp := &a.term
+	tp.open, tp.view = s.PanelOpen, panelTerminal
+	tp.focus = nil
+	a.withTerminal(func() {
+		if a.root == "" || len(tp.tabs) > 0 {
+			return
+		}
+		for i, saved := range s.Terminals {
+			tp.nextID++
+			tab := &termTab{id: tp.nextID}
+			for j, sp := range saved.Panes {
+				tp.nextID++
+				p := &termPane{id: tp.nextID, title: sp.Title}
+				if err := a.newTerm(p, sp.Dir); err != nil {
+					a.logf("session: restoring terminal: %v", err)
+					tp.open = s.PanelOpen && len(tp.tabs) > 0
+					return
+				}
+				tab.panes = append(tab.panes, p)
+				if j == saved.Active {
+					tab.active = p
+				}
+			}
+			if len(tab.panes) == 0 {
+				continue
+			}
+			if tab.active == nil {
+				tab.active = tab.panes[0]
+			}
+			for j, p := range tab.panes {
+				p.pct = 100 / float32(len(tab.panes)-j)
+			}
+			tp.tabs = append(tp.tabs, tab)
+			if i == s.ActiveTerminal {
+				tp.active = tab
+			}
+		}
+		if tp.active == nil && len(tp.tabs) > 0 {
+			tp.active = tp.tabs[0]
+		}
+		if len(tp.tabs) == 0 {
+			tp.open = false
+		}
+	})
+}
+
 // closeTerminals ends every terminal, as the workspace closes.
 func (a *App) closeTerminals() {
 	for _, tab := range a.term.tabs {
@@ -298,6 +388,18 @@ func (a *App) closeTerminals() {
 	}
 	pct := a.term.pct
 	a.term = termPanel{pct: pct, loadErr: a.term.loadErr}
+}
+
+// termDir is where a restored or new terminal starts: dir while it
+// still is a directory of the workspace, the workspace's root else.
+func (a *App) termDir(dir string) string {
+	if dir == "" || a.root == "" || !workspace.Within(a.root, dir) {
+		return a.root
+	}
+	if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
+		return a.root
+	}
+	return dir
 }
 
 func shellName() string {
