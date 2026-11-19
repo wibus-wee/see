@@ -170,7 +170,7 @@ func (a *App) installSee() {
 		return
 	}
 	dir := filepath.Join(home, ".local", "bin")
-	path, already, err := installSeeLink(exe, dir)
+	path, already, err := installSeeCommand(exe, dir)
 	if err != nil {
 		a.note(fmt.Sprintf(locales.MsgCouldNotInstallSV(), path, err), true)
 		return
@@ -205,7 +205,7 @@ func (a *App) uninstallSee() {
 		a.note(locales.MsgCouldNotLocateYourHomeDirectory()+err.Error(), true)
 		return
 	}
-	path, removed, err := uninstallSeeLink(exe, filepath.Join(home, ".local", "bin"))
+	path, removed, err := uninstallSeeCommand(exe, filepath.Join(home, ".local", "bin"))
 	if err != nil {
 		a.note(fmt.Sprintf(locales.MsgCouldNotUninstallSV(), path, err), true)
 	} else if !removed {

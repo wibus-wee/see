@@ -17,6 +17,9 @@ import (
 // which tells it apart from a command line invocation.
 const OpenArg = "--see-cli-open"
 
+// RunArg selects CLI mode when a shell launcher starts the executable.
+const RunArg = "--see-cli"
+
 // Run opens what the arguments name, or explains how to. It starts the
 // app and returns; see the usage errors when the arguments name nothing
 // See can open.
@@ -71,11 +74,17 @@ func Openable(path string) (string, error) {
 	return abs, nil
 }
 
-// Invocation reports whether the process was started as `see` rather than
-// as the app itself, which takes the command line.
-func Invocation(arg0 string) bool {
-	name := filepath.Base(arg0)
-	return name == "see" || strings.EqualFold(name, "see.exe")
+// Invocation extracts the shell command's arguments, if this is a CLI launch.
+func Invocation(arg0 string, args []string) ([]string, bool) {
+	if len(args) != 0 {
+		switch args[0] {
+		case RunArg:
+			return args[1:], true
+		case OpenArg:
+			return nil, false
+		}
+	}
+	return args, filepath.Base(arg0) == "see"
 }
 
 // OpenPath is the path an app process is asked to open by its arguments:

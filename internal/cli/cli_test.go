@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -47,14 +48,28 @@ func TestOpenableResolves(t *testing.T) {
 }
 
 func TestInvocationRecognizesTheCommand(t *testing.T) {
-	for _, name := range []string{"see", "/usr/local/bin/see", "see.exe", "SEE.EXE"} {
-		if !Invocation(name) {
+	for _, name := range []string{"see", "/usr/local/bin/see", filepath.Join(".local", "bin", "see")} {
+		if _, ok := Invocation(name, nil); !ok {
 			t.Errorf("Invocation(%q) = false", name)
 		}
 	}
-	for _, name := range []string{"See", "/Applications/See.app/Contents/MacOS/See", "other"} {
-		if Invocation(name) {
+	for _, name := range []string{"See", "/Applications/See.app/Contents/MacOS/See", "other", "See.exe", "see.exe", "SEE.EXE", filepath.Join("Program Files", "See", "See.exe")} {
+		if _, ok := Invocation(name, nil); ok {
 			t.Errorf("Invocation(%q) = true", name)
+		}
+	}
+}
+
+func TestInvocationWindowsLauncher(t *testing.T) {
+	for _, args := range [][]string{nil, {"path with spaces"}} {
+		got, ok := Invocation("See.exe", append([]string{RunArg}, args...))
+		if !ok || !slices.Equal(got, args) {
+			t.Errorf("CLI invocation = %q, %v; want %q, true", got, ok, args)
+		}
+	}
+	for _, name := range []string{"See.exe", "see"} {
+		if _, ok := Invocation(name, []string{OpenArg, "project"}); ok {
+			t.Errorf("Invocation(%q) matched an app handoff", name)
 		}
 	}
 }

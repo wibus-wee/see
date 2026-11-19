@@ -25,8 +25,8 @@ import (
 )
 
 func Main() {
-	if cli.Invocation(os.Args[0]) && (len(os.Args) < 2 || os.Args[1] != cli.OpenArg) {
-		if err := cli.Run(os.Args[1:], os.Stderr); err != nil {
+	if args, command := cli.Invocation(os.Args[0], os.Args[1:]); command {
+		if err := cli.Run(args, os.Stderr); err != nil {
 			fmt.Fprintln(os.Stderr, "see:", err)
 			os.Exit(1)
 		}
