@@ -285,7 +285,7 @@ func (a *App) restoreSession() {
 // cannot read again.
 func diffTabSpec(v *gitDiffTab) *config.DiffTab {
 	switch {
-	case v == nil || v.log != nil:
+	case v == nil || v.log != nil || v.branch != nil:
 		return nil
 	case v.commit != nil || v.rev != "":
 		if v.hash == "" {

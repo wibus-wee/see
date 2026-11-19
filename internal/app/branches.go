@@ -28,6 +28,8 @@ type branchPicker struct {
 	seq      uint64
 	at       ui.Rect // the button it hangs from
 	anchor   ui.Rect // the toolbar's branch, as last drawn
+	compare  bool
+	target   *group
 }
 
 // branchItem is a row of the picker: a section's heading, a branch, or
@@ -48,6 +50,7 @@ func (a *App) openBranchPicker(at ui.Rect) {
 	}
 	p := &a.git.picker
 	p.open, p.query, p.sel, p.err, p.loading, p.at = true, "", 0, "", true, at
+	p.compare, p.target = false, nil
 	p.list.Selected = &p.sel
 	p.seq++
 	seq, gen, ctx, root := p.seq, a.gen, a.wsCtx, a.git.root
@@ -92,7 +95,7 @@ func (a *App) branchItems() []branchItem {
 	section("Branches", false)
 	section("Remote Branches", true)
 	// Last, so that Return takes the first branch that matches.
-	if name := strings.TrimSpace(p.query); name != "" && !exact {
+	if name := strings.TrimSpace(p.query); name != "" && !exact && !p.compare {
 		items = append(items, branchItem{create: name})
 	}
 	return items
@@ -128,13 +131,22 @@ func (a *App) chooseBranch(it branchItem) {
 			return git.CreateBranch(a.wsCtx, a.git.root, it.create)
 		})
 	case it.branch != nil && it.branch.Current:
-		p.open = false
+		if p.compare {
+			p.open = false
+			a.selectBranchBase(*it.branch, p.target)
+		} else {
+			p.open = false
+		}
 	case it.branch != nil:
 		p.open = false
-		b, all := *it.branch, p.branches
-		a.runBranchJob("Switched to "+b.LocalName()+".", func() error {
-			return git.Switch(a.wsCtx, a.git.root, b, all)
-		})
+		if p.compare {
+			a.selectBranchBase(*it.branch, p.target)
+		} else {
+			b, all := *it.branch, p.branches
+			a.runBranchJob("Switched to "+b.LocalName()+".", func() error {
+				return git.Switch(a.wsCtx, a.git.root, b, all)
+			})
+		}
 	}
 }
 
@@ -231,7 +243,11 @@ func (a *App) branchPickerPanel(c *ui.Context) {
 		panel.Children(func() {
 			ui.Row(c).Padding(4, 6).Gap(6).AlignItems(ui.Center).Children(func() {
 				symbolIcon(c, icSearch, 14, colors(c).Muted)
-				in := ui.TextInput(c, &p.query).Placeholder(locales.MsgFilterOrNameANewBranch()).Label(locales.MsgFilterBranches()).
+				placeholder, label := locales.MsgFilterOrNameANewBranch(), locales.MsgFilterBranches()
+				if p.compare {
+					placeholder, label = branchDiffText("gitSearchBaseBranch"), branchDiffText("gitChooseBaseBranch")
+				}
+				in := ui.TextInput(c, &p.query).Placeholder(placeholder).Label(label).
 					FontSize(13).Grow(1).AutoFocus().Background(ui.Transparent).BorderWidth(0)
 				switch {
 				case in.Changed():

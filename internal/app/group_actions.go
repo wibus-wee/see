@@ -43,7 +43,7 @@ func (a *App) requestGroupFocus(g *group) {
 
 func (a *App) groupHasFocusTarget(g *group) bool {
 	if v := g.diffs[g.active]; v != nil {
-		return v.state != nil && v.commit == nil && v.log == nil
+		return v.state != nil && v.commit == nil && v.log == nil && v.branch == nil
 	}
 	d := a.docs[tabPath(g.active)]
 	if d == nil || d.loading || d.err != nil {

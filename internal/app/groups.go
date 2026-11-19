@@ -478,6 +478,16 @@ func (a *App) splitActive(s side) {
 			ng.diffs = map[string]*gitDiffTab{path: v} // filled where it is when read
 		} else if v != nil && v.log != nil {
 			ng.diffs = map[string]*gitDiffTab{path: {name: v.name, log: &gitLogView{query: v.log.query}}}
+		} else if v != nil && v.branch != nil {
+			branch := &branchDiffView{
+				baseRef:   v.branch.baseRef,
+				baseName:  v.branch.baseName,
+				shown:     max(v.branch.shown, branchDiffFilesAtOnce),
+				collapsed: cloneBoolMap(v.branch.collapsed),
+				jumpPath:  v.branch.jumpPath,
+			}
+			ng.diffs = map[string]*gitDiffTab{path: {name: v.name, branch: branch}}
+			a.loadBranchDiff(branch, false)
 		} else if v != nil && v.commit != nil {
 			cv := *v.commit
 			cv.scroll = ui.ScrollState{}

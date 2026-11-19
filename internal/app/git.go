@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"see/locales"
 	"strings"
@@ -29,6 +30,9 @@ type gitState struct {
 	diffSeq                uint64
 	peek                   *gitPeek
 	picker                 branchPicker
+	branchDiffMode         branchDiffMode
+	branchPanel            *branchDiffView
+	branchFingerprint      string
 	// changesClosed and historyClosed are the navigator's sections
 	// folded away, as VS Code's views; both show by default.
 	changesClosed, historyClosed bool
@@ -69,6 +73,7 @@ type gitDiffTab struct {
 	rev    string      // the commit's short hash, for a file of a commit
 	commit *commitView // a commit, which shows in place of a diff
 	log    *gitLogView // the log, which shows in place of a diff
+	branch *branchDiffView
 	// What the tab shows, to read it again in the next session: the
 	// commit's full hash, a renamed file's old path, and whether the
 	// change is of a file git does not track.
@@ -92,7 +97,7 @@ func (v *gitDiffTab) label() string {
 
 // page reports whether the tab shows a commit or the log, not a file's
 // diff.
-func (v *gitDiffTab) page() bool { return v.commit != nil || v.log != nil }
+func (v *gitDiffTab) page() bool { return v.commit != nil || v.log != nil || v.branch != nil }
 
 // diffStates are the diffs the tab shows: its own, or the log's of the
 // commit chosen.
@@ -103,6 +108,14 @@ func (v *gitDiffTab) diffStates() []*editor.DiffState {
 	case v.log != nil && v.log.detail != nil:
 		var out []*editor.DiffState
 		for _, f := range v.log.detail.files {
+			if f.diff != nil {
+				out = append(out, f.diff)
+			}
+		}
+		return out
+	case v.branch != nil:
+		var out []*editor.DiffState
+		for _, f := range v.branch.files {
 			if f.diff != nil {
 				out = append(out, f.diff)
 			}
@@ -164,6 +177,7 @@ func (a *App) refreshGit() {
 			ahead, behind             int
 			remotes                   []string
 			counts                    [2]map[string]git.FileStat
+			branchFingerprint         string
 		)
 		if err == nil {
 			head = git.Head(ctx, r)
@@ -181,6 +195,7 @@ func (a *App) refreshGit() {
 			}
 			web = git.RemoteWebURL(ctx, r, remote)
 		}
+		branchFingerprint = gitBranchFingerprint(ctx, r, head, refs, changes)
 		a.post.Post(func() {
 			if a.gen != gen {
 				return
@@ -193,6 +208,7 @@ func (a *App) refreshGit() {
 				a.git.refs = refs
 			}
 			a.git.root, a.git.branch, a.git.changes, a.git.head = r, b, changes, head
+			a.git.branchFingerprint = branchFingerprint
 			a.git.pruneSelection()
 			a.git.upstream, a.git.ahead, a.git.behind = upstream, ahead, behind
 			if counting || len(changes) == 0 {
@@ -220,8 +236,43 @@ func (a *App) refreshGit() {
 				a.refreshGit()
 			}
 			a.maybeFetchGit(time.Now())
+			a.refreshBranchDiffs()
 		})
 	}()
+}
+
+func gitBranchFingerprint(ctx context.Context, root, head, refs string, changes []git.Change) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "%s\x00%s\x00%s", root, head, refs)
+	if root == "" {
+		return b.String()
+	}
+	appendStat := func(path string) {
+		if st, err := os.Stat(path); err == nil {
+			fmt.Fprintf(&b, "\x00%s:%d:%d", path, st.Size(), st.ModTime().UnixNano())
+		} else {
+			fmt.Fprintf(&b, "\x00%s:missing", path)
+		}
+	}
+	index, err := git.Command(ctx, root, "rev-parse", "--git-path", "index")
+	if err != nil {
+		b.WriteString("\x00index:error")
+	} else {
+		indexPath := strings.TrimSpace(string(index))
+		if !filepath.IsAbs(indexPath) {
+			indexPath = filepath.Join(root, indexPath)
+		}
+		appendStat(indexPath)
+	}
+	for _, ch := range changes {
+		fmt.Fprintf(&b, "\x00%c%c:%s:%s", ch.Index, ch.Work, ch.Path, ch.OldPath)
+		for _, name := range []string{ch.Path, ch.OldPath} {
+			if name != "" {
+				appendStat(filepath.Join(root, filepath.FromSlash(name)))
+			}
+		}
+	}
+	return b.String()
 }
 
 // loadGitBase reads the committed version off the UI thread. A tracked file
@@ -690,10 +741,24 @@ func (a *App) gitNavigator(c *ui.Context) {
 	// Code's views; while both show, a divider between them sets how
 	// much of the navigator each takes.
 	changes := func() {
+		if a.git.branchDiffMode == compareBaseMode {
+			count := 0
+			if a.git.branchPanel != nil {
+				count = len(a.git.branchPanel.files)
+			}
+			a.gitSectionHeader(c, "Changes", count, &a.git.changesClosed, func() {})
+			if a.git.changesClosed {
+				return
+			}
+			a.branchDiffModePicker(c)
+			a.branchDiffNavigator(c)
+			return
+		}
 		a.gitChangesHeader(c)
 		if a.git.changesClosed {
 			return
 		}
+		a.branchDiffModePicker(c)
 		a.commitBar(c, staged)
 		ui.Scroll(c).Grow(1).FillWidth().Children(func() {
 			ui.Column(c).FillWidth().Padding(0, 0, 6, 0).Children(func() {
