@@ -139,6 +139,9 @@ func (a *App) view(c *ui.Context) {
 	if a.git.picker.open {
 		a.branchPickerPanel(c)
 	}
+	if a.jumpDate.open {
+		a.jumpToDatePanel(c)
+	}
 }
 
 // shortcuts handles the app's keys wherever the focus is.

@@ -72,6 +72,12 @@ func (a *App) commandEnabled(name string) bool {
 		return a.activeEditor() != nil && a.navigationEnabled(a.activePath(), "implementation")
 	case "Go to Type Definition":
 		return a.activeEditor() != nil && a.navigationEnabled(a.activePath(), "typeDefinition")
+	case "Show File History":
+		return a.canShowFileHistory()
+	case "Show Line's Commit in Git Log":
+		return a.canRevealLineCommit()
+	case "Git: Show Log", "Git: Show History", "Git: Reveal HEAD in Log", "Git: Jump to Date…":
+		return a.git.root != ""
 	}
 	return true
 }

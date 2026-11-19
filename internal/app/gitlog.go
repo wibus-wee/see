@@ -13,6 +13,7 @@ import (
 	"github.com/egoist/mygo/ui/editor"
 
 	"see/internal/git"
+	"see/internal/workspace"
 )
 
 // The Git log, as Fork's and Peek's: the history in a tab of its own,
@@ -31,6 +32,7 @@ type gitLogView struct {
 	pending    string
 	reading    bool
 	query      string
+	path       string // the file its history is of, or "" for the repository's
 	selected   string // the commit chosen, by hash
 	list       ui.ListState
 	horizontal ui.ScrollState
@@ -75,6 +77,35 @@ func (a *App) openGitLog() {
 	a.activateIn(g, gitLogTab)
 	a.term.maximized = false
 	a.syncHistory()
+}
+
+// openFileLog shows the log scoped to the commits that changed rel, a
+// path in the repository, in the tab the log already has when it does.
+func (a *App) openFileLog(rel string) {
+	if rel == "" {
+		a.openGitLog()
+		return
+	}
+	a.openGitLog()
+	v := a.focus.diffs[gitLogTab].log
+	if v.path == rel {
+		return
+	}
+	v.path, v.pending, v.reading = rel, "", false
+	v.detail, v.selected = nil, ""
+	a.git.history.stale = true
+	a.syncHistory()
+}
+
+// showFileHistory opens the log at the history of path, a file of the
+// workspace, when it is the repository's.
+func (a *App) showFileHistory(path string) {
+	rel, ok := a.gitRelPath(path)
+	if !ok {
+		a.note(locales.MsgNoHistoryFor()+workspace.RelPath(a.root, path)+locales.MsgNotInTheRepository(), true)
+		return
+	}
+	a.openFileLog(rel)
 }
 
 // logMatches reports whether a commit has every word of q in its
@@ -159,9 +190,13 @@ func (a *App) logFiles(stats []git.FileStat, patches []editor.FilePatch) []logFi
 }
 
 // gitLogContent is the log's tab: a filter over the rows of the
-// commits, and the commit chosen under them.
+// commits, and the commit chosen under them. It reads the history of
+// the file it is scoped to when it is.
 func (a *App) gitLogContent(c *ui.Context, g *group, v *gitLogView) {
 	h := &a.git.history
+	if h.path != v.path && !h.loading {
+		h.path, h.stale = v.path, true
+	}
 	a.syncHistory()
 	a.resolveLogTarget(v)
 	var rows []int
@@ -182,6 +217,20 @@ func (a *App) gitLogContent(c *ui.Context, g *group, v *gitLogView) {
 	ui.Column(c).Grow(1).FillWidth().Children(func() {
 		ui.Row(c).Shrink(0).FillWidth().Height(36).Padding(0, 12).Gap(8).AlignItems(ui.Center).
 			BorderWidth(0, 0, 1, 0).BorderColor(colors(c).Separator).Children(func() {
+			if v.path != "" {
+				chip := ui.Row(c).Gap(4).AlignItems(ui.Center).Padding(3, 4, 3, 7).Radius(5).Background(colors(c).Pill).Shrink(0).
+					Label(logText("gitLogFileScope") + " " + v.path).Tooltip(v.path)
+				chip.Children(func() {
+					fileIcon(c, filepath.Base(v.path), 13)
+					ui.Text(c, v.path).FontSize(11).TextColor(colors(c).Muted).SingleLine().Shrink(1).MaxWidth(200)
+					cl := ui.ButtonBase(c).Label(locales.MsgShowTheWholeHistory()).Tooltip(locales.MsgShowTheWholeHistory()).Size(14, 14).Radius(3).Center()
+					if cl.Hovered() {
+						cl.Background(colors(c).Separator)
+					}
+					cl.OnClick(func() { a.openWholeLog() })
+					cl.Children(func() { symbolIcon(c, icClose, 9, colors(c).Muted) })
+				})
+			}
 			ui.TextInput(c, &v.query).Label(locales.MsgFilterCommits()).Placeholder(locales.MsgFilterBySubjectAuthorBranchOrHash()).
 				Grow(1).MaxWidth(420).Height(24).Padding(0, 8).FontSize(12)
 			count := fmt.Sprintf("%d commit%s", len(rows), plural(len(rows)))
@@ -204,6 +253,24 @@ func (a *App) gitLogContent(c *ui.Context, g *group, v *gitLogView) {
 				h.all, h.stale = !h.all, true
 				a.syncHistory()
 			}
+			jump := ui.ButtonBase(c.Key("log-jump")).Label(logText("gitLogJump")).Tooltip(logText("gitLogJump")).Padding(4, 6).Radius(5).KeepFocus()
+			if jump.Hovered() || jump.Pressed() {
+				jump.Background(colors(c).Pill)
+			}
+			jump.Children(func() {
+				ui.Row(c).Gap(3).AlignItems(ui.Center).Children(func() {
+					symbolIcon(c, icCommitArrow, 12, colors(c).Muted)
+					symbolIcon(c, icChevron, 8, colors(c).Dim)
+				})
+			})
+			jump.Menu(func(m *ui.Menu) {
+				if m.Item(logText("gitLogRevealHEAD")).Chosen() {
+					a.revealLogRef("HEAD")
+				}
+				if m.Item(logText("gitLogJumpToDate") + "…").Chosen() {
+					a.openJumpToDate()
+				}
+			})
 		})
 		if !graphVisible {
 			ui.Text(c, logText("gitLogFilteredGraph")).FontSize(11).TextColor(colors(c).Muted).Padding(4, 12).FillWidth()
@@ -328,12 +395,7 @@ func (a *App) logRow(c *ui.Context, v *gitLogView, cm git.Commit, columns logTab
 		if m.Item("Copy Subject").Chosen() {
 			c.Services().WriteClipboard(cm.Subject)
 		}
-		if link := a.commitLink(cm.Hash); link != "" {
-			m.Separator()
-			if m.Item("Open on " + hostName(a.git.web)).Chosen() {
-				c.Services().OpenURL(link)
-			}
-		}
+		a.commitRowItems(m, c, cm)
 	})
 
 	row.Children(func() {

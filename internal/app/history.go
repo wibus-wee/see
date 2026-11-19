@@ -26,6 +26,7 @@ type gitHistory struct {
 	lanes    []string // the lanes the commits read leave for the next page
 	lanesW   int      // the most lanes a row has, for the graph's width
 	all      bool     // every branch, not only HEAD's
+	path     string   // only commits that changed it, as the log's file scope
 	head     string   // HEAD when the history was read
 	loading  bool
 	done     bool // no commits are left to read
@@ -76,9 +77,9 @@ func (a *App) loadHistory(reset bool) {
 	if reset {
 		skip, lanes = 0, nil
 	}
-	seq, gen, ctx, root, all, head := h.seq, a.gen, a.wsCtx, a.git.root, h.all, a.git.head
+	seq, gen, ctx, root, all, head, path := h.seq, a.gen, a.wsCtx, a.git.root, h.all, a.git.head, h.path
 	go func() {
-		commits, err := git.Log(ctx, root, all, skip, historyPage)
+		commits, err := git.LogFile(ctx, root, all, skip, historyPage, path)
 		lanes = git.Graph(commits, lanes)
 		var unpushed, incoming map[string]bool
 		if reset {
@@ -309,12 +310,7 @@ func (a *App) historyRow(c *ui.Context, i int) {
 		if m.Item("Copy Subject").Chosen() {
 			c.Services().WriteClipboard(cm.Subject)
 		}
-		if link := a.commitLink(cm.Hash); link != "" {
-			m.Separator()
-			if m.Item("Open on " + hostName(a.git.web)).Chosen() {
-				c.Services().OpenURL(link)
-			}
-		}
+		a.commitRowItems(m, c, cm)
 	})
 	row.Children(func() {
 		lanes := min(max(h.lanesW, 1), graphMaxLanes)

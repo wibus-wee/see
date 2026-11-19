@@ -110,6 +110,7 @@ type App struct {
 	find          findState
 	problems      problemsState
 	quick         quickOpen
+	jumpDate      jumpToDate
 	confirm       *confirmation
 	deleteConfirm *confirmation
 	createEntry   *entryPrompt
@@ -1108,6 +1109,9 @@ func (a *App) newEditor(g *group, d *doc) *editor.State {
 		if menu.Item("Find Callers").Chosen() {
 			a.focus = g
 			a.findUsagesAt(true, g.pointerAnchor, g.pointerInEditor)
+		}
+		if !d.untitled && menu.Item("Show File History").Chosen() {
+			a.showFileHistory(d.path)
 		}
 		a.linkItems(menu, d, st)
 	}

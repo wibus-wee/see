@@ -47,6 +47,12 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 				g.preview = ""
 			}
 			tab.ContextMenu(func(m *ui.Menu) {
+				if d := a.docs[tabPath(p)]; d != nil && !d.untitled {
+					if m.Item("Show File History").Chosen() {
+						a.showFileHistory(tabPath(p))
+					}
+					m.Separator()
+				}
 				if m.Item(commandLabel("Close Tab")).Chosen() {
 					a.closeTab(g, p)
 				}
