@@ -1711,6 +1711,46 @@ func (a *App) openLanguageDocument(m *langserver.Server, ctx context.Context, d 
 			m.Changed(docURI, d.buf.Snapshot())
 		}
 	})
+	a.post.Post(func() { a.upgradeSemanticLanguage(d, m, client) })
+}
+
+// upgradeSemanticLanguage wraps the document buffer's language in a
+// highlighter layering the server's semantic tokens over the
+// tokenizer's, once the server that answers them is up. It runs after
+// the document first syncs, and again whenever a server takes over —
+// start, restart and retry all reach it through openLanguageDocument.
+func (a *App) upgradeSemanticLanguage(d *doc, m *langserver.Server, client langserver.Client) {
+	if a.docs[d.path] != d || d.buf == nil || d.plain || d.lossy || a.serverFor(d.path) != m || a.wsCtx == nil {
+		return
+	}
+	sc, ok := client.(semanticTokensClient)
+	if !ok || !sc.HasSemanticTokens() {
+		return
+	}
+	lang := d.buf.Language()
+	if lang == nil || lang.Tokenizer == nil || lang.Highlighter != nil {
+		return
+	}
+	ctx, gen := a.wsCtx, a.gen
+	wrapped := *lang
+	wrapped.Highlighter = func(text editor.Snapshot, invalidate func()) editor.Highlighter {
+		h := &semanticHighlighter{
+			base:       editor.NewTokenHighlighter(lang.Tokenizer, text),
+			app:        a,
+			doc:        d,
+			server:     m,
+			gen:        gen,
+			uri:        d.uri,
+			ctx:        ctx,
+			invalidate: invalidate,
+		}
+		h.wake(text)
+		if hook := semanticHighlighterHook; hook != nil {
+			hook(h)
+		}
+		return h
+	}
+	d.buf.SetLanguage(&wrapped)
 }
 
 func (a *App) openServerDocuments(only *langserver.Server) {

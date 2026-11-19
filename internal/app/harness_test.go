@@ -196,6 +196,8 @@ type fakeClient struct {
 	hover          func(ctx context.Context, uri string, pos lsp.Position) (string, *lsp.Range, error)
 	inlayHints     func(ctx context.Context, uri string, r lsp.Range) ([]lsp.InlayHint, error)
 	signature      func(ctx context.Context, uri string, pos lsp.Position) (*lsp.SignatureHelp, error) // nil: no signature help
+	semanticTokens func(ctx context.Context, uri string, first, last int) (*lsp.SemanticTokensData, error)
+	semanticTypes  []string // the legend fake answers, when semanticTokens is set
 	callHier       callFake
 	noCalls        bool
 	log            []string
@@ -278,6 +280,16 @@ func (f *fakeClient) InlayHints(ctx context.Context, uri string, r lsp.Range) ([
 	}
 	return f.inlayHints(ctx, uri, r)
 }
+func (f *fakeClient) HasSemanticTokens() bool { return f.semanticTokens != nil }
+func (f *fakeClient) SemanticTokens(ctx context.Context, uri string, first, last int) (*lsp.SemanticTokensData, error) {
+	f.record("semanticTokens")
+	if f.semanticTokens == nil {
+		return nil, nil
+	}
+	return f.semanticTokens(ctx, uri, first, last)
+}
+func (f *fakeClient) SemanticTokenTypes() []string { return f.semanticTypes }
+
 func (f *fakeClient) HasSignatureHelp() bool { return f.signature != nil }
 func (f *fakeClient) SignatureHelp(ctx context.Context, uri string, pos lsp.Position) (*lsp.SignatureHelp, error) {
 	f.record("signatureHelp")
