@@ -2,6 +2,42 @@
 
 User-facing changes are grouped by release. Earlier releases are documented on the [Releases page](https://github.com/wibus-wee/see/releases).
 
+## 0.3.0
+
+### Added
+
+- Follow the symbol around the cursor in the jump bar, Xcode style: each segment is a menu of its siblings, with Show Document Items (Control-6) and Show Group Files (Control-5) on the keyboard.
+- Show a minimap of the file beside the editor, toggleable in Settings.
+- Switch between a file and its counterparts, Xcode style.
+- Quick Help for the symbol at the caret, plus a persistent Quick Help inspector that follows the caret and pins documentation.
+- Pin a references list into a References panel that keeps it across files.
+- Edit All in Scope renames every occurrence of an identifier in its scope.
+- Signature help at the call site shows the current parameter as you type.
+- Inlay type hints for the visible lines.
+- A reading-position pin naming the declaration enclosing the caret.
+- Browse incoming and outgoing calls in a Call Hierarchy panel.
+- Compare the working tree against a base branch from the Git navigator, with per-file diffs and Viewed checkboxes.
+- Fold unchanged stretches of a diff into expandable "N unmodified lines" separators, in working-tree diffs, comparisons, peeks and file diffs.
+- Group changed files by kind — code, tests, docs, generated — with low-value groups folded.
+- Nest related files in the tree (component and its tests, styles, stories) using the vscode-file-nesting-config rules.
+- Show running work in the toolbar — a task, a workspace find or a starting language server — with a spinner, its name and a stop button.
+- Step through a file's uncommitted changes with Next/Previous Change in file tabs, not only in diffs.
+- Reveal in Navigator, Copy Path, Quick Look and Show in Finder/Explorer from the tab context menu; New Terminal Here and Open in External Terminal Here from folder rows.
+- Reopen closed tabs and restore terminals across sessions.
+- Set notification preferences in Settings.
+- Line bookmarks with gutter marks and a Bookmarks navigator panel.
+- Open Quickly and Ctrl+Tab order files by most recently used.
+- File-scoped Git log, jump-to-commit commands and commit row actions in History.
+- Filter projects and clone repositories on the Welcome window.
+- Configure additional language servers in config.json.
+- `see` CLI flags for opening a diff, reading stdin and forcing a new window.
+- Middle-truncate long names — files, branches, breadcrumbs, tabs — instead of clipping them.
+
+### Fixed
+
+- Go Back and Go Forward reuse a tab already open in another editor group instead of opening a duplicate.
+- Drop the minimap shortcut that collided with Show Problems off macOS.
+
 ## 0.2.5
 
 ### Added
