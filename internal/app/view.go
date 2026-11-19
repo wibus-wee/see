@@ -32,6 +32,7 @@ func editorBindings() []editor.Binding {
 		none(ui.Cmd, ui.KeyN),
 		none(ui.Cmd|ui.Shift, ui.KeyN),
 		none(ui.Cmd, ui.KeyP),
+		none(ui.Alt|ui.Cmd, ui.KeyK),
 		none(ui.Cmd, ui.KeyB),
 		none(ui.Cmd|ui.Shift, ui.KeyP),
 		none(ui.Cmd|ui.Shift, ui.KeyO),
@@ -104,7 +105,7 @@ func (a *App) view(c *ui.Context) {
 		return
 	}
 	a.shortcuts(c)
-	root := ui.Column(c).Fill()
+	root := ui.Column(c).Fill().ObserveInput(a.observeQuickHelp)
 	target := float32(1)
 	if a.sidebarOff || a.root == "" {
 		target = 0

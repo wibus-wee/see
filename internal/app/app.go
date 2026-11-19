@@ -69,6 +69,10 @@ type App struct {
 	nextGroup        int
 	focusEditor      *editor.State // an editor to give the keyboard to
 	focusImage       string        // an image preview to give the keyboard to once loaded
+	quickHelp        *editor.State
+	quickHelpBounds  ui.Rect
+	quickHelpRequest *editor.State
+	quickHelpSeq     uint64
 
 	// Navigation.
 	hist                nav.History
