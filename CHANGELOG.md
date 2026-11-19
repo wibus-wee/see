@@ -2,6 +2,18 @@
 
 User-facing changes are grouped by release. Earlier releases are documented on the [Releases page](https://github.com/wibus-wee/see/releases).
 
+## 0.3.1
+
+### Fixed
+
+- Keep the Welcome window's action list from overflowing onto the "Show this window when See launches" checkbox, and keep its recent-folder rows clear of the window buttons on Linux and Windows.
+- Move the inspector toggle from the jump bar to the toolbar, tighten the jump bar's right-side buttons so their hover background stays inside the bar, and center the symbol kind letters in their chips.
+- Show a chevron separator after the reading pin's collapsed "…", matching the jump bar.
+
+### Removed
+
+- The "Filter folders" field on the Welcome window.
+
 ## 0.3.0
 
 ### Added
