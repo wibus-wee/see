@@ -592,12 +592,12 @@ func (a *App) findMatchText(c *ui.Context, k findKey, m search.Match) {
 		match := ui.Text(c, before).FontSize(12).Bold().Background(colors(c).Match).Radius(3).SingleLine().Shrink(1)
 		if replacing && before != replacement {
 			match.Strikethrough()
-			ui.Text(c, " → ").FontSize(11).TextColor(colors(c).Muted).Padding(0, 3).Shrink(0)
+			ui.Text(c, " → ").FontSize(11).Padding(0, 3).Shrink(0)
 			label := replacement
 			if label == "" {
 				label = locales.MsgReplaceDeleteMatch()
 			}
-			ui.Text(c, label).FontSize(12).Bold().TextColor(c.Theme().Accent).SingleLine().Shrink(1)
+			ui.Text(c, label).FontSize(12).Bold().SingleLine().Shrink(1)
 		}
 		trimmed = strings.TrimLeft(post, " \t")
 		gap(len(post) - len(trimmed))
