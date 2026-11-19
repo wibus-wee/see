@@ -78,6 +78,7 @@ type App struct {
 	findingLabel        string
 	navigationMenuState [3]bool
 	choices             *defChoices // several definitions to choose from
+	counterpartMiss     counterpartFeedback
 
 	lsp            *langserver.Server
 	cmakeLSP       *langserver.Server

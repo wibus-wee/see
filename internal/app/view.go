@@ -78,6 +78,7 @@ func (a *App) view(c *ui.Context) {
 	a.modifiers = c.Modifiers()
 	c.SetTheme(a.theme)
 	a.services = c.Services()
+	a.showCounterpartFeedback(c)
 	vibrant := c.Vibrancy()
 	if vibrant {
 		c.Root().Background(ui.Transparent)
