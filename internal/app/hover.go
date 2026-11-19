@@ -66,6 +66,9 @@ func (a *App) invalidateHover() {
 	}
 	a.hover.cache = nil
 	a.hideLink()
+	if st := a.quickHelp; st != nil {
+		a.dismissQuickHelp(st)
+	}
 	a.quickHelp = nil
 	a.quickHelpBounds = ui.Rect{}
 	a.quickHelpRequest = nil

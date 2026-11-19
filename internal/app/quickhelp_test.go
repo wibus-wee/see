@@ -297,6 +297,163 @@ func TestQuickHelpDeclaredInJumpsToDefinition(t *testing.T) {
 	}
 }
 
+func TestQuickHelpSourceJumpScratchReturnDoesNotResurrect(t *testing.T) {
+	root := writeTree(t, map[string]string{
+		"main.go": "package main\n\nfunc main() {\n\tanswer := Greeting(\"Ada\")\n\t_ = answer\n}\n",
+		"docs.go": "package main\n\n// Greeting returns a friendly welcome.\n//\n// The caller supplies a display name.\n// Use this helper for a greeting.\nfunc Greeting(name string) string { return name }\n",
+	})
+	h := newHarness(t, root)
+	h.a.cfg.Trust(root)
+	h.fc.hover = func(context.Context, string, lsp.Position) (string, *lsp.Range, error) {
+		return "```go\nfunc Greeting(name string) string\n```\n\nReturns a friendly welcome.", nil, nil
+	}
+	h.fc.def = func(context.Context, string, lsp.Position) ([]lsp.Location, error) {
+		return []lsp.Location{{URI: uri.FromPath(filepath.Join(root, "docs.go")), Range: lsp.Range{
+			Start: lsp.Position{Line: 6, Character: 5}, End: lsp.Position{Line: 6, Character: 13},
+		}}}, nil
+	}
+	d := h.open("main.go")
+	showQuickHelp := func() {
+		st := h.a.activeEditor()
+		offset := strings.Index(d.buf.String(), "Greeting")
+		st.GoTo(d.buf.Pos(offset + 2))
+		h.tt.Frame()
+		caret, ok := h.tt.TextCaret()
+		if !ok {
+			t.Fatal("Greeting caret is not available")
+		}
+		h.tt.ClickAtWith(ui.Alt, caret.X, caret.Y+caret.H/2)
+		waitForQuickHelp(t, h, st, "Declaration")
+	}
+	showQuickHelp()
+	if !h.tt.HasText("docs.go:7") {
+		t.Fatalf("Declared In link is missing: %q", h.tt.Texts())
+	}
+	if err := h.tt.Click("Copy"); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.TrimSpace(h.tt.Clipboard()); got != "func Greeting(name string) string" {
+		t.Fatalf("copied declaration = %q", got)
+	}
+	if err := h.tt.Click("docs.go:7"); err != nil {
+		t.Fatal(err)
+	}
+	docsPath := filepath.Join(root, "docs.go")
+	h.settle(func() bool { return h.a.activePath() == docsPath && h.a.activeEditor() != nil })
+	if h.a.activeEditor().CursorPos().Line != 6 {
+		t.Fatalf("Declared In cursor = %+v", h.a.activeEditor().CursorPos())
+	}
+
+	h.tt.Key(ui.Cmd, ui.KeyN)
+	var draft *doc
+	h.settle(func() bool {
+		draft = h.a.docs[h.a.activePath()]
+		return draft != nil && draft.untitled && !draft.loading && draft.buf != nil
+	})
+	h.tt.Key(ui.Cmd, ui.KeyV)
+	h.tt.Frame()
+	if !strings.Contains(draft.buf.String(), "func Greeting(name string) string") {
+		t.Fatalf("Ctrl+V did not paste the copied declaration into the scratch file: %q", draft.buf.String())
+	}
+	mainText := d.buf.String()
+	if err := h.tt.Click("main.go"); err != nil {
+		t.Fatal(err)
+	}
+	h.settle(func() bool { return h.a.activePath() == d.path && h.a.activeEditor() != nil })
+	if h.tt.HasText("Declaration") || h.tt.HasText("docs.go:7") {
+		t.Fatalf("old Quick Help returned after scratch/tab navigation: %q", h.tt.Texts())
+	}
+	if d.buf.String() != mainText {
+		t.Fatalf("navigation or paste edited main.go: %q", d.buf.String())
+	}
+
+	showQuickHelp()
+	h.tt.Key(0, ui.KeyEscape)
+	h.tt.Frame()
+	if h.tt.HasText("Declaration") || h.a.quickHelp != nil {
+		t.Fatal("fresh Quick Help did not dismiss after returning to main.go")
+	}
+}
+
+func TestQuickHelpTabHideReturnDoesNotResurrect(t *testing.T) {
+	h, d, offset := quickHelpHarness(t)
+	h.open("b.go")
+	if err := h.tt.Click("a.go"); err != nil {
+		t.Fatal(err)
+	}
+	h.settle(func() bool { return h.a.activePath() == d.path })
+	showQuickHelp := func() {
+		st := h.a.activeEditor()
+		st.GoTo(d.buf.Pos(offset + 2))
+		h.tt.Frame()
+		caret, ok := h.tt.TextCaret()
+		if !ok {
+			t.Fatal("helper caret is not available")
+		}
+		h.tt.ClickAtWith(ui.Alt, caret.X, caret.Y+caret.H/2)
+		waitForQuickHelp(t, h, st, "Declaration")
+	}
+	showQuickHelp()
+	if err := h.tt.Click("b.go"); err != nil {
+		t.Fatal(err)
+	}
+	h.settle(func() bool { return h.a.activePath() == filepath.Join(h.a.root, "b.go") })
+	if h.tt.HasText("Declaration") {
+		t.Fatalf("Quick Help remained visible after hiding its tab: %q", h.tt.Texts())
+	}
+	if err := h.tt.Click("a.go"); err != nil {
+		t.Fatal(err)
+	}
+	h.settle(func() bool { return h.a.activePath() == d.path })
+	if h.tt.HasText("Declaration") {
+		t.Fatalf("Quick Help returned when its tab was shown again: %q", h.tt.Texts())
+	}
+	showQuickHelp()
+	h.tt.Key(0, ui.KeyEscape)
+	h.tt.Frame()
+	if h.tt.HasText("Declaration") || h.a.quickHelp != nil {
+		t.Fatal("fresh Quick Help did not dismiss after a tab hide/return")
+	}
+}
+
+func TestQuickHelpNavigationToOpenDefinitionDoesNotResurrect(t *testing.T) {
+	h, d, offset := quickHelpHarness(t)
+	h.open("b.go")
+	if err := h.tt.Click("a.go"); err != nil {
+		t.Fatal(err)
+	}
+	h.settle(func() bool { return h.a.activePath() == d.path })
+	showQuickHelp := func() {
+		st := h.a.activeEditor()
+		st.GoTo(d.buf.Pos(offset + 2))
+		h.tt.Frame()
+		caret, ok := h.tt.TextCaret()
+		if !ok {
+			t.Fatal("helper caret is not available")
+		}
+		h.tt.ClickAtWith(ui.Alt, caret.X, caret.Y+caret.H/2)
+		waitForQuickHelp(t, h, st, "b.go:2")
+	}
+	showQuickHelp()
+	if err := h.tt.Click("b.go:2"); err != nil {
+		t.Fatal(err)
+	}
+	h.settle(func() bool { return h.a.activePath() == filepath.Join(h.a.root, "b.go") })
+	if err := h.tt.Click("a.go"); err != nil {
+		t.Fatal(err)
+	}
+	h.settle(func() bool { return h.a.activePath() == d.path })
+	if h.tt.HasText("Declaration") {
+		t.Fatalf("Quick Help returned after navigation to an open definition: %q", h.tt.Texts())
+	}
+	showQuickHelp()
+	h.tt.Key(0, ui.KeyEscape)
+	h.tt.Frame()
+	if h.tt.HasText("Declaration") || h.a.quickHelp != nil {
+		t.Fatal("fresh Quick Help did not dismiss after returning from the open definition")
+	}
+}
+
 func TestQuickHelpDefinitionLookupIsBounded(t *testing.T) {
 	h, d, offset := quickHelpHarness(t)
 	st := h.a.activeEditor()

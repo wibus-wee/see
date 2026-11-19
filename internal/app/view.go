@@ -71,9 +71,8 @@ var startTrace = os.Getenv("SEE_TRACE_STARTUP") != ""
 func (a *App) view(c *ui.Context) {
 	a.quickHelpRendered = false
 	defer func() {
-		if a.quickHelp != nil && !a.quickHelpRendered {
-			a.quickHelp = nil
-			a.quickHelpBounds = ui.Rect{}
+		if st := a.quickHelp; st != nil && !a.quickHelpRendered {
+			a.dismissQuickHelp(st)
 		}
 	}()
 	defer a.refreshNavigationMenu()
