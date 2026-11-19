@@ -20,6 +20,7 @@ import (
 // branches named.
 func gitRepo(t *testing.T, files map[string]string, branches ...string) string {
 	t.Helper()
+	pinGitEnv(t)
 	root := writeTree(t, files)
 	for _, args := range append([][]string{
 		{"init", "-q", "-b", "main"},
@@ -133,9 +134,41 @@ func TestBranchPickerSwitchesAndCreates(t *testing.T) {
 	}
 }
 
+// pinGitEnv keeps GIT_AUTHOR_* and GIT_COMMITTER_* exported by the
+// caller's shell from overriding the -c identity flags the fixtures
+// pass, and unsets GIT_DIR and GIT_WORK_TREE, which git cannot empty.
+func pinGitEnv(t *testing.T) {
+	t.Helper()
+	for _, kv := range [][2]string{
+		{"GIT_AUTHOR_NAME", "See"}, {"GIT_AUTHOR_EMAIL", "see@example.com"},
+		{"GIT_COMMITTER_NAME", "See"}, {"GIT_COMMITTER_EMAIL", "see@example.com"},
+	} {
+		t.Setenv(kv[0], kv[1])
+	}
+	// GIT_DIR and GIT_WORK_TREE would send commands to another
+	// repository, and GIT_CONFIG_KEY_*/GIT_CONFIG_VALUE_* would inject
+	// config the fixture did not write; git cannot empty them, so unset
+	// and restore.
+	for _, v := range []string{"GIT_DIR", "GIT_WORK_TREE", "GIT_CONFIG_COUNT"} {
+		if old, ok := os.LookupEnv(v); ok {
+			t.Cleanup(func() { os.Setenv(v, old) })
+		}
+		os.Unsetenv(v)
+	}
+	for _, v := range os.Environ() {
+		if name, _, ok := strings.Cut(v, "="); ok && (strings.HasPrefix(name, "GIT_CONFIG_KEY_") || strings.HasPrefix(name, "GIT_CONFIG_VALUE_")) {
+			if old, ok := os.LookupEnv(name); ok {
+				t.Cleanup(func() { os.Setenv(name, old) })
+			}
+			os.Unsetenv(name)
+		}
+	}
+}
+
 // gitRun runs git in root as a test's committer.
 func gitRun(t *testing.T, root string, args ...string) {
 	t.Helper()
+	pinGitEnv(t)
 	args = append([]string{"-c", "user.name=See", "-c", "user.email=see@example.com", "-c", "commit.gpgsign=false"}, args...)
 	if _, err := git.Command(context.Background(), root, args...); err != nil {
 		t.Fatal(err)
