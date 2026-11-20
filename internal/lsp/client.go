@@ -54,6 +54,7 @@ type Client struct {
 	callHierarchy       bool
 	selectionRanges     bool
 	pullDiagnostics     bool
+	foldingRange        bool
 	signatureHelp       bool
 	semanticFull        bool
 	semanticRange       bool
@@ -225,6 +226,10 @@ func (c *Client) DocumentLinkResolveSupport() bool { return c.documentLinkResolv
 // HasSignatureHelp reports whether the server answers signature help.
 func (c *Client) HasSignatureHelp() bool { return c.signatureHelp }
 
+// HasFoldingRange reports whether the server answers folding range
+// requests.
+func (c *Client) HasFoldingRange() bool { return c.foldingRange }
+
 // HasCallHierarchy reports whether the server answers call hierarchy
 // requests, either direction.
 func (c *Client) HasCallHierarchy() bool { return c.callHierarchy }
@@ -312,6 +317,7 @@ func (c *Client) initialize(ctx context.Context) error {
 				"implementation":    map[string]any{"linkSupport": true, "dynamicRegistration": false},
 				"typeDefinition":    map[string]any{"linkSupport": true, "dynamicRegistration": false},
 				"inlayHint":         map[string]any{},
+				"foldingRange":      map[string]any{"lineFoldingOnly": true, "dynamicRegistration": false},
 				"documentLink":      map[string]any{"tooltipSupport": true, "dynamicRegistration": false},
 				"selectionRange":    map[string]any{"dynamicRegistration": false},
 				"hover":             map[string]any{"contentFormat": []string{"markdown", "plaintext"}, "dynamicRegistration": false},
@@ -363,6 +369,7 @@ func (c *Client) initialize(ctx context.Context) error {
 	c.codeActions, c.hasCodeActions = res.Capabilities.codeActions()
 	c.hasCommands = res.Capabilities.hasExecuteCommand()
 	c.pullDiagnostics = len(res.Capabilities.DiagnosticProvider) > 0 && string(res.Capabilities.DiagnosticProvider) != "null" && string(res.Capabilities.DiagnosticProvider) != "false"
+	c.foldingRange = res.Capabilities.hasFoldingRange()
 	c.semanticLegend, c.semanticFull, c.semanticRange = res.Capabilities.semanticTokens()
 	return c.conn.Notify("initialized", map[string]any{})
 }

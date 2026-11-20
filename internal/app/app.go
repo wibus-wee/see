@@ -295,6 +295,16 @@ type doc struct {
 	linkSeq           int
 	linkTimer         *time.Timer
 	linkCancel        context.CancelFunc
+	foldRanges        map[int]int // line its range starts on -> last it hides
+	foldBufVer        uint64      // the buffer's version foldRanges came of
+	foldVersion       uint64      // the buffer's version ranges were last asked for
+	foldSeq           int
+	foldTimer         *time.Timer
+	foldCancel        context.CancelFunc
+	foldFolder        *foldFolder // the language's Folder, once wrapped
+	baseLang          *editor.Language
+	wrappedLang       *editor.Language
+	wrappedFold       bool // wrappedLang folds by the server's ranges
 }
 
 type draftCache struct {
@@ -1778,45 +1788,78 @@ func (a *App) openLanguageDocument(m *langserver.Server, ctx context.Context, d 
 			m.Changed(docURI, d.buf.Snapshot())
 		}
 	})
-	a.post.Post(func() { a.upgradeSemanticLanguage(d, m, client) })
+	a.post.Post(func() { a.upgradeLanguage(d, m, client) })
 }
 
-// upgradeSemanticLanguage wraps the document buffer's language in a
-// highlighter layering the server's semantic tokens over the
-// tokenizer's, once the server that answers them is up. It runs after
-// the document first syncs, and again whenever a server takes over —
-// start, restart and retry all reach it through openLanguageDocument.
-func (a *App) upgradeSemanticLanguage(d *doc, m *langserver.Server, client langserver.Client) {
+// upgradeLanguage wraps the document buffer's language in a
+// highlighter layering what its server answers — semantic tokens over
+// the tokenizer's, folding ranges for the gutter — once it is up. It
+// runs after the document first syncs, and again whenever a server
+// takes over — start, restart and retry all reach it through
+// openLanguageDocument — and when a lane learns its capability.
+func (a *App) upgradeLanguage(d *doc, m *langserver.Server, client langserver.Client) {
 	if a.docs[d.path] != d || d.buf == nil || d.plain || d.lossy || a.serverFor(d.path) != m || a.wsCtx == nil {
 		return
 	}
-	sc, ok := client.(semanticTokensClient)
-	if !ok || !sc.HasSemanticTokens() {
+	lang := d.buf.Language()
+	if lang == nil {
 		return
 	}
-	lang := d.buf.Language()
-	if lang == nil || lang.Tokenizer == nil || lang.Highlighter != nil {
-		return
+	// The language the wrap goes over: on a re-wrap — folding arriving
+	// after semantic — lang is the copy made then, and baseLang the one
+	// it copied.
+	baseLang := lang
+	if d.wrappedLang == lang {
+		baseLang = d.baseLang
+	}
+	sem, fold := false, false
+	if sc, ok := client.(semanticTokensClient); ok && sc.HasSemanticTokens() &&
+		baseLang.Tokenizer != nil && baseLang.Highlighter == nil {
+		sem = true // the semantic layer needs a tokenizer to build on
+	}
+	// The fold layer goes on once ranges are in; until then the
+	// language's own highlighter keeps the gutter's indentation guess.
+	if fc, ok := client.(foldingRangeClient); ok && fc.HasFoldingRange() &&
+		d.foldRanges != nil && (baseLang.Tokenizer != nil || baseLang.Highlighter != nil) {
+		fold = true
+	}
+	if !sem && !fold || d.wrappedLang == lang && (!fold || d.wrappedFold) {
+		return // nothing to add, or already wrapped with all it gets
 	}
 	ctx, gen := a.wsCtx, a.gen
-	wrapped := *lang
+	orig := baseLang.Highlighter
+	wrapped := *baseLang
 	wrapped.Highlighter = func(text editor.Snapshot, invalidate func()) editor.Highlighter {
-		h := &semanticHighlighter{
-			base:       editor.NewTokenHighlighter(lang.Tokenizer, text),
-			app:        a,
-			doc:        d,
-			server:     m,
-			gen:        gen,
-			uri:        d.uri,
-			ctx:        ctx,
-			invalidate: invalidate,
+		var base editor.Highlighter
+		if orig != nil {
+			base = orig(text, invalidate)
+		} else {
+			base = editor.NewTokenHighlighter(baseLang.Tokenizer, text)
 		}
-		h.wake(text)
-		if hook := semanticHighlighterHook; hook != nil {
-			hook(h)
+		if sem {
+			h := &semanticHighlighter{
+				base:       base,
+				app:        a,
+				doc:        d,
+				server:     m,
+				gen:        gen,
+				uri:        d.uri,
+				ctx:        ctx,
+				invalidate: invalidate,
+			}
+			base = h
+			h.wake(text)
+			if hook := semanticHighlighterHook; hook != nil {
+				hook(h)
+			}
 		}
-		return h
+		if fold {
+			d.foldFolder = &foldFolder{base: base, doc: d}
+			base = d.foldFolder
+		}
+		return base
 	}
+	d.baseLang, d.wrappedLang, d.wrappedFold = baseLang, &wrapped, fold
 	d.buf.SetLanguage(&wrapped)
 }
 

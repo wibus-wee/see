@@ -521,6 +521,7 @@ func (a *App) releaseIfUnused(path string) {
 	}
 	d.seq++ // drop a load on its way
 	a.clearDocumentLinks(d)
+	a.clearFoldingRanges(d)
 	if m := a.serverFor(d.path); m != nil {
 		m.Close(d.uri)
 	}

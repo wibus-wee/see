@@ -172,6 +172,7 @@ type serverCapabilities struct {
 	DocumentLinkProvider      json.RawMessage `json:"documentLinkProvider"`
 	SignatureHelpProvider     json.RawMessage `json:"signatureHelpProvider"`
 	SemanticTokensProvider    json.RawMessage `json:"semanticTokensProvider"`
+	FoldingRangeProvider      json.RawMessage `json:"foldingRangeProvider"`
 	CodeActionProvider        json.RawMessage `json:"codeActionProvider"`
 	ExecuteCommandProvider    json.RawMessage `json:"executeCommandProvider"`
 	SelectionRangeProvider    json.RawMessage `json:"selectionRangeProvider"`
@@ -376,6 +377,11 @@ func (s serverCapabilities) semanticTokens() (legend semanticTokensLegend, full,
 		return len(v) > 0 && !bytes.Equal(v, []byte("false")) && !bytes.Equal(v, []byte("null"))
 	}
 	return opts.Legend, truthy(opts.Full), truthy(opts.Range)
+}
+
+func (s serverCapabilities) hasFoldingRange() bool {
+	raw := bytes.TrimSpace(s.FoldingRangeProvider)
+	return len(raw) > 0 && !bytes.Equal(raw, []byte("false")) && !bytes.Equal(raw, []byte("null"))
 }
 
 func (s serverCapabilities) hasSignatureHelp() bool {
