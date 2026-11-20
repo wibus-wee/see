@@ -145,6 +145,7 @@ type fakeServer struct {
 	semanticTokens      func(method string, params json.RawMessage) string
 	documentLinks       func(params json.RawMessage) string
 	documentLinkResolve func(params json.RawMessage) string
+	selectionRanges     func(params json.RawMessage) string
 	navigation          func(method string, params json.RawMessage) string
 	initializeParams    json.RawMessage
 	caps                string
@@ -248,6 +249,16 @@ func (f *fakeServer) serve() {
 				reply("null")
 			} else {
 				reply(f.documentLinkResolve(m.Params))
+			}
+		case "textDocument/selectionRange":
+			if f.selectionRanges == nil {
+				reply("null")
+			} else if r := f.selectionRanges(m.Params); r != "" {
+				reply(r)
+			} else {
+				// An empty return asks for a JSON-RPC error, as a failing
+				// server gives.
+				f.send(`{"jsonrpc":"2.0","id":` + string(m.ID) + `,"error":{"code":-32801,"message":"no selection range"}}`)
 			}
 		case "textDocument/signatureHelp":
 			if f.signatureHelp == nil {

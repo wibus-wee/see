@@ -745,6 +745,8 @@
   "commandToggleMinimap": "Toggle Minimap",
   "notifyTerminalBell": "Terminal bell",
   "commandEditAllInScope": "Edit All in Scope",
+  "commandExpandSelection": "Expand Selection",
+  "commandShrinkSelection": "Shrink Selection",
   "scopeEditSourceOnly": "Open an editable source file to edit identifiers in scope.",
   "scopeEditIdentifier": "Place the cursor on an identifier to edit its occurrences.",
   "scopeEditUnsupported": "The language server does not support semantic highlights.",

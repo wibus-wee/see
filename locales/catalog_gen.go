@@ -7572,6 +7572,26 @@ func (msgs Messages) CommandEditAllInScope() string {
 	return Catalog.Format(msgs.locale, "commandEditAllInScope", nil)
 }
 
+// CommandExpandSelection says "Expand Selection"
+// in the language the app shows.
+func CommandExpandSelection() string { return In(i18n.Locale()).CommandExpandSelection() }
+
+// CommandExpandSelection says "Expand Selection"
+// in the language of msgs.
+func (msgs Messages) CommandExpandSelection() string {
+	return Catalog.Format(msgs.locale, "commandExpandSelection", nil)
+}
+
+// CommandShrinkSelection says "Shrink Selection"
+// in the language the app shows.
+func CommandShrinkSelection() string { return In(i18n.Locale()).CommandShrinkSelection() }
+
+// CommandShrinkSelection says "Shrink Selection"
+// in the language of msgs.
+func (msgs Messages) CommandShrinkSelection() string {
+	return Catalog.Format(msgs.locale, "commandShrinkSelection", nil)
+}
+
 // ScopeEditSourceOnly says "Open an editable source file to edit identifiers in scope."
 // in the language the app shows.
 func ScopeEditSourceOnly() string { return In(i18n.Locale()).ScopeEditSourceOnly() }

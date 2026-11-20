@@ -174,6 +174,7 @@ type serverCapabilities struct {
 	SemanticTokensProvider    json.RawMessage `json:"semanticTokensProvider"`
 	CodeActionProvider        json.RawMessage `json:"codeActionProvider"`
 	ExecuteCommandProvider    json.RawMessage `json:"executeCommandProvider"`
+	SelectionRangeProvider    json.RawMessage `json:"selectionRangeProvider"`
 }
 
 // syncKind reads textDocumentSync, a number or TextDocumentSyncOptions,
@@ -276,6 +277,28 @@ func ParseInlayHints(raw json.RawMessage) ([]InlayHint, error) {
 	return out, nil
 }
 
+// SelectionRange is one answer of textDocument/selectionRange: the
+// range a position's selection grows to, linked to the ranges it grows
+// through after it, innermost first.
+type SelectionRange struct {
+	Range  Range           `json:"range"`
+	Parent *SelectionRange `json:"parent,omitempty"`
+}
+
+// ParseSelectionRanges decodes a textDocument/selectionRange result:
+// null or a list of nested SelectionRange.
+func ParseSelectionRanges(raw json.RawMessage) ([]*SelectionRange, error) {
+	raw = bytes.TrimSpace(raw)
+	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
+		return nil, nil
+	}
+	var ranges []*SelectionRange
+	if err := json.Unmarshal(raw, &ranges); err != nil {
+		return nil, fmt.Errorf("lsp: bad selection ranges: %w", err)
+	}
+	return ranges, nil
+}
+
 // ParseDocumentLinks decodes a textDocument/documentLink result: null
 // or a list of DocumentLink.
 func ParseDocumentLinks(raw json.RawMessage) ([]DocumentLink, error) {
@@ -362,6 +385,11 @@ func (s serverCapabilities) hasSignatureHelp() bool {
 
 func (s serverCapabilities) hasCallHierarchy() bool {
 	raw := bytes.TrimSpace(s.CallHierarchyProvider)
+	return len(raw) > 0 && !bytes.Equal(raw, []byte("false")) && !bytes.Equal(raw, []byte("null"))
+}
+
+func (s serverCapabilities) hasSelectionRanges() bool {
+	raw := bytes.TrimSpace(s.SelectionRangeProvider)
 	return len(raw) > 0 && !bytes.Equal(raw, []byte("false")) && !bytes.Equal(raw, []byte("null"))
 }
 

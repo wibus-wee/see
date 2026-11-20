@@ -51,6 +51,11 @@ func editorBindings() []editor.Binding {
 		none(ui.Cmd, ui.KeyF12),
 		none(ui.Alt, ui.KeyF12),
 		none(ui.Ctrl|ui.Shift, ui.KeyMinus),
+		// Expand and shrink selection take Shift+Alt+↑/↓ from the editor's
+		// line duplication, which Ctrl+Shift+←/→ keeps as Select Larger
+		// and Smaller.
+		none(ui.Alt|ui.Shift, ui.KeyUp),
+		none(ui.Alt|ui.Shift, ui.KeyDown),
 	}
 	for k := ui.Key1; k <= ui.Key9; k++ {
 		bs = append(bs, none(ui.Cmd, k))
