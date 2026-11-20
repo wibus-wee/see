@@ -2,6 +2,12 @@
 
 User-facing changes are grouped by release. Earlier releases are documented on the [Releases page](https://github.com/wibus-wee/see/releases).
 
+## 0.3.3
+
+### Changed
+
+- Parameter Help now defaults to On Trigger: the signature strip appears only on Control-Shift+Space instead of whenever the caret rests inside a call, matching Xcode's opt-in behavior; Always remains available in Settings.
+
 ## 0.3.2
 
 ### Added
