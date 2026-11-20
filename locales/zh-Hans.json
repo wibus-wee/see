@@ -745,6 +745,8 @@
   "commandToggleMinimap": "切换缩略图",
   "notifyTerminalBell": "终端响铃",
   "commandEditAllInScope": "编辑作用域中的所有位置",
+  "commandExpandSelection": "扩大选区",
+  "commandShrinkSelection": "缩小选区",
   "scopeEditSourceOnly": "请打开可编辑的源文件以编辑作用域中的标识符。",
   "scopeEditIdentifier": "将光标放在标识符上以编辑其所有位置。",
   "scopeEditUnsupported": "语言服务器不支持语义高亮。",

@@ -52,6 +52,7 @@ type Client struct {
 	documentLinks       bool
 	documentLinkResolve bool
 	callHierarchy       bool
+	selectionRanges     bool
 	pullDiagnostics     bool
 	signatureHelp       bool
 	semanticFull        bool
@@ -228,6 +229,11 @@ func (c *Client) HasSignatureHelp() bool { return c.signatureHelp }
 // requests, either direction.
 func (c *Client) HasCallHierarchy() bool { return c.callHierarchy }
 
+// HasSelectionRanges reports whether the server provides selection
+// ranges, as gopls does: the syntax nodes a position's selection grows
+// through.
+func (c *Client) HasSelectionRanges() bool { return c.selectionRanges }
+
 // HasSemanticTokens reports whether the server answers semantic tokens
 // requests, whole-document or for a range.
 func (c *Client) HasSemanticTokens() bool { return c.semanticFull || c.semanticRange }
@@ -307,6 +313,7 @@ func (c *Client) initialize(ctx context.Context) error {
 				"typeDefinition":    map[string]any{"linkSupport": true, "dynamicRegistration": false},
 				"inlayHint":         map[string]any{},
 				"documentLink":      map[string]any{"tooltipSupport": true, "dynamicRegistration": false},
+				"selectionRange":    map[string]any{"dynamicRegistration": false},
 				"hover":             map[string]any{"contentFormat": []string{"markdown", "plaintext"}, "dynamicRegistration": false},
 				"signatureHelp":     map[string]any{"signatureInformation": map[string]any{"documentationFormat": []string{"markdown", "plaintext"}, "parameterInformation": map[string]any{"labelOffsetSupport": true}}, "dynamicRegistration": false},
 				"semanticTokens": map[string]any{
@@ -352,6 +359,7 @@ func (c *Client) initialize(ctx context.Context) error {
 	c.documentLinkResolve = res.Capabilities.documentLinkResolve()
 	c.signatureHelp = res.Capabilities.hasSignatureHelp()
 	c.callHierarchy = res.Capabilities.hasCallHierarchy()
+	c.selectionRanges = res.Capabilities.hasSelectionRanges()
 	c.codeActions, c.hasCodeActions = res.Capabilities.codeActions()
 	c.hasCommands = res.Capabilities.hasExecuteCommand()
 	c.pullDiagnostics = len(res.Capabilities.DiagnosticProvider) > 0 && string(res.Capabilities.DiagnosticProvider) != "null" && string(res.Capabilities.DiagnosticProvider) != "false"
@@ -523,6 +531,20 @@ func (c *Client) DocumentLinkResolve(ctx context.Context, link *DocumentLink) (*
 		return nil, err
 	}
 	return &resolved, nil
+}
+
+// SelectionRanges asks for the nested selections of each position of
+// positions, one chain a position, innermost first.
+func (c *Client) SelectionRanges(ctx context.Context, uri string, positions []Position) ([]*SelectionRange, error) {
+	var raw json.RawMessage
+	err := c.conn.Call(ctx, "textDocument/selectionRange", map[string]any{
+		"textDocument": map[string]any{"uri": uri},
+		"positions":    positions,
+	}, &raw)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSelectionRanges(raw)
 }
 
 // SignatureHelp asks for the signatures of the call at pos.

@@ -135,7 +135,9 @@ type App struct {
 	scopeModeState      *editor.State
 	scopeModeGroup      *group
 	scopeModePath       string
-	choices             *defChoices // several definitions to choose from
+	selCancel           context.CancelFunc // a selection range request on its way
+	selStack            []editor.Selection // the selections Expand Selection grew, for Shrink Selection
+	choices             *defChoices        // several definitions to choose from
 	counterpartMiss     counterpartFeedback
 	peek                *peekState // a definition peeked at from an editor
 	references          referenceList
@@ -1312,6 +1314,13 @@ func (a *App) newEditor(g *group, d *doc) *editor.State {
 		item := menu.Item(commandLabel("Edit All in Scope")).Disabled(!a.scopeEditCommandEnabled(g, d, st)).Shortcut(mods, key)
 		if item.Chosen() {
 			a.editAllInScopeFor(g, d, st)
+		}
+		menu.Separator()
+		if menu.Item(commandLabel("Expand Selection")).Shortcut(ui.Alt|ui.Shift, ui.KeyUp).Chosen() {
+			a.expandSelection()
+		}
+		if menu.Item(commandLabel("Shrink Selection")).Shortcut(ui.Alt|ui.Shift, ui.KeyDown).Chosen() {
+			a.shrinkSelection()
 		}
 	}
 	st.OnHover = func(r editor.HoverRequest) { a.hoverAt(d, st, r) }
