@@ -1248,6 +1248,56 @@ func (msgs Messages) MsgCodeActionUnavailable() string {
 	return Catalog.Format(msgs.locale, "msgCodeActionUnavailable", nil)
 }
 
+// CommandFormatDocument says "Format Document"
+// in the language the app shows.
+func CommandFormatDocument() string { return In(i18n.Locale()).CommandFormatDocument() }
+
+// CommandFormatDocument says "Format Document"
+// in the language of msgs.
+func (msgs Messages) CommandFormatDocument() string {
+	return Catalog.Format(msgs.locale, "commandFormatDocument", nil)
+}
+
+// CommandFormatSelection says "Format Selection"
+// in the language the app shows.
+func CommandFormatSelection() string { return In(i18n.Locale()).CommandFormatSelection() }
+
+// CommandFormatSelection says "Format Selection"
+// in the language of msgs.
+func (msgs Messages) CommandFormatSelection() string {
+	return Catalog.Format(msgs.locale, "commandFormatSelection", nil)
+}
+
+// FormattingFinding says "Formatting…"
+// in the language the app shows.
+func FormattingFinding() string { return In(i18n.Locale()).FormattingFinding() }
+
+// FormattingFinding says "Formatting…"
+// in the language of msgs.
+func (msgs Messages) FormattingFinding() string {
+	return Catalog.Format(msgs.locale, "formattingFinding", nil)
+}
+
+// FormattingApplied says "Formatted."
+// in the language the app shows.
+func FormattingApplied() string { return In(i18n.Locale()).FormattingApplied() }
+
+// FormattingApplied says "Formatted."
+// in the language of msgs.
+func (msgs Messages) FormattingApplied() string {
+	return Catalog.Format(msgs.locale, "formattingApplied", nil)
+}
+
+// FormattingUnsupported says "The language server does not support formatting."
+// in the language the app shows.
+func FormattingUnsupported() string { return In(i18n.Locale()).FormattingUnsupported() }
+
+// FormattingUnsupported says "The language server does not support formatting."
+// in the language of msgs.
+func (msgs Messages) FormattingUnsupported() string {
+	return Catalog.Format(msgs.locale, "formattingUnsupported", nil)
+}
+
 // SignatureHelp says "Signature Help"
 // in the language the app shows.
 func SignatureHelp() string { return In(i18n.Locale()).SignatureHelp() }

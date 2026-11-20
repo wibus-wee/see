@@ -1296,6 +1296,13 @@ func (a *App) newEditor(g *group, d *doc) *editor.State {
 		if menu.Item(commandLabel("Show Code Actions")).Disabled(!a.codeActionsEnabled(d.path)).Chosen() {
 			a.codeActionAtPoint(g, d, st, false)
 		}
+		formatDoc, formatRange := a.formatEnabled(d.path)
+		if menu.Item(commandLabel("Format Document")).Disabled(!formatDoc).Shortcut(ui.Shift|ui.Alt, ui.KeyF).Chosen() {
+			a.formatAt(g, d, st, false)
+		}
+		if menu.Item(commandLabel("Format Selection")).Disabled(!formatRange || !hasSelection(st)).Chosen() {
+			a.formatAt(g, d, st, true)
+		}
 		for _, kind := range []string{"implementation", "typeDefinition"} {
 			item := menu.Item(commandLabel(navigationCommand(kind))).Disabled(!a.navigationEnabled(d.path, kind))
 			if kind == "implementation" {

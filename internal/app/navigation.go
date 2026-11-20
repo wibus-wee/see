@@ -88,6 +88,13 @@ func (a *App) commandEnabled(name string) bool {
 		return a.activeEditor() != nil && a.navigationEnabled(a.activePath(), "typeDefinition")
 	case "Peek Definition":
 		return a.activeEditor() != nil && a.navigationEnabled(a.activePath(), "peek")
+	case "Format Document":
+		document, _ := a.formatEnabled(a.activePath())
+		return a.activeEditor() != nil && document
+	case "Format Selection":
+		_, rng := a.formatEnabled(a.activePath())
+		st := a.activeEditor()
+		return st != nil && rng && hasSelection(st)
 	// Commands that only run an editor command or read the editor.
 	case "Find in File", "Replace in File", "Go to Definition",
 		"Next Problem", "Previous Problem", "Go to Line", "Search File Symbols",
