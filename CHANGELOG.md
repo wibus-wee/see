@@ -2,6 +2,23 @@
 
 User-facing changes are grouped by release. Earlier releases are documented on the [Releases page](https://github.com/wibus-wee/see/releases).
 
+## 0.3.2
+
+### Added
+
+- Xcode-style inspector tabs on the right: a segmented strip switches between a File inspector (identity, info, location, text settings, Git status), a History inspector (recent commits touching the file), and Quick Help.
+- Semantic highlighting from the language server, layered over the tokenizer — calls, types and enum members color by meaning where the server supports it.
+- Cmd+click document links: imports, URLs and file references offered by the language server open the file or the browser.
+- Code actions: a lightbulb menu offers the fixes and refactorings a server provides and applies their workspace edits.
+- Rename a symbol across the workspace with F2, previewed through the language server.
+- Format Document and Format Selection through the language server.
+- Expand Selection / Shrink Selection step through the syntax ranges the server reports.
+- Fold ranges come from the language server when it provides them.
+
+### Fixed
+
+- A race in the app scheduler that could drop or reorder posted work.
+
 ## 0.3.1
 
 ### Fixed
