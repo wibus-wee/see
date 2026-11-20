@@ -95,9 +95,10 @@ func (a *App) syncSignature(g *group, d *doc, st *editor.State) {
 		a.askSignature(d, st)
 		return
 	}
-	// Always asks once the caret rests; On Trigger waits for
-	// Control-Shift+Space, so a new call here does nothing yet.
-	if a.cfg.ParameterHelp == "trigger" {
+	// Always asks once the caret rests; On Trigger — the
+	// default — waits for Control-Shift+Space, so a new call
+	// here does nothing yet.
+	if a.cfg.ParameterHelp != "always" {
 		return
 	}
 	a.deferSignature(d, st)

@@ -58,6 +58,7 @@ func signatureHarness(t *testing.T, help *lsp.SignatureHelp) (*harness, *doc) {
 	})
 	h := newHarness(t, root)
 	h.a.cfg.Trust(root)
+	h.a.cfg.ParameterHelp = "always"
 	h.fc.signature = func(context.Context, string, lsp.Position) (*lsp.SignatureHelp, error) {
 		return help, nil
 	}
@@ -175,6 +176,7 @@ func TestSignatureHelpStaleReplyIsDropped(t *testing.T) {
 	})
 	h := newHarness(t, root)
 	h.a.cfg.Trust(root)
+	h.a.cfg.ParameterHelp = "always"
 	h.fc.signature = func(context.Context, string, lsp.Position) (*lsp.SignatureHelp, error) {
 		<-release
 		return signatureHelpResult(), nil
