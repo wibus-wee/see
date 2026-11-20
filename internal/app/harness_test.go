@@ -206,6 +206,9 @@ type fakeClient struct {
 	codeActionsErr error
 	noCommands     bool
 	lastCommand    lsp.Command
+	rename         func(ctx context.Context, uri string, pos lsp.Position, newName string) (*lsp.WorkspaceEdit, error)
+	prepareRename  func(ctx context.Context, uri string, pos lsp.Position) (*lsp.PrepareRenameResult, error)
+	noRename       bool // server without renameProvider
 	log            []string
 	shutdown       bool
 }
@@ -350,6 +353,22 @@ func (f *fakeClient) ExecuteCommand(ctx context.Context, command lsp.Command) er
 }
 
 func (f *fakeClient) HasCallHierarchy() bool { return !f.noCalls }
+
+func (f *fakeClient) HasRename() bool        { return !f.noRename && f.rename != nil }
+func (f *fakeClient) HasPrepareRename() bool { return f.prepareRename != nil }
+
+func (f *fakeClient) PrepareRename(ctx context.Context, uri string, pos lsp.Position) (*lsp.PrepareRenameResult, error) {
+	f.record("prepareRename")
+	if f.prepareRename == nil {
+		return nil, lsp.ErrNoRename
+	}
+	return f.prepareRename(ctx, uri, pos)
+}
+
+func (f *fakeClient) Rename(ctx context.Context, uri string, pos lsp.Position, newName string) (*lsp.WorkspaceEdit, error) {
+	f.record("rename " + newName)
+	return f.rename(ctx, uri, pos, newName)
+}
 
 func (f *fakeClient) PrepareCallHierarchy(ctx context.Context, uri string, pos lsp.Position) ([]lsp.CallItem, error) {
 	f.record("prepareCallHierarchy")

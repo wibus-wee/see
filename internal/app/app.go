@@ -143,6 +143,9 @@ type App struct {
 	references          referenceList
 	referencesEmpty     bool         // the last pin found no references
 	codeActions         *codeActions // the code actions a request found, for its menu
+	rename              *renameState // the symbol rename prompt, if open
+	renameSeq           uint64
+	renameCancel        context.CancelFunc
 
 	lsp        *langserver.Server
 	cmakeLSP   *langserver.Server
@@ -513,6 +516,7 @@ func (a *App) openWorkspace(dir string) {
 func (a *App) closeWorkspace() {
 	a.createEntry = nil
 	a.renameEntry = nil
+	a.cancelRename()
 	a.deleteConfirm = nil
 	// Persist the session before throwing its documents away. In particular,
 	// a standalone window may own entries in the shared empty-root session.
@@ -1331,6 +1335,10 @@ func (a *App) newEditor(g *group, d *doc) *editor.State {
 		}
 		if menu.Item(commandLabel("Shrink Selection")).Shortcut(ui.Alt|ui.Shift, ui.KeyDown).Chosen() {
 			a.shrinkSelection()
+		}
+		renameItem := menu.Item(commandLabel("Rename Symbol")).Disabled(!a.renameEnabled(d.path)).Shortcut(0, ui.KeyF2)
+		if renameItem.Chosen() {
+			a.renameSymbolAt(g, d, st)
 		}
 	}
 	st.OnHover = func(r editor.HoverRequest) { a.hoverAt(d, st, r) }

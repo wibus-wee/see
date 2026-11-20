@@ -79,6 +79,9 @@ func (a *App) commandEnabled(name string) bool {
 	case "Edit All in Scope":
 		d, st := a.scopeEditDocument()
 		return d != nil && st != nil && a.serverFor(d.path) != nil
+	case "Rename Symbol":
+		d, st := a.renameDocument()
+		return d != nil && st != nil && a.renameEnabled(d.path)
 	case "Go to Implementation":
 		return a.activeEditor() != nil && a.navigationEnabled(a.activePath(), "implementation")
 	case "Go to Type Definition":

@@ -7592,6 +7592,66 @@ func (msgs Messages) CommandShrinkSelection() string {
 	return Catalog.Format(msgs.locale, "commandShrinkSelection", nil)
 }
 
+// CommandRenameSymbol says "Rename Symbol"
+// in the language the app shows.
+func CommandRenameSymbol() string { return In(i18n.Locale()).CommandRenameSymbol() }
+
+// CommandRenameSymbol says "Rename Symbol"
+// in the language of msgs.
+func (msgs Messages) CommandRenameSymbol() string {
+	return Catalog.Format(msgs.locale, "commandRenameSymbol", nil)
+}
+
+// RenameSymbol says "Rename"
+// in the language the app shows.
+func RenameSymbol() string { return In(i18n.Locale()).RenameSymbol() }
+
+// RenameSymbol says "Rename"
+// in the language of msgs.
+func (msgs Messages) RenameSymbol() string {
+	return Catalog.Format(msgs.locale, "renameSymbol", nil)
+}
+
+// RenamePreparing says "Preparing rename…"
+// in the language the app shows.
+func RenamePreparing() string { return In(i18n.Locale()).RenamePreparing() }
+
+// RenamePreparing says "Preparing rename…"
+// in the language of msgs.
+func (msgs Messages) RenamePreparing() string {
+	return Catalog.Format(msgs.locale, "renamePreparing", nil)
+}
+
+// RenameUnsupported says "The language server does not support rename."
+// in the language the app shows.
+func RenameUnsupported() string { return In(i18n.Locale()).RenameUnsupported() }
+
+// RenameUnsupported says "The language server does not support rename."
+// in the language of msgs.
+func (msgs Messages) RenameUnsupported() string {
+	return Catalog.Format(msgs.locale, "renameUnsupported", nil)
+}
+
+// RenameNone says "Nothing to rename here."
+// in the language the app shows.
+func RenameNone() string { return In(i18n.Locale()).RenameNone() }
+
+// RenameNone says "Nothing to rename here."
+// in the language of msgs.
+func (msgs Messages) RenameNone() string {
+	return Catalog.Format(msgs.locale, "renameNone", nil)
+}
+
+// RenameEmpty says "Enter a name."
+// in the language the app shows.
+func RenameEmpty() string { return In(i18n.Locale()).RenameEmpty() }
+
+// RenameEmpty says "Enter a name."
+// in the language of msgs.
+func (msgs Messages) RenameEmpty() string {
+	return Catalog.Format(msgs.locale, "renameEmpty", nil)
+}
+
 // ScopeEditSourceOnly says "Open an editable source file to edit identifiers in scope."
 // in the language the app shows.
 func ScopeEditSourceOnly() string { return In(i18n.Locale()).ScopeEditSourceOnly() }

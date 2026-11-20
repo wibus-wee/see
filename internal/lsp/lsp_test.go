@@ -269,7 +269,8 @@ func (f *fakeServer) serve() {
 		case "textDocument/implementation", "textDocument/typeDefinition",
 			"textDocument/prepareCallHierarchy",
 			"callHierarchy/incomingCalls", "callHierarchy/outgoingCalls",
-			"textDocument/codeAction", "codeAction/resolve", "workspace/executeCommand":
+			"textDocument/codeAction", "codeAction/resolve", "workspace/executeCommand",
+			"textDocument/prepareRename", "textDocument/rename":
 			reply(f.navigation(m.Method, m.Params))
 		case "shutdown":
 			reply("null")
