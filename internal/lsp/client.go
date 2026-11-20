@@ -64,6 +64,8 @@ type Client struct {
 	hasCommands         bool
 	hasRename           bool
 	hasPrepareRename    bool
+	documentFormat      bool
+	documentRangeFormat bool
 	diagMu              sync.Mutex
 	onDiagnostics       func(string, *int, []Diagnostic)
 	applyEdit           func(*WorkspaceEdit) error
@@ -308,6 +310,14 @@ func (c *Client) Rename(ctx context.Context, uri string, pos Position, newName s
 	return &edit, nil
 }
 
+// HasDocumentFormatting reports whether the server answers
+// textDocument/formatting, for the whole document.
+func (c *Client) HasDocumentFormatting() bool { return c.documentFormat }
+
+// HasDocumentRangeFormatting reports whether the server answers
+// textDocument/rangeFormatting, for a selection's range.
+func (c *Client) HasDocumentRangeFormatting() bool { return c.documentRangeFormat }
+
 // SetApplyEditHandler sets what answers a server's workspace/applyEdit
 // request: it applies the edit and reports failure as the request's
 // error. Until one is set the request is refused, as a client that
@@ -375,8 +385,10 @@ func (c *Client) initialize(ctx context.Context) error {
 					"overlappingTokenSupport": false,
 					"multilineTokenSupport":   false,
 				},
-				"codeAction": map[string]any{"codeActionLiteralSupport": map[string]any{"codeActionKind": map[string]any{"valueSet": []string{"", "quickfix", "refactor", "refactor.extract", "refactor.inline", "refactor.rewrite", "source", "source.organizeImports"}}}, "dataSupport": true, "resolveSupport": map[string]any{"properties": []string{"edit", "command"}}, "dynamicRegistration": false},
-				"rename":     map[string]any{"prepareSupport": true, "dynamicRegistration": false},
+				"codeAction":      map[string]any{"codeActionLiteralSupport": map[string]any{"codeActionKind": map[string]any{"valueSet": []string{"", "quickfix", "refactor", "refactor.extract", "refactor.inline", "refactor.rewrite", "source", "source.organizeImports"}}}, "dataSupport": true, "resolveSupport": map[string]any{"properties": []string{"edit", "command"}}, "dynamicRegistration": false},
+				"rename":          map[string]any{"prepareSupport": true, "dynamicRegistration": false},
+				"formatting":      map[string]any{"dynamicRegistration": false},
+				"rangeFormatting": map[string]any{"dynamicRegistration": false},
 			},
 			"workspace": map[string]any{
 				"workspaceFolders": true,
@@ -414,6 +426,8 @@ func (c *Client) initialize(ctx context.Context) error {
 	c.codeActions, c.hasCodeActions = res.Capabilities.codeActions()
 	c.hasCommands = res.Capabilities.hasExecuteCommand()
 	c.hasRename, c.hasPrepareRename = res.Capabilities.hasRename()
+	c.documentFormat = res.Capabilities.hasDocumentFormatting()
+	c.documentRangeFormat = res.Capabilities.hasDocumentRangeFormatting()
 	c.pullDiagnostics = len(res.Capabilities.DiagnosticProvider) > 0 && string(res.Capabilities.DiagnosticProvider) != "null" && string(res.Capabilities.DiagnosticProvider) != "false"
 	c.foldingRange = res.Capabilities.hasFoldingRange()
 	c.semanticLegend, c.semanticFull, c.semanticRange = res.Capabilities.semanticTokens()
@@ -670,6 +684,33 @@ func (c *Client) ExecuteCommand(ctx context.Context, command Command) error {
 		params["arguments"] = command.Arguments
 	}
 	return c.conn.Call(ctx, "workspace/executeCommand", params, nil)
+}
+
+// DocumentFormatting asks for the edits that format the whole
+// document, as gopls's gofmt pass gives.
+func (c *Client) DocumentFormatting(ctx context.Context, uri string, opts FormattingOptions) ([]TextEdit, error) {
+	return c.formatting(ctx, "textDocument/formatting", uri, nil, opts)
+}
+
+// DocumentRangeFormatting asks for the edits that format r of the
+// document, for the lines a selection covers.
+func (c *Client) DocumentRangeFormatting(ctx context.Context, uri string, r Range, opts FormattingOptions) ([]TextEdit, error) {
+	return c.formatting(ctx, "textDocument/rangeFormatting", uri, &r, opts)
+}
+
+func (c *Client) formatting(ctx context.Context, method, uri string, r *Range, opts FormattingOptions) ([]TextEdit, error) {
+	params := map[string]any{
+		"textDocument": map[string]any{"uri": uri},
+		"options":      opts,
+	}
+	if r != nil {
+		params["range"] = *r
+	}
+	var raw json.RawMessage
+	if err := c.conn.Call(ctx, method, params, &raw); err != nil {
+		return nil, err
+	}
+	return ParseTextEdits(raw)
 }
 
 // References returns locations that refer to a symbol.

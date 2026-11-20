@@ -50,6 +50,7 @@ func editorBindings() []editor.Binding {
 		none(ui.Ctrl, ui.KeyMinus),
 		none(ui.Cmd, ui.KeyF12),
 		none(ui.Alt, ui.KeyF12),
+		none(ui.Shift|ui.Alt, ui.KeyF), // format document; the editor would force-indent
 		none(ui.Ctrl|ui.Shift, ui.KeyMinus),
 		// Expand and shrink selection take Shift+Alt+↑/↓ from the editor's
 		// line duplication, which Ctrl+Shift+←/→ keeps as Select Larger

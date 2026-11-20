@@ -177,6 +177,8 @@ type serverCapabilities struct {
 	ExecuteCommandProvider    json.RawMessage `json:"executeCommandProvider"`
 	SelectionRangeProvider    json.RawMessage `json:"selectionRangeProvider"`
 	RenameProvider            json.RawMessage `json:"renameProvider"`
+	DocumentFormatting        json.RawMessage `json:"documentFormattingProvider"`
+	DocumentRangeFormatting   json.RawMessage `json:"documentRangeFormattingProvider"`
 }
 
 // syncKind reads textDocumentSync, a number or TextDocumentSyncOptions,
@@ -449,6 +451,37 @@ func (s serverCapabilities) hasRename() (rename, prepare bool) {
 		}
 	}
 	return true, false
+}
+
+// FormattingOptions are the indentation settings a formatting request
+// carries, as the file's own indenting does.
+type FormattingOptions struct {
+	TabSize      int  `json:"tabSize"`
+	InsertSpaces bool `json:"insertSpaces"`
+}
+
+func (s serverCapabilities) hasDocumentFormatting() bool {
+	raw := bytes.TrimSpace(s.DocumentFormatting)
+	return len(raw) > 0 && !bytes.Equal(raw, []byte("false")) && !bytes.Equal(raw, []byte("null"))
+}
+
+func (s serverCapabilities) hasDocumentRangeFormatting() bool {
+	raw := bytes.TrimSpace(s.DocumentRangeFormatting)
+	return len(raw) > 0 && !bytes.Equal(raw, []byte("false")) && !bytes.Equal(raw, []byte("null"))
+}
+
+// ParseTextEdits decodes the result of a formatting request: null or a
+// list of TextEdit.
+func ParseTextEdits(raw json.RawMessage) ([]TextEdit, error) {
+	raw = bytes.TrimSpace(raw)
+	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
+		return nil, nil
+	}
+	var edits []TextEdit
+	if err := json.Unmarshal(raw, &edits); err != nil {
+		return nil, fmt.Errorf("lsp: bad text edits: %w", err)
+	}
+	return edits, nil
 }
 
 // Command is a server's named operation with its arguments, run in the

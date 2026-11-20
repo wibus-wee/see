@@ -209,8 +209,43 @@ type fakeClient struct {
 	rename         func(ctx context.Context, uri string, pos lsp.Position, newName string) (*lsp.WorkspaceEdit, error)
 	prepareRename  func(ctx context.Context, uri string, pos lsp.Position) (*lsp.PrepareRenameResult, error)
 	noRename       bool // server without renameProvider
+	format         formatFake
 	log            []string
 	shutdown       bool
+}
+
+// formatFake answers the formatting requests tests give it: a nil
+// document or range field is a server without that capability; a set
+// one records what the request carried and answers its edits.
+type formatFake struct {
+	document *struct {
+		opts  lsp.FormattingOptions
+		edits []lsp.TextEdit
+		err   error
+	}
+	rng *struct {
+		r     lsp.Range
+		opts  lsp.FormattingOptions
+		edits []lsp.TextEdit
+		err   error
+	}
+}
+
+func (f *fakeClient) HasDocumentFormatting() bool      { return f.format.document != nil }
+func (f *fakeClient) HasDocumentRangeFormatting() bool { return f.format.rng != nil }
+func (f *fakeClient) DocumentFormatting(ctx context.Context, uri string, opts lsp.FormattingOptions) ([]lsp.TextEdit, error) {
+	f.record("formatting")
+	f.mu.Lock()
+	f.format.document.opts = opts
+	defer f.mu.Unlock()
+	return f.format.document.edits, f.format.document.err
+}
+func (f *fakeClient) DocumentRangeFormatting(ctx context.Context, uri string, r lsp.Range, opts lsp.FormattingOptions) ([]lsp.TextEdit, error) {
+	f.record("rangeFormatting")
+	f.mu.Lock()
+	f.format.rng.r, f.format.rng.opts = r, opts
+	defer f.mu.Unlock()
+	return f.format.rng.edits, f.format.rng.err
 }
 
 // callFake answers the hierarchy requests tests give it.
