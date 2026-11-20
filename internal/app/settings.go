@@ -720,7 +720,7 @@ func (a *App) editorPane(c *ui.Context) {
 			labeled(c, locales.MsgParameterHelp(), locales.MsgParameterHelpDescription())
 			mode := a.cfg.ParameterHelp
 			if mode == "" {
-				mode = "always"
+				mode = "trigger"
 			}
 			i := map[string]int{"always": 0, "trigger": 1, "off": 2}[mode]
 			if ui.Segmented(c, &i, locales.MsgAlways(), locales.MsgOnTrigger(), locales.MsgOff()).Label(locales.MsgParameterHelp()).Changed() {

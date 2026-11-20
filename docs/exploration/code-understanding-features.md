@@ -502,8 +502,8 @@ parameter the caret is in.
   `commands.go`). Escape dismisses it for that position only. Moving the caret out of the
   call closes it silently.
 - **Settings.** Settings → Editor → **Parameter Help**: Always, On Trigger, Off. Default
-  Always, because a reader did not ask for the call and should not have to ask for its
-  parameters; the setting exists for files that are dense with calls.
+  On Trigger — the strip appears only on Control-Shift+Space, the Xcode stance; Always
+  keeps it for readers who want the signature without asking.
 - **Empty, loading and error states.** Silence is the correct state for every failure
   here: no server, an unsupported server, a slow server that answers after the caret
   moved, or a parse error all produce nothing, never a message. A strip that complains is

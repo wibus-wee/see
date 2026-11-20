@@ -54,7 +54,7 @@ type Config struct {
 	LineNumbers          int                  `json:"editorLineNumbers,omitempty"` // 0 on, 1 relative, 2 off
 	SoftWrap             bool                 `json:"editorSoftWrap,omitempty"`
 	EditorFoldImports    bool                 `json:"editorFoldImports,omitempty"`
-	ParameterHelp        string               `json:"parameterHelp,omitempty"` // "always" (default), "trigger", "off"
+	ParameterHelp        string               `json:"parameterHelp,omitempty"` // "trigger" (default), "always", "off"
 	HideInlineBlame      bool                 `json:"hideInlineGitBlame,omitempty"`
 	HideTypeHints        bool                 `json:"hideTypeHints,omitempty"`
 	HideMinimap          bool                 `json:"hideEditorMinimap,omitempty"`
