@@ -464,6 +464,7 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 		}
 		a.syncSignature(g, d, st)
 		a.signatureStrip(c, bounds, st, d, gutter)
+		a.renameStrip(c, bounds, st, d, gutter)
 		line := d.buf.Line(pos.Line)
 		prefix := strings.ReplaceAll(line[:min(pos.Col, len(line))], "\t", "    ")
 		width, _ := c.MeasureText(0, ui.Span{Text: prefix, Font: st.Font.Family, Size: fontSize})

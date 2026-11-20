@@ -62,6 +62,8 @@ type Client struct {
 	codeActions         codeActionSupport
 	hasCodeActions      bool
 	hasCommands         bool
+	hasRename           bool
+	hasPrepareRename    bool
 	diagMu              sync.Mutex
 	onDiagnostics       func(string, *int, []Diagnostic)
 	applyEdit           func(*WorkspaceEdit) error
@@ -264,6 +266,48 @@ func (c *Client) CodeActionKinds() []string { return c.codeActions.kinds }
 // code action's Command asks for.
 func (c *Client) HasExecuteCommand() bool { return c.hasCommands }
 
+// HasRename reports whether the server renames symbols. HasPrepareRename
+// says whether it answers textDocument/prepareRename first.
+func (c *Client) HasRename() bool        { return c.hasRename }
+func (c *Client) HasPrepareRename() bool { return c.hasPrepareRename }
+
+// ErrNoRename is a prepareRename answer that the position cannot be
+// renamed: a result of null, or a range the request cannot read.
+var ErrNoRename = errors.New("lsp: no rename at position")
+
+// PrepareRename asks whether the symbol at pos can be renamed, and
+// answers the range and placeholder the prompt should use. A null
+// result becomes ErrNoRename; a literal that is not a range or
+// defaultBehavior is one too.
+func (c *Client) PrepareRename(ctx context.Context, uri string, pos Position) (*PrepareRenameResult, error) {
+	var raw json.RawMessage
+	if err := c.conn.Call(ctx, "textDocument/prepareRename", map[string]any{"textDocument": map[string]any{"uri": uri}, "position": pos}, &raw); err != nil {
+		return nil, err
+	}
+	res, err := ParsePrepareRename(raw)
+	if err != nil {
+		return nil, err
+	}
+	if res == nil {
+		return nil, ErrNoRename
+	}
+	return res, nil
+}
+
+// Rename renames the symbol at pos to newName, answering the edits the
+// server wants made. A result of null or an empty edit is a no-op.
+func (c *Client) Rename(ctx context.Context, uri string, pos Position, newName string) (*WorkspaceEdit, error) {
+	var edit WorkspaceEdit
+	if err := c.conn.Call(ctx, "textDocument/rename", map[string]any{
+		"textDocument": map[string]any{"uri": uri},
+		"position":     pos,
+		"newName":      newName,
+	}, &edit); err != nil {
+		return nil, err
+	}
+	return &edit, nil
+}
+
 // SetApplyEditHandler sets what answers a server's workspace/applyEdit
 // request: it applies the edit and reports failure as the request's
 // error. Until one is set the request is refused, as a client that
@@ -332,6 +376,7 @@ func (c *Client) initialize(ctx context.Context) error {
 					"multilineTokenSupport":   false,
 				},
 				"codeAction": map[string]any{"codeActionLiteralSupport": map[string]any{"codeActionKind": map[string]any{"valueSet": []string{"", "quickfix", "refactor", "refactor.extract", "refactor.inline", "refactor.rewrite", "source", "source.organizeImports"}}}, "dataSupport": true, "resolveSupport": map[string]any{"properties": []string{"edit", "command"}}, "dynamicRegistration": false},
+				"rename":     map[string]any{"prepareSupport": true, "dynamicRegistration": false},
 			},
 			"workspace": map[string]any{
 				"workspaceFolders": true,
@@ -368,6 +413,7 @@ func (c *Client) initialize(ctx context.Context) error {
 	c.selectionRanges = res.Capabilities.hasSelectionRanges()
 	c.codeActions, c.hasCodeActions = res.Capabilities.codeActions()
 	c.hasCommands = res.Capabilities.hasExecuteCommand()
+	c.hasRename, c.hasPrepareRename = res.Capabilities.hasRename()
 	c.pullDiagnostics = len(res.Capabilities.DiagnosticProvider) > 0 && string(res.Capabilities.DiagnosticProvider) != "null" && string(res.Capabilities.DiagnosticProvider) != "false"
 	c.foldingRange = res.Capabilities.hasFoldingRange()
 	c.semanticLegend, c.semanticFull, c.semanticRange = res.Capabilities.semanticTokens()

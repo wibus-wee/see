@@ -250,6 +250,9 @@ func (a *App) shortcuts(c *ui.Context) {
 		hasPeek := a.git.peek != nil
 		a.codeActions = nil
 		a.dismissSignature()
+		if a.rename != nil {
+			a.cancelRename()
+		}
 		a.cancelScopeEditRequest()
 		a.choices = nil
 		a.peek = nil

@@ -176,6 +176,7 @@ type serverCapabilities struct {
 	CodeActionProvider        json.RawMessage `json:"codeActionProvider"`
 	ExecuteCommandProvider    json.RawMessage `json:"executeCommandProvider"`
 	SelectionRangeProvider    json.RawMessage `json:"selectionRangeProvider"`
+	RenameProvider            json.RawMessage `json:"renameProvider"`
 }
 
 // syncKind reads textDocumentSync, a number or TextDocumentSyncOptions,
@@ -431,6 +432,25 @@ func (s serverCapabilities) hasExecuteCommand() bool {
 	return len(raw) > 0 && !bytes.Equal(raw, []byte("false")) && !bytes.Equal(raw, []byte("null"))
 }
 
+// hasRename reads renameProvider: a boolean, or a literal whose
+// prepareProvider tells whether the server answers
+// textDocument/prepareRename before textDocument/rename.
+func (s serverCapabilities) hasRename() (rename, prepare bool) {
+	raw := bytes.TrimSpace(s.RenameProvider)
+	if len(raw) == 0 || bytes.Equal(raw, []byte("false")) || bytes.Equal(raw, []byte("null")) {
+		return false, false
+	}
+	if !bytes.Equal(raw, []byte("true")) {
+		var opts struct {
+			PrepareProvider bool `json:"prepareProvider"`
+		}
+		if json.Unmarshal(raw, &opts) == nil {
+			return true, opts.PrepareProvider
+		}
+	}
+	return true, false
+}
+
 // Command is a server's named operation with its arguments, run in the
 // server process: workspace/executeCommand sends it back as it came.
 type Command struct {
@@ -607,6 +627,59 @@ func (a CodeAction) MarshalJSON() ([]byte, error) {
 // codeAction/resolve before it can run: nothing to run yet.
 func (a *CodeAction) NeedsResolve() bool {
 	return a.Edit == nil && a.Command == nil
+}
+
+// PrepareRenameResult is what textDocument/prepareRename answers: a
+// plain Range, a {range, placeholder} literal, or {defaultBehavior}.
+type PrepareRenameResult struct {
+	Range           Range
+	Placeholder     string // the name to seed the prompt with
+	DefaultBehavior bool   // the server wants a rename without validation
+}
+
+// Empty reports whether the result holds no range and no default
+// behavior, as a {placeholder} alone or a null server sent.
+func (r *PrepareRenameResult) Empty() bool {
+	return r == nil || (!r.DefaultBehavior && r.Range == Range{})
+}
+
+// ParsePrepareRename decodes a prepareRename result into
+// PrepareRenameResult. A null or empty result means the position
+// cannot be renamed.
+func ParsePrepareRename(raw json.RawMessage) (*PrepareRenameResult, error) {
+	raw = bytes.TrimSpace(raw)
+	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
+		return nil, nil
+	}
+	var v struct {
+		Range           *Range `json:"range"`
+		Placeholder     string `json:"placeholder"`
+		DefaultBehavior bool   `json:"defaultBehavior"`
+		Start           *struct {
+			Line      int `json:"line"`
+			Character int `json:"character"`
+		} `json:"start"`
+		End *struct {
+			Line      int `json:"line"`
+			Character int `json:"character"`
+		} `json:"end"`
+	}
+	if err := json.Unmarshal(raw, &v); err != nil {
+		return nil, fmt.Errorf("lsp: bad prepareRename result: %w", err)
+	}
+	switch {
+	case v.Range != nil:
+		return &PrepareRenameResult{Range: *v.Range, Placeholder: v.Placeholder}, nil
+	case v.Start != nil && v.End != nil:
+		r := Range{
+			Start: Position{Line: v.Start.Line, Character: v.Start.Character},
+			End:   Position{Line: v.End.Line, Character: v.End.Character},
+		}
+		return &PrepareRenameResult{Range: r}, nil
+	case v.DefaultBehavior:
+		return &PrepareRenameResult{DefaultBehavior: true}, nil
+	}
+	return nil, nil
 }
 
 // ParseHover decodes a Hover result into Markdown: its contents are

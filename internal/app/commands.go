@@ -154,6 +154,7 @@ func commandsFor(goos string) []command {
 		command{"Go to Implementation", "Cmd+", "F12", ui.Cmd, ui.KeyF12, func(a *App) { a.navigateActive("implementation") }},
 		command{"Go to Type Definition", "", "", 0, 0, func(a *App) { a.navigateActive("typeDefinition") }},
 		command{"Show Code Actions", "Cmd+", ".", ui.Cmd, ui.KeyPeriod, func(a *App) { a.showCodeActions() }},
+		command{"Rename Symbol", "", "F2", 0, ui.KeyF2, func(a *App) { a.renameSymbol() }},
 		command{"Edit All in Scope", scopeLabel, scopeKeyName, scopeMods, scopeKey, func(a *App) { a.editAllInScope() }},
 		command{"Expand Selection", "Shift+Alt+", "↑", ui.Shift | ui.Alt, ui.KeyUp, func(a *App) { a.expandSelection() }},
 		command{"Shrink Selection", "Shift+Alt+", "↓", ui.Shift | ui.Alt, ui.KeyDown, func(a *App) { a.shrinkSelection() }},

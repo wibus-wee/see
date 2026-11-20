@@ -106,6 +106,7 @@ var commandMessages = map[string]string{
 	"Go to Implementation":  "commandGoToImplementation",
 	"Go to Type Definition": "commandGoToTypeDefinition",
 	"Show Code Actions":     "commandShowCodeActions",
+	"Rename Symbol":         "commandRenameSymbol",
 	"Edit All in Scope":     "commandEditAllInScope",
 	"Expand Selection":      "commandExpandSelection",
 	"Shrink Selection":      "commandShrinkSelection",
