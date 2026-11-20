@@ -18,6 +18,7 @@ type Config struct {
 	SidebarWidth         float32              `json:"sidebarWidth,omitempty"`
 	QuickHelpInspector   bool                 `json:"quickHelpInspector,omitempty"` // the inspector beside the editors
 	QuickHelpWidth       float32              `json:"quickHelpWidth,omitempty"`     // its width; 0 is the default
+	InspectorTab         string               `json:"inspectorTab,omitempty"`       // its page: "quickhelp" (default), "file", or "history"
 	Appearance           string               `json:"appearance,omitempty"`         // "light", "dark", or "" for the system's
 	Language             string               `json:"language,omitempty"`           // "system", or a language tag
 	Vibrancy             bool                 `json:"vibrancy,omitempty"`           // the window's material under the wash

@@ -52,6 +52,11 @@ type quickHelpInspector struct {
 	hasPending bool
 	timer      *time.Timer
 	scroll     ui.ScrollState
+	// tab is the strip's selected page; fileScroll and history are the
+	// other pages' state.
+	tab        int
+	fileScroll ui.ScrollState
+	history    inspectorFileHistory
 }
 
 // inspectorSubject identifies a symbol request and its answer.
@@ -271,29 +276,45 @@ func (a *App) refreshInspector() {
 func (a *App) inspectorView(c *ui.Context) {
 	in := &a.inspector
 	ui.Column(c).Fill().Background(colors(c).Sidebar).BorderWidth(0, 0, 0, 1).BorderColor(colors(c).Separator).Children(func() {
-		a.inspectorHeader(c)
-		if in.loading {
-			ui.Box(c).FillWidth().Height(1).Background(c.Theme().Accent).Shrink(0)
+		a.inspectorTabs(c)
+		switch a.inspectorTab() {
+		case "file":
+			a.inspectorFilePage(c)
+		case "history":
+			a.inspectorHistoryPage(c)
+		default:
+			a.inspectorHeader(c)
+			if in.loading {
+				ui.Box(c).FillWidth().Height(1).Background(c.Theme().Accent).Shrink(0)
+			}
+			a.inspectorBody(c)
 		}
-		a.inspectorBody(c)
 	})
 }
 
-// inspectorHeader is the pane's top: the symbol's name and kind, and
-// the pin and refresh of its following.
+// inspectorHeader is the pane's top: the symbol's name and kind, as
+// Xcode's inspector shows them over the content, and the pin and
+// refresh of its following.
 func (a *App) inspectorHeader(c *ui.Context) {
 	in := &a.inspector
-	ui.Row(c).FillWidth().Height(34).Padding(0, 6, 0, 12).Gap(4).AlignItems(ui.Center).
+	ui.Row(c).FillWidth().Height(44).Padding(0, 6, 0, 12).Gap(8).AlignItems(ui.Center).
 		BorderWidth(0, 0, 1, 0).BorderColor(colors(c).Separator).Children(func() {
 		name := in.subject.name
-		if !in.hasSubject || name == "" {
+		has := in.hasSubject && name != ""
+		if !has {
 			name = inspectorText("inspectorNoSymbol")
 		}
-		kind, color := symbolKind(c, inspectorSymbolKind(a))
-		ui.Box(c).Width(17).Height(17).Radius(4).Shrink(0).Background(color.Alpha(0.16)).Center().Children(func() {
-			ui.Text(c, kind).FontSize(9).Bold().TextColor(color).SingleLine()
+		kind := inspectorSymbolKind(a)
+		letter, color := symbolKind(c, kind)
+		ui.Box(c).Width(20).Height(20).Radius(5).Shrink(0).Background(color.Alpha(0.16)).Center().Children(func() {
+			ui.Text(c, letter).FontSize(10).Bold().TextColor(color).SingleLine()
 		})
-		ui.Text(c, name).FontSize(12).FontWeight(600).SingleLine().Shrink(1)
+		ui.Column(c).Shrink(1).Gap(1).Children(func() {
+			ui.Text(c, name).FontSize(12).FontWeight(600).SingleLine().Ellipsis("…")
+			if has {
+				ui.Text(c, outlineKindName(kind)).FontSize(10).TextColor(colors(c).Muted).SingleLine()
+			}
+		})
 		if in.hasResult && in.subject.doc != nil && in.subject.doc.buf != nil && in.subject.doc.buf.Version() != in.subject.version {
 			ui.Text(c, inspectorText("inspectorStale")).FontSize(11).TextColor(colors(c).Muted).SingleLine()
 		}
@@ -330,79 +351,114 @@ func inspectorSymbolKind(a *App) int {
 // reasons they are empty, then the source row and the actions.
 func (a *App) inspectorBody(c *ui.Context) {
 	in := &a.inspector
-	ui.Scroll(c).Grow(1).FillWidth().TrackScroll(&in.scroll).Label(inspectorText("inspectorPane")).Children(func() {
-		ui.Column(c).FillWidth().Padding(4).Gap(12).Children(func() {
-			switch {
-			case !a.cfg.IsTrusted(a.root):
-				ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Center).Children(func() {
-					ui.Text(c, locales.TrustBanner(filepath.Base(a.root))).FontSize(12).TextColor(colors(c).Muted).FillWidth().Shrink(1)
-					ui.Button(c, locales.TrustFolder()).OnClick(a.trust)
-				})
-			case !in.hasSubject:
-				a.inspectorNote(c, inspectorText("inspectorEmpty"))
-			case in.hasResult && strings.TrimSpace(in.markdown) == "" && in.declared == nil:
-				a.inspectorNote(c, inspectorText("inspectorNoDoc"))
-			case in.hasResult:
-				a.inspectorContent(c)
-			default:
-				if in.err != nil {
-					a.inspectorNote(c, in.err.Error())
-				} else {
-					a.inspectorNote(c, inspectorText("inspectorNoDoc"))
-				}
-			}
-			if in.err != nil && in.hasResult {
-				ui.Text(c, in.err.Error()).FontSize(12).TextColor(colors(c).Muted).FillWidth()
-			}
+	switch {
+	case !a.cfg.IsTrusted(a.root):
+		ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Center).Padding(8, 12).Children(func() {
+			ui.Text(c, locales.TrustBanner(filepath.Base(a.root))).FontSize(12).TextColor(colors(c).Muted).FillWidth().Shrink(1)
+			ui.Button(c, locales.TrustFolder()).OnClick(a.trust)
 		})
+	case !in.hasSubject:
+		a.inspectorEmpty(c, inspectorText("inspectorEmpty"))
+	case !in.hasResult && in.err != nil:
+		a.inspectorEmpty(c, in.err.Error())
+	case !in.hasResult && in.loading:
+		ui.Column(c).Grow(1).FillWidth().Center().Children(func() { ui.Spinner(c) })
+	case !in.hasResult:
+		a.inspectorEmpty(c, inspectorText("inspectorNoDoc"))
+	default:
+		ui.Scroll(c).Grow(1).FillWidth().TrackScroll(&in.scroll).Label(inspectorText("inspectorPane")).Children(func() {
+			a.inspectorContent(c)
+		})
+	}
+}
+
+// inspectorEmpty is the pane's placeholder, centered as Xcode draws its
+// "No Quick Help" state: a dim icon over a muted explanation.
+func (a *App) inspectorEmpty(c *ui.Context, text string) {
+	ui.Column(c).FillWidth().Grow(1).Center().Padding(0, 20).Gap(8).Children(func() {
+		symbolIcon(c, icDocQuestion, 32, colors(c).Dim)
+		ui.Text(c, text).FontSize(12).TextColor(colors(c).Muted).TextAlign(ui.Center).FillWidth()
 	})
 }
 
-// inspectorNote is a muted line the pane shows instead of a symbol.
-func (a *App) inspectorNote(c *ui.Context, text string) {
-	ui.Text(c, text).FontSize(12).TextColor(colors(c).Muted).FillWidth()
-}
-
-// inspectorContent draws the subject's sections: summary, declaration,
-// discussion, then the source row and actions, reusing the popover's
-// split and the declaration's fenced block.
+// inspectorContent draws the subject's sections: declaration, summary,
+// discussion, then the Declared In card and the Related actions,
+// reusing the popover's split and the declaration's fenced block.
 func (a *App) inspectorContent(c *ui.Context) {
 	in := &a.inspector
 	sections := splitQuickHelp(in.markdown)
-	render := func(label, body string) {
-		if body == "" {
-			return
+	ui.Column(c).FillWidth().Padding(6).Gap(14).Children(func() {
+		render := func(label, body string) {
+			if body == "" {
+				return
+			}
+			ui.Column(c).FillWidth().Gap(5).Children(func() {
+				ui.Text(c, quickHelpText(label)).FontSize(12).FontWeight(600).TextColor(colors(c).Muted).SingleLine()
+				markdown.View(c, body, &markdown.Options{OnLink: a.openDocLink})
+			})
 		}
-		ui.Column(c).FillWidth().Gap(5).Children(func() {
-			ui.Text(c, quickHelpText(label)).FontSize(12).FontWeight(600).TextColor(colors(c).Muted).SingleLine()
-			markdown.View(c, body, &markdown.Options{OnLink: a.openDocLink})
-		})
-	}
-	render("quickHelpSummary", sections.summary)
-	if sections.declaration != "" {
-		markdown.View(c, sections.declaration, &markdown.Options{
-			CodeBlock: func(c *ui.Context, b *markdown.CodeBlockView) {
-				th := markdown.DefaultTheme(c.Theme())
-				ui.Column(c).FillWidth().Gap(4).Children(func() {
-					ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(8).Children(func() {
-						ui.Text(c, quickHelpText("quickHelpDeclaration")).FontSize(12).
-							FontWeight(600).TextColor(colors(c).Muted).SingleLine()
-						ui.Spacer(c)
-						b.CopyButton(c)
+		if strings.TrimSpace(in.markdown) == "" && in.declared == nil {
+			if in.err != nil {
+				ui.Text(c, in.err.Error()).FontSize(12).TextColor(colors(c).Muted).FillWidth()
+			} else {
+				ui.Text(c, inspectorText("inspectorNoDoc")).FontSize(12).TextColor(colors(c).Muted).FillWidth()
+			}
+		}
+		if in.err != nil && strings.TrimSpace(in.markdown) != "" {
+			ui.Text(c, in.err.Error()).FontSize(12).TextColor(colors(c).Muted).FillWidth()
+		}
+		render("quickHelpSummary", sections.summary)
+		if sections.declaration != "" {
+			markdown.View(c, sections.declaration, &markdown.Options{
+				CodeBlock: func(c *ui.Context, b *markdown.CodeBlockView) {
+					th := markdown.DefaultTheme(c.Theme())
+					ui.Column(c).FillWidth().Gap(4).Children(func() {
+						ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(8).Children(func() {
+							ui.Text(c, quickHelpText("quickHelpDeclaration")).FontSize(12).
+								FontWeight(600).TextColor(colors(c).Muted).SingleLine()
+							ui.Spacer(c)
+							b.CopyButton(c)
+						})
+						ui.Column(c).FillWidth().Background(th.CodeBlockBackground).
+							Border(1, th.CodeBlockBorder).Radius(th.CodeBlockRadius).Clip().Children(func() {
+							b.Body(c)
+						})
 					})
-					ui.Column(c).FillWidth().Background(th.CodeBlockBackground).
-						Border(1, th.CodeBlockBorder).Radius(th.CodeBlockRadius).Clip().Children(func() {
-						b.Body(c)
-					})
-				})
-			},
+				},
+			})
+		}
+		render("quickHelpDiscussion", sections.discussion)
+		if in.declared != nil {
+			a.inspectorSourceRow(c)
+		}
+		a.inspectorDocButton(c)
+		a.inspectorActions(c)
+	})
+}
+
+// inspectorDocButton is the pane's way into the library's full
+// documentation, as Xcode's "Open in Developer Documentation" button:
+// the first web address of the doc comment, when one is there.
+func (a *App) inspectorDocButton(c *ui.Context) {
+	u := docURL.FindString(a.inspector.markdown)
+	if u == "" {
+		return
+	}
+	inspectorSection(c, inspectorText("inspectorDocs"), func() {
+		row := ui.ButtonBase(c).Label(inspectorText("inspectorOpenDocs")).Tooltip(u).FillWidth().Padding(7, 10)
+		if row.Hovered() {
+			row.Background(colors(c).Pill)
+		}
+		row.Children(func() {
+			ui.Row(c).FillWidth().Gap(9).AlignItems(ui.Center).Children(func() {
+				symbolIcon(c, icExternal, 13, colors(c).Muted)
+				ui.Text(c, inspectorText("inspectorOpenDocs")).FontSize(12).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
+				ui.Box(c).Grow(1)
+				symbolIcon(c, icChevron, 9, colors(c).Dim)
+			})
 		})
-	}
-	render("quickHelpDiscussion", sections.discussion)
-	if in.declared != nil {
-		a.inspectorSourceRow(c)
-	}
-	a.inspectorActions(c)
+		row.OnClick(func() { a.openDocLink(u) })
+	})
 }
 
 // openDocLink opens the http and https links of a doc comment in the
@@ -414,8 +470,18 @@ func (a *App) openDocLink(dest string) {
 	}
 }
 
+// inspectorSection is a labeled group of the pane, as Xcode's
+// "Summary" and "Declared In" blocks: a muted title over a card.
+func inspectorSection(c *ui.Context, label string, children func()) {
+	ui.Column(c).FillWidth().Gap(5).Children(func() {
+		ui.Text(c, label).FontSize(12).FontWeight(600).TextColor(colors(c).Muted).SingleLine()
+		ui.Column(c).FillWidth().Background(colors(c).Card).Border(1, colors(c).Separator).Radius(8).Clip().Children(children)
+	})
+}
+
 // inspectorSourceRow is `path:line` where the symbol is declared, which
-// opens the file there, as the popover's Declared In row.
+// opens the file there, as the popover's Declared In row; a card row
+// with the file's icon and a chevron, as Xcode's link rows.
 func (a *App) inspectorSourceRow(c *ui.Context) {
 	in := &a.inspector
 	t := in.declared
@@ -426,42 +492,66 @@ func (a *App) inspectorSourceRow(c *ui.Context) {
 		path = filepath.Base(path)
 	}
 	line := fmt.Sprintf("%s:%d", filepath.ToSlash(path), t.pos.Line+1)
-	ui.Column(c).FillWidth().Gap(5).Children(func() {
-		ui.Text(c, quickHelpText("quickHelpDeclaredIn")).FontSize(12).FontWeight(600).TextColor(colors(c).Muted).SingleLine()
-		ui.Row(c).FillWidth().Cursor(ui.CursorPointer).Tooltip(t.path).OnClick(func() {
+	inspectorSection(c, quickHelpText("quickHelpDeclaredIn"), func() {
+		row := ui.ButtonBase(c).Label(line).Tooltip(t.path).FillWidth().Padding(7, 10)
+		if row.Hovered() {
+			row.Background(colors(c).Pill)
+		}
+		row.Children(func() {
+			ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Center).Children(func() {
+				fileIcon(c, filepath.Base(t.path), 15)
+				ui.Text(c, line).FontSize(12).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(1)
+				symbolIcon(c, icChevron, 9, colors(c).Dim)
+			})
+		})
+		row.OnClick(func() {
 			if g := a.focus; g != nil {
 				from := nav.Entry{Path: in.subject.path}
 				a.jump(g, from, *t, in.enc)
 			}
-		}).Children(func() {
-			ui.Text(c, line).FontSize(12).TextColor(c.Theme().Accent).SingleLine()
 		})
 	})
 }
 
-// inspectorActions are the row's hands-off: the symbol goes to the
-// views for callers, references and implementations rather than to a
-// competing list of its own.
+// inspectorActions are the pane's Related section: the symbol goes to
+// the views for callers, references and implementations rather than to
+// a competing list of its own. Each is a card row, as Xcode's related
+// items, with an icon and a chevron.
 func (a *App) inspectorActions(c *ui.Context) {
 	in := &a.inspector
 	if in.subject.doc == nil {
 		return
 	}
-	ui.Row(c).FillWidth().Gap(4).Padding(4, 0).Children(func() {
-		for _, act := range []struct {
-			label string
-			kind  string
-		}{
-			{inspectorText("inspectorCallers"), "callers"},
-			{inspectorText("inspectorReferences"), "references"},
-			{inspectorText("inspectorImplementations"), "implementation"},
-		} {
+	acts := []struct {
+		icon  *ui.SVG
+		label string
+		kind  string
+	}{
+		{icCallers, inspectorText("inspectorCallers"), "callers"},
+		{icChain, inspectorText("inspectorReferences"), "references"},
+		{icLayers, inspectorText("inspectorImplementations"), "implementation"},
+	}
+	inspectorSection(c, locales.MsgRelatedItems(), func() {
+		for i, act := range acts {
 			act := act
-			ui.ButtonBase(c).Label(act.label).Tooltip(act.label).Padding(4, 6).Radius(4).Shrink(0).Children(func() {
-				ui.Text(c, act.label).FontSize(11).TextColor(c.Theme().Accent).SingleLine()
-			}).OnClick(func() {
-				a.inspectorAction(act.kind)
+			if i > 0 {
+				ui.Row(c).FillWidth().Padding(0, 0, 0, 32).Children(func() {
+					ui.Box(c).FillWidth().Height(1).Background(colors(c).Hairline)
+				})
+			}
+			row := ui.ButtonBase(c).Label(act.label).Tooltip(act.label).FillWidth().Padding(7, 10)
+			if row.Hovered() {
+				row.Background(colors(c).Pill)
+			}
+			row.Children(func() {
+				ui.Row(c).FillWidth().Gap(9).AlignItems(ui.Center).Children(func() {
+					symbolIcon(c, act.icon, 13, colors(c).Muted)
+					ui.Text(c, act.label).FontSize(12).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
+					ui.Box(c).Grow(1)
+					symbolIcon(c, icChevron, 9, colors(c).Dim)
+				})
 			})
+			row.OnClick(func() { a.inspectorAction(act.kind) })
 		}
 	})
 }
