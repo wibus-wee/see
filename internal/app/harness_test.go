@@ -196,6 +196,7 @@ type fakeClient struct {
 	hover          func(ctx context.Context, uri string, pos lsp.Position) (string, *lsp.Range, error)
 	inlayHints     func(ctx context.Context, uri string, r lsp.Range) ([]lsp.InlayHint, error)
 	documentLinks  func(ctx context.Context, uri string) ([]lsp.DocumentLink, error)
+	foldingRanges  func(ctx context.Context, uri string) ([]lsp.FoldingRange, error)
 	signature      func(ctx context.Context, uri string, pos lsp.Position) (*lsp.SignatureHelp, error) // nil: no signature help
 	semanticTokens func(ctx context.Context, uri string, first, last int) (*lsp.SemanticTokensData, error)
 	semanticTypes  []string // the legend fake answers, when semanticTokens is set
@@ -307,6 +308,14 @@ func (f *fakeClient) DocumentLinks(ctx context.Context, uri string) ([]lsp.Docum
 func (f *fakeClient) DocumentLinkResolve(ctx context.Context, link *lsp.DocumentLink) (*lsp.DocumentLink, error) {
 	f.record("documentLink/resolve")
 	return link, nil
+}
+func (f *fakeClient) HasFoldingRange() bool { return f.foldingRanges != nil }
+func (f *fakeClient) FoldingRanges(ctx context.Context, uri string) ([]lsp.FoldingRange, error) {
+	f.record("foldingRange")
+	if f.foldingRanges == nil {
+		return nil, nil
+	}
+	return f.foldingRanges(ctx, uri)
 }
 func (f *fakeClient) HasSignatureHelp() bool { return f.signature != nil }
 func (f *fakeClient) SignatureHelp(ctx context.Context, uri string, pos lsp.Position) (*lsp.SignatureHelp, error) {

@@ -313,6 +313,7 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 		a.syncBlame(d)
 		a.syncInlayHints(d, st)
 		a.syncDocumentLinks(d, st)
+		a.syncFoldingRanges(d, st)
 		a.linkBackgrounds(st, d)
 		st.SetInlays(a.editorInlays(d, st))
 		backgrounds := st.LineBackgrounds
