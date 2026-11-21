@@ -47,12 +47,8 @@ func TestFormatDocumentAppliesEdits(t *testing.T) {
 	h.tt.Frame()
 	h.a.formatDocument()
 	h.settle(func() bool {
-		for _, s := range h.fc.calls() {
-			if s == "formatting" {
-				return true
-			}
-		}
-		return false
+		snap := d.buf.Snapshot()
+		return snap.Line(3) == "\tx := 1" && snap.Line(4) == "\t_ = x"
 	})
 	// The request carried the file's FormattingOptions: Go indents with
 	// tabs of 4.

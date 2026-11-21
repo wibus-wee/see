@@ -564,6 +564,46 @@ func (msgs Messages) TypeHintsDescription() string {
 	return Catalog.Format(msgs.locale, "typeHintsDescription", nil)
 }
 
+// ColorPreviewButton says "Preview color %s"
+// in the language the app shows.
+func ColorPreviewButton() string { return In(i18n.Locale()).ColorPreviewButton() }
+
+// ColorPreviewButton says "Preview color %s"
+// in the language of msgs.
+func (msgs Messages) ColorPreviewButton() string {
+	return Catalog.Format(msgs.locale, "colorPreviewButton", nil)
+}
+
+// ColorPreviewClose says "Close color preview"
+// in the language the app shows.
+func ColorPreviewClose() string { return In(i18n.Locale()).ColorPreviewClose() }
+
+// ColorPreviewClose says "Close color preview"
+// in the language of msgs.
+func (msgs Messages) ColorPreviewClose() string {
+	return Catalog.Format(msgs.locale, "colorPreviewClose", nil)
+}
+
+// ColorPreviewDark says "Dark"
+// in the language the app shows.
+func ColorPreviewDark() string { return In(i18n.Locale()).ColorPreviewDark() }
+
+// ColorPreviewDark says "Dark"
+// in the language of msgs.
+func (msgs Messages) ColorPreviewDark() string {
+	return Catalog.Format(msgs.locale, "colorPreviewDark", nil)
+}
+
+// ColorPreviewLight says "Light"
+// in the language the app shows.
+func ColorPreviewLight() string { return In(i18n.Locale()).ColorPreviewLight() }
+
+// ColorPreviewLight says "Light"
+// in the language of msgs.
+func (msgs Messages) ColorPreviewLight() string {
+	return Catalog.Format(msgs.locale, "colorPreviewLight", nil)
+}
+
 // BlameUncommitted says "You • Uncommitted changes"
 // in the language the app shows.
 func BlameUncommitted() string { return In(i18n.Locale()).BlameUncommitted() }

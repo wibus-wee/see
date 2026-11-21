@@ -25,6 +25,7 @@ type group struct {
 	cycle           []string     // the Ctrl+Tab walk left to do: tabs by recency, active first
 	cycleMod        ui.Modifiers // the modifier the walk began under; letting it go lands the walk
 	cycleActive     bool         // Ctrl+Tab is walking cycle: activating does not touch mru
+	colorPreview    *colorPreviewState
 	preview         string
 	eds             map[string]*editor.State
 	minimaps        map[string]*minimap
@@ -233,6 +234,12 @@ func (g *group) addTab(path string, at int) {
 func (a *App) activateIn(g *group, path string) {
 	if !g.has(path) {
 		return
+	}
+	if a.focus != nil && a.focus != g {
+		a.focus.dismissColorPreview()
+	}
+	if g.active != path {
+		g.dismissColorPreview()
 	}
 	if g.cycleActive && !slices.Contains(g.cycle, path) {
 		a.endTabCycle() // something else activated: the walk is over
@@ -443,6 +450,9 @@ func (a *App) closeTab(g *group, path string) {
 		return
 	}
 	docPath := tabPath(path)
+	if g.colorPreview != nil && (g.colorPreview.path == docPath || g.active == path) {
+		g.dismissColorPreview()
+	}
 	if isDiffTab(path) {
 		delete(g.diffs, path)
 	}
