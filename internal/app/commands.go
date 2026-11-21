@@ -70,6 +70,7 @@ func commandsFor(goos string) []command {
 		}},
 		{"Git: Show Log", "", "", 0, 0, func(a *App) { a.openGitLog() }},
 		{"Show File History", "", "", 0, 0, func(a *App) { a.showActiveFileHistory() }},
+		{"Show Local History", "", "", 0, 0, func(a *App) { a.showActiveLocalHistory() }},
 		{"Git: Reveal HEAD in Log", "", "", 0, 0, func(a *App) { a.revealLogRef("HEAD") }},
 		{"Git: Jump to Date…", "", "", 0, 0, func(a *App) { a.openJumpToDate() }},
 		{"Show Line's Commit in Git Log", "", "", 0, 0, func(a *App) { a.revealLineCommit() }},

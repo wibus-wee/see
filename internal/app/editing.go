@@ -498,6 +498,7 @@ func (a *App) saveDoc(d *doc, overwrite bool) bool {
 	d.seq++ // an older asynchronous read must not replace the saved text
 	d.loading = false
 	d.buf.MarkSaved()
+	a.captureCurrentLocalHistory(d)
 	a.removeRecovery(d)
 	d.diskText = string(out.Bytes())
 	if d.bom {

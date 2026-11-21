@@ -510,6 +510,7 @@ func (a *App) releaseIfUnused(path string) {
 	if d == nil {
 		return
 	}
+	a.captureCurrentLocalHistory(d)
 	delete(a.docs, path)
 	if a.root == "" && !d.untitled {
 		releaseStandalonePathIfIdle(a, d, path)
