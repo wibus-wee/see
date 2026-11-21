@@ -24,18 +24,19 @@ const branchPreviewDebounce = 140 * time.Millisecond
 // remote ones, with a field that filters them and makes a new one.
 
 type branchPicker struct {
-	open     bool
-	query    string
-	sel      int
-	list     ui.ListState
-	branches []git.Branch
-	loading  bool
-	err      string
-	seq      uint64
-	at       ui.Rect // the button it hangs from
-	anchor   ui.Rect // the toolbar's branch, as last drawn
-	compare  bool
-	target   *group
+	open         bool
+	query        string
+	appliedQuery string
+	sel          int
+	list         ui.ListState
+	branches     []git.Branch
+	loading      bool
+	err          string
+	seq          uint64
+	at           ui.Rect // the button it hangs from
+	anchor       ui.Rect // the toolbar's branch, as last drawn
+	compare      bool
+	target       *group
 
 	previewTarget    string
 	previewBranch    git.Branch
@@ -81,7 +82,7 @@ func (a *App) openBranchPicker(at ui.Rect) {
 	p := &a.git.picker
 	a.clearBranchPreview()
 	a.clearBranchHover()
-	p.open, p.query, p.sel, p.err, p.loading, p.at = true, "", 0, "", true, at
+	p.open, p.query, p.appliedQuery, p.sel, p.err, p.loading, p.at = true, "", "", 0, "", true, at
 	p.compare, p.target = false, nil
 	p.list.Selected = &p.sel
 	p.seq++
@@ -464,6 +465,10 @@ func (a *App) branchPickerPanel(c *ui.Context) {
 					FontSize(13).Grow(1).AutoFocus().Background(ui.Transparent).BorderWidth(0)
 				switch {
 				case in.Changed():
+					if p.query == p.appliedQuery {
+						break
+					}
+					p.appliedQuery = p.query
 					filtered := a.branchItems()
 					p.sel = firstChoosable(filtered)
 					if p.sel < len(filtered) {
