@@ -74,14 +74,17 @@ func TestBranchPickerHoverPreviewShowsOpenFileChangesWithoutSwitching(t *testing
 	if p.previewErr != "" {
 		t.Fatal(p.previewErr)
 	}
-	if got := git.Head(context.Background(), root); got != head || h.a.git.branch != "main" {
-		t.Fatalf("hover switched branches: branch %q, HEAD %q (want %q)", h.a.git.branch, got, head)
+	preview := p.preview
+	previewFiles := append([]branchPreviewFile(nil), p.previewFiles...)
+	previewOpenCount := p.previewOpenCount
+	if preview == nil {
+		t.Fatalf("preview disappeared after settling: target %q, loading %v", p.previewTarget, p.previewLoading)
 	}
-	if p.preview.TargetRef != "refs/heads/feature" || p.previewOpenCount != 4 || len(p.previewFiles) != 3 {
-		t.Fatalf("preview target/open files = %q/%d/%d: %+v", p.preview.TargetRef, p.previewOpenCount, len(p.previewFiles), p.previewFiles)
+	if preview.TargetRef != "refs/heads/feature" || previewOpenCount != 4 || len(previewFiles) != 3 {
+		t.Fatalf("preview target/open files = %q/%d/%d: %+v", preview.TargetRef, previewOpenCount, len(previewFiles), previewFiles)
 	}
 	paths := map[string]branchPreviewFile{}
-	for _, file := range p.previewFiles {
+	for _, file := range previewFiles {
 		paths[file.Path] = file
 	}
 	if file, ok := paths["sub/modified.go"]; !ok || !file.unsaved || file.Status != 'M' {
@@ -101,6 +104,9 @@ func TestBranchPickerHoverPreviewShowsOpenFileChangesWithoutSwitching(t *testing
 	}
 	if !h.tt.HasText(branchPreviewText("gitBranchPreviewBasis")) || !h.tt.HasText(branchPreviewText("gitBranchPreviewDirtyWarning")) || !h.tt.HasText(branchPreviewText("gitBranchPreviewUnsaved")) {
 		t.Fatalf("preview contents do not describe the committed comparison and unsaved document: %v", h.tt.Texts())
+	}
+	if got := git.Head(context.Background(), root); got != head || h.a.git.branch != "main" {
+		t.Fatalf("hover switched branches: branch %q, HEAD %q (want %q)", h.a.git.branch, got, head)
 	}
 }
 
