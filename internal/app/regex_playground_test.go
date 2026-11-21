@@ -1,0 +1,251 @@
+package app
+
+import (
+	"image/png"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/egoist/mygo/ui"
+
+	"see/locales"
+)
+
+func TestRegexPlaygroundPaletteEditAndEscape(t *testing.T) {
+	source := "package main\nimport \"regexp\"\nvar re = regexp.MustCompile(`(?P<word>\\p{L}+)`)\n"
+	h := newHarness(t, writeTree(t, map[string]string{"a.go": source}))
+	d := h.open("a.go")
+	group := h.a.focus
+	st := group.eds[d.path]
+	st.GoTo(st.Buffer.Pos(strings.Index(source, `\p{L}`) + 2))
+	h.a.openPalette()
+	h.tt.Frame()
+	if err := h.tt.Click(commandLabel("Test Regex")); err != nil {
+		t.Fatalf("click Test Regex: %v; visible=%v", err, h.tt.Texts())
+	}
+	h.tt.Frame()
+	p := h.a.regexPlayground
+	if p == nil || p.pattern != `(?P<word>\p{L}+)` {
+		t.Fatalf("playground pattern = %v", p)
+	}
+	if !h.tt.HasText(locales.RegexEngineBadge()) || !h.tt.HasText(locales.RegexEngineNote()) {
+		t.Fatalf("engine disclosure missing: %v", h.tt.Texts())
+	}
+	h.tt.Type("focused")
+	h.tt.Frame()
+	if p.sample.Buffer.String() != "focused" {
+		t.Fatalf("opening did not focus the sample editor: %q", p.sample.Buffer.String())
+	}
+	if err := h.tt.Click(locales.RegexPattern()); err != nil {
+		t.Fatalf("click pattern: %v", err)
+	}
+	h.tt.Key(ui.Cmd, ui.KeyA)
+	h.tt.Type(`(?P<word>\p{L}+)([0-9]+)?`)
+	h.tt.Frame()
+	if err := h.tt.Click(locales.RegexSample()); err != nil {
+		t.Fatalf("click sample: %v", err)
+	}
+	h.tt.Key(ui.Cmd, ui.KeyA)
+	h.tt.Type("café42 tea")
+	h.tt.Frame()
+	if p.pattern != `(?P<word>\p{L}+)([0-9]+)?` || p.sample.Buffer.String() != "café42 tea" {
+		t.Fatalf("inputs: pattern=%q sample=%q", p.pattern, p.sample.Buffer.String())
+	}
+	if len(p.result.Matches) != 2 || len(p.result.Matches[0].Captures) != 3 {
+		t.Fatalf("matches: %+v", p.result)
+	}
+	first, second := p.result.Matches[0], p.result.Matches[1]
+	if first.Start != 0 || first.End != len("café42") || first.Captures[1].Name != "word" || !first.Captures[2].Matched || first.Captures[2].Value != "42" {
+		t.Fatalf("first match: %+v", first)
+	}
+	if second.Start != len("café42 ") || second.End != len("café42 tea") || second.Captures[1].Value != "tea" || second.Captures[2].Matched {
+		t.Fatalf("second match: %+v", second)
+	}
+	if !h.tt.HasText(regexCharacterRange("café42 tea", first.Start, first.End)) || !h.tt.HasText(regexCharacterRange("café42 tea", second.Start, second.End)) {
+		t.Fatalf("character ranges missing from match list: %v", h.tt.Texts())
+	}
+	if len(p.sample.TextBackgrounds) != 2 {
+		t.Fatalf("sample highlights = %d", len(p.sample.TextBackgrounds))
+	}
+	if d.buf.String() != source || len(h.a.dirtyDocs()) != 0 {
+		t.Fatal("opening or editing the playground changed source")
+	}
+	if output := os.Getenv("SEE_REGEX_PLAYGROUND_SCREENSHOT_DIR"); output != "" {
+		saveRegexPlaygroundScreenshot(t, h, filepath.Join(output, "regex-playground-light.png"))
+		h.tt.SetDark(true)
+		h.tt.Frame()
+		saveRegexPlaygroundScreenshot(t, h, filepath.Join(output, "regex-playground-dark.png"))
+	}
+	if err := h.tt.Click(locales.RegexSample()); err != nil {
+		t.Fatalf("click sample for empty state: %v", err)
+	}
+	h.tt.Key(ui.Cmd, ui.KeyA)
+	h.tt.Key(0, ui.KeyBackspace)
+	h.tt.Frame()
+	if !h.tt.HasText(locales.RegexEmptySample()) {
+		t.Fatalf("empty sample state missing: %v", h.tt.Texts())
+	}
+	h.tt.Type("nomatch")
+	if err := h.tt.Click(locales.RegexPattern()); err != nil {
+		t.Fatalf("click pattern for no-match case: %v", err)
+	}
+	h.tt.Key(ui.Cmd, ui.KeyA)
+	h.tt.Type("zzzz")
+	h.tt.Frame()
+	if !h.tt.HasText(locales.RegexNoMatches()) {
+		t.Fatalf("no-match state missing: %v", h.tt.Texts())
+	}
+	if err := h.tt.Click(locales.RegexPattern()); err != nil {
+		t.Fatalf("click pattern for invalid case: %v", err)
+	}
+	h.tt.Key(ui.Cmd, ui.KeyA)
+	h.tt.Type("(")
+	h.tt.Frame()
+	if p.result.Error == "" || !h.tt.HasText(locales.RegexInvalidPattern()) {
+		t.Fatalf("invalid pattern state: %+v; visible=%v", p.result, h.tt.Texts())
+	}
+	h.tt.Key(0, ui.KeyEscape)
+	h.tt.Frame()
+	if h.a.regexPlayground != nil || h.a.focus != group {
+		t.Fatal("Escape did not close the playground")
+	}
+	cursor := st.Cursor()
+	h.tt.Key(0, ui.KeyRight)
+	if st.Cursor() == cursor || d.buf.String() != source {
+		t.Fatal("Escape did not restore focus to the unchanged source editor")
+	}
+}
+
+func TestRegexPlaygroundStaysWithItsDocumentAndGroup(t *testing.T) {
+	h := newHarness(t, writeTree(t, map[string]string{
+		"a.go": "package a\nimport \"regexp\"\nvar re = regexp.MustCompile(`word`)\n",
+		"b.go": "package b\n",
+	}))
+	d := h.open("a.go")
+	g := h.a.focus
+	st := g.eds[d.path]
+	st.GoTo(st.Buffer.Pos(strings.Index(d.buf.String(), "word")))
+	h.a.openRegexPlaygroundFor(g, d, st)
+	h.tt.Frame()
+	p := h.a.regexPlayground
+	if p == nil || !h.tt.HasText(locales.RegexPlaygroundTitle()) {
+		t.Fatal("playground did not open for its source document")
+	}
+	h.open("b.go")
+	if h.tt.HasText(locales.RegexPlaygroundTitle()) {
+		t.Fatal("playground appeared over another tab")
+	}
+	h.a.activateIn(g, d.path)
+	h.tt.Frame()
+	if h.a.regexPlayground != p || !h.tt.HasText(locales.RegexPlaygroundTitle()) {
+		t.Fatal("returning to the source tab did not restore its playground")
+	}
+	h.a.splitActive(sideRight)
+	other := h.a.focus
+	h.tt.Frame()
+	if p.group != g || p.doc != d || other == g || textCount(h.tt.Texts(), locales.RegexPlaygroundTitle()) != 1 {
+		t.Fatal("playground was not isolated to its original group and document")
+	}
+	if d.buf.String() != "package a\nimport \"regexp\"\nvar re = regexp.MustCompile(`word`)\n" || len(h.a.dirtyDocs()) != 0 {
+		t.Fatal("tab or group changes modified source")
+	}
+}
+
+func TestRegexPlaygroundRejectsJavaScriptUnicodePropertyEscapeWithoutU(t *testing.T) {
+	source := "const letters = /\\p{L}/;\n"
+	h := newHarness(t, writeTree(t, map[string]string{"a.js": source}))
+	d := h.open("a.js")
+	st := h.a.focus.eds[d.path]
+	st.GoTo(st.Buffer.Pos(strings.Index(source, `\p{L}`) + 2))
+	h.a.openRegexPlaygroundFor(h.a.focus, d, st)
+	h.tt.Frame()
+	p := h.a.regexPlayground
+	unsupportedLabel := strings.Split(locales.RegexUnsupportedFeatures(), "%s")[0]
+	if p == nil || p.result.Error != "unsupported JavaScript features" || !h.tt.HasText(unsupportedLabel) {
+		t.Fatalf("unsupported JS syntax was not rejected: playground=%+v visible=%v", p, h.tt.Texts())
+	}
+}
+
+func TestRegexPlaygroundContextualAction(t *testing.T) {
+	source := "package main\nimport \"regexp\"\nvar re = regexp.MustCompile(`word`)\n"
+	h := newHarness(t, writeTree(t, map[string]string{"a.go": source}))
+	d := h.open("a.go")
+	st := h.a.focus.eds[d.path]
+	st.GoTo(st.Buffer.Pos(strings.Index(source, "word") + 1))
+	h.tt.Frame()
+	label := commandLabel("Test Regex")
+	if !h.tt.HasText(label) {
+		t.Fatalf("contextual action missing at regex caret: %v", h.tt.Texts())
+	}
+	if err := h.tt.Click(label); err != nil {
+		t.Fatalf("click contextual action: %v", err)
+	}
+	h.tt.Frame()
+	if p := h.a.regexPlayground; p == nil || p.pattern != "word" {
+		t.Fatalf("contextual action opened wrong pattern: %+v", p)
+	}
+}
+
+func TestRegexPlaygroundCopiesLongCaptureAndUsesSingularHeading(t *testing.T) {
+	source := "package main\nimport \"regexp\"\nvar re = regexp.MustCompile(`(?P<long>é+)`)\n"
+	h := newHarness(t, writeTree(t, map[string]string{"a.go": source}))
+	d := h.open("a.go")
+	st := h.a.focus.eds[d.path]
+	st.GoTo(st.Buffer.Pos(strings.Index(source, "é") + 1))
+	h.a.openRegexPlaygroundFor(h.a.focus, d, st)
+	h.tt.Frame()
+	p := h.a.regexPlayground
+	if p == nil {
+		t.Fatal("playground did not open")
+	}
+	sample := strings.Repeat("é", 80)
+	h.tt.Type(sample)
+	h.tt.Frame()
+	if err := h.tt.Click("Copy capture 1"); err != nil {
+		t.Fatalf("click long capture copy: %v; visible=%v", err, h.tt.Texts())
+	}
+	h.tt.Frame()
+	if got := h.tt.Clipboard(); got != sample {
+		t.Fatalf("copied capture = %q, want full %q", got, sample)
+	}
+}
+
+func TestRegexPlaygroundSingularMatchHeading(t *testing.T) {
+	source := "package main\nimport \"regexp\"\nvar re = regexp.MustCompile(`a`)\n"
+	h := newHarness(t, writeTree(t, map[string]string{"a.go": source}))
+	d := h.open("a.go")
+	st := h.a.focus.eds[d.path]
+	st.GoTo(st.Buffer.Pos(strings.LastIndex(source, "`a`") + 1))
+	h.a.openRegexPlaygroundFor(h.a.focus, d, st)
+	h.tt.Frame()
+	h.tt.Type("a")
+	h.tt.Frame()
+	texts := h.tt.Texts()
+	if textCount(texts, "Match 1") != 1 || textCount(texts, "Matches 1") != 0 {
+		t.Fatalf("match detail heading is not singular: %v", texts)
+	}
+}
+
+func textCount(texts []string, want string) int {
+	count := 0
+	for _, text := range texts {
+		if text == want {
+			count++
+		}
+	}
+	return count
+}
+
+func saveRegexPlaygroundScreenshot(t *testing.T, h *harness, path string) {
+	t.Helper()
+	f, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	if err := png.Encode(f, h.tt.Image()); err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("Screenshot: %s", path)
+}
