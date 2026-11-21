@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -114,7 +115,7 @@ func TestTypeHintPreferenceDoesNotControlParameterHints(t *testing.T) {
 	})
 	settleInlays(h, d)
 	st := h.a.activeEditor()
-	h.tt.HoldModifiers(ui.Alt)
+	h.tt.HoldModifiers(parameterHintModifier(runtime.GOOS))
 	h.tt.Frame()
 	if got := h.a.editorInlays(d, st); len(got) != 2 || got[0].Text != ": int" || got[1].Text != "width:" {
 		t.Fatalf("hints while enabled: %+v", got)
@@ -138,24 +139,53 @@ func TestTypeHintPreferenceDoesNotControlParameterHints(t *testing.T) {
 	}
 }
 
-func TestParameterHintsShowOnlyWhileAltHeldWithoutEditingSource(t *testing.T) {
+func TestParameterHintModifierByPlatform(t *testing.T) {
+	for _, tc := range []struct {
+		goos string
+		want ui.Modifiers
+	}{
+		{goos: "darwin", want: ui.Alt},
+		{goos: "linux", want: ui.Ctrl | ui.Alt},
+		{goos: "windows", want: ui.Ctrl | ui.Alt},
+	} {
+		t.Run(tc.goos, func(t *testing.T) {
+			got := parameterHintModifier(tc.goos)
+			if got != tc.want {
+				t.Fatalf("parameter hint modifier for %s = %v, want %v", tc.goos, got, tc.want)
+			}
+			if tc.goos != "darwin" && ui.Alt&got == got {
+				t.Fatalf("plain Alt satisfies parameter hint modifier on %s", tc.goos)
+			}
+		})
+	}
+}
+
+func TestParameterHintsShowOnlyWhilePlatformModifierHeldWithoutEditingSource(t *testing.T) {
 	h, d, st := resizeHintsHarness(t, func(context.Context, string, lsp.Range) ([]lsp.InlayHint, error) {
 		return resizeParameterHints(), nil
 	})
 	settleParameterInlays(h, d)
 	if got := h.a.editorInlays(d, st); len(got) != 0 {
-		t.Fatalf("parameter hints shown before Alt: %+v", got)
+		t.Fatalf("parameter hints shown before modifier: %+v", got)
 	}
-	h.tt.HoldModifiers(ui.Alt)
+	modifier := parameterHintModifier(runtime.GOOS)
+	if modifier != ui.Alt {
+		h.tt.HoldModifiers(ui.Alt)
+		h.tt.Frame()
+		if got := h.a.editorInlays(d, st); len(got) != 0 {
+			t.Fatalf("parameter hints shown with plain Alt on %s: %+v", runtime.GOOS, got)
+		}
+	}
+	h.tt.HoldModifiers(modifier)
 	h.tt.Frame()
 	got := h.a.editorInlays(d, st)
 	if len(got) != 2 || got[0].Text != " width: " || got[1].Text != " height: " {
-		t.Fatalf("parameter hints while Alt held: %+v", got)
+		t.Fatalf("parameter hints while modifier held: %+v", got)
 	}
 	h.tt.HoldModifiers(0)
 	h.tt.Frame()
 	if got := h.a.editorInlays(d, st); len(got) != 0 {
-		t.Fatalf("parameter hints remained after Alt release: %+v", got)
+		t.Fatalf("parameter hints remained after modifier release: %+v", got)
 	}
 	if got := d.buf.String(); got != resizeHintSource || d.buf.Modified() {
 		t.Fatalf("showing hints changed source: modified=%v, text=%q", d.buf.Modified(), got)
@@ -184,7 +214,7 @@ func TestParameterHintsClearUntilChangedBufferReplyArrives(t *testing.T) {
 		}
 	})
 	settleParameterInlays(h, d)
-	h.tt.HoldModifiers(ui.Alt)
+	h.tt.HoldModifiers(parameterHintModifier(runtime.GOOS))
 	h.tt.Frame()
 	if got := h.a.editorInlays(d, st); len(got) != 2 {
 		t.Fatalf("initial parameter hints: %+v", got)
@@ -230,7 +260,7 @@ func TestInlayHintsStaleReplyDropped(t *testing.T) {
 		}
 		return []lsp.InlayHint{{Position: lsp.Position{Line: 5, Character: 4}, Label: "width:", Kind: 2}}, nil
 	})
-	h.tt.HoldModifiers(ui.Alt)
+	h.tt.HoldModifiers(parameterHintModifier(runtime.GOOS))
 	h.tt.Frame()
 	deadline := time.After(5 * time.Second)
 	for {
@@ -262,7 +292,7 @@ func TestParameterHintsDisappearWhenWorkspaceTrustIsRemoved(t *testing.T) {
 		return resizeParameterHints(), nil
 	})
 	settleParameterInlays(h, d)
-	h.tt.HoldModifiers(ui.Alt)
+	h.tt.HoldModifiers(parameterHintModifier(runtime.GOOS))
 	h.tt.Frame()
 	if got := h.a.editorInlays(d, st); len(got) != 2 {
 		t.Fatalf("parameter hints before trust removal: %+v", got)
@@ -291,7 +321,7 @@ func TestParameterHintsUnsupportedEmptyAndErrorsAreSilent(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			h, d, st := resizeHintsHarness(t, tc.hints)
 			settleInlayRequest(h, d)
-			h.tt.HoldModifiers(ui.Alt)
+			h.tt.HoldModifiers(parameterHintModifier(runtime.GOOS))
 			h.tt.Frame()
 			if got := h.a.editorInlays(d, st); len(got) != 0 {
 				t.Fatalf("unsupported hints became visible: %+v", got)

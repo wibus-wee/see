@@ -51,7 +51,7 @@
   "inlineDiagnosticsDescription": "在代码旁显示错误和警告，并以淡色突出显示所在行。",
   "inlineBlameDescription": "在当前行旁显示作者和提交信息。",
   "showTypeHints": "显示类型提示",
-  "typeHintsDescription": "在代码中显示语言服务推断的类型。按住 Option（Windows/Linux 上为 Alt）可显示参数名提示。",
+  "typeHintsDescription": "在代码中显示语言服务推断的类型。按住 Option（macOS）或 Ctrl+Alt（Windows/Linux）可显示参数名提示。",
   "blameUncommitted": "你 • 尚未提交的更改",
   "blameInlineFormat": "%s，%s • %s",
   "blameRevealFailed": "无法定位提交：",

@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"runtime"
 	"strings"
 	"time"
 
@@ -83,12 +84,20 @@ func blameDate(t time.Time) string {
 	return relativeTime(t, time.Now())
 }
 
+func parameterHintModifier(goos string) ui.Modifiers {
+	if goos == "darwin" {
+		return ui.Alt
+	}
+	return ui.Ctrl | ui.Alt
+}
+
 func (a *App) editorInlays(d *doc, st *editor.State) []editor.Inlay {
 	var inlays []editor.Inlay
 	if !a.cfg.HideTypeHints {
 		inlays = append(inlays, d.languageInlays...)
 	}
-	if a.modifiers&ui.Alt != 0 && a.cfg.IsTrusted(a.root) {
+	modifier := parameterHintModifier(runtime.GOOS)
+	if a.modifiers&modifier == modifier && a.cfg.IsTrusted(a.root) {
 		inlays = append(inlays, d.parameterInlays...)
 	}
 	cursorDiagnostic := false
