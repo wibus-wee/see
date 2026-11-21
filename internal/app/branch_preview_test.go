@@ -66,13 +66,23 @@ func TestBranchPickerHoverPreviewShowsOpenFileChangesWithoutSwitching(t *testing
 
 	openSwitchBranchPicker(t, h)
 	hoverBranch(t, h, "feature")
-	h.settle(func() bool {
-		p := &h.a.git.picker
-		return !p.previewLoading && ((p.preview != nil && p.preview.TargetRef == "refs/heads/feature") || p.previewErr != "")
-	})
 	p := &h.a.git.picker
+	for i := 0; i < 3; i++ {
+		h.settle(func() bool {
+			return !p.previewLoading && ((p.preview != nil && p.preview.TargetRef == "refs/heads/feature") || p.previewErr != "")
+		})
+		if p.previewErr != "" {
+			t.Fatal(p.previewErr)
+		}
+		if p.preview != nil && p.preview.TargetRef == "refs/heads/feature" && h.tt.HasText(branchPreviewText("gitBranchPreviewUnsaved")) {
+			break
+		}
+	}
 	if p.previewErr != "" {
 		t.Fatal(p.previewErr)
+	}
+	if p.previewLoading || p.preview == nil || p.preview.TargetRef != "refs/heads/feature" || !h.tt.HasText(branchPreviewText("gitBranchPreviewUnsaved")) {
+		t.Fatalf("preview did not remain settled after rendering: target %q, loading %v", p.previewTarget, p.previewLoading)
 	}
 	preview := p.preview
 	previewFiles := append([]branchPreviewFile(nil), p.previewFiles...)
