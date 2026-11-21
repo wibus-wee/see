@@ -7834,6 +7834,296 @@ func (msgs Messages) CommandShowCallHierarchy() string {
 	return Catalog.Format(msgs.locale, "commandShowCallHierarchy", nil)
 }
 
+// CommandTestRegex says "Test Regex"
+// in the language the app shows.
+func CommandTestRegex() string { return In(i18n.Locale()).CommandTestRegex() }
+
+// CommandTestRegex says "Test Regex"
+// in the language of msgs.
+func (msgs Messages) CommandTestRegex() string {
+	return Catalog.Format(msgs.locale, "commandTestRegex", nil)
+}
+
+// RegexPlaygroundTitle says "Regex Playground"
+// in the language the app shows.
+func RegexPlaygroundTitle() string { return In(i18n.Locale()).RegexPlaygroundTitle() }
+
+// RegexPlaygroundTitle says "Regex Playground"
+// in the language of msgs.
+func (msgs Messages) RegexPlaygroundTitle() string {
+	return Catalog.Format(msgs.locale, "regexPlaygroundTitle", nil)
+}
+
+// RegexPattern says "Pattern"
+// in the language the app shows.
+func RegexPattern() string { return In(i18n.Locale()).RegexPattern() }
+
+// RegexPattern says "Pattern"
+// in the language of msgs.
+func (msgs Messages) RegexPattern() string {
+	return Catalog.Format(msgs.locale, "regexPattern", nil)
+}
+
+// RegexSample says "Sample text"
+// in the language the app shows.
+func RegexSample() string { return In(i18n.Locale()).RegexSample() }
+
+// RegexSample says "Sample text"
+// in the language of msgs.
+func (msgs Messages) RegexSample() string {
+	return Catalog.Format(msgs.locale, "regexSample", nil)
+}
+
+// RegexSamplePlaceholder says "Paste or type sample text…"
+// in the language the app shows.
+func RegexSamplePlaceholder() string { return In(i18n.Locale()).RegexSamplePlaceholder() }
+
+// RegexSamplePlaceholder says "Paste or type sample text…"
+// in the language of msgs.
+func (msgs Messages) RegexSamplePlaceholder() string {
+	return Catalog.Format(msgs.locale, "regexSamplePlaceholder", nil)
+}
+
+// RegexEngineBadge says "Go · RE2"
+// in the language the app shows.
+func RegexEngineBadge() string { return In(i18n.Locale()).RegexEngineBadge() }
+
+// RegexEngineBadge says "Go · RE2"
+// in the language of msgs.
+func (msgs Messages) RegexEngineBadge() string {
+	return Catalog.Format(msgs.locale, "regexEngineBadge", nil)
+}
+
+// RegexEngineNote says "Go RE2 runs the pattern; JavaScript and PCRE semantics are not emulated."
+// in the language the app shows.
+func RegexEngineNote() string { return In(i18n.Locale()).RegexEngineNote() }
+
+// RegexEngineNote says "Go RE2 runs the pattern; JavaScript and PCRE semantics are not emulated."
+// in the language of msgs.
+func (msgs Messages) RegexEngineNote() string {
+	return Catalog.Format(msgs.locale, "regexEngineNote", nil)
+}
+
+// RegexIgnoreCase says "Ignore case (i)"
+// in the language the app shows.
+func RegexIgnoreCase() string { return In(i18n.Locale()).RegexIgnoreCase() }
+
+// RegexIgnoreCase says "Ignore case (i)"
+// in the language of msgs.
+func (msgs Messages) RegexIgnoreCase() string {
+	return Catalog.Format(msgs.locale, "regexIgnoreCase", nil)
+}
+
+// RegexMultiline says "Multiline (m)"
+// in the language the app shows.
+func RegexMultiline() string { return In(i18n.Locale()).RegexMultiline() }
+
+// RegexMultiline says "Multiline (m)"
+// in the language of msgs.
+func (msgs Messages) RegexMultiline() string {
+	return Catalog.Format(msgs.locale, "regexMultiline", nil)
+}
+
+// RegexDotAll says "Dot matches newline (s)"
+// in the language the app shows.
+func RegexDotAll() string { return In(i18n.Locale()).RegexDotAll() }
+
+// RegexDotAll says "Dot matches newline (s)"
+// in the language of msgs.
+func (msgs Messages) RegexDotAll() string {
+	return Catalog.Format(msgs.locale, "regexDotAll", nil)
+}
+
+// RegexMatch says "Match"
+// in the language the app shows.
+func RegexMatch() string { return In(i18n.Locale()).RegexMatch() }
+
+// RegexMatch says "Match"
+// in the language of msgs.
+func (msgs Messages) RegexMatch() string {
+	return Catalog.Format(msgs.locale, "regexMatch", nil)
+}
+
+// RegexMatches says "Matches"
+// in the language the app shows.
+func RegexMatches() string { return In(i18n.Locale()).RegexMatches() }
+
+// RegexMatches says "Matches"
+// in the language of msgs.
+func (msgs Messages) RegexMatches() string {
+	return Catalog.Format(msgs.locale, "regexMatches", nil)
+}
+
+// RegexMatchCount says "%d matches"
+// in the language the app shows.
+func RegexMatchCount() string { return In(i18n.Locale()).RegexMatchCount() }
+
+// RegexMatchCount says "%d matches"
+// in the language of msgs.
+func (msgs Messages) RegexMatchCount() string {
+	return Catalog.Format(msgs.locale, "regexMatchCount", nil)
+}
+
+// RegexNoMatches says "No matches"
+// in the language the app shows.
+func RegexNoMatches() string { return In(i18n.Locale()).RegexNoMatches() }
+
+// RegexNoMatches says "No matches"
+// in the language of msgs.
+func (msgs Messages) RegexNoMatches() string {
+	return Catalog.Format(msgs.locale, "regexNoMatches", nil)
+}
+
+// RegexNoMatchesDetail says "Try a different pattern or sample."
+// in the language the app shows.
+func RegexNoMatchesDetail() string { return In(i18n.Locale()).RegexNoMatchesDetail() }
+
+// RegexNoMatchesDetail says "Try a different pattern or sample."
+// in the language of msgs.
+func (msgs Messages) RegexNoMatchesDetail() string {
+	return Catalog.Format(msgs.locale, "regexNoMatchesDetail", nil)
+}
+
+// RegexEmptySample says "Add sample text to see matches."
+// in the language the app shows.
+func RegexEmptySample() string { return In(i18n.Locale()).RegexEmptySample() }
+
+// RegexEmptySample says "Add sample text to see matches."
+// in the language of msgs.
+func (msgs Messages) RegexEmptySample() string {
+	return Catalog.Format(msgs.locale, "regexEmptySample", nil)
+}
+
+// RegexEnterPattern says "Enter a pattern to see matches."
+// in the language the app shows.
+func RegexEnterPattern() string { return In(i18n.Locale()).RegexEnterPattern() }
+
+// RegexEnterPattern says "Enter a pattern to see matches."
+// in the language of msgs.
+func (msgs Messages) RegexEnterPattern() string {
+	return Catalog.Format(msgs.locale, "regexEnterPattern", nil)
+}
+
+// RegexInvalidPattern says "Invalid pattern"
+// in the language the app shows.
+func RegexInvalidPattern() string { return In(i18n.Locale()).RegexInvalidPattern() }
+
+// RegexInvalidPattern says "Invalid pattern"
+// in the language of msgs.
+func (msgs Messages) RegexInvalidPattern() string {
+	return Catalog.Format(msgs.locale, "regexInvalidPattern", nil)
+}
+
+// RegexUnsupportedFlags says "Unsupported JavaScript flag(s): %s"
+// in the language the app shows.
+func RegexUnsupportedFlags() string { return In(i18n.Locale()).RegexUnsupportedFlags() }
+
+// RegexUnsupportedFlags says "Unsupported JavaScript flag(s): %s"
+// in the language of msgs.
+func (msgs Messages) RegexUnsupportedFlags() string {
+	return Catalog.Format(msgs.locale, "regexUnsupportedFlags", nil)
+}
+
+// RegexUnsupportedFeatures says "Unsupported JavaScript feature(s): %s"
+// in the language the app shows.
+func RegexUnsupportedFeatures() string { return In(i18n.Locale()).RegexUnsupportedFeatures() }
+
+// RegexUnsupportedFeatures says "Unsupported JavaScript feature(s): %s"
+// in the language of msgs.
+func (msgs Messages) RegexUnsupportedFeatures() string {
+	return Catalog.Format(msgs.locale, "regexUnsupportedFeatures", nil)
+}
+
+// RegexPatternTooLarge says "Pattern is too large (limit: %d bytes)."
+// in the language the app shows.
+func RegexPatternTooLarge() string { return In(i18n.Locale()).RegexPatternTooLarge() }
+
+// RegexPatternTooLarge says "Pattern is too large (limit: %d bytes)."
+// in the language of msgs.
+func (msgs Messages) RegexPatternTooLarge() string {
+	return Catalog.Format(msgs.locale, "regexPatternTooLarge", nil)
+}
+
+// RegexSampleTooLarge says "Sample is too large (limit: %d bytes)."
+// in the language the app shows.
+func RegexSampleTooLarge() string { return In(i18n.Locale()).RegexSampleTooLarge() }
+
+// RegexSampleTooLarge says "Sample is too large (limit: %d bytes)."
+// in the language of msgs.
+func (msgs Messages) RegexSampleTooLarge() string {
+	return Catalog.Format(msgs.locale, "regexSampleTooLarge", nil)
+}
+
+// RegexMatchesLimited says "Showing the first %d matches."
+// in the language the app shows.
+func RegexMatchesLimited() string { return In(i18n.Locale()).RegexMatchesLimited() }
+
+// RegexMatchesLimited says "Showing the first %d matches."
+// in the language of msgs.
+func (msgs Messages) RegexMatchesLimited() string {
+	return Catalog.Format(msgs.locale, "regexMatchesLimited", nil)
+}
+
+// RegexCharacterRange says "chars %d–%d"
+// in the language the app shows.
+func RegexCharacterRange() string { return In(i18n.Locale()).RegexCharacterRange() }
+
+// RegexCharacterRange says "chars %d–%d"
+// in the language of msgs.
+func (msgs Messages) RegexCharacterRange() string {
+	return Catalog.Format(msgs.locale, "regexCharacterRange", nil)
+}
+
+// RegexRangeNote says "Character ranges are 0-based and end-exclusive."
+// in the language the app shows.
+func RegexRangeNote() string { return In(i18n.Locale()).RegexRangeNote() }
+
+// RegexRangeNote says "Character ranges are 0-based and end-exclusive."
+// in the language of msgs.
+func (msgs Messages) RegexRangeNote() string {
+	return Catalog.Format(msgs.locale, "regexRangeNote", nil)
+}
+
+// RegexCaptures says "Captures"
+// in the language the app shows.
+func RegexCaptures() string { return In(i18n.Locale()).RegexCaptures() }
+
+// RegexCaptures says "Captures"
+// in the language of msgs.
+func (msgs Messages) RegexCaptures() string {
+	return Catalog.Format(msgs.locale, "regexCaptures", nil)
+}
+
+// RegexCopyCapture says "Copy capture %d"
+// in the language the app shows.
+func RegexCopyCapture() string { return In(i18n.Locale()).RegexCopyCapture() }
+
+// RegexCopyCapture says "Copy capture %d"
+// in the language of msgs.
+func (msgs Messages) RegexCopyCapture() string {
+	return Catalog.Format(msgs.locale, "regexCopyCapture", nil)
+}
+
+// RegexUnmatched says "Unmatched"
+// in the language the app shows.
+func RegexUnmatched() string { return In(i18n.Locale()).RegexUnmatched() }
+
+// RegexUnmatched says "Unmatched"
+// in the language of msgs.
+func (msgs Messages) RegexUnmatched() string {
+	return Catalog.Format(msgs.locale, "regexUnmatched", nil)
+}
+
+// RegexEmptyCapture says "Empty match"
+// in the language the app shows.
+func RegexEmptyCapture() string { return In(i18n.Locale()).RegexEmptyCapture() }
+
+// RegexEmptyCapture says "Empty match"
+// in the language of msgs.
+func (msgs Messages) RegexEmptyCapture() string {
+	return Catalog.Format(msgs.locale, "regexEmptyCapture", nil)
+}
+
 // CallHierarchy says "Call Hierarchy"
 // in the language the app shows.
 func CallHierarchy() string { return In(i18n.Locale()).CallHierarchy() }
