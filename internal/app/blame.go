@@ -84,7 +84,13 @@ func blameDate(t time.Time) string {
 }
 
 func (a *App) editorInlays(d *doc, st *editor.State) []editor.Inlay {
-	inlays := append([]editor.Inlay(nil), d.languageInlays...)
+	var inlays []editor.Inlay
+	if !a.cfg.HideTypeHints {
+		inlays = append(inlays, d.languageInlays...)
+	}
+	if a.modifiers&ui.Alt != 0 && a.cfg.IsTrusted(a.root) {
+		inlays = append(inlays, d.parameterInlays...)
+	}
 	cursorDiagnostic := false
 	for _, diagnostic := range a.inlineDiagnostics(d) {
 		line := diagnostic.line

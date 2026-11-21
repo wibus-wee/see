@@ -51,7 +51,7 @@
   "inlineDiagnosticsDescription": "Show errors and warnings beside code with a subtle line tint.",
   "inlineBlameDescription": "Show the author and commit beside the current line.",
   "showTypeHints": "Show type hints",
-  "typeHintsDescription": "Show inferred types and parameter names inside code, as the language server reports them.",
+  "typeHintsDescription": "Show inferred types inside code. Hold Option (Alt on Windows/Linux) to reveal parameter-name hints.",
   "blameUncommitted": "You • Uncommitted changes",
   "blameInlineFormat": "%s, %s • %s",
   "blameRevealFailed": "Could not reveal commit: ",
