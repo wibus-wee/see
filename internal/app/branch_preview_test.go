@@ -155,6 +155,76 @@ func TestBranchPickerKeyboardSelectionUpdatesPreview(t *testing.T) {
 	}
 }
 
+func TestBranchPickerHoverKeepsRowBoundsStableWhilePreviewLoads(t *testing.T) {
+	root := gitRepo(t, map[string]string{"a.go": "package a\n"}, "feature")
+	gitRun(t, root, "switch", "-q", "feature")
+	for _, name := range []string{"one.go", "two.go", "three.go"} {
+		writeFile(t, root, name, "package feature\n")
+		gitRun(t, root, "add", "--", name)
+		gitRun(t, root, "commit", "-qm", "add "+name)
+	}
+	gitRun(t, root, "switch", "-q", "main")
+
+	for _, size := range []struct {
+		name          string
+		width, height int
+	}{
+		{name: "wide", width: 1100, height: 700},
+		{name: "stacked", width: 620, height: 700},
+	} {
+		t.Run(size.name, func(t *testing.T) {
+			h := newHarness(t, root)
+			h.tt = ui.NewTester(h.a.view, size.width, size.height)
+			h.readGit()
+			openSwitchBranchPicker(t, h)
+
+			p := &h.a.git.picker
+			h.settle(func() bool {
+				return !p.previewLoading && (p.preview != nil || p.previewErr != "")
+			})
+			if p.previewErr != "" {
+				t.Fatal(p.previewErr)
+			}
+			before, ok := h.tt.Find("feature")
+			if !ok {
+				t.Fatal("feature branch is not shown")
+			}
+			x, y := before.X+before.W/2, before.Y+before.H/2
+			h.tt.Move(x, y)
+			loading, ok := h.tt.Find("feature")
+			if !ok || loading != before {
+				t.Fatalf("branch row moved when preview began loading: before %+v, loading %+v, found %v", before, loading, ok)
+			}
+			if !p.previewLoading || p.previewBranch.Name != "feature" {
+				t.Fatalf("hover did not start feature preview: branch %q, loading %v", p.previewBranch.Name, p.previewLoading)
+			}
+
+			h.settle(func() bool {
+				return !p.previewLoading && (p.preview != nil && p.preview.TargetRef == "refs/heads/feature" || p.previewErr != "")
+			})
+			if p.previewErr != "" {
+				t.Fatal(p.previewErr)
+			}
+			if p.preview == nil || len(p.preview.Commits) != 3 {
+				t.Fatalf("feature preview is incomplete: %+v", p.preview)
+			}
+			for i := 0; i < 3; i++ {
+				h.tt.Frame()
+				got, found := h.tt.Find("feature")
+				if !found || got != before {
+					t.Fatalf("branch row moved after preview frame %d: before %+v, got %+v, found %v", i+1, before, got, found)
+				}
+				if x < got.X || x > got.X+got.W || y < got.Y || y > got.Y+got.H {
+					t.Fatalf("stationary pointer left branch row at frame %d: pointer %g,%g, row %+v", i+1, x, y, got)
+				}
+				if p.previewLoading || p.preview == nil || p.preview.TargetRef != "refs/heads/feature" {
+					t.Fatalf("preview changed after frame %d: target %q loading %v", i+1, p.previewTarget, p.previewLoading)
+				}
+			}
+		})
+	}
+}
+
 func TestBranchPickerKeyboardSelectionWinsOverStationaryHover(t *testing.T) {
 	root := gitRepo(t, map[string]string{"a.go": "package a\n"}, "feature")
 	h := newHarness(t, root)

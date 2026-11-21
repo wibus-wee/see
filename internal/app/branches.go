@@ -465,7 +465,12 @@ func (a *App) branchPickerPanel(c *ui.Context) {
 				bottom = h - bounds.Y - bounds.H
 			}
 		}
-		panel := ui.Column(c).Absolute().Left(left).Width(width).MaxHeight(height)
+		panel := ui.Column(c).Absolute().Left(left).Width(width)
+		if p.compare {
+			panel.MaxHeight(height)
+		} else {
+			panel.Height(height)
+		}
 		if opensAbove {
 			panel.Bottom(bottom)
 		} else {
@@ -513,14 +518,15 @@ func (a *App) branchPickerPanel(c *ui.Context) {
 				contentHeight := max(0, height-74)
 				listHeight := min(float32(250), contentHeight*0.45)
 				previewHeight := max(0, contentHeight-listHeight-8)
-				a.branchPickerList(c, items, listHeight).Height(listHeight).FillWidth()
+				a.branchPickerList(c, items, listHeight).Height(listHeight).MinHeight(0).FillWidth()
 				ui.Box(c).Height(1).FillWidth().Background(colors(c).Separator)
-				a.branchPreviewPane(c).Height(previewHeight).FillWidth()
+				a.branchPreviewPane(c).Height(previewHeight).MinHeight(0).FillWidth()
 			} else {
-				ui.Row(c).FillWidth().Grow(1).Gap(8).Children(func() {
-					a.branchPickerList(c, items, min(float32(380), height-64)).Grow(1).Width(350)
+				listHeight := min(float32(380), max(0, height-64))
+				ui.Row(c).FillWidth().Grow(1).MinHeight(0).Gap(8).Children(func() {
+					a.branchPickerList(c, items, listHeight).Grow(1).Width(350).FillHeight().MaxHeight(listHeight).MinHeight(0)
 					ui.Box(c).Width(1).FillHeight().Background(colors(c).Separator)
-					a.branchPreviewPane(c).Grow(1).MinWidth(0)
+					a.branchPreviewPane(c).Grow(1).MinWidth(0).FillHeight().MinHeight(0)
 				})
 			}
 		})
@@ -552,7 +558,7 @@ func (a *App) branchPickerList(c *ui.Context, items []branchItem, maxHeight floa
 
 func (a *App) branchPreviewPane(c *ui.Context) ui.Element {
 	p := &a.git.picker
-	pane := ui.Column(c.Key("branch-preview-pane")).FillWidth().MinWidth(0).Padding(8, 10).Gap(8)
+	pane := ui.Column(c.Key("branch-preview-pane")).FillWidth().MinWidth(0).MinHeight(0).Padding(8, 10).Gap(8)
 	pane.Children(func() {
 		ui.Row(c).FillWidth().Gap(6).AlignItems(ui.Center).Children(func() {
 			ui.Text(c, p.previewBranch.Name).FontSize(14).Bold().SingleLine().Ellipsis("…").MinWidth(0).Shrink(1).Tooltip(p.previewBranch.Name)
@@ -568,7 +574,7 @@ func (a *App) branchPreviewPane(c *ui.Context) ui.Element {
 		ui.Text(c, branchPreviewText("gitBranchPreviewDirtyWarning")).FontSize(10).TextColor(colors(c).Muted).
 			SingleLine().Ellipsis("…").Tooltip(branchPreviewText("gitBranchPreviewDirtyWarning"))
 		ui.Box(c).Height(1).FillWidth().Background(colors(c).Separator)
-		ui.Scroll(c.Key("branch-preview-scroll")).Grow(1).FillWidth().Children(func() {
+		ui.Scroll(c.Key("branch-preview-scroll")).Grow(1).MinHeight(0).FillWidth().Children(func() {
 			switch {
 			case p.previewLoading:
 				ui.Row(c).Padding(8, 2).Gap(8).AlignItems(ui.Center).Children(func() {
