@@ -154,6 +154,7 @@ func (a *App) regexPlaygroundView(c *ui.Context, bounds ui.Rect, st *editor.Stat
 					ui.Checkbox(c, &p.flags.Multiline, locales.RegexMultiline())
 					ui.Checkbox(c, &p.flags.DotAll, locales.RegexDotAll())
 				})
+				p.refresh(colors(c).Match)
 				ui.Row(c).Grow(1).FillWidth().Gap(0).BorderWidth(1, 0, 0, 0).BorderColor(colors(c).Separator).Children(func() {
 					ui.Column(c).Grow(11).Fill().Padding(10, 12, 12).Children(func() {
 						ui.Text(c, locales.RegexSample()+":").FontSize(11).TextColor(colors(c).Muted).Padding(0, 0, 6)
@@ -166,7 +167,6 @@ func (a *App) regexPlaygroundView(c *ui.Context, bounds ui.Rect, st *editor.Stat
 							a.focusEditor = nil
 						}
 					})
-					p.refresh(colors(c).Match)
 					ui.Column(c).Grow(9).Fill().Padding(10, 12, 12).BorderWidth(0, 0, 0, 1).BorderColor(colors(c).Separator).Children(func() {
 						a.regexPlaygroundResults(c, p)
 					})

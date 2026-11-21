@@ -12,6 +12,75 @@ import (
 	"see/locales"
 )
 
+func TestRegexPlaygroundHighlightsOnFirstSettledPaste(t *testing.T) {
+	source := "package main\nimport \"regexp\"\nvar re = regexp.MustCompile(`(?P<word>\\p{L}+)([0-9]+)?`)\n"
+	h := newHarness(t, writeTree(t, map[string]string{"a.go": source}))
+	d := h.open("a.go")
+	st := h.a.activeEditor()
+	st.GoTo(st.Buffer.Pos(strings.Index(source, `\p{L}`) + 2))
+	h.a.openRegexPlaygroundFor(h.a.focus, d, st)
+	h.tt.Frame()
+	h.tt.Type("café42 tea")
+	p := h.a.regexPlayground
+	if p == nil || len(p.result.Matches) != 2 {
+		t.Fatalf("first paste matches: %+v", p)
+	}
+	if !h.tt.HasText(locales.RegexMatch()+" 1") || !h.tt.HasText(locales.RegexCaptures()) {
+		t.Fatalf("first paste results are not visible: %v", h.tt.Texts())
+	}
+	firstFrame := regexPlaygroundSamplePixels(t, h)
+
+	p.pattern = "("
+	p.patternVersion++
+	h.tt.Frame()
+	h.tt.Frame()
+	if p.result.Error == "" {
+		t.Fatal("invalid pattern did not clear the sample highlights")
+	}
+	withoutHighlights := regexPlaygroundSamplePixels(t, h)
+	if sameRegexPlaygroundPixels(firstFrame, withoutHighlights) {
+		t.Fatal("first settled paste did not render match highlights")
+	}
+}
+
+func regexPlaygroundSamplePixels(t *testing.T, h *harness) []uint32 {
+	t.Helper()
+	bounds, ok := h.tt.Find(locales.RegexSample())
+	if !ok {
+		t.Fatal("sample editor not found")
+	}
+	img := h.tt.Image()
+	sx := float64(img.Bounds().Dx()) / harnessWidth
+	sy := float64(img.Bounds().Dy()) / harnessHeight
+	x0 := max(img.Bounds().Min.X, int(float64(bounds.X)*sx))
+	y0 := max(img.Bounds().Min.Y, int(float64(bounds.Y)*sy))
+	x1 := min(img.Bounds().Max.X, int(float64(bounds.X+bounds.W)*sx))
+	y1 := min(img.Bounds().Max.Y, int(float64(bounds.Y+bounds.H)*sy))
+	if x0 >= x1 || y0 >= y1 {
+		t.Fatalf("sample editor has empty image bounds: %+v", bounds)
+	}
+	pixels := make([]uint32, 0, (x1-x0)*(y1-y0))
+	for y := y0; y < y1; y++ {
+		for x := x0; x < x1; x++ {
+			c := img.RGBAAt(x, y)
+			pixels = append(pixels, uint32(c.R)<<24|uint32(c.G)<<16|uint32(c.B)<<8|uint32(c.A))
+		}
+	}
+	return pixels
+}
+
+func sameRegexPlaygroundPixels(a, b []uint32) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func TestRegexPlaygroundPaletteEditAndEscape(t *testing.T) {
 	source := "package main\nimport \"regexp\"\nvar re = regexp.MustCompile(`(?P<word>\\p{L}+)`)\n"
 	h := newHarness(t, writeTree(t, map[string]string{"a.go": source}))
