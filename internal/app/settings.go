@@ -769,11 +769,6 @@ func (a *App) editorPane(c *ui.Context) {
 			enabled := !a.cfg.HideTypeHints
 			ui.Switch(c, &enabled).Label(logText("showTypeHints")).OnClick(func() {
 				a.cfg.HideTypeHints = !enabled
-				if a.cfg.HideTypeHints {
-					for _, d := range a.docs {
-						a.clearInlayHints(d)
-					}
-				}
 				a.settingsChanged()
 			})
 		},
