@@ -1,7 +1,9 @@
 package app
 
 import (
+	"image/color"
 	"image/png"
+	"math"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -450,6 +452,8 @@ func userLabel(user User) string {
 	if !h.tt.Focused(previewLabel) || h.tt.Focused(listLabel) {
 		t.Fatalf("preview/list focus = %v/%v, want preview-focused state", h.tt.Focused(previewLabel), h.tt.Focused(listLabel))
 	}
+	lineCountLabel := locales.Catalog.Format(i18n.Locale(), "localHistoryLines", map[string]any{"lines": localHistoryLineCount(historical)})
+	assertLocalHistorySelectionContrast(t, h, timestampLabel, lineCountLabel, "preview focused")
 	saveLocalHistoryScreenshot(t, os.Getenv("SEE_LOCAL_HISTORY_SCREENSHOT"), h)
 	if err := h.tt.Click(timestampLabel); err != nil {
 		t.Fatal(err)
@@ -460,6 +464,7 @@ func userLabel(user User) string {
 	if !h.tt.Focused(listLabel) || h.tt.Focused(previewLabel) {
 		t.Fatalf("preview/list focus = %v/%v, want list-focused state", h.tt.Focused(previewLabel), h.tt.Focused(listLabel))
 	}
+	assertLocalHistorySelectionContrast(t, h, timestampLabel, lineCountLabel, "list focused")
 	saveLocalHistoryScreenshot(t, os.Getenv("SEE_LOCAL_HISTORY_LIST_SCREENSHOT"), h)
 	button := locales.Catalog.Format(i18n.Locale(), "localHistoryInsertAtLine", map[string]any{"line": destLine})
 	if !h.tt.HasText(button) {
@@ -505,6 +510,64 @@ func saveLocalHistoryScreenshot(t *testing.T, path string, h *harness) {
 	if err := file.Close(); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func assertLocalHistorySelectionContrast(t *testing.T, h *harness, timestampLabel, lineCountLabel, state string) {
+	t.Helper()
+	timestampContrast := localHistoryRenderedTextContrast(t, h, timestampLabel)
+	lineCountContrast := localHistoryRenderedTextContrast(t, h, lineCountLabel)
+	t.Logf("%s selected-row contrast: timestamp %.2f:1, line count %.2f:1", state, timestampContrast, lineCountContrast)
+}
+
+func localHistoryRenderedTextContrast(t *testing.T, h *harness, label string) float64 {
+	t.Helper()
+	box, ok := h.tt.Find(label)
+	if !ok {
+		t.Fatalf("rendered text %q not found", label)
+	}
+	img := h.tt.Image()
+	x0, y0 := int(box.X), int(box.Y)
+	x1, y1 := int(math.Ceil(float64(box.X+box.W))), int(math.Ceil(float64(box.Y+box.H)))
+	backgroundX := x0 - 3
+	backgroundY := y0 + (y1-y0)/2
+	if backgroundX < 0 || backgroundY < 0 || backgroundX >= img.Bounds().Dx() || backgroundY >= img.Bounds().Dy() {
+		t.Fatalf("rendered text %q has invalid box %+v", label, box)
+	}
+	background := img.RGBAAt(backgroundX, backgroundY)
+	best, readablePixels := 0.0, 0
+	for y := y0; y < y1; y++ {
+		for x := x0; x < x1; x++ {
+			ratio := localHistoryPixelContrast(img.RGBAAt(x, y), background)
+			if ratio > best {
+				best = ratio
+			}
+			if ratio >= 4.5 {
+				readablePixels++
+			}
+		}
+	}
+	if best < 4.5 || readablePixels < 5 {
+		t.Fatalf("rendered text %q contrast %.2f:1 across %d pixels against %v, want at least 4.5:1", label, best, readablePixels, background)
+	}
+	return best
+}
+
+func localHistoryPixelContrast(a, b color.RGBA) float64 {
+	luminance := func(c color.RGBA) float64 {
+		channel := func(v uint8) float64 {
+			s := float64(v) / 255
+			if s <= 0.04045 {
+				return s / 12.92
+			}
+			return math.Pow((s+0.055)/1.055, 2.4)
+		}
+		return 0.2126*channel(c.R) + 0.7152*channel(c.G) + 0.0722*channel(c.B)
+	}
+	la, lb := luminance(a), luminance(b)
+	if la < lb {
+		la, lb = lb, la
+	}
+	return (la + 0.05) / (lb + 0.05)
 }
 
 func openLocalHistoryForTest(t *testing.T, h *harness, d *doc) {

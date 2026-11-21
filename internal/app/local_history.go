@@ -379,14 +379,12 @@ func (a *App) localHistoryVersions(c *ui.Context, p *localHistoryPanel) {
 			list.Rows(func(item ui.ListRow) {
 				snap := p.snapshots[item.Index]
 				row := ui.Column(item.Context.Key(snap.ID)).FillWidth().Padding(10).Gap(4).Radius(8)
-				selected := item.Selected()
-				lineColor := colors(c).Muted
-				if selected {
-					row.Background(colors(c).SelectedRow)
-					lineColor = colors(c).Text
+				titleColor, lineColor := colors(c).Text, colors(c).Muted
+				if item.Selected() {
+					titleColor, lineColor = c.Theme().AccentText, c.Theme().AccentText
 				}
 				row.Children(func() {
-					ui.Text(item.Context, snap.CreatedAt.Local().Format("2006-01-02 15:04:05")).FontSize(12).Bold().TextColor(colors(c).Text).SingleLine()
+					ui.Text(item.Context, snap.CreatedAt.Local().Format("2006-01-02 15:04:05")).FontSize(12).Bold().TextColor(titleColor).SingleLine()
 					lines := localHistoryLineCount(snap.Text)
 					ui.Text(item.Context, locales.Catalog.Format(i18n.Locale(), "localHistoryLines", map[string]any{"lines": lines})).FontSize(11).TextColor(lineColor).SingleLine()
 				})
