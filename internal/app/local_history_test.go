@@ -4,6 +4,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -427,7 +428,11 @@ func userLabel(user User) string {
 	}
 	restoreFunction := strings.TrimRight(historical[restoreStart:restoreEnd], "\n")
 	targetLine := strings.Count(historical[:restoreStart], "\n")
-	h.tt.Key(ui.Ctrl, ui.KeyHome)
+	docStartModifier := ui.Ctrl
+	if runtime.GOOS == "darwin" {
+		docStartModifier = ui.Super
+	}
+	h.tt.Key(docStartModifier, ui.KeyHome)
 	for line := 0; line < targetLine; line++ {
 		h.tt.Key(0, ui.KeyDown)
 	}
