@@ -26,6 +26,7 @@ import (
 	"see/internal/config"
 	"see/internal/filenesting"
 	"see/internal/git"
+	"see/internal/localhistory"
 	"see/internal/lsp"
 	"see/internal/nav"
 	"see/internal/uri"
@@ -104,6 +105,9 @@ type App struct {
 
 	// Documents, by path, and the editor groups showing them.
 	docs              map[string]*doc
+	localHistoryStore *localhistory.Store
+	localHistoryErr   error
+	localHistoryPanel *localHistoryPanel
 	layout            *layout
 	recents           []string // the files activated lately, across groups, most recent last
 	focus             *group
@@ -308,6 +312,9 @@ type doc struct {
 	baseLang          *editor.Language
 	wrappedLang       *editor.Language
 	wrappedFold       bool // wrappedLang folds by the server's ranges
+	localHistoryTimer *time.Timer
+	localHistoryVer   uint64
+	localHistorySaved time.Time
 }
 
 type draftCache struct {
@@ -347,9 +354,12 @@ type target struct {
 }
 
 func newApp(cfg *config.Config) *App {
+	localHistoryStore, localHistoryErr := localhistory.NewCacheStore()
 	a := &App{
 		cfg:                   cfg,
 		docs:                  map[string]*doc{},
+		localHistoryStore:     localHistoryStore,
+		localHistoryErr:       localHistoryErr,
 		dirs:                  map[string]*dirState{},
 		post:                  newPoster(platform.SchedulerFunc(func(fn func()) { fn() })),
 		host:                  platform.NoDesktop{},
@@ -1220,6 +1230,7 @@ func (a *App) loaded(d *doc, f workspace.File, buf *editor.Buffer, same bool, er
 			m.Changed(d.uri, d.buf.Snapshot())
 		}
 	}
+	a.captureLoadedLocalHistory(d, f.Text)
 	for _, g := range a.groups() {
 		a.showLoaded(g, d)
 	}
@@ -1328,6 +1339,13 @@ func (a *App) newEditor(g *group, d *doc) *editor.State {
 		}
 		if !d.untitled && menu.Item("Show File History").Chosen() {
 			a.showFileHistory(d.path)
+		}
+		localHistoryItem := menu.Item(commandLabel("Show Local History")).Disabled(!a.localHistorySupported(d))
+		if !a.localHistorySupported(d) {
+			localHistoryItem.Tooltip(localHistoryText("localHistoryUnsupported"))
+		}
+		if localHistoryItem.Chosen() {
+			a.showLocalHistory(g, d)
 		}
 		a.linkItems(menu, d, st)
 		menu.Separator()
