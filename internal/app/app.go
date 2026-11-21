@@ -253,6 +253,7 @@ type doc struct {
 	cache           *draftCache
 	saving          bool
 	buf             *editor.Buffer
+	colorCache      colorLiteralCache
 	video           bool
 	image           *ui.Bitmap
 	markdownOptions *markdown.Options
