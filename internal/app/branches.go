@@ -209,7 +209,7 @@ func (a *App) branchPreviewCurrent(key string, gen int, seq uint64, ctx context.
 }
 
 func (a *App) branchPreviewOpenFiles() []branchPreviewOpenFile {
-	root := workspace.DocPath(a.root, a.realRoot, a.git.root)
+	root := a.branchPreviewRoot()
 	if a.root == "" || root == "" {
 		return nil
 	}
@@ -241,6 +241,26 @@ func (a *App) branchPreviewOpenFiles() []branchPreviewOpenFile {
 		}
 	}
 	return files
+}
+
+func (a *App) branchPreviewRoot() string {
+	root := a.git.root
+	realWorkspaceRoot := a.realRoot
+	if realWorkspaceRoot == "" {
+		realWorkspaceRoot = a.root
+	}
+	if resolved, err := filepath.EvalSymlinks(root); err == nil {
+		root = resolved
+	}
+	if resolved, err := filepath.EvalSymlinks(realWorkspaceRoot); err == nil {
+		realWorkspaceRoot = resolved
+	}
+	if workspace.Within(realWorkspaceRoot, root) || workspace.Within(root, realWorkspaceRoot) {
+		if rel, err := filepath.Rel(realWorkspaceRoot, root); err == nil {
+			return filepath.Clean(filepath.Join(a.root, rel))
+		}
+	}
+	return workspace.DocPath(a.root, a.realRoot, a.git.root)
 }
 
 func affectedOpenBranchFiles(open []branchPreviewOpenFile, changes []git.BranchFileChange) []branchPreviewFile {

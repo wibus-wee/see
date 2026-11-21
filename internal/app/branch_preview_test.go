@@ -2,7 +2,9 @@ package app
 
 import (
 	"context"
+	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -47,7 +49,15 @@ func TestBranchPickerHoverPreviewShowsOpenFileChangesWithoutSwitching(t *testing
 	gitRun(t, root, "switch", "-q", "main")
 	head := git.Head(context.Background(), root)
 
-	h := newHarness(t, filepath.Join(root, "sub"))
+	workspaceRoot := filepath.Join(root, "sub")
+	if runtime.GOOS != "windows" {
+		workspaceAlias := filepath.Join(t.TempDir(), "repo")
+		if err := os.Symlink(root, workspaceAlias); err != nil {
+			t.Fatal(err)
+		}
+		workspaceRoot = filepath.Join(workspaceAlias, "sub")
+	}
+	h := newHarness(t, workspaceRoot)
 	h.readGit()
 	modified := h.open("modified.go")
 	modifiedPath := modified.path
