@@ -34,6 +34,19 @@ type Diagnostic struct {
 	Source   string `json:"source"`
 }
 
+type FileChangeType int
+
+const (
+	FileCreated FileChangeType = iota + 1
+	FileChanged
+	FileDeleted
+)
+
+type FileChange struct {
+	URI  string         `json:"uri"`
+	Type FileChangeType `json:"type"`
+}
+
 type Location struct {
 	Name  string `json:"-"`
 	URI   string `json:"uri"`

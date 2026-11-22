@@ -185,7 +185,16 @@ func scopeLSPPosition(snap editor.Snapshot, offset int, encoding string) lsp.Pos
 }
 
 func scopeIdentifierAt(snap editor.Snapshot, cursor int) (string, int, bool) {
-	text := snap.String()
+	if cursor < 0 || cursor > snap.Len() {
+		return "", 0, false
+	}
+	pos := snap.Pos(cursor)
+	text := snap.Line(pos.Line)
+	name, start, ok := lineIdentifierAt(text, pos.Col)
+	return name, cursor - pos.Col + start, ok
+}
+
+func lineIdentifierAt(text string, cursor int) (string, int, bool) {
 	if cursor < 0 || cursor > len(text) || !runeBoundary(text, cursor) {
 		return "", 0, false
 	}

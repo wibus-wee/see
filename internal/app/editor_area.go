@@ -229,6 +229,11 @@ func (a *App) groupContent(c *ui.Context, g *group) {
 			ui.Text(c, locales.MsgReading()+v.name+"…").TextColor(colors(c).Muted)
 		})
 		return
+	} else if v != nil && v.change && v.patch.OldName == "" && v.patch.NewName == "" {
+		ui.Row(c).Grow(1).FillWidth().Center().Children(func() {
+			ui.Text(c, locales.MsgNoChanges()).TextColor(colors(c).Muted)
+		})
+		return
 	} else if v != nil {
 		view := editor.DiffView(c, v.state).Grow(1).FillWidth()
 		if a.focusGroupTarget == g {
@@ -333,6 +338,10 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 		a.syncInlayHints(d, st)
 		a.syncDocumentLinks(d, st)
 		a.syncFoldingRanges(d, st)
+		textBackgrounds := st.TextBackgrounds
+		if s := &a.symbolHighlights; s.target.editor == st && len(s.backgrounds) > 0 {
+			st.TextBackgrounds = append(append([]editor.TextBackground(nil), s.backgrounds...), textBackgrounds...)
+		}
 		a.linkBackgrounds(st, d)
 		st.SetInlays(a.editorInlays(d, st))
 		if g.colorPreview != nil {
@@ -348,24 +357,20 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 		var ed ui.Element
 		minimap := a.showsMinimap(g, d)
 		ui.Row(c).Grow(1).FillWidth().Children(func() {
-			if minimap {
-				ui.Column(c).Grow(1).FillHeight().Children(func() {
-					a.readingPinRow(c, g, d, st)
-					ed = editor.View(c.Key(d.path), st).Grow(1).FillHeight()
-				})
-				a.minimap(c, g, d, st)
-			} else {
+			if !minimap {
 				st.RenderFindBar = nil
-				ui.Column(c).Grow(1).FillHeight().Children(func() {
-					a.readingPinRow(c, g, d, st)
-					ed = editor.View(c.Key(d.path), st).Grow(1).FillHeight()
-				})
+			}
+			ed = editor.View(c.Key(d.path), st).Grow(1).FillHeight()
+			ed.Children(func() { a.stickyScopeHeaders(c, g, d, st) })
+			if minimap {
+				a.minimap(c, g, d, st)
 			}
 		})
 		if p := g.colorPreview; p != nil && p.path == d.path && p.open && !p.seen {
 			g.dismissColorPreview()
 		}
 		st.LineBackgrounds = backgrounds
+		st.TextBackgrounds = textBackgrounds
 		st.GutterMarks = gutterMarks
 		st.OnGutterClick = nil
 		if row := ed.LayoutBounds().W; row > 0 {

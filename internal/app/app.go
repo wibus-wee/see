@@ -183,6 +183,8 @@ type App struct {
 	notice         string // the last message for the user
 	noticeError    bool
 
+	symbolHighlights symbolHighlightState
+
 	hover         hoverState
 	signature     signatureState
 	task          *taskRun
@@ -516,6 +518,9 @@ func (a *App) openWorkspace(dir string) {
 	a.startWatch()
 	a.startGit()
 	a.restoreSession()
+	if a.navigator == navProblems && !a.sidebarOff {
+		a.startProjectDiagnostics()
+	}
 	a.windowWidth, a.windowHeight = config.WorkspaceSize(a.cfg.Workspaces[root])
 	a.host.SetWorkspaceSize(a.windowWidth, a.windowHeight)
 	a.cfg.LastWorkspace = root
@@ -960,6 +965,10 @@ func standaloneDocForPath(a *App, path string) *doc {
 // document it shows there instead, so jumps like Go Back never open a
 // second tab of it.
 func (a *App) openFile(path string, pos *editor.Pos) *doc {
+	return a.openFileAt(path, goTo{pos: pos})
+}
+
+func (a *App) openFileAt(path string, to goTo) *doc {
 	g := a.focus
 	docPath := workspace.DocPath(a.root, a.realRoot, path)
 	if d := a.docs[docPath]; d != nil {
@@ -973,7 +982,7 @@ func (a *App) openFile(path string, pos *editor.Pos) *doc {
 			}
 		}
 	}
-	return a.openIn(g, path, goTo{pos: pos})
+	return a.openIn(g, path, to)
 }
 
 // openIn shows path in g, at the place to says, if any.
@@ -1045,9 +1054,7 @@ func (a *App) showLoaded(g *group, d *doc) {
 			a.trustAsk = true
 		}
 		if m := a.serverFor(d.path); m != nil && a.cfg.IsTrusted(a.root) {
-			ctx := a.wsCtx
-			snap, docURI := d.buf.Snapshot(), d.uri
-			go a.openLanguageDocument(m, ctx, d, docURI, snap)
+			go a.openLanguageDocument(m, a.wsCtx, d, d.uri)
 		}
 	}
 	to, ok := g.pending[d.path]
@@ -1684,6 +1691,9 @@ func (a *App) trust() {
 	a.saveConfig()
 	a.trustAsk = false
 	a.openServerDocuments(nil)
+	if a.navigator == navProblems {
+		a.startProjectDiagnostics()
+	}
 	if fn := a.afterTrust; fn != nil {
 		a.afterTrust = nil
 		fn()
@@ -1697,6 +1707,9 @@ func (a *App) retryLSP() {
 		a.lspState, a.lspErr = a.lsp.Status()
 		a.notice = ""
 		a.openServerDocuments(a.lsp)
+		if a.problems.started {
+			a.startProblemServer(filepath.Join(a.root, "go.mod"))
+		}
 	}
 }
 
@@ -1816,26 +1829,22 @@ func (a *App) resetTypeScriptServer() {
 	a.wireApplyEdit(a.tsLSP)
 }
 
-func (a *App) openLanguageDocument(m *langserver.Server, ctx context.Context, d *doc, docURI string, snap editor.Snapshot) {
+func (a *App) openLanguageDocument(m *langserver.Server, ctx context.Context, d *doc, docURI string) {
 	client, err := m.Get(ctx)
 	if err != nil {
 		return
 	}
-	if err = m.Sync(ctx, client, docURI, snap); err != nil {
-		return
-	}
 	a.post.Post(func() {
-		if d.uri == docURI && a.docs[d.path] == d && a.serverFor(d.path) == m && d.buf != nil && d.buf.Version() != snap.Version() {
-			m.Changed(docURI, d.buf.Snapshot())
+		if d.uri == docURI && a.docs[d.path] == d && a.serverFor(d.path) == m && d.buf != nil && m.Open(client, docURI, d.buf.Snapshot()) {
+			a.upgradeLanguage(d, m, client)
 		}
 	})
-	a.post.Post(func() { a.upgradeLanguage(d, m, client) })
 }
 
 // upgradeLanguage wraps the document buffer's language in a
 // highlighter layering what its server answers — semantic tokens over
 // the tokenizer's, folding ranges for the gutter — once it is up. It
-// runs after the document first syncs, and again whenever a server
+// runs when the document first syncs, and again whenever a server
 // takes over — start, restart and retry all reach it through
 // openLanguageDocument — and when a lane learns its capability.
 func (a *App) upgradeLanguage(d *doc, m *langserver.Server, client langserver.Client) {
@@ -1916,7 +1925,7 @@ func (a *App) openServerDocuments(only *langserver.Server) {
 		if m == nil || (only != nil && only != m) {
 			continue
 		}
-		go a.openLanguageDocument(m, a.wsCtx, d, d.uri, d.buf.Snapshot())
+		go a.openLanguageDocument(m, a.wsCtx, d, d.uri)
 	}
 }
 
