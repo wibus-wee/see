@@ -77,7 +77,8 @@ func (p *poster) load() platform.Scheduler {
 // App is the reader's state. It lives on the UI thread: background work
 // hands its results back through post, which runs them there.
 type App struct {
-	post         *poster          // runs fn on the UI thread, then redraws
+	post         *poster // runs fn on the UI thread, then redraws
+	trustChanged func()
 	host         platform.Desktop // the window and the desktop around it
 	windowWidth  int
 	windowHeight int
@@ -155,17 +156,18 @@ type App struct {
 	renameSeq           uint64
 	renameCancel        context.CancelFunc
 
-	lsp        *langserver.Server
-	cmakeLSP   *langserver.Server
-	cmakeState langserver.State
-	cmakeErr   error
-	clangLSP   *langserver.Server
-	clangState langserver.State
-	clangErr   error
-	tsLSP      *langserver.Server
-	tsState    langserver.State
-	tsErr      error
-	tsEpoch    uint64
+	lsp         *langserver.Server
+	serverEpoch uint64
+	cmakeLSP    *langserver.Server
+	cmakeState  langserver.State
+	cmakeErr    error
+	clangLSP    *langserver.Server
+	clangState  langserver.State
+	clangErr    error
+	tsLSP       *langserver.Server
+	tsState     langserver.State
+	tsErr       error
+	tsEpoch     uint64
 	// customLSPs are the configured language servers, by the index of
 	// their config.LSP entry; customStates tracks each one's state.
 	customLSPs     map[int]*langserver.Server
@@ -459,14 +461,32 @@ func (a *App) openWorkspace(dir string) {
 	a.welcomeNote = ""
 	a.showWelcome = false
 	a.wsCtx, a.wsCancel = context.WithCancel(context.Background())
-	gen := a.gen
+	a.initLanguageServers()
+	a.loadDir(root)
+	a.startWatch()
+	a.startGit()
+	a.restoreSession()
+	if a.navigator == navProblems && !a.sidebarOff {
+		a.startProjectDiagnostics()
+	}
+	a.windowWidth, a.windowHeight = config.WorkspaceSize(a.cfg.Workspaces[root])
+	a.host.SetWorkspaceSize(a.windowWidth, a.windowHeight)
+	a.cfg.LastWorkspace = root
+	a.cfg.AddRecent(root)
+	a.saveConfig()
+	a.host.SetTitle(filepath.Base(root))
+}
+
+func (a *App) initLanguageServers() {
+	a.serverEpoch++
+	gen, epoch, root := a.gen, a.serverEpoch, a.root
 	a.lsp = langserver.New(langserver.Options{
 		Name:  "gopls",
 		Root:  root,
 		Start: a.startLSP(a.serverLog("gopls")),
 		OnState: func(s langserver.State, err error) {
 			a.post.Post(func() {
-				if a.gen == gen {
+				if a.gen == gen && a.serverEpoch == epoch {
 					a.lspState, a.lspErr = s, err
 					a.serverStateLog("gopls", s, err)
 				}
@@ -479,7 +499,7 @@ func (a *App) openWorkspace(dir string) {
 	a.resetTypeScriptServer()
 	a.clangLSP = languages.NewClangdServer(root, func(s langserver.State, err error) {
 		a.post.Post(func() {
-			if a.gen == gen {
+			if a.gen == gen && a.serverEpoch == epoch {
 				a.clangState, a.clangErr = s, err
 				a.serverStateLog("clangd", s, err)
 			}
@@ -487,7 +507,7 @@ func (a *App) openWorkspace(dir string) {
 	}, a.diagnosticsHandler(gen), a.serverLog("clangd"))
 	a.cmakeLSP = languages.NewCMakeServer(root, func(s langserver.State, err error) {
 		a.post.Post(func() {
-			if a.gen == gen {
+			if a.gen == gen && a.serverEpoch == epoch {
 				a.cmakeState, a.cmakeErr = s, err
 				a.serverStateLog("cmake-language-server", s, err)
 			}
@@ -507,7 +527,7 @@ func (a *App) openWorkspace(dir string) {
 		idx, name := i, spec.Name
 		a.customLSPs[i] = languages.NewConfiguredServer(spec, root, func(s langserver.State, err error) {
 			a.post.Post(func() {
-				if a.gen == gen {
+				if a.gen == gen && a.serverEpoch == epoch {
 					a.customStates[idx] = struct {
 						state langserver.State
 						err   error
@@ -518,19 +538,6 @@ func (a *App) openWorkspace(dir string) {
 		}, a.diagnosticsHandler(gen), a.serverLog(name))
 		a.wireApplyEdit(a.customLSPs[i])
 	}
-	a.loadDir(root)
-	a.startWatch()
-	a.startGit()
-	a.restoreSession()
-	if a.navigator == navProblems && !a.sidebarOff {
-		a.startProjectDiagnostics()
-	}
-	a.windowWidth, a.windowHeight = config.WorkspaceSize(a.cfg.Workspaces[root])
-	a.host.SetWorkspaceSize(a.windowWidth, a.windowHeight)
-	a.cfg.LastWorkspace = root
-	a.cfg.AddRecent(root)
-	a.saveConfig()
-	a.host.SetTitle(filepath.Base(root))
 }
 
 // closeWorkspace forgets the workspace: its tabs, caches, searches, watch
@@ -558,32 +565,7 @@ func (a *App) closeWorkspace() {
 			g.closeVideo(path)
 		}
 	}
-	if a.lsp != nil {
-		a.lsp.Stop()
-		a.lsp = nil
-	}
-	if a.tsLSP != nil {
-		a.tsLSP.Stop()
-		a.tsLSP = nil
-	}
-	a.tsState, a.tsErr = langserver.Off, nil
-	if a.clangLSP != nil {
-		a.clangLSP.Stop()
-		a.clangLSP = nil
-	}
-	a.clangState, a.clangErr = langserver.Off, nil
-	if a.cmakeLSP != nil {
-		a.cmakeLSP.Stop()
-		a.cmakeLSP = nil
-	}
-	a.cmakeState, a.cmakeErr = langserver.Off, nil
-	for _, m := range a.customLSPs {
-		m.Stop()
-	}
-	a.customLSPs = nil
-	a.customLSPSpecs = nil
-	a.customCovers = nil
-	a.customStates = nil
+	a.stopLanguageServers()
 	a.root, a.realRoot = "", ""
 	a.recents = nil
 	a.dirs = map[string]*dirState{}
@@ -1705,6 +1687,9 @@ func (a *App) trust() {
 	a.cfg.Trust(a.root)
 	a.saveConfig()
 	a.trustAsk = false
+	if a.lsp == nil {
+		a.initLanguageServers()
+	}
 	a.openServerDocuments(nil)
 	if a.navigator == navProblems {
 		a.startProjectDiagnostics()

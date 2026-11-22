@@ -74,7 +74,7 @@ func (w *windows) sync(from window) {
 // state is what of the app the windows show of each other's doing.
 func (w *windows) state() string {
 	a := w.a
-	return fmt.Sprint(a.gen, a.root, a.showWelcome, a.welcomeNote, a.cfg.ReopenLast, a.cfg.Recent)
+	return fmt.Sprint(a.gen, a.root, a.showWelcome, a.welcomeNote, a.clone.open, a.clone.cloning, a.clone.err, a.clone.dir, a.cfg.ReopenLast, a.cfg.Recent)
 }
 
 // closeWelcome is the welcome window's close button: it hides, and the app

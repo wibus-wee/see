@@ -101,7 +101,7 @@ func (a *App) groupView(c *ui.Context, g *group) {
 			}
 		}
 		if g == a.focus {
-			if a.trustAsk {
+			if a.trustAsk && g.eds[g.active] != nil {
 				a.trustBanner(c)
 			}
 		}

@@ -4778,13 +4778,13 @@ func (msgs Messages) MsgAskBeforeClosingUnsavedFiles() string {
 	return Catalog.Format(msgs.locale, "msgAskBeforeClosingUnsavedFiles", nil)
 }
 
-// MsgSeeAsksBeforeClosingATabOrWindow says "See asks before closing a tab or window with unsaved changes."
+// MsgSeeAsksBeforeClosingATabOrWindow says "When off, closing a tab or window discards its unsaved changes."
 // in the language the app shows.
 func MsgSeeAsksBeforeClosingATabOrWindow() string {
 	return In(i18n.Locale()).MsgSeeAsksBeforeClosingATabOrWindow()
 }
 
-// MsgSeeAsksBeforeClosingATabOrWindow says "See asks before closing a tab or window with unsaved changes."
+// MsgSeeAsksBeforeClosingATabOrWindow says "When off, closing a tab or window discards its unsaved changes."
 // in the language of msgs.
 func (msgs Messages) MsgSeeAsksBeforeClosingATabOrWindow() string {
 	return Catalog.Format(msgs.locale, "msgSeeAsksBeforeClosingATabOrWindow", nil)
@@ -8248,6 +8248,26 @@ func CommandGoToDefinition() string { return In(i18n.Locale()).CommandGoToDefini
 // in the language of msgs.
 func (msgs Messages) CommandGoToDefinition() string {
 	return Catalog.Format(msgs.locale, "commandGoToDefinition", nil)
+}
+
+// CommandSplitEditorRight says "Split Editor Right"
+// in the language the app shows.
+func CommandSplitEditorRight() string { return In(i18n.Locale()).CommandSplitEditorRight() }
+
+// CommandSplitEditorRight says "Split Editor Right"
+// in the language of msgs.
+func (msgs Messages) CommandSplitEditorRight() string {
+	return Catalog.Format(msgs.locale, "commandSplitEditorRight", nil)
+}
+
+// CommandSplitEditorDown says "Split Editor Down"
+// in the language the app shows.
+func CommandSplitEditorDown() string { return In(i18n.Locale()).CommandSplitEditorDown() }
+
+// CommandSplitEditorDown says "Split Editor Down"
+// in the language of msgs.
+func (msgs Messages) CommandSplitEditorDown() string {
+	return Catalog.Format(msgs.locale, "commandSplitEditorDown", nil)
 }
 
 // CommandPeekDefinition says "Peek Definition"

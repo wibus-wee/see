@@ -86,6 +86,7 @@ func Main() {
 	mygo.App.WhenReady(func() {
 		a.version = mygo.App.Version()
 		win = mygo.NewWindow(mygo.WindowOptions{
+			Page:      mygo.PageOptions{DevTools: mygo.DevToolsDisabled},
 			Title:     "See",
 			Width:     config.DefaultWindowWidth,
 			Height:    config.DefaultWindowHeight,
@@ -127,6 +128,14 @@ func Main() {
 		primary := &projectWindow{app: a, win: win}
 		projects = append(projects, primary)
 		active = primary
+		a.trustChanged = func() {
+			for _, p := range projects {
+				if !p.win.IsDestroyed() {
+					p.app.enforceTrust()
+					p.win.Update(func() {})
+				}
+			}
+		}
 		activate := func(p *projectWindow) {
 			active = p
 			if varSetMenu != nil {
@@ -164,6 +173,7 @@ func Main() {
 				}
 			}
 			child := newApp(cfg)
+			child.trustChanged = a.trustChanged
 			child.ownsStandaloneSession = false
 			child.version = a.version
 			child.hasWelcome = true
@@ -174,6 +184,7 @@ func Main() {
 			}
 			var childWin *mygo.Window
 			childWin = mygo.NewWindow(mygo.WindowOptions{
+				Page:  mygo.PageOptions{DevTools: mygo.DevToolsDisabled},
 				Title: "See", Width: width, Height: height, MinWidth: 480, MinHeight: 320,
 				TitleBarStyle: mygo.TitleBarHidden, TitleBarHeight: toolbarHeight,
 				TrafficLightPosition: &mygo.Point{X: 20, Y: (toolbarHeight - trafficLightSize) / 2},

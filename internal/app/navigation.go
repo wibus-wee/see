@@ -77,6 +77,8 @@ func (a *App) navigateActive(kind string) {
 func (a *App) commandEnabled(name string) bool {
 	g := a.focus
 	switch name {
+	case "Split Editor Right", "Split Editor Down":
+		return g != nil && g.active != ""
 	case "Show Type Hierarchy":
 		return a.activeEditor() != nil && a.navigationEnabled(a.activePath(), "typeHierarchy")
 	case "Reopen Closed Tab":

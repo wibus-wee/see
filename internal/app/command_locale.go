@@ -8,6 +8,8 @@ import (
 )
 
 var commandMessages = map[string]string{
+	"Split Editor Right":            "commandSplitEditorRight",
+	"Split Editor Down":             "commandSplitEditorDown",
 	"Bigger":                        "commandBigger",
 	"Smaller":                       "commandSmaller",
 	"Reset Editor Font Size":        "commandResetEditorFontSize",
