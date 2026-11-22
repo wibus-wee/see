@@ -70,6 +70,7 @@ func commandsFor(goos string) []command {
 			a.refreshGit()
 		}},
 		{"Git: Show Log", "", "", 0, 0, func(a *App) { a.openGitLog() }},
+	{"Git: Stash Changes…", "", "", 0, 0, func(a *App) { a.beginStash() }},
 		{"Show File History", "", "", 0, 0, func(a *App) { a.showActiveFileHistory() }},
 		{"Show Local History", "", "", 0, 0, func(a *App) { a.showActiveLocalHistory() }},
 		{"Git: Reveal HEAD in Log", "", "", 0, 0, func(a *App) { a.revealLogRef("HEAD") }},

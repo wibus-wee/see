@@ -346,6 +346,10 @@ func (a *App) rankQuick() {
 				if a.git.root == "" {
 					continue
 				}
+			case "Git: Stash Changes…":
+				if a.git.root == "" || len(a.git.changes) == 0 {
+					continue
+				}
 			}
 			names = append(names, commandLabel(cmd.name))
 		}

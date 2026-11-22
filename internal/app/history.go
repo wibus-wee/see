@@ -123,6 +123,13 @@ func (a *App) gitChangesHeader(c *ui.Context) {
 		if unstaged && glyphButton(c, icPlus, "Stage All Changes", "Stage All Changes", false, a.git.busy).Clicked() {
 			a.stageAllGitChanges(false)
 		}
+		if len(a.git.changes) > 0 && glyphButton(c, icStash, "Stash Changes", "Stash Changes…", a.git.stashing, a.git.busy).Clicked() {
+			if a.git.stashing {
+				a.endStash()
+			} else {
+				a.beginStash()
+			}
+		}
 		if a.git.syncing != "" {
 			ui.Spinner(c).FontSize(10).Tooltip(a.git.syncing)
 		}

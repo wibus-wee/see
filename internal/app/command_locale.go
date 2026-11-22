@@ -70,6 +70,7 @@ var commandMessages = map[string]string{
 	"Show Git":                    "commandShowGit",
 	"Git: Show History":           "commandGitShowHistory",
 	"Git: Show Log":               "commandGitShowLog",
+	"Git: Stash Changes…":         "commandGitStashChanges",
 	"Toggle Inline Diff":          "commandToggleInlineDiff",
 	"Next Change":                 "commandNextChange",
 	"Previous Change":             "commandPreviousChange",

@@ -77,6 +77,8 @@ func symbolName(icon *ui.SVG) string {
 		return "command"
 	case icTrash:
 		return "trash"
+	case icStash:
+		return "tray.and.arrow.down"
 	case icMaximize:
 		return "chevron.up"
 	case icRestore:

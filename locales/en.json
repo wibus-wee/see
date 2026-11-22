@@ -686,6 +686,7 @@
   "commandShowGit": "Show Git",
   "commandGitShowHistory": "Git: Show History",
   "commandGitShowLog": "Git: Show Log",
+  "commandGitStashChanges": "Git: Stash Changes…",
   "commandToggleInlineDiff": "Toggle Inline Diff",
   "commandNextChange": "Next Change",
   "commandPreviousChange": "Previous Change",

@@ -65,6 +65,10 @@ type gitState struct {
 	// docs and generated files start folded, as Peek's, and a click on
 	// the group's name opens it.
 	kindOpen map[filekind.Kind]bool
+
+	stashes      []git.Stash
+	stashing     bool // the stash message field shows under the commit field
+	stashMessage string
 }
 
 type gitPeek struct {
@@ -251,6 +255,10 @@ func (a *App) refreshGit() {
 		// -v are the only other calls, plus the diffs the counts ask for.
 		s, err := git.Sync(ctx, root, counting)
 		branchFingerprint := gitBranchFingerprint(ctx, s.Root, s.Head, s.Refs, s.Changes)
+		var stashes []git.Stash
+		if s.Root != "" {
+			stashes, _ = git.Stashes(ctx, s.Root)
+		}
 		a.post.Post(func() {
 			if a.gen != gen {
 				return
@@ -264,6 +272,10 @@ func (a *App) refreshGit() {
 			}
 			a.git.root, a.git.branch, a.git.changes, a.git.head = s.Root, s.Branch, s.Changes, s.Head
 			a.git.branchFingerprint = branchFingerprint
+			a.git.stashes = stashes
+			if len(s.Changes) == 0 {
+				a.endStash()
+			}
 			a.git.pruneSelection()
 			a.git.upstream, a.git.ahead, a.git.behind = s.Upstream, s.Ahead, s.Behind
 			if s.Behind < a.git.notifiedBehind {
@@ -823,6 +835,9 @@ func (a *App) gitNavigator(c *ui.Context) {
 		}
 		a.branchDiffModePicker(c)
 		a.commitBar(c, staged)
+		if a.git.stashing {
+			a.stashBar(c)
+		}
 		ui.Scroll(c).Grow(1).FillWidth().Children(func() {
 			ui.Column(c).FillWidth().Padding(0, 0, 6, 0).Children(func() {
 				if len(a.git.changes) == 0 {
@@ -836,6 +851,7 @@ func (a *App) gitNavigator(c *ui.Context) {
 					a.gitSection(c, "Changes", unstaged)
 				}
 				a.gitRowsByKind(c, false)
+				a.stashRows(c)
 			})
 		})
 	}
