@@ -72,7 +72,7 @@
   "localHistoryRetry": "重试",
   "localHistoryStale": "当前缓冲区已更改。请刷新后再恢复行。",
   "localHistoryTargetClosed": "源文件已关闭。请重新打开文件并刷新后再恢复行。",
-  "localHistorySelectChangedLines": "选择有更改的行以启用恢复。",
+  "localHistorySelectChangedLines": "点击行号；按住 Shift 点击可多选。",
   "localHistoryRestoreSelected": "恢复所选行",
   "localHistoryRefresh": "刷新",
   "localHistoryRestored": "已恢复所选行。使用“打开文件”返回源编辑器并撤销。",

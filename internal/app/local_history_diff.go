@@ -472,7 +472,8 @@ func (a *App) localHistoryStatusBar(c *ui.Context, g *group, v *gitDiffTab) {
 			a.refreshLocalHistory(g, g.active, v)
 		}
 		canRestore := fresh && !lh.loading && lh.loadErr == nil && lh.targetErr == "" && len(edits) > 0
-		if ui.Button(c, localHistoryText("localHistoryRestoreSelected")).Disabled(!canRestore).Clicked() {
+		if ui.Button(c, localHistoryText("localHistoryRestoreSelected")).
+			Tooltip(localHistoryText("localHistorySelectChangedLines")).Disabled(!canRestore).Clicked() {
 			a.restoreLocalHistorySelected(g, g.active, v)
 		}
 		if lh.restored && ui.Button(c, localHistoryText("localHistoryOpenFile")).Clicked() {

@@ -72,7 +72,7 @@
   "localHistoryRetry": "Retry",
   "localHistoryStale": "The current buffer changed. Refresh before restoring lines.",
   "localHistoryTargetClosed": "The source file is closed. Open it and refresh to restore lines.",
-  "localHistorySelectChangedLines": "Select changed lines to enable restore.",
+  "localHistorySelectChangedLines": "Click a line number; Shift-click to select more.",
   "localHistoryRestoreSelected": "Restore Selected Lines",
   "localHistoryRefresh": "Refresh",
   "localHistoryRestored": "Selected lines restored. Use Open File to return to the source editor and Undo.",
