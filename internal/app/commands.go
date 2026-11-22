@@ -79,6 +79,7 @@ func commandsFor(goos string) []command {
 		{"Toggle Inline Git Blame", "", "", 0, 0, func(a *App) { a.cfg.HideInlineBlame = !a.cfg.HideInlineBlame; a.settingsChanged() }},
 		{"Toggle Type Hints", "", "", 0, 0, func(a *App) { a.toggleTypeHints() }},
 		{"Toggle Inline Diff", "", "", 0, 0, func(a *App) { a.toggleDiffLayout() }},
+		{"Toggle Whitespace Changes", "", "", 0, 0, func(a *App) { a.toggleDiffWhitespace() }},
 		{"Next Change", "", "", 0, 0, func(a *App) { a.goToChange(1) }},
 		{"Previous Change", "", "", 0, 0, func(a *App) { a.goToChange(-1) }},
 		{"Git: Fetch", "", "", 0, 0, func(a *App) { a.gitFetch() }},

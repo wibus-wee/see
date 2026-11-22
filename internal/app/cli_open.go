@@ -155,15 +155,20 @@ func (a *App) showCliDiff(old, new string) {
 	oldBuf, newBuf := editor.NewBuffer(oldText), editor.NewBuffer(newText)
 	oldBuf.SetLanguage(languageFor(filepath.Base(oldAbs), oldText))
 	newBuf.SetLanguage(languageFor(filepath.Base(newAbs), newText))
-	d := &editor.DiffState{Old: oldBuf, New: newBuf, Theme: a.edTheme}
-	a.applyDiffPrefs(d)
-	v := &gitDiffTab{state: d, name: diffName(oldAbs, newAbs), cli: true}
+	v := a.newCLIBufferDiff(oldBuf, newBuf, diffName(oldAbs, newAbs))
 	if g.diffs == nil {
 		g.diffs = map[string]*gitDiffTab{}
 	}
 	g.diffs[key] = v
 	g.addTab(key, len(g.order))
 	a.activateIn(g, key)
+}
+
+func (a *App) newCLIBufferDiff(old, new *editor.Buffer, name string) *gitDiffTab {
+	d := &editor.DiffState{Theme: a.edTheme}
+	a.applyDiffPrefs(d)
+	setBufferDiffWhitespace(d, old, new, a.cfg.HideWhitespaceChanges)
+	return &gitDiffTab{state: d, oldBuffer: old, newBuffer: new, name: name, cli: true}
 }
 
 // showDirDiff puts the changes git's --no-index diff finds between two

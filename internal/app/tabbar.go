@@ -214,6 +214,15 @@ func (a *App) diffJumpBar(c *ui.Context, g *group) {
 			ui.Text(c, label).FontSize(12).TextColor(colors(c).Muted).SingleLine()
 		}
 		ui.Box(c).Grow(1)
+		if v.commit == nil {
+			label := diffWhitespaceText("msgHideWhitespaceChanges")
+			if a.cfg.HideWhitespaceChanges {
+				label = diffWhitespaceText("msgShowWhitespaceChanges")
+			}
+			if glyphButton(c.Key("diff-whitespace"), icDiffWhitespace, label, label, a.cfg.HideWhitespaceChanges, false).Clicked() {
+				a.toggleDiffWhitespace()
+			}
+		}
 		if v.state != nil {
 			if glyphButton(c, icChangeUp, "Previous Change", "Previous Change", false, len(v.state.Hunks()) == 0).Clicked() {
 				a.focus = g

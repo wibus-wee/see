@@ -739,9 +739,12 @@ func (a *App) splitActive(s side) {
 				keepID = lh.snapshots[lh.selected].ID
 			}
 			a.loadLocalHistory(clone, keepID)
+		} else if v != nil && v.oldBuffer != nil {
+			ng.diffs = map[string]*gitDiffTab{path: a.newCLIBufferDiff(v.oldBuffer, v.newBuffer, v.name)}
 		} else if v != nil {
 			nv := a.newGitDiffTab(v.patch, v.name, v.staged)
 			nv.rev, nv.hash, nv.oldPath, nv.untracked = v.rev, v.hash, v.oldPath, v.untracked
+			nv.cli = v.cli
 			ng.diffs = map[string]*gitDiffTab{path: nv}
 		}
 		a.activateIn(ng, path)

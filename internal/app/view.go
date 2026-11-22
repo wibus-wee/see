@@ -80,6 +80,7 @@ var startTime = time.Now()
 var startTrace = os.Getenv("SEE_TRACE_STARTUP") != ""
 
 func (a *App) view(c *ui.Context) {
+	a.updateDiffWhitespace()
 	a.quickHelpRendered = false
 	defer func() {
 		if st := a.quickHelp; st != nil && !a.quickHelpRendered {

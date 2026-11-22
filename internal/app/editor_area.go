@@ -224,6 +224,10 @@ func (a *App) groupContent(c *ui.Context, g *group) {
 		})
 		return
 	} else if v != nil {
+		if a.diffChangesHidden(v.state) {
+			a.hiddenWhitespaceDiff(c)
+			return
+		}
 		view := editor.DiffView(c, v.state).Grow(1).FillWidth()
 		if a.focusGroupTarget == g {
 			view.Focus()
@@ -459,9 +463,18 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 			return a.quickHelpEditorInput(g, d, st, ev)
 		}
 		if peek := a.git.peek; peek != nil && peek.doc == d && peek.group == g {
-			a.editorPeek(c, bounds, st, peek.line, d.name+" — Git changes", "Close Change Preview", diffHeight(st, peek.diff), func() { a.git.peek = nil }, func() {
+			diff, visible := a.gitPeekDiff(peek, st)
+			height := float32(36)
+			if visible {
+				height = diffHeight(st, diff)
+			}
+			a.editorPeek(c, bounds, st, peek.line, d.name+" — Git changes", "Close Change Preview", height, func() { a.git.peek = nil }, func() {
+				if !visible {
+					a.hiddenWhitespaceDiff(c)
+					return
+				}
 				ui.Scroll(c).Grow(1).FillWidth().TrackScroll(&peek.scroll).Label(locales.MsgGitChangePreview()).Children(func() {
-					editor.DiffView(c, peek.diff).FillWidth()
+					editor.DiffView(c, diff).FillWidth()
 				})
 			})
 		}
