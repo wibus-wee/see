@@ -25,12 +25,19 @@ var platformCommands = commandsFor(runtime.GOOS)
 func commands() []command { return platformCommands }
 
 func commandsFor(goos string) []command {
+	backMods, forwardMods := "Ctrl+", "Ctrl+Shift+"
+	if goos != "darwin" {
+		backMods, forwardMods = "Ctrl+Alt+", "Ctrl+Alt+Shift+"
+	}
 	replaceLabel, replaceKeyName, replaceMods, replaceKey := fileReplaceShortcutFor(goos)
 	docItemsLabel, docItemsKeyName, docItemsMods, docItemsKey, groupFilesLabel, groupFilesKeyName, groupFilesMods, groupFilesKey := jumpBarShortcutsFor(goos)
 	scopeLabel, scopeKeyName, scopeMods, scopeKey := editAllScopeShortcut(goos)
 	counterpartLabel, counterpartMods := counterpartShortcut(goos)
 	maximizeLabel, maximizeMods := maximizeEditorShortcut(goos)
 	cmds := []command{
+		{"Bigger", "Cmd+", "=", ui.Cmd, ui.KeyEqual, func(a *App) { a.changeEditorFontSize(1) }},
+		{"Smaller", "Cmd+", "-", ui.Cmd, ui.KeyMinus, func(a *App) { a.changeEditorFontSize(-1) }},
+		{"Reset Editor Font Size", "", "", 0, 0, func(a *App) { a.setEditorFontSize(13) }},
 		{"New File", "Cmd+", "N", ui.Cmd, ui.KeyN, func(a *App) { a.newFile() }},
 		{"Command Palette", "Cmd+Shift+", "P", ui.Cmd | ui.Shift, ui.KeyP, func(a *App) { a.openPalette() }},
 		{"New Window", "Cmd+Shift+", "N", ui.Cmd | ui.Shift, ui.KeyN, func(a *App) {
@@ -94,8 +101,8 @@ func commandsFor(goos string) []command {
 			a.sidebarOff, a.navigator, a.filter.focus = false, navFiles, true
 		}},
 		{"Show or Hide the Navigator", "Cmd+", "B", ui.Cmd, ui.KeyB, func(a *App) { a.sidebarOff = !a.sidebarOff }},
-		{"Go Back", "Ctrl+", "-", ui.Ctrl, ui.KeyMinus, func(a *App) { a.goBack() }},
-		{"Go Forward", "Ctrl+Shift+", "-", ui.Ctrl | ui.Shift, ui.KeyMinus, func(a *App) { a.goForward() }},
+		{"Go Back", backMods, "-", 0, ui.KeyMinus, func(a *App) { a.goBack() }},
+		{"Go Forward", forwardMods, "-", 0, ui.KeyMinus, func(a *App) { a.goForward() }},
 		{"Focus Next Editor", "", "F6", 0, ui.KeyF6, func(a *App) { a.cycleEditorGroup(1) }},
 		{"Focus Previous Editor", "Shift+", "F6", ui.Shift, ui.KeyF6, func(a *App) { a.cycleEditorGroup(-1) }},
 		{"Move Tab to Next Editor", "", "", 0, 0, func(a *App) { a.moveTabToNextEditor() }},
