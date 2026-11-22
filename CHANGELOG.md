@@ -12,6 +12,7 @@ User-facing changes are grouped by release. Earlier releases are documented on t
 
 ### Added
 
+- Highlight occurrences of the symbol under the caret in the current file, with a stronger tint for writes when the language server distinguishes them. Turn this off in Editor settings.
 - Test regular expressions in an inline playground with sample text, match and capture inspection, and a railroad diagram. The playground uses Go / RE2 and reports unsupported JavaScript flags and features without changing source code.
 - Preview hex, RGB(A), and HSL(A) color literals with inline swatches; click a swatch to compare the color against light and dark backgrounds.
 - Browse local file history in a diff tab and restore selected changed lines with click and Shift-click. Recovery preserves other edits, does not save automatically, and can be undone in the source editor.

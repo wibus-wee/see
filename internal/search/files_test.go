@@ -1,11 +1,50 @@
 package search
 
 import (
+	"fmt"
+	"reflect"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
 	"unicode/utf8"
 )
+
+func TestLargeFileQueriesKeepOrderAndHits(t *testing.T) {
+	defer runtime.GOMAXPROCS(runtime.GOMAXPROCS(4))
+	pool := []string{
+		"src/a/aaa.go", "src/b/aaa.go", "src/c/aaa.go",
+		"src/目录/你好.go", "src/runtime/other.go", "src/a/a.go",
+		"other/readme.md", "src/a/aa.go",
+	}
+	paths := make([]string, 20_000)
+	for i := range paths {
+		paths[i] = pool[i%len(pool)]
+	}
+	for _, query := range []string{"a", "a src/", "src/ a", "src/你好", "你好 目录", "missing src/", "missing"} {
+		for _, limit := range []int{1, 60} {
+			got := Files(paths, query, limit)
+			runtime.GOMAXPROCS(1)
+			want := Files(paths, query, limit)
+			runtime.GOMAXPROCS(4)
+			if !reflect.DeepEqual(got, want) {
+				t.Errorf("query %q limit %d: concurrent results differ from serial results: got %v, want %v", query, limit, got, want)
+			}
+		}
+	}
+	for i := range paths {
+		paths[i] = fmt.Sprintf("one/%05d/a.go", i)
+	}
+	got := Files(paths, "a one/", 60)
+	if len(got) != 60 {
+		t.Fatalf("got %d results, want 60", len(got))
+	}
+	for i, result := range got {
+		if result.Path != paths[i] {
+			t.Fatalf("equal scores at result %d: got %q, want %q", i, result.Path, paths[i])
+		}
+	}
+}
 
 func TestFileQueriesMatchFullPaths(t *testing.T) {
 	files := []string{"packages/runtime/src/index.ts", "packages/eval/src/runtime-evidence.ts", "other/runtime.ts", "runtime/package.json", "目录/runtime/你好.go"}

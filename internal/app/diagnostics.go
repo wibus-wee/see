@@ -1,56 +1,91 @@
 package app
 
 import (
+	"path/filepath"
+
 	"github.com/egoist/mygo/ui/editor"
-	"see/internal/lsp"
-	"see/internal/uri"
 
 	"see/internal/langserver"
+	"see/internal/lsp"
+	"see/internal/uri"
 	"see/internal/workspace"
 )
 
-// diagnosticsHandler shows a server's diagnostics in the editors of the
-// document, if the server is still the one for it.
-func (a *App) diagnosticsHandler(gen int) func(*langserver.Server, string, editor.Snapshot, []lsp.Diagnostic, string) {
-	return func(m *langserver.Server, docURI string, snap editor.Snapshot, ds []lsp.Diagnostic, encoding string) {
-		path, err := uri.ToPath(docURI)
+func (a *App) diagnosticsHandler(gen int) langserver.DiagnosticsHandler {
+	return func(m *langserver.Server, report langserver.DiagnosticReport) {
+		path, err := uri.ToPath(report.URI)
 		if err != nil {
 			return
 		}
-		out := make([]editor.Diagnostic, 0, len(ds))
-		offset := func(p lsp.Position) int {
-			line := min(max(p.Line, 0), snap.LineCount()-1)
-			return snap.LineStart(line) + lsp.ColumnFromLSP(snap.Line(line), p.Character, encoding)
-		}
-		for _, d := range ds {
-			severity := editor.SeverityError
-			switch d.Severity {
-			case 2:
-				severity = editor.SeverityWarning
-			case 3:
-				severity = editor.SeverityInfo
-			case 4:
-				severity = editor.SeverityHint
-			}
-			start, end := offset(d.Range.Start), offset(d.Range.End)
-			out = append(out, editor.Diagnostic{Start: start, End: max(start, end), Severity: severity, Message: d.Message, Source: d.Source})
+		encoding := report.Client.Encoding()
+		var out []editor.Diagnostic
+		if report.Buffer != nil {
+			out = editorDiagnostics(*report.Buffer, report.Items, encoding)
 		}
 		a.post.Post(func() {
-			if a.gen != gen || a.serverFor(path) != m {
+			if a.gen != gen || m.Current() != report.Client {
 				return
 			}
 			path = workspace.DocPath(a.root, a.realRoot, path)
-			d := a.docs[path]
-			if d == nil || d.buf == nil || d.buf.Version() != snap.Version() {
+			if report.Buffer == nil {
+				if !workspace.Within(a.root, path) || path == a.root || a.diagnosticsServerFor(path) != m {
+					return
+				}
+				if len(report.Items) == 0 {
+					delete(a.problems.disk, path)
+				} else {
+					if a.problems.disk == nil {
+						a.problems.disk = make(map[string]*diskProblems)
+					}
+					a.problems.disk[path] = &diskProblems{server: m, client: report.Client, encoding: encoding, items: report.Items}
+				}
 				return
 			}
-			d.diagnostics, d.diagnosticVersion = out, snap.Version()
+			d := a.docs[path]
+			if a.serverFor(path) != m || d == nil || d.buf == nil || d.buf.Version() != report.Buffer.Version() {
+				return
+			}
+			d.diagnostics, d.diagnosticVersion = out, report.Buffer.Version()
 			for _, g := range a.groups() {
 				if st := g.eds[path]; st != nil {
-					st.SetDiagnostics(snap.Version(), out)
+					st.SetDiagnostics(d.diagnosticVersion, out)
 				}
 			}
 		})
+	}
+}
+
+func (a *App) diagnosticsServerFor(path string) *langserver.Server {
+	switch filepath.Base(path) {
+	case "go.mod", "go.work":
+		return a.lsp
+	}
+	return a.serverFor(path)
+}
+
+func editorDiagnostics(snap editor.Snapshot, ds []lsp.Diagnostic, encoding string) []editor.Diagnostic {
+	out := make([]editor.Diagnostic, 0, len(ds))
+	offset := func(p lsp.Position) int {
+		line := min(max(p.Line, 0), snap.LineCount()-1)
+		return snap.LineStart(line) + lsp.ColumnFromLSP(snap.Line(line), p.Character, encoding)
+	}
+	for _, d := range ds {
+		start, end := offset(d.Range.Start), offset(d.Range.End)
+		out = append(out, editor.Diagnostic{Start: start, End: max(start, end), Severity: diagnosticSeverity(d.Severity), Message: d.Message, Source: d.Source})
+	}
+	return out
+}
+
+func diagnosticSeverity(severity int) editor.Severity {
+	switch severity {
+	case 2:
+		return editor.SeverityWarning
+	case 3:
+		return editor.SeverityInfo
+	case 4:
+		return editor.SeverityHint
+	default:
+		return editor.SeverityError
 	}
 }
 
