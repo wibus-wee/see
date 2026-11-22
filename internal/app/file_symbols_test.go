@@ -2,6 +2,8 @@ package app
 
 import (
 	"context"
+	"errors"
+	"path/filepath"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -9,6 +11,59 @@ import (
 	"github.com/egoist/mygo/ui"
 	"see/internal/lsp"
 )
+
+func TestQuickFileSymbolStatesAndCache(t *testing.T) {
+	for _, fail := range []bool{false, true} {
+		t.Run(map[bool]string{false: "symbols", true: "error"}[fail], func(t *testing.T) {
+			h := newHarness(t, writeTree(t, map[string]string{"pkg/util.go": "package pkg\nfunc Help() {}\n"}))
+			var calls atomic.Int32
+			client := &fileSymbolClient{fakeClient: h.fc, symbols: func(context.Context, string) ([]lsp.DocumentSymbol, error) {
+				calls.Add(1)
+				if fail {
+					return nil, errors.New("symbol request failed")
+				}
+				return []lsp.DocumentSymbol{{Name: "Help", Position: lsp.Position{Line: 1}}}, nil
+			}}
+			h.a.lsp = serverOf(h.a.root, client)
+			defer h.a.lsp.StopWait(time.Second)
+			h.a.openQuickPanel("util@")
+			h.settle(func() bool { return h.a.quick.files != nil })
+			path := filepath.Join(h.a.root, "pkg/util.go")
+			if calls.Load() != 0 || h.a.docs[path] != nil {
+				t.Fatal("untrusted query loaded a document")
+			}
+			h.a.cfg.Trust(h.a.root)
+			h.a.openQuickPanel("util@")
+			h.tt.Frame()
+			h.settle(func() bool { d := h.a.docs[path]; return d != nil && !d.loading })
+			h.settle(func() bool { return h.a.quick.fileLoaded || h.a.quick.symbolErr != nil })
+			if fail {
+				if !h.tt.HasText("symbol request failed") {
+					t.Fatal("missing error state")
+				}
+				return
+			}
+			if len(h.a.quick.symbols) != 1 {
+				t.Fatal("empty symbol query did not list symbols")
+			}
+			for _, query := range []string{"util@heL", "util@missing", "util@"} {
+				h.a.quick.query = query
+				h.tt.Frame()
+				if !h.a.quick.fileLoaded || calls.Load() != 1 {
+					t.Fatal("symbol query refetched cached symbols")
+				}
+				if query == "util@missing" && (len(h.a.quick.results) != 0 || !h.tt.HasText("No Matches")) {
+					t.Fatal("missing empty state")
+				}
+			}
+			h.a.openQuickPanel("absent@Help")
+			h.tt.Frame()
+			if len(h.a.quick.results) != 0 || h.a.quick.filePath != "" || !h.tt.HasText("No Matches") {
+				t.Fatal("missing no-file state")
+			}
+		})
+	}
+}
 
 type fileSymbolClient struct {
 	*fakeClient

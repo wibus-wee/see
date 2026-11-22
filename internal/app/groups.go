@@ -171,6 +171,7 @@ func (a *App) newGroup() *group {
 
 // resetLayout leaves one empty group.
 func (a *App) resetLayout() {
+	a.maximized = nil
 	g := a.newGroup()
 	a.layout = &layout{g: g}
 	a.focus = g
@@ -182,6 +183,7 @@ func (a *App) splitBeside(g *group, s side) *group {
 	if leaf == nil || s == sideNone {
 		return g
 	}
+	a.maximized = nil
 	ng := a.newGroup()
 	old := &layout{g: g, parent: leaf}
 	nw := &layout{g: ng, parent: leaf}
@@ -202,6 +204,9 @@ func (a *App) removeGroup(g *group) {
 	leaf := a.layout.find(g)
 	if leaf == nil || leaf.parent == nil {
 		return
+	}
+	if a.maximized == g {
+		a.maximized = nil
 	}
 	for path := range g.videos {
 		g.closeVideo(path)
@@ -241,6 +246,9 @@ func (g *group) addTab(path string, at int) {
 func (a *App) activateIn(g *group, path string) {
 	if !g.has(path) {
 		return
+	}
+	if a.maximized != g {
+		a.maximized = nil
 	}
 	if a.focus != nil && a.focus != g {
 		a.focus.dismissColorPreview()
@@ -491,6 +499,10 @@ func (a *App) closeTab(g *group, path string) {
 	g.mru = slices.DeleteFunc(g.mru, func(p string) bool { return p == path })
 	g.cycle = slices.DeleteFunc(g.cycle, func(p string) bool { return p == path })
 	if !g.hasDocument(docPath) {
+		if d := a.docs[docPath]; d != nil && g.pin.requested.doc == d {
+			g.pin.cancelRequest()
+			g.pin = readingPin{seq: g.pin.seq + 1}
+		}
 		g.closeVideo(docPath)
 		delete(g.eds, docPath)
 		delete(g.minimaps, docPath)
@@ -546,6 +558,10 @@ func (a *App) releaseIfUnused(path string) {
 	d.seq++ // drop a load on its way
 	a.clearDocumentLinks(d)
 	a.clearFoldingRanges(d)
+	if a.outline.requested.doc == d && a.outline.cancel != nil {
+		a.outline.cancel()
+		a.outline.cancel = nil
+	}
 	if m := a.serverFor(d.path); m != nil {
 		m.Close(d.uri)
 	}
@@ -756,6 +772,11 @@ func (a *App) splitActive(s side) {
 				keepID = lh.snapshots[lh.selected].ID
 			}
 			a.loadLocalHistory(clone, keepID)
+		} else if v != nil && v.change {
+			nv := &gitDiffTab{name: v.name, staged: v.staged, change: true}
+			hunk, _ := v.state.CurrentHunk()
+			a.setGitChangeView(nv, gitChangeView{file: v.patch, partial: v.partial, untracked: v.untracked}, hunk)
+			ng.diffs = map[string]*gitDiffTab{path: nv}
 		} else if v != nil {
 			nv := a.newGitDiffTab(v.patch, v.name, v.staged)
 			nv.rev, nv.hash, nv.oldPath, nv.untracked = v.rev, v.hash, v.oldPath, v.untracked

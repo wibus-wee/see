@@ -94,6 +94,20 @@ func (a *App) settingsGo(pane string) {
 	s.pane = pane
 }
 
+func (a *App) changeEditorFontSize(delta float64) {
+	a.setEditorFontSize(a.cfg.EditorFontSize() + delta)
+}
+
+func (a *App) setEditorFontSize(size float64) {
+	size = min(max(size, 9), 28)
+	if size == a.cfg.EditorFontSize() {
+		return
+	}
+	a.cfg.FontSize = size
+	a.applyEditorPrefsAll()
+	a.settingsChanged()
+}
+
 // changed tells the main window that a setting changed what it shows.
 func (a *App) settingsChanged() {
 	a.saveConfig()
@@ -113,6 +127,10 @@ func (a *App) applyEditorPrefs(st *editor.State) {
 		st.Font.LineHeight = float32(a.cfg.EditorLineHeight)
 	}
 	st.SoftWrap = a.cfg.SoftWrap
+	st.Whitespace = editor.WhitespaceSelection
+	if a.cfg.ShowInvisibles {
+		st.Whitespace = editor.WhitespaceAll
+	}
 	st.LineNumbers = editor.LineNumbers(min(max(a.cfg.LineNumbers, 0), 2))
 	if a.cfg.EditorNoLigatures {
 		if st.Font.Features == "" {
@@ -155,7 +173,7 @@ func (a *App) applyDiffPrefs(diff *editor.DiffState) {
 		}
 	}
 	diff.Wrap = a.cfg.SoftWrap
-	diff.NoLineNumbers = a.cfg.LineNumbers == int(editor.LineNumbersOff)
+	diff.NoLineNumbers = !diff.LineSelection && a.cfg.LineNumbers == int(editor.LineNumbersOff)
 	diff.Layout = editor.DiffSplit
 	if a.cfg.DiffUnified {
 		diff.Layout = editor.DiffUnified
@@ -198,6 +216,9 @@ func (a *App) goToChange(dir int) {
 		}
 		// i is the hunk the caret is in, else the last one before it.
 		i, inside := v.state.CurrentHunk()
+		if v.partial != nil {
+			v.state.SetSelectedLines(editor.DiffLineRange{}, false)
+		}
 		v.state.GoToHunk(nextHunk(i, inside, n, dir))
 		return
 	}
@@ -717,6 +738,13 @@ func (a *App) editorPane(c *ui.Context) {
 			}
 		},
 		func() {
+			labeled(c, locales.ShowInvisibles(), locales.ShowInvisiblesDescription())
+			if ui.Switch(c, &a.cfg.ShowInvisibles).Label(locales.ShowInvisibles()).Changed() {
+				a.applyEditorPrefsAll()
+				a.settingsChanged()
+			}
+		},
+		func() {
 			labeled(c, locales.MsgParameterHelp(), locales.MsgParameterHelpDescription())
 			mode := a.cfg.ParameterHelp
 			if mode == "" {
@@ -733,6 +761,14 @@ func (a *App) editorPane(c *ui.Context) {
 			if ui.Switch(c, &a.cfg.EditorFoldImports).Label(locales.FoldImportsOnOpen()).Changed() {
 				a.settingsChanged()
 			}
+		},
+		func() {
+			labeled(c, locales.HighlightSymbolOccurrences(), locales.HighlightSymbolOccurrencesDescription())
+			enabled := !a.cfg.HideSymbolHighlights
+			ui.Switch(c, &enabled).Label(locales.HighlightSymbolOccurrences()).OnClick(func() {
+				a.cfg.HideSymbolHighlights = !enabled
+				a.settingsChanged()
+			})
 		},
 		func() {
 			labeled(c, locales.MsgQuickHelpInspector(), locales.MsgShowsDeclarationAndDocumentationForTheSymbolUnderTheCaret())
@@ -1098,6 +1134,7 @@ func (a *App) advancedPane(c *ui.Context) {
 				// reset fields
 				def := config.Load("")
 				def.SetPath(a.cfg.Path())
+				def.SavedFindQueries = a.cfg.SavedFindQueries
 				*a.cfg = *def
 				a.settingsChanged()
 			}
