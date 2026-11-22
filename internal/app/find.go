@@ -15,6 +15,7 @@ import (
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 
+	"see/internal/config"
 	"see/internal/lsp"
 	"see/internal/nav"
 	"see/internal/search"
@@ -30,6 +31,7 @@ import (
 // results streaming in from ripgrep.
 type findState struct {
 	opts        search.Options
+	saved       []config.SavedFindQuery
 	field       ui.Handle
 	focus       bool
 	showFilters bool
@@ -74,6 +76,43 @@ func (f *findState) reset() {
 	opts := f.opts
 	*f = findState{opts: opts}
 	f.init()
+}
+
+func (f *findState) currentQuery() config.SavedFindQuery {
+	opts := f.opts
+	return config.SavedFindQuery{
+		Query: opts.Query, CaseSensitive: opts.CaseSensitive, WholeWord: opts.WholeWord,
+		Regexp: opts.Regexp, Include: opts.Include, Exclude: opts.Exclude,
+	}
+}
+
+func (a *App) toggleSavedFindQuery(query config.SavedFindQuery) {
+	if a.root == "" || strings.TrimSpace(query.Query) == "" {
+		return
+	}
+	f := &a.find
+	if i := slices.Index(f.saved, query); i >= 0 {
+		f.saved = slices.Delete(f.saved, i, i+1)
+	} else {
+		f.saved = slices.Insert(f.saved, 0, query)
+	}
+	a.saveConfigSoon()
+}
+
+func (a *App) rerunSavedFindQuery(query config.SavedFindQuery) {
+	f := &a.find
+	if f.replacing {
+		return
+	}
+	f.opts = search.Options{
+		Query: query.Query, CaseSensitive: query.CaseSensitive, WholeWord: query.WholeWord,
+		Regexp: query.Regexp, Include: query.Include, Exclude: query.Exclude,
+		MaxMatches: f.opts.MaxMatches,
+	}
+	f.showFilters = query.Include != "" || query.Exclude != ""
+	f.showReplace = false
+	f.replacement, f.replaceNote, f.replaceErr = "", "", false
+	a.runFind()
 }
 
 // findSoon searches once typing stops for a moment.

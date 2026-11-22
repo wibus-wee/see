@@ -85,6 +85,8 @@ Edit and save UTF-8 text in the source view. Unsaved changes are marked on tabs,
 
 Use **Replace in File** in the command palette to replace one match or all matches in the editor; these edits can be undone. In the Find navigator, turn on **Replace** to preview the replacement next to each match. Replace individual matches from their rows or choose **Replace All** and confirm. Workspace replacement writes to disk, skips files with unsaved edits or stale matches, and cannot be undone from the editor. Replacement text is literal, including when the search uses a regular expression; leave it empty to delete the matches.
 
+In the Find navigator, open the bookmark button next to the search field and choose **Save Current Query**. Saved queries remember the match options and file filters for this workspace. Select one from the same menu to rerun it, or choose **Remove Current Query** when it is active to forget it.
+
 See caches unsaved text for open files so it can restore edits after an unexpected exit. If the disk version changed in the meantime, it preserves the recovered edits and asks before overwriting.
 
 Use **Ctrl+G** or **Go to Line** in the command palette, then enter `:42` or `:42:8` to jump within the current text buffer. Line and column numbers start at 1; columns count UTF-8 bytes. Positions beyond the buffer are clamped. **Go Back** returns to the previous position.

@@ -21,7 +21,17 @@ type Workspace struct {
 	ActiveTerminal int       `json:"activeTerminal,omitempty"`
 	// Bookmarks are the waypoints the workspace keeps, in the order the
 	// user marked them.
-	Bookmarks []Bookmark `json:"bookmarks,omitempty"`
+	Bookmarks        []Bookmark       `json:"bookmarks,omitempty"`
+	SavedFindQueries []SavedFindQuery `json:"savedFindQueries,omitempty"`
+}
+
+type SavedFindQuery struct {
+	Query         string `json:"query"`
+	CaseSensitive bool   `json:"caseSensitive,omitempty"`
+	WholeWord     bool   `json:"wholeWord,omitempty"`
+	Regexp        bool   `json:"regexp,omitempty"`
+	Include       string `json:"include,omitempty"`
+	Exclude       string `json:"exclude,omitempty"`
 }
 
 // TermTab is a terminal tab of the bottom panel: shells side by side.

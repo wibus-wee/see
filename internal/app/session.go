@@ -85,6 +85,7 @@ func (a *App) captureSession() {
 		a.cfg.Workspaces = make(map[string]config.Workspace)
 	}
 	workspace := config.Workspace{Layout: snapshot(a.layout), SidebarHidden: a.sidebarOff, Navigator: a.navigator, ChangesClosed: a.git.changesClosed, HistoryClosed: a.git.historyClosed, GitSplit: a.git.split, GitLogSplit: a.git.logSplit, WindowWidth: a.windowWidth, WindowHeight: a.windowHeight, Bookmarks: a.sessionBookmarks()}
+	workspace.SavedFindQueries = slices.Clone(a.find.saved)
 	workspace.Terminals, workspace.ActiveTerminal, workspace.PanelOpen = a.termSession()
 	if a.root == "" {
 		a.mergeStandaloneSession(workspace)
@@ -189,7 +190,11 @@ func (a *App) restoreSession() {
 		return
 	}
 	s, ok := a.cfg.Workspaces[a.root]
-	if !ok || s.Layout == nil {
+	if !ok {
+		return
+	}
+	a.find.saved = slices.Clone(s.SavedFindQueries)
+	if s.Layout == nil {
 		return
 	}
 	a.restoringSession = true
