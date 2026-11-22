@@ -62,7 +62,10 @@ type CallItem struct {
 	Range          Range           `json:"range"`
 	SelectionRange Range           `json:"selectionRange"`
 	Data           json.RawMessage `json:"data,omitempty"`
+	Tags           []int           `json:"tags,omitempty"`
 }
+
+type TypeHierarchyItem CallItem
 
 // CallEdge is one answer to incomingCalls or outgoingCalls: an item on
 // the other side of the direction, and the ranges the call sites cover
@@ -167,6 +170,7 @@ type serverCapabilities struct {
 	ImplementationProvider    json.RawMessage `json:"implementationProvider"`
 	TypeDefinitionProvider    json.RawMessage `json:"typeDefinitionProvider"`
 	CallHierarchyProvider     json.RawMessage `json:"callHierarchyProvider"`
+	TypeHierarchyProvider     json.RawMessage `json:"typeHierarchyProvider"`
 	DiagnosticProvider        json.RawMessage `json:"diagnosticProvider"`
 	InlayHintProvider         json.RawMessage `json:"inlayHintProvider"`
 	DocumentLinkProvider      json.RawMessage `json:"documentLinkProvider"`

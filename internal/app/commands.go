@@ -147,6 +147,7 @@ func commandsFor(goos string) []command {
 		command{"Pin References", "", "", 0, 0, func(a *App) { a.pinReferencesCommand() }},
 		command{"Find Callers", "", "", 0, 0, func(a *App) { a.findUsages(true) }},
 		command{"Show Call Hierarchy", "Shift+Alt+", "H", ui.Shift | ui.Alt, ui.KeyH, func(a *App) { a.showCallHierarchy() }},
+		command{"Show Type Hierarchy", "", "", 0, 0, func(a *App) { a.showTypeHierarchyAt(a.focus) }},
 		command{"Go to Definition", "", "F12", 0, 0, func(a *App) {
 			if st := a.activeEditor(); st != nil && st.OnDefinition != nil {
 				st.OnDefinition(st.Buffer.Offset(st.CursorPos()))

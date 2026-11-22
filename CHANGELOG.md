@@ -2,6 +2,12 @@
 
 User-facing changes are grouped by release. Earlier releases are documented on the [Releases page](https://github.com/wibus-wee/see/releases).
 
+## Unreleased
+
+### Added
+
+- Browse Type Hierarchy with expandable Supertypes and Subtypes trees, code previews, and navigation for language servers that support it.
+
 ## 0.3.4
 
 ### Added
