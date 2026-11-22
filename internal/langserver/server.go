@@ -51,10 +51,8 @@ type Options struct {
 	Language func(path string) string // the language ID of a document; nil is "go"
 
 	// OnState is called, from any goroutine, as the state changes.
-	OnState func(State, error)
-	// OnDiagnostics is called, from any goroutine, with the diagnostics
-	// of a document at the snapshot they are of.
-	OnDiagnostics func(s *Server, uri string, snap editor.Snapshot, ds []lsp.Diagnostic, encoding string)
+	OnState       func(State, error)
+	OnDiagnostics DiagnosticsHandler
 	// ApplyEdit, when set, answers a server's workspace/applyEdit
 	// request by applying the edit it asks for, reporting failure to it.
 	// The client registers it only when the started client exposes a
@@ -66,6 +64,15 @@ type Options struct {
 	// Get then starts it again, once.
 	Recover func(err error) bool
 }
+
+type DiagnosticReport struct {
+	Client Client
+	URI    string
+	Buffer *editor.Snapshot // nil for a report against the on-disk file
+	Items  []lsp.Diagnostic
+}
+
+type DiagnosticsHandler func(*Server, DiagnosticReport)
 
 // Server manages one server for a workspace and keeps its documents
 // synchronized with editor buffers. Its methods are safe from any goroutine.
@@ -224,8 +231,14 @@ func (s *Server) run(done chan struct{}, attempt int) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	c, err := s.o.Start(ctx, s.o.Root, func(err error) { s.exited(attempt, err) })
+	var registerDiagnostics func()
 	s.mu.Lock()
-	defer s.mu.Unlock()
+	defer func() {
+		s.mu.Unlock()
+		if registerDiagnostics != nil {
+			registerDiagnostics()
+		}
+	}()
 	if s.closed {
 		if c != nil {
 			go c.Shutdown(3 * time.Second)
@@ -249,7 +262,10 @@ func (s *Server) run(done chan struct{}, attempt int) {
 	if dc, ok := c.(interface {
 		SetDiagnosticsHandler(func(string, *int, []lsp.Diagnostic))
 	}); ok {
-		dc.SetDiagnosticsHandler(func(uri string, version *int, ds []lsp.Diagnostic) { s.published(c, uri, version, ds) })
+		// Installing the handler can deliver diagnostics queued at startup.
+		registerDiagnostics = func() {
+			dc.SetDiagnosticsHandler(func(uri string, version *int, ds []lsp.Diagnostic) { s.published(c, uri, version, ds) })
+		}
 	}
 	if s.o.ApplyEdit != nil {
 		if ac, ok := c.(interface {
@@ -327,6 +343,10 @@ func (s *Server) Retry() {
 // The bookkeeping is under mu; the text goes out on the outbox.
 func (s *Server) Sync(ctx context.Context, c Client, docURI string, snap editor.Snapshot) error {
 	s.mu.Lock()
+	if err := ctx.Err(); err != nil {
+		s.mu.Unlock()
+		return err
+	}
 	if c != s.client {
 		s.mu.Unlock()
 		return fmt.Errorf("%s restarted", s.o.Name)
@@ -334,6 +354,17 @@ func (s *Server) Sync(ctx context.Context, c Client, docURI string, snap editor.
 	result := s.queueSync(c, docURI, snap)
 	s.mu.Unlock()
 	return result.wait(ctx)
+}
+
+// Open queues the sync without waiting for the server's stdin.
+func (s *Server) Open(c Client, docURI string, snap editor.Snapshot) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if c != s.client {
+		return false
+	}
+	s.queueSync(c, docURI, snap)
+	return true
 }
 
 // queueSync queues what brings the server's copy of a document up to
@@ -401,14 +432,18 @@ func (s *Server) logf(format string, args ...any) {
 func (s *Server) published(c Client, docURI string, version *int, ds []lsp.Diagnostic) {
 	s.mu.Lock()
 	d := s.docs[docURI]
-	if s.closed || c != s.client || d == nil || (version != nil && *version != d.version) {
+	if s.closed || c != s.client || (version != nil && (d == nil || *version != d.version)) {
 		s.mu.Unlock()
 		return
 	}
-	snap := d.snap
+	report := DiagnosticReport{Client: c, URI: docURI, Items: ds}
+	if d != nil {
+		snap := d.snap
+		report.Buffer = &snap
+	}
 	s.mu.Unlock()
 	if s.o.OnDiagnostics != nil {
-		s.o.OnDiagnostics(s, docURI, snap, ds, c.Encoding())
+		s.o.OnDiagnostics(s, report)
 	}
 }
 
@@ -437,9 +472,21 @@ func (s *Server) pull(c Client, docURI string, snap editor.Snapshot) {
 		valid := !s.closed && c == s.client && d != nil && d.bufVersion == snap.Version()
 		s.mu.Unlock()
 		if valid && s.o.OnDiagnostics != nil {
-			s.o.OnDiagnostics(s, docURI, snap, ds, c.Encoding())
+			s.o.OnDiagnostics(s, DiagnosticReport{Client: c, URI: docURI, Buffer: &snap, Items: ds})
 		}
 	}()
+}
+
+func (s *Server) WatchedFiles(changes []lsp.FileChange) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if c, ok := s.client.(interface{ DidChangeWatchedFiles([]lsp.FileChange) error }); ok {
+		s.out.push(func() {
+			if err := c.DidChangeWatchedFiles(changes); err != nil {
+				s.logf("watched files: %v", err)
+			}
+		})
+	}
 }
 
 // Changed sends a document's new text if the server has it open.

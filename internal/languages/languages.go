@@ -9,8 +9,6 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/egoist/mygo/ui/editor"
-
 	"see/internal/langserver"
 	"see/internal/lsp"
 	"see/internal/shellpath"
@@ -92,7 +90,7 @@ var ErrNoTypeScriptServer = errors.New("tsrs is not installed")
 // missing, it starts once tsrs is found, as another window or process may
 // have installed it since.
 func NewTypeScriptServer(root string, start langserver.Starter, onState func(langserver.State, error),
-	onDiagnostics func(*langserver.Server, string, editor.Snapshot, []lsp.Diagnostic, string), logf func(string, ...any)) *langserver.Server {
+	onDiagnostics langserver.DiagnosticsHandler, logf func(string, ...any)) *langserver.Server {
 	return langserver.New(langserver.Options{
 		Name:          "tsrs",
 		Root:          root,

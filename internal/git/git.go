@@ -44,11 +44,16 @@ func commandInput(ctx context.Context, dir string, input []byte, args ...string)
 }
 
 func commandSeparateOutput(ctx context.Context, dir string, args ...string) ([]byte, []byte, error) {
+	return commandOutputEnv(ctx, dir, nil, args...)
+}
+
+func commandOutputEnv(ctx context.Context, dir string, env []string, args ...string) ([]byte, []byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	args = append([]string{"-c", "core.fsmonitor=false", "-C", dir}, args...)
 	cmd := proc.CommandContext(ctx, "git", args...)
 	cmd.Env = append(cmd.Environ(), "GIT_OPTIONAL_LOCKS=0", "GIT_TERMINAL_PROMPT=0", "GIT_PAGER=cat", "GIT_LITERAL_PATHSPECS=1")
+	cmd.Env = append(cmd.Env, env...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
 	err := cmd.Run()
@@ -71,8 +76,9 @@ type State struct {
 	// Refs is a fingerprint of every ref and its target, for staleness:
 	// a push, tag or branch switch can change history without moving
 	// HEAD. RefsErr holds for-each-ref's error when it failed.
-	Refs    string
-	RefsErr error
+	Refs       string
+	RefsErr    error
+	Repository RepositoryRefs
 	// Staged and Unstaged are each changed file's added and deleted
 	// lines, read only when asked for.
 	Staged, Unstaged map[string]FileStat
@@ -103,6 +109,7 @@ func Sync(ctx context.Context, dir string, counts bool) (State, error) {
 		return s, err
 	}
 	s.Branch, s.Head, s.Changes = parseStatusV2(out)
+	localBranch := s.Branch
 	if s.Head != "" && s.Branch == "" {
 		// Detached: the branch shows as the commit's short hash, as
 		// rev-parse --short HEAD gave it; its length scales with the
@@ -117,19 +124,15 @@ func Sync(ctx context.Context, dir string, counts bool) (State, error) {
 	s.Upstream, s.Ahead, s.Behind = parseBranchStatus(out)
 	_, mergeErr := Command(ctx, s.Root, "rev-parse", "--verify", "--quiet", "MERGE_HEAD")
 	s.Merging = mergeErr == nil
-	s.Refs, s.RefsErr = refs(ctx, s.Root)
+	s.Refs, s.RefsErr = Refs(ctx, s.Root)
 	if counts && len(s.Changes) > 0 {
 		s.Staged, s.Unstaged = LineCounts(ctx, s.Root)
 	}
 	s.Remotes, s.Web = remoteInfo(ctx, s.Root, s.Upstream)
+	if s.RefsErr == nil {
+		s.Repository = parseRepositoryRefs(s.Refs, localBranch, s.Remotes)
+	}
 	return s, nil
-}
-
-// refs includes names as well as targets: a push, tag or branch switch
-// can change history decorations without changing HEAD.
-func refs(ctx context.Context, root string) (string, error) {
-	out, err := Command(ctx, root, "for-each-ref", "--format=%(refname)%00%(objectname)%00%(symref)", "refs/heads", "refs/remotes", "refs/tags")
-	return string(out), err
 }
 
 // parseStatusV2 reads the headers of git status --porcelain=v2 --branch

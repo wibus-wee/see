@@ -20,16 +20,25 @@ type command struct {
 	run             func(*App)
 }
 
-func commands() []command {
-	return commandsFor(runtime.GOOS)
-}
+var platformCommands = commandsFor(runtime.GOOS)
+
+func commands() []command { return platformCommands }
 
 func commandsFor(goos string) []command {
+	backMods, forwardMods := "Ctrl+", "Ctrl+Shift+"
+	if goos != "darwin" {
+		backMods, forwardMods = "Ctrl+Alt+", "Ctrl+Alt+Shift+"
+	}
 	replaceLabel, replaceKeyName, replaceMods, replaceKey := fileReplaceShortcutFor(goos)
 	docItemsLabel, docItemsKeyName, docItemsMods, docItemsKey, groupFilesLabel, groupFilesKeyName, groupFilesMods, groupFilesKey := jumpBarShortcutsFor(goos)
 	scopeLabel, scopeKeyName, scopeMods, scopeKey := editAllScopeShortcut(goos)
 	counterpartLabel, counterpartMods := counterpartShortcut(goos)
+	methodLabel, methodMods := methodShortcut(goos)
+	maximizeLabel, maximizeMods := maximizeEditorShortcut(goos)
 	cmds := []command{
+		{"Bigger", "Cmd+", "=", ui.Cmd, ui.KeyEqual, func(a *App) { a.changeEditorFontSize(1) }},
+		{"Smaller", "Cmd+", "-", ui.Cmd, ui.KeyMinus, func(a *App) { a.changeEditorFontSize(-1) }},
+		{"Reset Editor Font Size", "", "", 0, 0, func(a *App) { a.setEditorFontSize(13) }},
 		{"New File", "Cmd+", "N", ui.Cmd, ui.KeyN, func(a *App) { a.newFile() }},
 		{"Command Palette", "Cmd+Shift+", "P", ui.Cmd | ui.Shift, ui.KeyP, func(a *App) { a.openPalette() }},
 		{"New Window", "Cmd+Shift+", "N", ui.Cmd | ui.Shift, ui.KeyN, func(a *App) {
@@ -37,7 +46,7 @@ func commandsFor(goos string) []command {
 		}},
 		{"Open Folder", "Cmd+", "O", ui.Cmd, ui.KeyO, func(a *App) { a.openFolderDialog() }},
 		{"Open Quickly", "Cmd+Shift+", "O", ui.Cmd | ui.Shift, ui.KeyO, func(a *App) { a.openQuickly() }},
-		{"Show Problems", "Cmd+Shift+", "M", ui.Cmd | ui.Shift, ui.KeyM, func(a *App) { a.sidebarOff, a.navigator = false, navProblems }},
+		{"Show Problems", "Cmd+Shift+", "M", ui.Cmd | ui.Shift, ui.KeyM, (*App).showProblems},
 		{"Show Quick Help", "Alt+Cmd+", "K", ui.Alt | ui.Cmd, ui.KeyK, func(a *App) { a.showQuickHelpAtCaret() }},
 		{"Test Regex", "", "", 0, 0, func(a *App) { a.openRegexPlayground() }},
 		{"Toggle Quick Help Inspector", "Alt+Cmd+", "I", ui.Alt | ui.Cmd, ui.KeyI, func(a *App) { a.toggleInspector() }},
@@ -47,6 +56,9 @@ func commandsFor(goos string) []command {
 			if a.activeEditor() != nil {
 				a.openQuickPanel(":")
 			}
+		}},
+		{"Reveal in Project Navigator", "Cmd+Shift+", "J", ui.Cmd | ui.Shift, ui.KeyJ, func(a *App) {
+			a.revealInProjectNavigator(a.activeProjectFile())
 		}},
 		{"Search File Symbols", "Alt+Cmd+", "O", ui.Alt | ui.Cmd, ui.KeyO, func(a *App) { a.openQuickPanel("@") }},
 		{"Search Workspace Symbols", "Cmd+", "T", ui.Cmd, ui.KeyT, func(a *App) { a.openQuickPanel("#") }},
@@ -77,6 +89,7 @@ func commandsFor(goos string) []command {
 		{"Show Line's Commit in Git Log", "", "", 0, 0, func(a *App) { a.revealLineCommit() }},
 		{"Toggle Minimap", "", "", 0, 0, func(a *App) { a.cfg.HideMinimap = !a.cfg.HideMinimap; a.settingsChanged() }},
 		{"Toggle Inline Git Blame", "", "", 0, 0, func(a *App) { a.cfg.HideInlineBlame = !a.cfg.HideInlineBlame; a.settingsChanged() }},
+		{"Show Invisibles", "", "", 0, 0, func(a *App) { a.toggleInvisibles() }},
 		{"Toggle Type Hints", "", "", 0, 0, func(a *App) { a.toggleTypeHints() }},
 		{"Toggle Inline Diff", "", "", 0, 0, func(a *App) { a.toggleDiffLayout() }},
 		{"Next Change", "", "", 0, 0, func(a *App) { a.goToChange(1) }},
@@ -89,8 +102,8 @@ func commandsFor(goos string) []command {
 			a.sidebarOff, a.navigator, a.filter.focus = false, navFiles, true
 		}},
 		{"Show or Hide the Navigator", "Cmd+", "B", ui.Cmd, ui.KeyB, func(a *App) { a.sidebarOff = !a.sidebarOff }},
-		{"Go Back", "Ctrl+", "-", ui.Ctrl, ui.KeyMinus, func(a *App) { a.goBack() }},
-		{"Go Forward", "Ctrl+Shift+", "-", ui.Ctrl | ui.Shift, ui.KeyMinus, func(a *App) { a.goForward() }},
+		{"Go Back", backMods, "-", 0, ui.KeyMinus, func(a *App) { a.goBack() }},
+		{"Go Forward", forwardMods, "-", 0, ui.KeyMinus, func(a *App) { a.goForward() }},
 		{"Focus Next Editor", "", "F6", 0, ui.KeyF6, func(a *App) { a.cycleEditorGroup(1) }},
 		{"Focus Previous Editor", "Shift+", "F6", ui.Shift, ui.KeyF6, func(a *App) { a.cycleEditorGroup(-1) }},
 		{"Move Tab to Next Editor", "", "", 0, 0, func(a *App) { a.moveTabToNextEditor() }},
@@ -112,6 +125,7 @@ func commandsFor(goos string) []command {
 		{"Close Saved Tabs", "", "", 0, 0, func(a *App) { a.closeTabs(a.focus, a.focus.active, closeSavedTabs) }},
 		{"Add Editor on Right", "Cmd+", "D", ui.Cmd, ui.KeyD, func(a *App) { a.splitActive(sideRight) }},
 		{"Add Editor Below", "Cmd+Shift+", "D", ui.Cmd | ui.Shift, ui.KeyD, func(a *App) { a.splitActive(sideBottom) }},
+		{"Maximize Editor", maximizeLabel, "Return", maximizeMods, ui.KeyEnter, func(a *App) { a.toggleMaximizeEditor() }},
 		{"Show or Hide the Terminal", "Cmd+Shift+", "Y", ui.Cmd | ui.Shift, ui.KeyY, func(a *App) { a.toggleTerminal() }},
 		{"Go: Build Workspace", "Cmd+Shift+", "B", ui.Cmd | ui.Shift, ui.KeyB, func(a *App) { a.runGoTask(tasks.Build) }},
 		{"Go: Test Workspace", "", "", 0, 0, func(a *App) { a.runGoTask(tasks.Test) }},
@@ -147,6 +161,8 @@ func commandsFor(goos string) []command {
 		command{"Pin References", "", "", 0, 0, func(a *App) { a.pinReferencesCommand() }},
 		command{"Find Callers", "", "", 0, 0, func(a *App) { a.findUsages(true) }},
 		command{"Show Call Hierarchy", "Shift+Alt+", "H", ui.Shift | ui.Alt, ui.KeyH, func(a *App) { a.showCallHierarchy() }},
+		command{"Next Method", methodLabel, "↓", methodMods, ui.KeyDown, func(a *App) { a.goToMethod(1) }},
+		command{"Previous Method", methodLabel, "↑", methodMods, ui.KeyUp, func(a *App) { a.goToMethod(-1) }},
 		command{"Go to Definition", "", "F12", 0, 0, func(a *App) {
 			if st := a.activeEditor(); st != nil && st.OnDefinition != nil {
 				st.OnDefinition(st.Buffer.Offset(st.CursorPos()))
@@ -237,6 +253,13 @@ func counterpartShortcut(goos string) (string, ui.Modifiers) {
 		return "Ctrl+Cmd+", ui.Ctrl | ui.Cmd
 	}
 	return "Ctrl+Shift+", ui.Ctrl | ui.Shift
+}
+
+func maximizeEditorShortcut(goos string) (string, ui.Modifiers) {
+	if goos == "darwin" {
+		return "Ctrl+Cmd+Shift+", ui.Ctrl | ui.Cmd | ui.Shift
+	}
+	return "Ctrl+Alt+Shift+", ui.Ctrl | ui.Alt | ui.Shift
 }
 
 func (a *App) openPalette() {
@@ -339,4 +362,13 @@ func installSeeLink(exe, dir string) (path string, already bool, err error) {
 		return path, false, err
 	}
 	return path, false, nil
+}
+
+// toggleInvisibles shows spaces and tabs as dots and arrows everywhere,
+// as Xcode's Editor > Invisibles; off, they show only in the selection.
+func (a *App) toggleInvisibles() {
+	a.cfg.ShowInvisibles = !a.cfg.ShowInvisibles
+	a.applyEditorPrefsAll()
+	a.settingsChanged()
+	a.host.RefreshMenu()
 }

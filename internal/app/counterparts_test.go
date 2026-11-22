@@ -69,7 +69,8 @@ func TestCounterpartShortcutsAndPalette(t *testing.T) {
 	if got := h.a.activeEditor().CursorPos().Col; got == 0 {
 		t.Fatal("newly opened counterpart did not get editor focus")
 	}
-	h.tt.Key(ui.Ctrl, ui.KeyMinus)
+	back := jumpShortcut(t, "Go Back")
+	h.tt.Key(back.shortcutMods, back.shortcutKey)
 	wantFile("internal/format.go")
 	if got := st.CursorPos(); got != pos {
 		t.Fatalf("Go Back restored %v, want %v", got, pos)

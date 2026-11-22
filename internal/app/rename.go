@@ -92,6 +92,11 @@ func (a *App) submitRename(q *renamePrompt) {
 }
 
 func (a *App) renamed(old, dst string) {
+	for path := range a.problems.disk {
+		if workspace.Within(old, path) {
+			delete(a.problems.disk, path)
+		}
+	}
 	for _, entries := range [][]nav.Entry{a.hist.Back, a.hist.Forward} {
 		for i := range entries {
 			if workspace.Within(old, entries[i].Path) {
@@ -190,7 +195,7 @@ func (a *App) renamed(old, dst string) {
 				a.cacheRecovery(d)
 			}
 			if m := a.serverFor(next); m != nil && a.cfg.IsTrusted(a.root) {
-				go a.openLanguageDocument(m, a.wsCtx, d, d.uri, d.buf.Snapshot())
+				go a.openLanguageDocument(m, a.wsCtx, d, d.uri)
 			}
 		}
 	}

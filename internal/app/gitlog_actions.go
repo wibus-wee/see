@@ -11,7 +11,7 @@ import (
 	"see/internal/git"
 )
 
-// Jumping through the log, and the commit rows' read-only actions: the
+// Jumping through the log, and the commit rows' actions: the
 // files a commit changed, its comparison with its parent on the host,
 // and the date of the history the log opens, as Fork's and Peek's.
 
@@ -235,5 +235,12 @@ func (a *App) commitRowItems(m *ui.Menu, c *ui.Context, cm git.Commit) {
 		if m.Item(locales.MsgOpenCompareOn() + hostName(a.git.web)).Chosen() {
 			c.Services().OpenURL(link)
 		}
+	}
+	m.Separator()
+	if m.Item(locales.GitCreateTagAction()).Disabled(a.git.busy).Chosen() {
+		a.openCreateTag(cm.Hash, cm.Short+" · "+cm.Subject)
+	}
+	if m.Item(locales.GitCherryPick()).Disabled(a.git.busy).Chosen() {
+		a.cherryPick(cm)
 	}
 }

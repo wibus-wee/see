@@ -446,8 +446,7 @@ func (a *App) saveUntitled(d *doc, done func(bool)) {
 					}
 					if m := a.serverFor(path); m != nil {
 						if a.cfg.IsTrusted(a.root) {
-							ctx, docURI, current := a.wsCtx, d.uri, d.buf.Snapshot()
-							go a.openLanguageDocument(m, ctx, d, docURI, current)
+							go a.openLanguageDocument(m, a.wsCtx, d, d.uri)
 						} else if !a.trustDismissed {
 							a.trustAsk = true
 						}

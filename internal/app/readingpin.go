@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -16,21 +19,8 @@ import (
 // pinDebounce lets typing settle before the pin asks for symbols again.
 const pinDebounce = 350 * time.Millisecond
 
-// pinMinLines is the shortest range a scope is worth reporting: two-line
-// func literals and fields would keep the row flickering while it says
-// nothing a glance at the gutter would not.
-const pinMinLines = 8
+const maxStickyHeaders = 3
 
-// pinScope is one declaration of the row's path, outer scopes first.
-type pinScope struct {
-	index int          // the symbol's place in the flat list
-	pos   lsp.Position // where a click puts the caret
-	hops  int          // collapsed levels between this scope and the next inner one
-}
-
-// readingPin keeps, per group, the symbols its row was drawn from, the
-// request on its way and the row's last answer, as outlineState does for
-// the outline.
 type readingPin struct {
 	requested outlineKey
 	seq       int
@@ -38,54 +28,48 @@ type readingPin struct {
 	loading   bool
 	symbols   []lsp.DocumentSymbol
 	enc       string
-	first     int        // the top line the last answer was for
-	shown     int        // the innermost scope it named, -1 when the row hid
-	path      []pinScope // reusable buffer of the last answer
 }
 
-// pinScopes is the path to the scope of line, as pinScopes of symbols,
-// outer first and the innermost last; nil when no scope is worth a row.
-// Among the symbols containing line it keeps the deepest one at least
-// pinMinLines long, the one the row names, with one enclosing level
-// above it. Deeper nesting collapses to an ellipsis in front, the hops
-// of the outermost scope shown counting the levels it stands for.
-//
-// Ranges are compared by line alone: symbols share the flat list the
-// outline shows, whose nesting is by line, so a character-exact compare
-// cannot disagree with it.
-func pinScopes(buf []pinScope, symbols []lsp.DocumentSymbol, line int) []pinScope {
-	buf = buf[:0]
-	if len(symbols) == 0 {
-		return nil
+func stickyKind(kind int) bool {
+	switch kind {
+	case 2, 3, 5, 6, 9, 10, 11, 12, 23: // module, namespace, class, method, constructor, enum, interface, function, struct
+		return true
+	default:
+		return false
 	}
-	inner, innerDepth := -1, -1
-	for i, s := range symbols {
-		if s.Range.Start.Line > line || s.Range.End.Line <= line || s.Range.End.Line-s.Range.Start.Line < pinMinLines {
-			continue
+}
+
+func enclosesSticky(outer, inner lsp.DocumentSymbol) bool {
+	return outer.Position.Line < inner.Position.Line &&
+		!positionBefore(inner.Range.Start, outer.Range.Start) &&
+		!positionBefore(outer.Range.End, inner.Range.End)
+}
+
+// Each slot pins declarations above that slot only if their body reaches
+// below it. Check ranges rather than Depth so flat LSP results nest too.
+func stickyScopes(symbols []lsp.DocumentSymbol, lines []int) []lsp.DocumentSymbol {
+	var headers []lsp.DocumentSymbol
+	for slot := 0; slot+1 < len(lines); slot++ {
+		best := -1
+		for i, s := range symbols {
+			if !stickyKind(s.Kind) || s.Position.Line < 0 || s.Position.Line >= lines[slot] ||
+				!positionBefore(lsp.Position{Line: lines[slot+1]}, s.Range.End) {
+				continue
+			}
+			if slot > 0 && !enclosesSticky(headers[slot-1], s) {
+				continue
+			}
+			if best < 0 || slot+2 < len(lines) && enclosesSticky(s, symbols[best]) ||
+				slot+2 == len(lines) && enclosesSticky(symbols[best], s) {
+				best = i
+			}
 		}
-		if s.Depth > innerDepth {
-			inner, innerDepth = i, s.Depth
-		}
-	}
-	if inner < 0 {
-		return nil
-	}
-	// The ancestors of inner are the symbols before it, nearest last,
-	// each shallower than the one before it; the row keeps the nearest
-	// of them, the rest of the nesting an ellipsis in front of it.
-	depth := symbols[inner].Depth
-	for i := inner - 1; i >= 0 && depth > 0; i-- {
-		s := symbols[i]
-		if s.Depth >= depth {
-			continue
-		}
-		depth = s.Depth
-		if s.Range.End.Line-s.Range.Start.Line >= pinMinLines {
-			buf = append(buf, pinScope{index: i, pos: s.Position, hops: symbols[inner].Depth - 1})
+		if best < 0 {
 			break
 		}
+		headers = append(headers, symbols[best])
 	}
-	return append(buf, pinScope{index: inner, pos: symbols[inner].Position})
+	return headers
 }
 
 // refreshPin asks for the symbols of g's document when it, its text or
@@ -95,19 +79,17 @@ func pinScopes(buf []pinScope, symbols []lsp.DocumentSymbol, line int) []pinScop
 func (a *App) refreshPin(g *group, d *doc) {
 	p := &g.pin
 	o := &a.outline
-	if o.shown.path == d.path && o.shown.doc == d && len(o.symbols) > 0 && (o.shown.version == 0 || d.buf == nil || o.shown.version == d.buf.Version()) {
+	key := outlineKey{path: d.path, doc: d, version: d.buf.Version(), server: a.serverFor(d.path)}
+	if !a.cfg.IsTrusted(a.root) {
 		p.cancelRequest()
-		p.requested = outlineKey{path: d.path, doc: d, server: o.shown.server}
-		if d.buf != nil {
-			p.requested.version = d.buf.Version()
-		}
-		p.symbols, p.enc, p.loading = o.symbols, o.enc, false
+		p.requested, p.symbols, p.loading = outlineKey{}, nil, false
 		return
 	}
-	key := outlineKey{path: d.path, doc: d}
-	if d.buf != nil {
-		key.version = d.buf.Version()
-		key.server = a.serverFor(d.path)
+	if o.shown == key && o.err == nil {
+		p.cancelRequest()
+		p.requested = key
+		p.symbols, p.enc, p.loading = o.symbols, o.enc, false
+		return
 	}
 	if key == p.requested {
 		return
@@ -118,9 +100,7 @@ func (a *App) refreshPin(g *group, d *doc) {
 	if old.doc != d || old.server != key.server {
 		p.symbols = nil
 	}
-	// Asking would start the server: only a trusted workspace runs one,
-	// as refreshOutline's check does.
-	if d.buf == nil || key.server == nil || a.wsCtx == nil || !a.cfg.IsTrusted(a.root) {
+	if key.server == nil || a.wsCtx == nil {
 		p.loading = false
 		return
 	}
@@ -156,7 +136,7 @@ func (a *App) refreshPin(g *group, d *doc) {
 			}
 		}
 		a.post.Post(func() {
-			if a.gen != gen || p.seq != seq || p.requested != key || errors.Is(err, context.Canceled) {
+			if a.gen != gen || p.seq != seq || p.requested != key || !p.loading || errors.Is(err, context.Canceled) {
 				return
 			}
 			p.cancel, p.loading = nil, false
@@ -177,64 +157,146 @@ func (p *readingPin) cancelRequest() {
 	}
 }
 
-// readingPinRow is the row above g's editor naming the declaration the
-// viewport is inside, or nothing when there is no answer to give: at the
-// top of a scope, in a flat list, before the first request answered.
-func (a *App) readingPinRow(c *ui.Context, g *group, d *doc, st *editor.State) {
-	if a.cfg.HideReadingPin {
+func (a *App) stickyScopeHeaders(c *ui.Context, g *group, d *doc, st *editor.State) {
+	if a.cfg.HideReadingPin || st.ViewportHeight() == 0 {
 		return
 	}
 	a.refreshPin(g, d)
 	p := &g.pin
-	if p.loading || p.requested.doc != d {
+	if p.loading || len(p.symbols) == 0 || st.ScrollY() <= 0 {
 		return
 	}
-	first, _ := st.VisibleLines()
-	p.path = pinScopes(p.path, p.symbols, first)
-	// With the file's first line at the top nothing has scrolled off,
-	// and a scope whose own line is still at the top is not yet above
-	// the viewport: the row falls back to its parent, or hides. One row
-	// of hysteresis while the row shows keeps a scroll back to the
-	// boundary from flickering it.
-	boundary := first
-	if first > 0 && p.shown >= 0 && first <= p.first {
-		boundary = first + 1
+	font := st.Font
+	if font.Family == "" {
+		font.Family = "monospace"
 	}
-	path := p.path
-	for len(path) > 0 && p.symbols[path[len(path)-1].index].Range.Start.Line >= boundary {
-		path = path[:len(path)-1]
+	if font.Size <= 0 {
+		font.Size = 13
 	}
-	if len(path) == 0 {
-		p.shown, p.first = -1, first
-		p.path = p.path[:0]
+	lineHeight := st.LineHeight
+	if lineHeight <= 0 {
+		lineHeight = 1.5
+	}
+	height := font.Size * lineHeight
+	count := st.Buffer.LineCount()
+	slots := min(maxStickyHeaders, int(st.ViewportHeight()/float64(height))-1)
+	if slots < 1 {
 		return
 	}
-	p.first, p.shown = first, path[len(path)-1].index
-	ui.Row(c).FillWidth().Height(22).Padding(0, 10).Gap(2).AlignItems(ui.Center).
-		Background(colors(c).Editor).BorderWidth(0, 0, 1, 0).BorderColor(colors(c).Separator).
-		Label(locales.ReadingPositionPin()).Children(func() {
-		if path[0].hops > 0 {
-			ui.Text(c, "…").FontSize(12).TextColor(colors(c).Dim).SingleLine()
-			symbolIcon(c, icChevron, 9, colors(c).Dim)
+	var lines [maxStickyHeaders + 1]int
+	for i := 0; i <= slots; i++ {
+		y := st.ScrollY() + float64(float32(i)*height)
+		lines[i] = sort.Search(count, func(line int) bool { return st.LineTop(line+1) > y })
+	}
+	headers := stickyScopes(p.symbols, lines[:slots+1])
+	if len(headers) == 0 {
+		return
+	}
+	charWidth, _ := c.MeasureText(0, ui.Span{Text: "0", Font: font.Family, Size: font.Size, Weight: font.Weight})
+	numberWidth := float32(0)
+	if st.LineNumbers != editor.LineNumbersOff {
+		numberWidth = float32(max(3, len(fmt.Sprint(count)))) * charWidth
+	}
+	// Match MyGo's number, change and fold gutters; leave its scrollbar reachable.
+	textX := numberWidth + 14
+	if numberWidth > 0 {
+		textX += 1.5 * charWidth
+	}
+	if !st.NoFolding {
+		textX += 0.8 * height
+	}
+	textX = float32(math.Ceil(float64(textX)))
+	numberRight := float32(0)
+	if numberWidth > 0 {
+		numberRight = 4 + numberWidth
+	}
+	right := float32(0)
+	if !st.NoScrollbars {
+		right = st.Scrollbar.TrackWidth
+		if right == 0 {
+			right = c.Theme().ScrollbarStyle.TrackWidth
 		}
-		for k, scope := range path {
-			if k > 0 {
-				symbolIcon(c, icChevron, 9, colors(c).Dim)
-			}
-			s := p.symbols[scope.index]
-			text := colors(c).Muted
-			if k == len(path)-1 {
-				text = colors(c).Text
-			}
-			b := ui.ButtonBase(c.Key(fmt.Sprint("pin-", scope.index))).Label(s.Name).Padding(1, 3).Radius(4).Shrink(0)
+		if right == 0 {
+			right = 10
+		}
+	}
+	palette := colors(c)
+	edTheme := st.Theme
+	if edTheme == nil {
+		edTheme = editor.DefaultTheme(c.Theme())
+	}
+	background := edTheme.Background.Mix(palette.TabBar, 0.45)
+	lang := st.Buffer.Language()
+	tabSize := st.TabSize
+	if tabSize <= 0 && lang != nil {
+		tabSize = lang.TabSize
+	}
+	if tabSize <= 0 {
+		tabSize = 4
+	}
+	ui.Column(c).Key("sticky scopes").Absolute().Top(0).Left(0).Right(right).ZIndex(-1).
+		// Keep pointer presses on the buttons; wheel events still bubble to the editor.
+		HandleInput(func(ui.InputEvent) bool { return false }).
+		Label(locales.ReadingPositionPin()).Children(func() {
+		for _, s := range headers {
+			line := s.Position.Line
+			source := stickySource(st.Buffer.Line(line), tabSize)
+			b := ui.ButtonBase(c.Key(line)).Row().FillWidth().Height(height).Shrink(0).
+				Justify(ui.Start).AlignItems(ui.Center).Clip().Cursor(ui.CursorPointer).Label(strings.TrimSpace(source)).
+				Background(background).BorderWidth(0, 0, 1, 0).BorderColor(palette.Separator)
 			if b.Hovered() || b.Pressed() {
-				b.Background(colors(c).Pill)
+				b.Background(background.Mix(palette.Text, 0.07))
 			}
-			b.Children(func() { symbolCrumbContent(c, s, text, 12) })
-			pos := scope.pos
-			b.OnClick(func() { a.openPinSymbol(g, pos) })
+			b.Children(func() {
+				if numberRight > 0 {
+					ui.Text(c, fmt.Sprint(line+1)).Font(font.Family).FontSize(font.Size).FontWeight(font.Weight).
+						TextColor(edTheme.LineNumber).Width(numberRight).TextAlign(ui.End).SingleLine().Shrink(0)
+				}
+				ui.Box(c).Width(textX - numberRight).Shrink(0)
+				ui.RichText(c, stickySpans(source, lang, edTheme)...).Font(font.Family).FontSize(font.Size).
+					FontWeight(font.Weight).FontFeatures(font.Features).SingleLine().Ellipsis("…").Shrink(1)
+			})
+			b.OnClick(func() { a.openPinSymbol(g, s.Position) })
 		}
 	})
+}
+
+func stickySource(source string, tabSize int) string {
+	if !strings.ContainsRune(source, '\t') {
+		return source
+	}
+	var b strings.Builder
+	col := 0
+	for _, r := range source {
+		if r == '\t' {
+			n := tabSize - col%tabSize
+			b.WriteString(strings.Repeat(" ", n))
+			col += n
+		} else {
+			b.WriteRune(r)
+			col++
+		}
+	}
+	return b.String()
+}
+
+func stickySpans(source string, lang *editor.Language, theme *editor.Theme) []ui.Span {
+	var spans []ui.Span
+	start := 0
+	if lang != nil && lang.Tokenizer != nil {
+		tokens, _ := lang.Tokenizer.Tokenize(source, 0, nil)
+		for _, token := range tokens {
+			end := min(token.End, len(source))
+			if end > start {
+				spans = append(spans, ui.Span{Text: source[start:end], Color: theme.TokenColor(token.Kind)})
+				start = end
+			}
+		}
+	}
+	if start < len(source) {
+		spans = append(spans, ui.Span{Text: source[start:], Color: theme.Text})
+	}
+	return spans
 }
 
 // openPinSymbol goes to the declaration the row's segment names, as a
