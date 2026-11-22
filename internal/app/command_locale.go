@@ -57,6 +57,8 @@ var commandMessages = map[string]string{
 	"Close Saved Tabs":            "commandCloseSavedTabs",
 	"Next Problem":                "commandNextProblem",
 	"Previous Problem":            "commandPreviousProblem",
+	"Next Method":                 "commandNextMethod",
+	"Previous Method":             "commandPreviousMethod",
 	"Go to Line":                  "commandGoToLine",
 	"New File":                    "msgNewFile2",
 	"Command Palette":             "commandCommandPalette",

@@ -100,7 +100,7 @@ func (a *App) commandEnabled(name string) bool {
 		return st != nil && rng && hasSelection(st)
 	// Commands that only run an editor command or read the editor.
 	case "Find in File", "Replace in File", "Go to Definition",
-		"Next Problem", "Previous Problem", "Go to Line", "Search File Symbols",
+		"Next Problem", "Previous Problem", "Next Method", "Previous Method", "Go to Line", "Search File Symbols",
 		"Show Document Items", "Fold", "Unfold", "Toggle Fold",
 		"Fold Recursively", "Unfold Recursively", "Fold All", "Unfold All",
 		"Fold Imports", "Fold Level 1", "Fold Level 2", "Fold Level 3",
@@ -179,7 +179,7 @@ func (a *App) commandEnabled(name string) bool {
 func (a *App) navigationMenuItems(run func(func())) []*mygo.MenuItem {
 	var items []*mygo.MenuItem
 	for _, cmd := range commands() {
-		if cmd.name != "Go to Definition" && cmd.name != "Peek Definition" && cmd.name != "Go to Implementation" && cmd.name != "Go to Type Definition" && cmd.name != "Show Call Hierarchy" {
+		if cmd.name != "Go to Definition" && cmd.name != "Peek Definition" && cmd.name != "Go to Implementation" && cmd.name != "Go to Type Definition" && cmd.name != "Show Call Hierarchy" && cmd.name != "Next Method" && cmd.name != "Previous Method" {
 			continue
 		}
 		items = append(items, &mygo.MenuItem{
