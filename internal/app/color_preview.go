@@ -131,18 +131,16 @@ func (a *App) colorReplacements(g *group, d *doc, st *editor.State) []editor.Rep
 
 func colorPreviewPanel(c *ui.Context, preview *colorPreviewState) {
 	label := fmt.Sprintf(locales.ColorPreviewButton(), preview.literal.Raw)
-	ui.Box(c.Key("color-preview-panel")).Width(240).Height(92).Center().Children(func() {
-		ui.Box(c.Key("color-preview-canvas")).Width(224).Height(76).
-			Role(ui.RoleGroup).Label(label).Children(func() {
-			ui.Row(c).Fill().Children(func() {
-				ui.Box(c.Key("color-preview-light")).Grow(1).FillHeight().
-					Background(ui.RGB(255, 255, 255)).Role(ui.RoleGroup).Label(locales.ColorPreviewLight())
-				ui.Box(c.Key("color-preview-dark")).Grow(1).FillHeight().
-					Background(ui.RGB(24, 24, 27)).Role(ui.RoleGroup).Label(locales.ColorPreviewDark())
-			})
-			ui.Box(c.Key("color-preview-band")).Absolute().Left(12).Right(12).Top(20).Height(36).
-				Radius(5).Background(colorliteralColor(preview.literal.Color))
+	ui.Box(c.Key("color-preview-canvas")).Size(120, 40).Radius(4).Clip().
+		Role(ui.RoleGroup).Label(label).Children(func() {
+		ui.Row(c).Fill().Children(func() {
+			ui.Box(c.Key("color-preview-light")).Grow(1).FillHeight().
+				Background(ui.RGB(255, 255, 255)).Role(ui.RoleGroup).Label(locales.ColorPreviewLight())
+			ui.Box(c.Key("color-preview-dark")).Grow(1).FillHeight().
+				Background(ui.RGB(24, 24, 27)).Role(ui.RoleGroup).Label(locales.ColorPreviewDark())
 		})
+		ui.Box(c.Key("color-preview-band")).Absolute().Left(6).Right(6).Top(10).Height(20).
+			Radius(3).Background(colorliteralColor(preview.literal.Color))
 	})
 }
 

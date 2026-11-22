@@ -190,7 +190,7 @@ func TestColorPreviewScreenshots(t *testing.T) {
 	for _, appearance := range []struct {
 		dark bool
 		name string
-	}{{false, "revised-light.png"}, {true, "revised-dark.png"}} {
+	}{{false, "revised-compact-light.png"}, {true, "revised-compact-dark.png"}} {
 		h, _, _ := colorPreviewHarness(t, map[string]string{"colors.css": ":root {\n  --accent: #8b5cf6;\n  --accent-soft: rgba(139,92,246,.5);\n  --clear: #0000;\n  --surface: #1f2937;\n}\n"})
 		h.tt.SetDark(appearance.dark)
 		h.tt.Frame()
