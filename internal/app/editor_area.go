@@ -33,7 +33,13 @@ func (a *App) editorArea(c *ui.Context) {
 		ui.Row(c).Fill().AlignItems(ui.Stretch).Children(func() {
 			ui.Column(c).Grow(1).FillHeight().Children(func() {
 				a.editorsAndPanel(c, func() {
-					ui.Column(c).Fill().Children(func() { a.layoutView(c, a.layout) })
+					ui.Column(c).Fill().Children(func() {
+						if g := a.maximized; g != nil && a.layout.find(g) != nil && len(a.groups()) > 1 {
+							a.groupView(c, g)
+						} else {
+							a.layoutView(c, a.layout)
+						}
+					})
 				})
 			})
 			if a.inspectorOpen() {
@@ -84,10 +90,10 @@ func (a *App) groupView(c *ui.Context, g *group) {
 		})
 	}
 	col.Children(func() {
+		if len(g.order) > 1 || len(a.groups()) > 1 {
+			a.tabBar(c, g)
+		}
 		if len(g.order) > 0 {
-			if len(g.order) > 1 || len(a.groups()) > 1 {
-				a.tabBar(c, g)
-			}
 			if isDiffTab(g.active) {
 				a.diffJumpBar(c, g)
 			} else {

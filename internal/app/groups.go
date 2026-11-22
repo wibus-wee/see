@@ -171,6 +171,7 @@ func (a *App) newGroup() *group {
 
 // resetLayout leaves one empty group.
 func (a *App) resetLayout() {
+	a.maximized = nil
 	g := a.newGroup()
 	a.layout = &layout{g: g}
 	a.focus = g
@@ -182,6 +183,7 @@ func (a *App) splitBeside(g *group, s side) *group {
 	if leaf == nil || s == sideNone {
 		return g
 	}
+	a.maximized = nil
 	ng := a.newGroup()
 	old := &layout{g: g, parent: leaf}
 	nw := &layout{g: ng, parent: leaf}
@@ -202,6 +204,9 @@ func (a *App) removeGroup(g *group) {
 	leaf := a.layout.find(g)
 	if leaf == nil || leaf.parent == nil {
 		return
+	}
+	if a.maximized == g {
+		a.maximized = nil
 	}
 	for path := range g.videos {
 		g.closeVideo(path)
@@ -241,6 +246,9 @@ func (g *group) addTab(path string, at int) {
 func (a *App) activateIn(g *group, path string) {
 	if !g.has(path) {
 		return
+	}
+	if a.maximized != g {
+		a.maximized = nil
 	}
 	if a.focus != nil && a.focus != g {
 		a.focus.dismissColorPreview()

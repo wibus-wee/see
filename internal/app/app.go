@@ -108,6 +108,7 @@ type App struct {
 	localHistoryStore *localhistory.Store
 	localHistoryErr   error
 	layout            *layout
+	maximized         *group
 	recents           []string // the files activated lately, across groups, most recent last
 	focus             *group
 	focusGroupTarget  *group

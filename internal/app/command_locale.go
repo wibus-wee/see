@@ -89,6 +89,7 @@ var commandMessages = map[string]string{
 	"Reopen Closed Tab":           "commandReopenClosedTab",
 	"Add Editor on Right":         "commandAddEditorOnRight",
 	"Add Editor Below":            "commandAddEditorBelow",
+	"Maximize Editor":             "commandMaximizeEditor",
 	"Show or Hide the Terminal":   "commandShowOrHideTheTerminal",
 	"Show Output":                 "commandShowOutput",
 	"New Terminal":                "commandNewTerminal",
