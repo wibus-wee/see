@@ -329,6 +329,10 @@ func (a *App) jumpBar(c *ui.Context, g *group) {
 				a.focus = g
 				a.showCallHierarchyAt(g)
 			}
+			if a.navigationEnabled(g.active, "typeHierarchy") && menu.Item(navigationText("typeHierarchy", "")).Chosen() {
+				a.focus = g
+				a.showTypeHierarchyAt(g)
+			}
 		}, ui.PopoverMenuButtonOptions{Open: &g.relatedOpen})
 		if !g.relatedOpen {
 			g.counterpartMenu = nil

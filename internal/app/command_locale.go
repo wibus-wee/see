@@ -113,6 +113,7 @@ var commandMessages = map[string]string{
 	"Pin References":        "commandPinReferences",
 	"Find Callers":          "commandFindCallers",
 	"Show Call Hierarchy":   "commandShowCallHierarchy",
+	"Show Type Hierarchy":   "commandShowTypeHierarchy",
 	"Go to Definition":      "commandGoToDefinition",
 	"Peek Definition":       "commandPeekDefinition",
 	"Go to Implementation":  "commandGoToImplementation",

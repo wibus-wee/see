@@ -130,7 +130,7 @@ type App struct {
 	navCancel           context.CancelFunc
 	finding             bool // a navigation request is on its way
 	findingLabel        string
-	navigationMenuState [5]bool
+	navigationMenuState [6]bool
 	scopeSeq            uint64
 	scopeCancel         context.CancelFunc
 	scopePendingState   *editor.State
@@ -1351,6 +1351,14 @@ func (a *App) newEditor(g *group, d *doc) *editor.State {
 		if menu.Item("Find Callers").Chosen() {
 			a.focus = g
 			a.findUsagesAt(true, g.pointerAnchor, g.pointerInEditor)
+		}
+		if menu.Item(commandLabel("Show Call Hierarchy")).Chosen() {
+			a.focus = g
+			a.showCallHierarchyAt(g)
+		}
+		if menu.Item(commandLabel("Show Type Hierarchy")).Disabled(!a.navigationEnabled(d.path, "typeHierarchy")).Chosen() {
+			a.focus = g
+			a.showTypeHierarchyAt(g)
 		}
 		if !d.untitled && menu.Item("Show File History").Chosen() {
 			a.showFileHistory(d.path)

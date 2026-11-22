@@ -636,7 +636,7 @@ func (a *App) termTabList(c *ui.Context) {
 				callsRow.OnClick(func() { tp.view = panelCalls; tp.focus = nil })
 				callsRow.Children(func() {
 					symbolIcon(c, icRelated, 16, colors(c).Muted)
-					ui.Text(c, locales.CallHierarchy()).FontSize(12)
+					ui.Text(c, a.hierarchyText("")).FontSize(12)
 				})
 				for i, tab := range tp.tabs {
 					a.termTabRow(c, i, tab)
