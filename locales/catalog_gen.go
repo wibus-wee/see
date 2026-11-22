@@ -2300,24 +2300,44 @@ func (msgs Messages) FilterProblems() string {
 	return Catalog.Format(msgs.locale, "filterProblems", nil)
 }
 
-// ProblemsOpenFiles says "Diagnostics from open files"
+// ProblemsProject says "Project diagnostics"
 // in the language the app shows.
-func ProblemsOpenFiles() string { return In(i18n.Locale()).ProblemsOpenFiles() }
+func ProblemsProject() string { return In(i18n.Locale()).ProblemsProject() }
 
-// ProblemsOpenFiles says "Diagnostics from open files"
+// ProblemsProject says "Project diagnostics"
 // in the language of msgs.
-func (msgs Messages) ProblemsOpenFiles() string {
-	return Catalog.Format(msgs.locale, "problemsOpenFiles", nil)
+func (msgs Messages) ProblemsProject() string {
+	return Catalog.Format(msgs.locale, "problemsProject", nil)
 }
 
-// NoProblemsOpenFiles says "No problems in open files"
+// NoProblemsReported says "No problems reported"
 // in the language the app shows.
-func NoProblemsOpenFiles() string { return In(i18n.Locale()).NoProblemsOpenFiles() }
+func NoProblemsReported() string { return In(i18n.Locale()).NoProblemsReported() }
 
-// NoProblemsOpenFiles says "No problems in open files"
+// NoProblemsReported says "No problems reported"
 // in the language of msgs.
-func (msgs Messages) NoProblemsOpenFiles() string {
-	return Catalog.Format(msgs.locale, "noProblemsOpenFiles", nil)
+func (msgs Messages) NoProblemsReported() string {
+	return Catalog.Format(msgs.locale, "noProblemsReported", nil)
+}
+
+// ProblemsTrust says "Trust this folder to run language servers."
+// in the language the app shows.
+func ProblemsTrust() string { return In(i18n.Locale()).ProblemsTrust() }
+
+// ProblemsTrust says "Trust this folder to run language servers."
+// in the language of msgs.
+func (msgs Messages) ProblemsTrust() string {
+	return Catalog.Format(msgs.locale, "problemsTrust", nil)
+}
+
+// ProblemsStarting says "Starting project diagnostics…"
+// in the language the app shows.
+func ProblemsStarting() string { return In(i18n.Locale()).ProblemsStarting() }
+
+// ProblemsStarting says "Starting project diagnostics…"
+// in the language of msgs.
+func (msgs Messages) ProblemsStarting() string {
+	return Catalog.Format(msgs.locale, "problemsStarting", nil)
 }
 
 // NoMatchingProblems says "No matching problems"

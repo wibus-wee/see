@@ -11,6 +11,7 @@ import (
 	"github.com/egoist/mygo"
 
 	"see/internal/git"
+	"see/internal/lsp"
 	"see/internal/workspace"
 )
 
@@ -93,6 +94,10 @@ func (a *App) applyEvents(evs []mygo.FileEvent) {
 		a.invalidateHover()
 	}
 	dirs := map[string]bool{}
+	var changes []lsp.FileChange
+	notify := func(p string, kind lsp.FileChangeType) {
+		changes = append(changes, lsp.FileChange{URI: uriOf(p), Type: kind})
+	}
 	for _, ev := range evs {
 		if path.Base(ev.Path) == ".gitignore" || path.Base(ev.Path) == "exclude" && strings.Contains(ev.Path, ".git/info") {
 			a.rereadIgnored()
@@ -100,6 +105,7 @@ func (a *App) applyEvents(evs []mygo.FileEvent) {
 		p := filepath.Join(a.root, filepath.FromSlash(ev.Path))
 		switch ev.Op {
 		case mygo.FileHint:
+			notify(p, lsp.FileChanged)
 			// Something under p changed: read again what is loaded there,
 			// and the documents in it.
 			for dir := range a.dirs {
@@ -117,12 +123,24 @@ func (a *App) applyEvents(evs []mygo.FileEvent) {
 			old := filepath.Join(a.root, filepath.FromSlash(ev.OldPath))
 			dirs[filepath.Dir(old)] = true
 			a.removed(old)
+			notify(old, lsp.FileDeleted)
+			notify(p, lsp.FileCreated)
 		case mygo.FileRemove:
 			a.removed(p)
+			notify(p, lsp.FileDeleted)
 		case mygo.FileCreate, mygo.FileWrite:
+			delete(a.problems.disk, p)
+			if ev.Op == mygo.FileCreate {
+				notify(p, lsp.FileCreated)
+			} else {
+				notify(p, lsp.FileChanged)
+			}
 			if d := a.docs[p]; d != nil {
 				a.reloadDoc(d)
 			}
+		}
+		if a.problems.started && !ev.IsDir && (ev.Op == mygo.FileCreate || ev.Op == mygo.FileRename) {
+			a.startProblemServer(p)
 		}
 		if ev.Path != "." {
 			dirs[filepath.Dir(p)] = true
@@ -130,6 +148,9 @@ func (a *App) applyEvents(evs []mygo.FileEvent) {
 		if ev.IsDir {
 			dirs[p] = true
 		}
+	}
+	if a.lsp != nil && len(changes) > 0 {
+		a.lsp.WatchedFiles(changes)
 	}
 	for dir := range dirs {
 		a.refreshDir(dir)
@@ -143,6 +164,11 @@ func (a *App) applyEvents(evs []mygo.FileEvent) {
 // removed marks the documents at or under p as gone; their tabs stay
 // until the user closes them.
 func (a *App) removed(p string) {
+	for path := range a.problems.disk {
+		if workspace.Within(p, path) {
+			delete(a.problems.disk, path)
+		}
+	}
 	for _, d := range a.docs {
 		if workspace.Within(p, d.path) {
 			if d.buf != nil {
