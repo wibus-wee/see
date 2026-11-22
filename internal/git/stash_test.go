@@ -80,7 +80,7 @@ func TestStashPushListFilesApplyDrop(t *testing.T) {
 	}
 
 	// Dropping the newest shifts the older to stash@{0}; acting on the
-	// one read before still finds it by hash.
+	// one read before still finds the same entry.
 	if err := StashDrop(ctx, root, stashes[0]); err != nil {
 		t.Fatal(err)
 	}
@@ -104,9 +104,10 @@ func TestStashPushListFilesApplyDrop(t *testing.T) {
 	}
 }
 
-// Two entries that store one commit are told apart by their index.
+// Two entries that store one commit retain their own identities as the list shifts.
 func TestStashDropDuplicateCommit(t *testing.T) {
 	root, run := newRepo(t)
+	t.Setenv("GIT_COMMITTER_DATE", "2025-01-02T03:04:05Z")
 	ctx := context.Background()
 	write(t, root, "a.txt", "a\n")
 	run("add", ".")
@@ -125,10 +126,25 @@ func TestStashDropDuplicateCommit(t *testing.T) {
 	if err != nil || len(stashes) != 3 || stashes[0].Hash != stashes[2].Hash {
 		t.Fatalf("stashes %+v %v", stashes, err)
 	}
+	if err := StashDrop(ctx, root, stashes[1]); err != nil {
+		t.Fatal(err)
+	}
 	if err := StashDrop(ctx, root, stashes[2]); err != nil {
 		t.Fatal(err)
 	}
-	if left, _ := Stashes(ctx, root); len(left) != 2 || left[0].Message != "newer" || left[1].Message != "between" {
+	if left, _ := Stashes(ctx, root); len(left) != 1 || left[0].Message != "newer" {
 		t.Fatalf("left %+v", left)
+	}
+	run("stash", "store", "-m", "between", stashes[1].Hash)
+	run("stash", "store", "-m", "newer", hash)
+	duplicates, err := Stashes(ctx, root)
+	if err != nil || len(duplicates) != 3 || duplicates[0].EntryKey() == duplicates[2].EntryKey() {
+		t.Fatalf("duplicate stash rows %+v %v", duplicates, err)
+	}
+	if err := StashDrop(ctx, root, duplicates[2]); err == nil {
+		t.Fatal("dropped an indistinguishable reflog entry")
+	}
+	if left, err := Stashes(ctx, root); err != nil || len(left) != 3 {
+		t.Fatalf("left %+v %v", left, err)
 	}
 }

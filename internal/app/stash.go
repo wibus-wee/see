@@ -76,7 +76,7 @@ func (a *App) stashRows(c *ui.Context) {
 }
 
 func (a *App) stashRow(c *ui.Context, s git.Stash, now time.Time) {
-	row := ui.Row(c.Key("stash:"+s.Hash)).FillWidth().Padding(1, 13).Gap(2).Radius(4).AlignItems(ui.Center)
+	row := ui.Row(c.Key("stash:"+s.EntryKey())).FillWidth().Padding(1, 13).Gap(2).Radius(4).AlignItems(ui.Center)
 	hovered := row.Hovered()
 	if a.focus.active == commitTab(s.Hash) {
 		row.Background(colors(c).SelectedRow)
