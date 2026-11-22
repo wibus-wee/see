@@ -33,7 +33,13 @@ func (a *App) editorArea(c *ui.Context) {
 		ui.Row(c).Fill().AlignItems(ui.Stretch).Children(func() {
 			ui.Column(c).Grow(1).FillHeight().Children(func() {
 				a.editorsAndPanel(c, func() {
-					ui.Column(c).Fill().Children(func() { a.layoutView(c, a.layout) })
+					ui.Column(c).Fill().Children(func() {
+						if g := a.maximized; g != nil && a.layout.find(g) != nil && len(a.groups()) > 1 {
+							a.groupView(c, g)
+						} else {
+							a.layoutView(c, a.layout)
+						}
+					})
 				})
 			})
 			if a.inspectorOpen() {
@@ -84,10 +90,10 @@ func (a *App) groupView(c *ui.Context, g *group) {
 		})
 	}
 	col.Children(func() {
+		if len(g.order) > 1 || len(a.groups()) > 1 {
+			a.tabBar(c, g)
+		}
 		if len(g.order) > 0 {
-			if len(g.order) > 1 || len(a.groups()) > 1 {
-				a.tabBar(c, g)
-			}
 			if isDiffTab(g.active) {
 				a.diffJumpBar(c, g)
 			} else {
@@ -102,6 +108,8 @@ func (a *App) groupView(c *ui.Context, g *group) {
 		a.dropArea(c, g, func() { a.groupContent(c, g) })
 		if v := g.diffs[g.active]; v != nil && v.branch != nil {
 			a.branchDiffStatusBar(c, g, v.branch)
+		} else if v != nil && v.search != nil {
+			a.searchEditStatusBar(c, g, v.search)
 		}
 		if st := g.eds[g.active]; st != nil {
 			pos := st.CursorPos()
@@ -208,14 +216,22 @@ func (a *App) groupContent(c *ui.Context, g *group) {
 	if v := g.diffs[g.active]; v != nil && v.commit != nil {
 		a.commitContent(c, g, v.commit)
 		return
+	} else if v != nil && v.search != nil {
+		a.searchEditContent(c, g, v.search)
+		return
 	} else if v != nil && v.branch != nil {
 		a.branchDiffContent(c, g, v.branch)
 		return
 	} else if v != nil && v.log != nil {
 		a.gitLogContent(c, g, v.log)
 		return
+	} else if v != nil && v.revision != nil {
+		a.revisionContent(c, g, v)
 	} else if v != nil && v.localHistory != nil {
 		a.localHistoryContent(c, g, v)
+		return
+	} else if v != nil && v.conflict != nil {
+		a.gitConflictContent(c, g, v)
 		return
 	} else if v != nil && v.state == nil {
 		ui.Row(c).Grow(1).FillWidth().Center().Gap(8).Children(func() {
@@ -223,7 +239,16 @@ func (a *App) groupContent(c *ui.Context, g *group) {
 			ui.Text(c, locales.MsgReading()+v.name+"…").TextColor(colors(c).Muted)
 		})
 		return
+	} else if v != nil && v.change && v.patch.OldName == "" && v.patch.NewName == "" {
+		ui.Row(c).Grow(1).FillWidth().Center().Children(func() {
+			ui.Text(c, locales.MsgNoChanges()).TextColor(colors(c).Muted)
+		})
+		return
 	} else if v != nil {
+		if a.diffChangesHidden(v.state) {
+			a.hiddenWhitespaceDiff(c)
+			return
+		}
 		view := editor.DiffView(c, v.state).Grow(1).FillWidth()
 		if a.focusGroupTarget == g {
 			view.Focus()
@@ -327,12 +352,16 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 		a.syncInlayHints(d, st)
 		a.syncDocumentLinks(d, st)
 		a.syncFoldingRanges(d, st)
+		textBackgrounds := st.TextBackgrounds
+		if s := &a.symbolHighlights; s.target.editor == st && len(s.backgrounds) > 0 {
+			st.TextBackgrounds = append(append([]editor.TextBackground(nil), s.backgrounds...), textBackgrounds...)
+		}
 		a.linkBackgrounds(st, d)
 		st.SetInlays(a.editorInlays(d, st))
 		if g.colorPreview != nil {
 			g.colorPreview.seen = false
 		}
-		st.SetReplacements(a.colorReplacements(g, d, st))
+		st.SetReplacements(mergeReaderReplacements(a.colorReplacements(g, d, st), a.readerReplacements(c, d, st)))
 		backgrounds := st.LineBackgrounds
 		st.LineBackgrounds = a.diagnosticLineBackgrounds(d, st)
 		st.LineBackgrounds = append(st.LineBackgrounds, bookmarkLineBackgrounds(a.bookmarkedLines(d.path), st.Theme)...)
@@ -346,24 +375,20 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 		var ed ui.Element
 		minimap := a.showsMinimap(g, d)
 		ui.Row(c).Grow(1).FillWidth().Children(func() {
-			if minimap {
-				ui.Column(c).Grow(1).FillHeight().Children(func() {
-					a.readingPinRow(c, g, d, st)
-					ed = editor.View(c.Key(d.path), st).Grow(1).FillHeight()
-				})
-				a.minimap(c, g, d, st)
-			} else {
+			if !minimap {
 				st.RenderFindBar = nil
-				ui.Column(c).Grow(1).FillHeight().Children(func() {
-					a.readingPinRow(c, g, d, st)
-					ed = editor.View(c.Key(d.path), st).Grow(1).FillHeight()
-				})
+			}
+			ed = editor.View(c.Key(d.path), st).Grow(1).FillHeight()
+			ed.Children(func() { a.stickyScopeHeaders(c, g, d, st) })
+			if minimap {
+				a.minimap(c, g, d, st)
 			}
 		})
 		if p := g.colorPreview; p != nil && p.path == d.path && p.open && !p.seen {
 			g.dismissColorPreview()
 		}
 		st.LineBackgrounds = backgrounds
+		st.TextBackgrounds = textBackgrounds
 		st.GutterMarks = gutterMarks
 		st.OnGutterClick = nil
 		if row := ed.LayoutBounds().W; row > 0 {
@@ -463,9 +488,19 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 			return a.quickHelpEditorInput(g, d, st, ev)
 		}
 		if peek := a.git.peek; peek != nil && peek.doc == d && peek.group == g {
-			a.editorPeek(c, bounds, st, peek.line, d.name+" — Git changes", "Close Change Preview", diffHeight(st, peek.diff), func() { a.git.peek = nil }, func() {
-				ui.Scroll(c).Grow(1).FillWidth().TrackScroll(&peek.scroll).Label(locales.MsgGitChangePreview()).Children(func() {
-					editor.DiffView(c, peek.diff).FillWidth()
+			diff, visible := a.gitPeekDiff(peek, st)
+			height := float32(36)
+			if visible {
+				height = 264
+			}
+			act := &peekAction{label: commandLabel("Discard Change"), destructive: true, do: func() { a.discardChangeAt(d, st, peek.line) }}
+			a.editorPeekAction(c, bounds, st, peek.line, d.name+" — Git changes", "Close Change Preview", height, visible, act, func() { a.git.peek = nil }, func() {
+				if !visible {
+					a.hiddenWhitespaceDiff(c)
+					return
+				}
+				ui.Scroll(c).MinHeight(0).FillWidth().TrackScroll(&peek.scroll).Label(locales.MsgGitChangePreview()).Children(func() {
+					editor.DiffView(c, diff).FillWidth()
 				})
 			})
 		}
@@ -489,7 +524,7 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 			if ch.title == "references" {
 				pin = &peekAction{icon: icPin, label: commandLabel("Pin References"), tip: commandLabel("Pin References"), do: func() { a.pinReferences(ch) }}
 			}
-			a.editorPeekAction(c, bounds, st, ch.from.Line, fmt.Sprintf("%d %s", len(ch.locs), ch.title), closeLabel, 264,
+			a.editorPeekAction(c, bounds, st, ch.from.Line, fmt.Sprintf("%d %s", len(ch.locs), ch.title), closeLabel, 264, false,
 				pin, func() { a.choices = nil }, func() { a.relatedView(c, ch) })
 		}
 		a.syncSignature(g, d, st)
@@ -581,38 +616,6 @@ func (a *App) changeBarInput(g *group, d *doc, st *editor.State, origin ui.Point
 	return false
 }
 
-// diffHeight is the height of a diff view of d in the editor's font:
-// each hunk's lines and the context around them, as far as the text
-// goes, and a bar for each run of lines folded away.
-func diffHeight(st *editor.State, d *editor.DiffState) float32 {
-	fontSize, lineHeight := st.Font.Size, st.LineHeight
-	if fontSize <= 0 {
-		fontSize = 13
-	}
-	if lineHeight <= 0 {
-		lineHeight = 1.5
-	}
-	context := max(d.ContextLines, 0)
-	if d.ContextLines == 0 {
-		context = 3
-	}
-	n := d.New.LineCount()
-	rows, shown := 0, 0 // shown: the new text's lines up to here shown or folded
-	for _, h := range d.Hunks() {
-		from := max(shown, h.NewStart-context)
-		if from > shown {
-			rows++ // the bar of the lines folded before
-		}
-		after := min(n, h.NewEnd+context)
-		rows += h.NewStart - from + h.OldEnd - h.OldStart + h.NewEnd - h.NewStart + after - h.NewEnd
-		shown = after
-	}
-	if shown < n {
-		rows++
-	}
-	return float32(rows)*fontSize*lineHeight + 12
-}
-
 func (a *App) relatedView(c *ui.Context, ch *defChoices) {
 	if ch.collapsed == nil {
 		ch.collapsed = make(map[string]bool)
@@ -644,10 +647,11 @@ func (a *App) relatedView(c *ui.Context, ch *defChoices) {
 // peekAction is a second button of a peek's header, beside its close
 // button, as the references peek's pin.
 type peekAction struct {
-	icon  *ui.SVG
-	label string
-	tip   string
-	do    func()
+	destructive bool
+	icon        *ui.SVG
+	label       string
+	tip         string
+	do          func()
 }
 
 // editorPeek shows content in a popover at a line of the editor, as
@@ -657,16 +661,20 @@ type peekAction struct {
 // contentHeight, the height content would take, up to a third of a
 // screenful; content scrolls past that.
 func (a *App) editorPeek(c *ui.Context, bounds ui.Rect, st *editor.State, line int, title, closeLabel string, contentHeight float32, close, content func()) {
-	a.editorPeekAction(c, bounds, st, line, title, closeLabel, contentHeight, nil, close, content)
+	a.editorPeekAction(c, bounds, st, line, title, closeLabel, contentHeight, false, nil, close, content)
 }
 
 // editorPeekAction is editorPeek with a second header action before the
 // close button, or none for a nil action.
-func (a *App) editorPeekAction(c *ui.Context, bounds ui.Rect, st *editor.State, line int, title, closeLabel string, contentHeight float32, act *peekAction, close, content func()) {
-	a.editorPeekSized(c, bounds, st, line, title, closeLabel, contentHeight, 300, act, close, content)
+func (a *App) editorPeekAction(c *ui.Context, bounds ui.Rect, st *editor.State, line int, title, closeLabel string, contentHeight float32, fitContent bool, act *peekAction, close, content func()) {
+	a.editorPeekSizedContent(c, bounds, st, line, title, closeLabel, contentHeight, 300, fitContent, act, close, content)
 }
 
 func (a *App) editorPeekSized(c *ui.Context, bounds ui.Rect, st *editor.State, line int, title, closeLabel string, contentHeight, maxHeight float32, act *peekAction, close, content func()) {
+	a.editorPeekSizedContent(c, bounds, st, line, title, closeLabel, contentHeight, maxHeight, false, act, close, content)
+}
+
+func (a *App) editorPeekSizedContent(c *ui.Context, bounds ui.Rect, st *editor.State, line int, title, closeLabel string, contentHeight, maxHeight float32, fitContent bool, act *peekAction, close, content func()) {
 	const inset, gap = 12, 4
 	fontSize := st.Font.Size
 	if fontSize <= 0 {
@@ -691,7 +699,19 @@ func (a *App) editorPeekSized(c *ui.Context, bounds ui.Rect, st *editor.State, l
 	}
 	name, detail, _ := strings.Cut(title, " — ")
 	ui.Overlay(c, func() {
-		ui.Column(c).Absolute().Left(bounds.X+inset).Top(y).Width(max(200, bounds.W-2*inset)).Height(height).
+		panel := ui.Column(c).Absolute().Left(bounds.X + inset).Width(max(200, bounds.W-2*inset))
+		if fitContent {
+			panel.MaxHeight(height).Role(ui.RoleGroup).Label(title)
+			if y < top {
+				_, viewHeight := c.Size()
+				panel.Bottom(viewHeight - (top - gap))
+			} else {
+				panel.Top(y)
+			}
+		} else {
+			panel.Top(y).Height(height)
+		}
+		panel.
 			Radius(12).Clip().Background(pal.Popover).Border(1, pal.PopoverEdge).
 			Shadow(0, 1, 3, 0, near).Shadow(0, 12, 32, 0, far).Children(func() {
 			ui.Row(c).FillWidth().Height(header).Shrink(0).Padding(0, 8, 0, 14).Gap(6).AlignItems(ui.Center).
@@ -701,14 +721,28 @@ func (a *App) editorPeekSized(c *ui.Context, bounds ui.Rect, st *editor.State, l
 					ui.Text(c, detail).FontSize(12).TextColor(pal.Muted).SingleLine().Shrink(2)
 				}
 				ui.Box(c).Grow(1)
-				if act != nil && glyphButton(c, act.icon, act.label, act.tip, false, false).Clicked() {
-					act.do()
+				if act != nil {
+					if act.destructive {
+						button := ui.ButtonBase(c).Label(act.label).Padding(3, 6).Radius(4).Cursor(ui.CursorPointer)
+						if button.Hovered() {
+							button.Background(pal.Pill)
+						}
+						button.OnClick(act.do).Children(func() { ui.Text(c, act.label).FontSize(11).TextColor(pal.Err.Alpha(0.75)) })
+					} else if glyphButton(c, act.icon, act.label, act.tip, false, false).Clicked() {
+						act.do()
+					}
 				}
 				if glyphButton(c, icClose, closeLabel, "Close", false, false).Clicked() {
 					close()
 				}
 			})
-			ui.Column(c).Grow(1).FillWidth().Clip().Children(content)
+			body := ui.Column(c).MinHeight(0).FillWidth().Clip()
+			if fitContent {
+				body.Padding(0, 0, 6, 0)
+			} else {
+				body.Grow(1)
+			}
+			body.Children(content)
 		})
 	})
 }

@@ -2,10 +2,18 @@
 
 User-facing changes are grouped by release. Earlier releases are documented on the [Releases page](https://github.com/wibus-wee/see/releases).
 
+## Unreleased
+
+### Added
+
+- Read documentation comments inline with code, emphasis, links, and parameter labels. Move the caret into a comment to edit its source, or disable Render Doc Comments in Editor settings or with Toggle Reader Mode.
+- Browse Type Hierarchy with expandable Supertypes and Subtypes trees, code previews, and navigation for language servers that support it.
+
 ## 0.3.4
 
 ### Added
 
+- Highlight occurrences of the symbol under the caret in the current file, with a stronger tint for writes when the language server distinguishes them. Turn this off in Editor settings.
 - Test regular expressions in an inline playground with sample text, match and capture inspection, and a railroad diagram. The playground uses Go / RE2 and reports unsupported JavaScript flags and features without changing source code.
 - Preview hex, RGB(A), and HSL(A) color literals with inline swatches; click a swatch to compare the color against light and dark backgrounds.
 - Browse local file history in a diff tab and restore selected changed lines with click and Shift-click. Recovery preserves other edits, does not save automatically, and can be undone in the source editor.

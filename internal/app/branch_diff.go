@@ -29,6 +29,7 @@ type branchDiffFile struct {
 	untracked bool
 	binary    bool
 	diff      *editor.DiffState
+	patch     editor.FilePatch
 }
 
 type branchDiffView struct {
@@ -176,11 +177,12 @@ func (a *App) branchDiffNavigator(c *ui.Context) {
 	}
 }
 
-func branchDiffTotals(files []branchDiffFile) (added, deleted int) {
+func (a *App) branchDiffTotals(files []branchDiffFile) (added, deleted int) {
 	for _, f := range files {
 		if f.Added >= 0 {
-			added += f.Added
-			deleted += f.Deleted
+			plus, minus := a.diffStats(f.diff, f.Added, f.Deleted)
+			added += plus
+			deleted += minus
 		}
 	}
 	return added, deleted
@@ -364,8 +366,9 @@ func (a *App) acceptBranchDiff(v *branchDiffView, seq uint64, gen int, baseRef, 
 			if !p.Binary && len(p.Hunks) > 0 {
 				d := &editor.DiffState{Theme: a.edTheme, FitContent: true}
 				a.applyDiffPrefs(d)
-				setPatch(d, p)
+				a.setDiffPatch(d, p, true)
 				bf.diff = d
+				bf.patch = p
 			}
 		}
 		files = append(files, bf)
@@ -442,8 +445,9 @@ func (a *App) branchDiffContent(c *ui.Context, g *group, v *branchDiffView) {
 							if f.Added < 0 {
 								ui.Text(c, branchDiffText("gitBinary")).FontSize(11).TextColor(colors(c).Muted)
 							} else {
-								ui.Text(c, fmt.Sprintf("+%d", f.Added)).FontSize(11).TextColor(a.gitStatusColor('A'))
-								ui.Text(c, fmt.Sprintf("−%d", f.Deleted)).FontSize(11).TextColor(a.gitStatusColor('D'))
+								added, deleted := a.diffStats(f.diff, f.Added, f.Deleted)
+								ui.Text(c, fmt.Sprintf("+%d", added)).FontSize(11).TextColor(a.gitStatusColor('A'))
+								ui.Text(c, fmt.Sprintf("−%d", deleted)).FontSize(11).TextColor(a.gitStatusColor('D'))
 							}
 							viewed := v.viewed[f.Path]
 							cb := ui.Checkbox(c.Key("viewed:"+f.Path), &viewed, branchDiffText("gitViewed")).FontSize(11).Shrink(0)
@@ -456,6 +460,8 @@ func (a *App) branchDiffContent(c *ui.Context, g *group, v *branchDiffView) {
 							return
 						}
 						switch {
+						case f.diff != nil && a.diffChangesHidden(f.diff):
+							a.hiddenWhitespaceDiff(c)
 						case f.diff != nil:
 							editor.DiffView(c, f.diff).FillWidth()
 						case f.binary:
@@ -498,7 +504,7 @@ func (a *App) branchDiffStatusBar(c *ui.Context, g *group, v *branchDiffView) {
 		})
 		ui.Box(c).Grow(1)
 		if v.result != nil {
-			added, deleted := branchDiffTotals(v.files)
+			added, deleted := a.branchDiffTotals(v.files)
 			ui.Text(c, fmt.Sprintf("%d", len(v.files))).FontSize(11).TextColor(palette.Muted).SingleLine()
 			ui.Text(c, fmt.Sprintf("+%d", added)).FontSize(11).TextColor(a.gitStatusColor('A')).SingleLine()
 			ui.Text(c, fmt.Sprintf("−%d", deleted)).FontSize(11).TextColor(a.gitStatusColor('D')).SingleLine()

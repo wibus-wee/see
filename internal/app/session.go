@@ -35,7 +35,7 @@ func (a *App) captureSession() {
 		g := n.g
 		s := &config.Layout{Active: tabPath(g.active), ActivePreview: isMarkdownTab(g.active), Preview: g.preview, Focused: g == a.focus}
 		if isDiffTab(g.active) {
-			if v := g.diffs[g.active]; v != nil && v.localHistory != nil {
+			if v := g.diffs[g.active]; v != nil && (v.localHistory != nil || v.revision != nil) {
 				s.Active = ""
 			} else {
 				s.Active = g.active
@@ -57,7 +57,7 @@ func (a *App) captureSession() {
 				}
 			}
 			if isDiffTab(key) {
-				if v := g.diffs[key]; v != nil && v.localHistory != nil {
+				if v := g.diffs[key]; v != nil && (v.localHistory != nil || v.revision != nil) {
 					continue
 				}
 				if spec := diffTabSpec(g.diffs[key]); spec != nil {
@@ -312,7 +312,7 @@ func (a *App) restoreSession() {
 // cannot read again.
 func diffTabSpec(v *gitDiffTab) *config.DiffTab {
 	switch {
-	case v == nil || v.localHistory != nil || v.log != nil || v.branch != nil || v.cli:
+	case v == nil || v.localHistory != nil || v.log != nil || v.branch != nil || v.revision != nil || v.conflict != nil || v.search != nil || v.cli:
 		return nil
 	case v.commit != nil || v.rev != "":
 		if v.hash == "" {
@@ -344,6 +344,7 @@ func (a *App) restoreDiffTab(g *group, spec config.DiffTab) {
 		key, v.rev = commitFileTab(spec.Commit, spec.Path), spec.Commit[:7]
 	case spec.Path != "":
 		key = diffTab(spec.Path, spec.Staged)
+		v.change = true
 	default:
 		return
 	}
@@ -396,11 +397,22 @@ func (a *App) loadPendingTabs(repo bool) {
 		}
 		v := p.v
 		gen, ctx, root := a.gen, a.wsCtx, a.git.root
+		change := git.Change{Path: v.name, Index: ' ', Work: ' '}
+		if v.untracked {
+			change.Index = '?'
+		}
+		for _, ch := range a.git.changes {
+			if ch.Path == v.name {
+				change = ch
+				break
+			}
+		}
 		go func() {
 			var (
 				cm      git.Commit
 				details git.CommitDetails
 				out     []byte
+				view    gitChangeView
 				err     error
 			)
 			switch {
@@ -411,10 +423,13 @@ func (a *App) loadPendingTabs(repo bool) {
 			case v.hash != "":
 				out, err = git.CommitFileDiff(ctx, root, v.hash, git.FileStat{Path: v.name, OldPath: v.oldPath})
 			default:
-				out, err = changeDiff(ctx, root, v.name, v.staged, v.untracked)
+				view, err = readGitChangeView(ctx, root, change, v.staged)
+				if err == nil && view.file.OldName == "" && view.file.NewName == "" {
+					err = errors.New("no text diff")
+				}
 			}
 			var patches []editor.FilePatch
-			if err == nil && v.commit == nil {
+			if err == nil && v.hash != "" && v.commit == nil {
 				patches, err = editor.ParsePatch(string(out))
 				if err == nil && (len(patches) == 0 || patches[0].Binary) {
 					err = errors.New("no text diff")
@@ -432,6 +447,8 @@ func (a *App) loadPendingTabs(repo bool) {
 				if v.commit != nil {
 					v.name = cm.Subject
 					v.commit.commit, v.commit.details, v.commit.loading = cm, details, false
+				} else if v.change {
+					a.setGitChangeView(v, view, 0)
 				} else {
 					nv := a.newGitDiffTab(patches[0], v.name, v.staged)
 					v.state, v.patch = nv.state, nv.patch
