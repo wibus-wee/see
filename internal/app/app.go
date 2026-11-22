@@ -83,7 +83,10 @@ type App struct {
 	windowHeight int
 	startLSP     func(logf func(string, ...any)) langserver.Starter
 	cfg          *config.Config
-	logf         func(string, ...any)
+
+	diffWhitespaceHidden bool
+
+	logf func(string, ...any)
 
 	// The workspace.
 	root     string // as the user opened it

@@ -8140,6 +8140,38 @@ func (msgs Messages) MsgNoChangesToShow() string {
 	return Catalog.Format(msgs.locale, "msgNoChangesToShow", nil)
 }
 
+// MsgNoChangesWithWhitespaceHidden says "No changes to show with whitespace hidden."
+// in the language the app shows.
+func MsgNoChangesWithWhitespaceHidden() string {
+	return In(i18n.Locale()).MsgNoChangesWithWhitespaceHidden()
+}
+
+// MsgNoChangesWithWhitespaceHidden says "No changes to show with whitespace hidden."
+// in the language of msgs.
+func (msgs Messages) MsgNoChangesWithWhitespaceHidden() string {
+	return Catalog.Format(msgs.locale, "msgNoChangesWithWhitespaceHidden", nil)
+}
+
+// MsgHideWhitespaceChanges says "Hide Whitespace Changes"
+// in the language the app shows.
+func MsgHideWhitespaceChanges() string { return In(i18n.Locale()).MsgHideWhitespaceChanges() }
+
+// MsgHideWhitespaceChanges says "Hide Whitespace Changes"
+// in the language of msgs.
+func (msgs Messages) MsgHideWhitespaceChanges() string {
+	return Catalog.Format(msgs.locale, "msgHideWhitespaceChanges", nil)
+}
+
+// MsgShowWhitespaceChanges says "Show Whitespace Changes"
+// in the language the app shows.
+func MsgShowWhitespaceChanges() string { return In(i18n.Locale()).MsgShowWhitespaceChanges() }
+
+// MsgShowWhitespaceChanges says "Show Whitespace Changes"
+// in the language of msgs.
+func (msgs Messages) MsgShowWhitespaceChanges() string {
+	return Catalog.Format(msgs.locale, "msgShowWhitespaceChanges", nil)
+}
+
 // MsgBinaryFileNotShown says "Binary file not shown"
 // in the language the app shows.
 func MsgBinaryFileNotShown() string { return In(i18n.Locale()).MsgBinaryFileNotShown() }
@@ -8762,6 +8794,18 @@ func CommandToggleMinimap() string { return In(i18n.Locale()).CommandToggleMinim
 // in the language of msgs.
 func (msgs Messages) CommandToggleMinimap() string {
 	return Catalog.Format(msgs.locale, "commandToggleMinimap", nil)
+}
+
+// CommandToggleWhitespaceChanges says "Toggle Whitespace Changes"
+// in the language the app shows.
+func CommandToggleWhitespaceChanges() string {
+	return In(i18n.Locale()).CommandToggleWhitespaceChanges()
+}
+
+// CommandToggleWhitespaceChanges says "Toggle Whitespace Changes"
+// in the language of msgs.
+func (msgs Messages) CommandToggleWhitespaceChanges() string {
+	return Catalog.Format(msgs.locale, "commandToggleWhitespaceChanges", nil)
 }
 
 // ShowInvisibles says "Show invisibles"

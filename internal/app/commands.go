@@ -94,6 +94,7 @@ func commandsFor(goos string) []command {
 		{"Show Invisibles", "", "", 0, 0, func(a *App) { a.toggleInvisibles() }},
 		{"Toggle Type Hints", "", "", 0, 0, func(a *App) { a.toggleTypeHints() }},
 		{"Toggle Inline Diff", "", "", 0, 0, func(a *App) { a.toggleDiffLayout() }},
+		{"Toggle Whitespace Changes", "", "", 0, 0, func(a *App) { a.toggleDiffWhitespace() }},
 		{"Next Change", "", "", 0, 0, func(a *App) { a.goToChange(1) }},
 		{"Previous Change", "", "", 0, 0, func(a *App) { a.goToChange(-1) }},
 		{"Discard Change", "", "", 0, 0, func(a *App) { a.discardChange() }},

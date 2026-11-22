@@ -12,6 +12,8 @@ import (
 type Config struct {
 	HideInlineDiagnostics bool `json:"hideInlineDiagnostics,omitempty"`
 
+	HideWhitespaceChanges bool `json:"hideWhitespaceChanges,omitempty"`
+
 	LastWorkspace        string               `json:"lastWorkspace,omitempty"`
 	Recent               []string             `json:"recentWorkspaces,omitempty"`    // newest first
 	ReopenLast           bool                 `json:"reopenLastWorkspace,omitempty"` // else the welcome window shows at launch

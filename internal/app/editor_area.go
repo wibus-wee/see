@@ -240,6 +240,10 @@ func (a *App) groupContent(c *ui.Context, g *group) {
 		})
 		return
 	} else if v != nil {
+		if a.diffChangesHidden(v.state) {
+			a.hiddenWhitespaceDiff(c)
+			return
+		}
 		view := editor.DiffView(c, v.state).Grow(1).FillWidth()
 		if a.focusGroupTarget == g {
 			view.Focus()
@@ -475,10 +479,19 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 			return a.quickHelpEditorInput(g, d, st, ev)
 		}
 		if peek := a.git.peek; peek != nil && peek.doc == d && peek.group == g {
+			diff, visible := a.gitPeekDiff(peek, st)
+			height := float32(36)
+			if visible {
+				height = 264
+			}
 			act := &peekAction{label: commandLabel("Discard Change"), destructive: true, do: func() { a.discardChangeAt(d, st, peek.line) }}
-			a.editorPeekAction(c, bounds, st, peek.line, d.name+" — Git changes", "Close Change Preview", 264, true, act, func() { a.git.peek = nil }, func() {
+			a.editorPeekAction(c, bounds, st, peek.line, d.name+" — Git changes", "Close Change Preview", height, visible, act, func() { a.git.peek = nil }, func() {
+				if !visible {
+					a.hiddenWhitespaceDiff(c)
+					return
+				}
 				ui.Scroll(c).MinHeight(0).FillWidth().TrackScroll(&peek.scroll).Label(locales.MsgGitChangePreview()).Children(func() {
-					editor.DiffView(c, peek.diff).FillWidth()
+					editor.DiffView(c, diff).FillWidth()
 				})
 			})
 		}
