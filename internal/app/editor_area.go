@@ -33,7 +33,13 @@ func (a *App) editorArea(c *ui.Context) {
 		ui.Row(c).Fill().AlignItems(ui.Stretch).Children(func() {
 			ui.Column(c).Grow(1).FillHeight().Children(func() {
 				a.editorsAndPanel(c, func() {
-					ui.Column(c).Fill().Children(func() { a.layoutView(c, a.layout) })
+					ui.Column(c).Fill().Children(func() {
+						if g := a.maximized; g != nil && a.layout.find(g) != nil && len(a.groups()) > 1 {
+							a.groupView(c, g)
+						} else {
+							a.layoutView(c, a.layout)
+						}
+					})
 				})
 			})
 			if a.inspectorOpen() {
@@ -84,10 +90,10 @@ func (a *App) groupView(c *ui.Context, g *group) {
 		})
 	}
 	col.Children(func() {
+		if len(g.order) > 1 || len(a.groups()) > 1 {
+			a.tabBar(c, g)
+		}
 		if len(g.order) > 0 {
-			if len(g.order) > 1 || len(a.groups()) > 1 {
-				a.tabBar(c, g)
-			}
 			if isDiffTab(g.active) {
 				a.diffJumpBar(c, g)
 			} else {
@@ -110,6 +116,12 @@ func (a *App) groupView(c *ui.Context, g *group) {
 			ui.Row(c).FillWidth().Height(24).Padding(0, 10).AlignItems(ui.Center).
 				BorderWidth(1, 0, 0, 0).BorderColor(colors(c).Separator).Background(colors(c).Editor).Children(func() {
 				a.blameStatus(c, a.docs[g.active], st)
+				if d := a.docs[g.active]; d != nil {
+					if _, found := g.regexAtCaret(d, st); found {
+						button := ui.Button(c.Key("regex-context-action"), locales.CommandTestRegex()).FontSize(10).Height(20).Padding(1, 5).Shrink(0).Label(locales.CommandTestRegex())
+						button.OnClick(func() { a.openRegexPlaygroundFor(g, d, st) })
+					}
+				}
 				ui.Box(c).Grow(1)
 				ui.Text(c, fmt.Sprintf(locales.MsgLineDColumnD(), pos.Line+1, column)).FontSize(11).TextColor(colors(c).Muted).SingleLine()
 			})
@@ -208,6 +220,9 @@ func (a *App) groupContent(c *ui.Context, g *group) {
 	} else if v != nil && v.log != nil {
 		a.gitLogContent(c, g, v.log)
 		return
+	} else if v != nil && v.localHistory != nil {
+		a.localHistoryContent(c, g, v)
+		return
 	} else if v != nil && v.state == nil {
 		ui.Row(c).Grow(1).FillWidth().Center().Gap(8).Children(func() {
 			ui.Spinner(c)
@@ -264,6 +279,7 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 		if v := d.buf.Version(); v != d.lspVersion {
 			a.invalidateHover()
 			d.lspVersion = v
+			a.captureEditedLocalHistory(d)
 			if a.root == "" {
 				// Make a saved file's recovery record reachable from the shared
 				// standalone session if the process crashes.
@@ -304,6 +320,9 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 			a.markdownView(c, g, d)
 			return
 		}
+		if p := g.colorPreview; p != nil && (g != a.focus || g.active != d.path || p.path != d.path || d.buf == nil || p.version != d.buf.Version()) {
+			g.dismissColorPreview()
+		}
 		// Reserve the Git gutter even before a base is available. Comparing
 		// the buffer with itself gives an empty diff without moving line numbers.
 		base := st.DiffBase
@@ -316,6 +335,10 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 		a.syncFoldingRanges(d, st)
 		a.linkBackgrounds(st, d)
 		st.SetInlays(a.editorInlays(d, st))
+		if g.colorPreview != nil {
+			g.colorPreview.seen = false
+		}
+		st.SetReplacements(a.colorReplacements(g, d, st))
 		backgrounds := st.LineBackgrounds
 		st.LineBackgrounds = a.diagnosticLineBackgrounds(d, st)
 		st.LineBackgrounds = append(st.LineBackgrounds, bookmarkLineBackgrounds(a.bookmarkedLines(d.path), st.Theme)...)
@@ -339,6 +362,9 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 				})
 			}
 		})
+		if p := g.colorPreview; p != nil && p.path == d.path && p.open && !p.seen {
+			g.dismissColorPreview()
+		}
 		st.LineBackgrounds = backgrounds
 		st.GutterMarks = gutterMarks
 		st.OnGutterClick = nil
@@ -427,6 +453,9 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 		}
 		origin := ui.Point{X: bounds.X, Y: bounds.Y}
 		st.OnInput = func(ev ui.InputEvent) bool {
+			if g.colorPreview != nil && (ev.Kind == ui.InputScroll || ev.Kind == ui.InputZoom) {
+				g.dismissColorPreview()
+			}
 			if a.changeBarInput(g, d, st, origin, ev) {
 				return true
 			}
@@ -447,6 +476,9 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 			a.editorPeek(c, bounds, st, p.from.Line, a.peekTitle(p.t), locales.PeekDefinitionClose(), peekContentHeight(st, p), func() { a.peek = nil }, func() {
 				a.peekView(c, p)
 			})
+		}
+		if p := a.regexPlayground; p != nil && p.group == g && p.doc == d {
+			a.regexPlaygroundView(c, bounds, st, p)
 		}
 		if ch := a.choices; ch != nil && ch.g == g && ch.from.Path == d.path {
 			closeLabel := "Close References Preview"
@@ -472,6 +504,8 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 		g.caretAnchor = ui.Point{X: min(bounds.X+bounds.W-4, bounds.X+gutter+width), Y: min(bounds.Y+bounds.H-4, max(bounds.Y, bounds.Y+float32(st.LineTop(pos.Line)-st.ScrollY())+fontSize*lineHeight))}
 		a.codeActionLightbulb(c, g, d, st, bounds, gutter, fontSize, lineHeight)
 		switch {
+		case a.regexPlayground != nil && a.regexPlayground.group == g && a.regexPlayground.doc == d:
+			// The sample editor owns focus while its playground is open.
 		case a.focusEditor == st || a.focusGroupTarget == g:
 			// A navigation went here: the keys read on from it.
 			ed.Focus()
@@ -601,6 +635,14 @@ func (a *App) editorPeek(c *ui.Context, bounds ui.Rect, st *editor.State, line i
 // editorPeekAction is editorPeek with a second header action before the
 // close button, or none for a nil action.
 func (a *App) editorPeekAction(c *ui.Context, bounds ui.Rect, st *editor.State, line int, title, closeLabel string, contentHeight float32, fitContent bool, act *peekAction, close, content func()) {
+	a.editorPeekSizedContent(c, bounds, st, line, title, closeLabel, contentHeight, 300, fitContent, act, close, content)
+}
+
+func (a *App) editorPeekSized(c *ui.Context, bounds ui.Rect, st *editor.State, line int, title, closeLabel string, contentHeight, maxHeight float32, act *peekAction, close, content func()) {
+	a.editorPeekSizedContent(c, bounds, st, line, title, closeLabel, contentHeight, maxHeight, false, act, close, content)
+}
+
+func (a *App) editorPeekSizedContent(c *ui.Context, bounds ui.Rect, st *editor.State, line int, title, closeLabel string, contentHeight, maxHeight float32, fitContent bool, act *peekAction, close, content func()) {
 	const inset, gap = 12, 4
 	fontSize := st.Font.Size
 	if fontSize <= 0 {
@@ -611,7 +653,7 @@ func (a *App) editorPeekAction(c *ui.Context, bounds ui.Rect, st *editor.State, 
 		lineHeight = 1.5
 	}
 	const header = 36
-	height := min(header+contentHeight, 300, max(120, bounds.H-2*inset))
+	height := min(header+contentHeight, maxHeight, max(120, bounds.H-2*inset))
 	top := bounds.Y + float32(st.LineTop(line)-st.ScrollY())
 	y := top + fontSize*lineHeight + gap
 	if y+height > bounds.Y+bounds.H-inset && top-gap-height >= bounds.Y+inset {
@@ -625,9 +667,9 @@ func (a *App) editorPeekAction(c *ui.Context, bounds ui.Rect, st *editor.State, 
 	}
 	name, detail, _ := strings.Cut(title, " — ")
 	ui.Overlay(c, func() {
-		panel := ui.Column(c).Absolute().Left(bounds.X + inset).Width(max(200, bounds.W-2*inset)).Role(ui.RoleGroup).Label(title)
+		panel := ui.Column(c).Absolute().Left(bounds.X + inset).Width(max(200, bounds.W-2*inset))
 		if fitContent {
-			panel.MaxHeight(height)
+			panel.MaxHeight(height).Role(ui.RoleGroup).Label(title)
 			if y < top {
 				_, viewHeight := c.Size()
 				panel.Bottom(viewHeight - (top - gap))

@@ -26,6 +26,7 @@ import (
 	"see/internal/config"
 	"see/internal/filenesting"
 	"see/internal/git"
+	"see/internal/localhistory"
 	"see/internal/lsp"
 	"see/internal/nav"
 	"see/internal/uri"
@@ -104,7 +105,10 @@ type App struct {
 
 	// Documents, by path, and the editor groups showing them.
 	docs              map[string]*doc
+	localHistoryStore *localhistory.Store
+	localHistoryErr   error
 	layout            *layout
+	maximized         *group
 	recents           []string // the files activated lately, across groups, most recent last
 	focus             *group
 	focusGroupTarget  *group
@@ -140,6 +144,7 @@ type App struct {
 	choices             *defChoices        // several definitions to choose from
 	counterpartMiss     counterpartFeedback
 	peek                *peekState // a definition peeked at from an editor
+	regexPlayground     *regexPlayground
 	references          referenceList
 	referencesEmpty     bool         // the last pin found no references
 	codeActions         *codeActions // the code actions a request found, for its menu
@@ -253,6 +258,7 @@ type doc struct {
 	cache           *draftCache
 	saving          bool
 	buf             *editor.Buffer
+	colorCache      colorLiteralCache
 	video           bool
 	image           *ui.Bitmap
 	markdownOptions *markdown.Options
@@ -288,6 +294,7 @@ type doc struct {
 	blameTimer        *time.Timer
 	blameCancel       context.CancelFunc
 	languageInlays    []editor.Inlay
+	parameterInlays   []editor.Inlay
 	inlayKey          inlayKey
 	inlaySeq          int
 	inlayTimer        *time.Timer
@@ -308,6 +315,9 @@ type doc struct {
 	baseLang          *editor.Language
 	wrappedLang       *editor.Language
 	wrappedFold       bool // wrappedLang folds by the server's ranges
+	localHistoryTimer *time.Timer
+	localHistoryVer   uint64
+	localHistorySaved time.Time
 }
 
 type draftCache struct {
@@ -347,9 +357,12 @@ type target struct {
 }
 
 func newApp(cfg *config.Config) *App {
+	localHistoryStore, localHistoryErr := localhistory.NewCacheStore()
 	a := &App{
 		cfg:                   cfg,
 		docs:                  map[string]*doc{},
+		localHistoryStore:     localHistoryStore,
+		localHistoryErr:       localHistoryErr,
 		dirs:                  map[string]*dirState{},
 		post:                  newPoster(platform.SchedulerFunc(func(fn func()) { fn() })),
 		host:                  platform.NoDesktop{},
@@ -1220,6 +1233,7 @@ func (a *App) loaded(d *doc, f workspace.File, buf *editor.Buffer, same bool, er
 			m.Changed(d.uri, d.buf.Snapshot())
 		}
 	}
+	a.captureLoadedLocalHistory(d, f.Text)
 	for _, g := range a.groups() {
 		a.showLoaded(g, d)
 	}
@@ -1288,8 +1302,13 @@ func (a *App) newEditor(g *group, d *doc) *editor.State {
 		st.SetDiagnostics(d.diagnosticVersion, d.diagnostics)
 	}
 	st.OnDefinition = func(offset int) { a.goToDefinition(g, d, offset) }
+	st.NoDefinitionLink = true // hover.go draws the Cmd link once the server confirms a definition
 	a.loadGitBase(d)
 	st.ContextMenu = func(menu *ui.Menu) {
+		if menu.Item(commandLabel("Test Regex")).Chosen() {
+			a.openRegexPlaygroundFor(g, d, st)
+		}
+		menu.Separator()
 		if menu.Item(commandLabel("Peek Definition")).Shortcut(ui.Alt, ui.KeyF12).Disabled(!a.navigationEnabled(d.path, "peek")).Chosen() {
 			a.peekDefinition(g, d, st.Buffer.Offset(st.CursorPos()))
 		}
@@ -1328,6 +1347,13 @@ func (a *App) newEditor(g *group, d *doc) *editor.State {
 		}
 		if !d.untitled && menu.Item("Show File History").Chosen() {
 			a.showFileHistory(d.path)
+		}
+		localHistoryItem := menu.Item(commandLabel("Show Local History")).Disabled(!a.localHistorySupported(d))
+		if !a.localHistorySupported(d) {
+			localHistoryItem.Tooltip(localHistoryText("localHistoryUnsupported"))
+		}
+		if localHistoryItem.Chosen() {
+			a.showLocalHistory(g, d)
 		}
 		a.linkItems(menu, d, st)
 		menu.Separator()

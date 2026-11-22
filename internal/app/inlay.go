@@ -27,7 +27,7 @@ const inlaySettle = 100 * time.Millisecond
 func (a *App) syncInlayHints(d *doc, st *editor.State) {
 	m := a.serverFor(d.path)
 	served := m != nil && a.cfg.IsTrusted(a.root)
-	if a.cfg.HideTypeHints || !served || d.buf == nil || d.lossy || d.plain || st == nil || a.wsCtx == nil {
+	if !served || d.buf == nil || d.lossy || d.plain || st == nil || a.wsCtx == nil {
 		// Clear only the lane the requests filled: inlayKey set marks it,
 		// and nothing unserved reaches here having asked for hints.
 		if d.inlayKey.first >= 0 {
@@ -53,7 +53,7 @@ func (a *App) syncInlayHints(d *doc, st *editor.State) {
 	if d.inlayCancel != nil {
 		d.inlayCancel()
 	}
-	d.languageInlays = nil // never show the old range's hints over the new text
+	d.languageInlays, d.parameterInlays = nil, nil // never show the old range's hints over the new text
 	d.inlayKey = key
 	seq, gen := d.inlaySeq, a.gen
 	ctx, cancel := context.WithCancel(a.wsCtx)
@@ -103,10 +103,10 @@ func (a *App) fetchInlayHints(ctx context.Context, d *doc, m *langserver.Server,
 		if a.gen != gen || a.docs[d.path] != d || d.inlaySeq != seq || d.buf == nil || d.buf.Version() != snap.Version() {
 			return
 		}
-		if a.cfg.HideTypeHints {
+		if !a.cfg.IsTrusted(a.root) {
 			return
 		}
-		d.languageInlays = toInlays(hints, snap, enc)
+		d.languageInlays, d.parameterInlays = toInlayLanes(hints, snap, enc)
 	})
 }
 
@@ -116,11 +116,8 @@ type inlayKey struct {
 	version     uint64
 }
 
-// toInlays turns the server's hints into editor inlays: the offset is
-// the line's start plus the hint's column in the negotiated encoding,
-// the text the label with the padding the server asks for.
-func toInlays(hints []lsp.InlayHint, snap editor.Snapshot, enc string) []editor.Inlay {
-	out := make([]editor.Inlay, 0, len(hints))
+// toInlayLanes separates parameter hints from type and unknown hints.
+func toInlayLanes(hints []lsp.InlayHint, snap editor.Snapshot, enc string) (language, parameters []editor.Inlay) {
 	for _, h := range hints {
 		line := h.Position.Line
 		if line < 0 || line >= snap.LineCount() {
@@ -136,23 +133,21 @@ func toInlays(hints []lsp.InlayHint, snap editor.Snapshot, enc string) []editor.
 		if h.PaddingRight {
 			text += " "
 		}
-		out = append(out, editor.Inlay{
+		inlay := editor.Inlay{
 			Offset: snap.LineStart(line) + lsp.ColumnFromLSP(snap.Line(line), h.Position.Character, enc),
 			Text:   text,
-		})
-	}
-	return out
-}
-
-// toggleTypeHints switches type hints off, or back on; turning them
-// off empties every document's lane at once rather than frame by frame.
-func (a *App) toggleTypeHints() {
-	a.cfg.HideTypeHints = !a.cfg.HideTypeHints
-	if a.cfg.HideTypeHints {
-		for _, d := range a.docs {
-			a.clearInlayHints(d)
+		}
+		if h.Kind == 2 {
+			parameters = append(parameters, inlay)
+		} else {
+			language = append(language, inlay)
 		}
 	}
+	return language, parameters
+}
+
+func (a *App) toggleTypeHints() {
+	a.cfg.HideTypeHints = !a.cfg.HideTypeHints
 	a.settingsChanged()
 }
 
@@ -167,5 +162,5 @@ func (a *App) clearInlayHints(d *doc) {
 		d.inlayCancel()
 		d.inlayCancel = nil
 	}
-	d.languageInlays, d.inlayKey = nil, inlayKey{first: -1}
+	d.languageInlays, d.parameterInlays, d.inlayKey = nil, nil, inlayKey{first: -1}
 }

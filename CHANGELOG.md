@@ -2,6 +2,19 @@
 
 User-facing changes are grouped by release. Earlier releases are documented on the [Releases page](https://github.com/wibus-wee/see/releases).
 
+## 0.3.4
+
+### Added
+
+- Test regular expressions in an inline playground with sample text, match and capture inspection, and a railroad diagram. The playground uses Go / RE2 and reports unsupported JavaScript flags and features without changing source code.
+- Preview hex, RGB(A), and HSL(A) color literals with inline swatches; click a swatch to compare the color against light and dark backgrounds.
+- Browse local file history in a diff tab and restore selected changed lines with click and Shift-click. Recovery preserves other edits, does not save automatically, and can be undone in the source editor.
+- Preview a branch's three latest commits and affected open files from the toolbar branch picker before switching. Comparisons use committed files and mark unsaved buffers without changing the current branch.
+
+### Changed
+
+- Hold Option on macOS or Ctrl+Alt on Windows/Linux to reveal parameter-name hints from the language server; release the keys to hide them. Parameter hints remain available independently of the type-hint preference.
+
 ## 0.3.3
 
 ### Changed

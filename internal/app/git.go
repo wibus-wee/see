@@ -76,15 +76,16 @@ type gitPeek struct {
 }
 
 type gitDiffTab struct {
-	state  *editor.DiffState // nil for a commit
-	patch  editor.FilePatch
-	name   string
-	staged bool
-	cli    bool        // `see --diff`'s: it compares paths, not repository changes
-	rev    string      // the commit's short hash, for a file of a commit
-	commit *commitView // a commit, which shows in place of a diff
-	log    *gitLogView // the log, which shows in place of a diff
-	branch *branchDiffView
+	state        *editor.DiffState // nil for a commit
+	patch        editor.FilePatch
+	name         string
+	staged       bool
+	cli          bool        // `see --diff`'s: it compares paths, not repository changes
+	rev          string      // the commit's short hash, for a file of a commit
+	commit       *commitView // a commit, which shows in place of a diff
+	log          *gitLogView // the log, which shows in place of a diff
+	branch       *branchDiffView
+	localHistory *localHistoryView
 	// What the tab shows, to read it again in the next session: the
 	// commit's full hash, a renamed file's old path, and whether the
 	// change is of a file git does not track.
@@ -98,6 +99,8 @@ type gitDiffTab struct {
 // working tree.
 func (v *gitDiffTab) label() string {
 	switch {
+	case v.localHistory != nil:
+		return localHistoryText("localHistoryTab")
 	case v.cli:
 		return "Diff"
 	case v.rev != "":

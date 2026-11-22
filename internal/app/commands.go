@@ -29,6 +29,7 @@ func commandsFor(goos string) []command {
 	docItemsLabel, docItemsKeyName, docItemsMods, docItemsKey, groupFilesLabel, groupFilesKeyName, groupFilesMods, groupFilesKey := jumpBarShortcutsFor(goos)
 	scopeLabel, scopeKeyName, scopeMods, scopeKey := editAllScopeShortcut(goos)
 	counterpartLabel, counterpartMods := counterpartShortcut(goos)
+	maximizeLabel, maximizeMods := maximizeEditorShortcut(goos)
 	cmds := []command{
 		{"New File", "Cmd+", "N", ui.Cmd, ui.KeyN, func(a *App) { a.newFile() }},
 		{"Command Palette", "Cmd+Shift+", "P", ui.Cmd | ui.Shift, ui.KeyP, func(a *App) { a.openPalette() }},
@@ -39,6 +40,7 @@ func commandsFor(goos string) []command {
 		{"Open Quickly", "Cmd+Shift+", "O", ui.Cmd | ui.Shift, ui.KeyO, func(a *App) { a.openQuickly() }},
 		{"Show Problems", "Cmd+Shift+", "M", ui.Cmd | ui.Shift, ui.KeyM, func(a *App) { a.sidebarOff, a.navigator = false, navProblems }},
 		{"Show Quick Help", "Alt+Cmd+", "K", ui.Alt | ui.Cmd, ui.KeyK, func(a *App) { a.showQuickHelpAtCaret() }},
+		{"Test Regex", "", "", 0, 0, func(a *App) { a.openRegexPlayground() }},
 		{"Toggle Quick Help Inspector", "Alt+Cmd+", "I", ui.Alt | ui.Cmd, ui.KeyI, func(a *App) { a.toggleInspector() }},
 		{"Next Problem", "", "F8", 0, ui.KeyF8, func(a *App) { a.goToProblem(1) }},
 		{"Previous Problem", "Shift+", "F8", ui.Shift, ui.KeyF8, func(a *App) { a.goToProblem(-1) }},
@@ -70,6 +72,7 @@ func commandsFor(goos string) []command {
 		}},
 		{"Git: Show Log", "", "", 0, 0, func(a *App) { a.openGitLog() }},
 		{"Show File History", "", "", 0, 0, func(a *App) { a.showActiveFileHistory() }},
+		{"Show Local History", "", "", 0, 0, func(a *App) { a.showActiveLocalHistory() }},
 		{"Git: Reveal HEAD in Log", "", "", 0, 0, func(a *App) { a.revealLogRef("HEAD") }},
 		{"Git: Jump to Date…", "", "", 0, 0, func(a *App) { a.openJumpToDate() }},
 		{"Show Line's Commit in Git Log", "", "", 0, 0, func(a *App) { a.revealLineCommit() }},
@@ -111,6 +114,7 @@ func commandsFor(goos string) []command {
 		{"Close Saved Tabs", "", "", 0, 0, func(a *App) { a.closeTabs(a.focus, a.focus.active, closeSavedTabs) }},
 		{"Add Editor on Right", "Cmd+", "D", ui.Cmd, ui.KeyD, func(a *App) { a.splitActive(sideRight) }},
 		{"Add Editor Below", "Cmd+Shift+", "D", ui.Cmd | ui.Shift, ui.KeyD, func(a *App) { a.splitActive(sideBottom) }},
+		{"Maximize Editor", maximizeLabel, "Return", maximizeMods, ui.KeyEnter, func(a *App) { a.toggleMaximizeEditor() }},
 		{"Show or Hide the Terminal", "Cmd+Shift+", "Y", ui.Cmd | ui.Shift, ui.KeyY, func(a *App) { a.toggleTerminal() }},
 		{"Go: Build Workspace", "Cmd+Shift+", "B", ui.Cmd | ui.Shift, ui.KeyB, func(a *App) { a.runGoTask(tasks.Build) }},
 		{"Go: Test Workspace", "", "", 0, 0, func(a *App) { a.runGoTask(tasks.Test) }},
@@ -236,6 +240,13 @@ func counterpartShortcut(goos string) (string, ui.Modifiers) {
 		return "Ctrl+Cmd+", ui.Ctrl | ui.Cmd
 	}
 	return "Ctrl+Shift+", ui.Ctrl | ui.Shift
+}
+
+func maximizeEditorShortcut(goos string) (string, ui.Modifiers) {
+	if goos == "darwin" {
+		return "Ctrl+Cmd+Shift+", ui.Ctrl | ui.Cmd | ui.Shift
+	}
+	return "Ctrl+Alt+Shift+", ui.Ctrl | ui.Alt | ui.Shift
 }
 
 func (a *App) openPalette() {

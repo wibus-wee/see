@@ -23,6 +23,7 @@ var commandMessages = map[string]string{
 	"Fold Level 5":                  "commandFoldLevel5",
 	"Show Line's Commit in Git Log": "commandShowLineCommit",
 	"Show File History":             "commandShowFileHistory",
+	"Show Local History":            "commandShowLocalHistory",
 	"Git: Reveal HEAD in Log":       "commandGitRevealHeadInLog",
 	"Git: Jump to Date…":            "commandGitJumpToDate",
 	"Toggle Inline Git Blame":       "commandToggleInlineBlame",
@@ -31,6 +32,7 @@ var commandMessages = map[string]string{
 
 	"Show Problems":               "commandShowProblems",
 	"Show Quick Help":             "commandShowQuickHelp",
+	"Test Regex":                  "commandTestRegex",
 	"Show Signature Help":         "commandShowSignatureHelp",
 	"Toggle Quick Help Inspector": "commandToggleQuickHelpInspector",
 	"Show Outline":                "commandShowOutline",
@@ -88,6 +90,7 @@ var commandMessages = map[string]string{
 	"Reopen Closed Tab":           "commandReopenClosedTab",
 	"Add Editor on Right":         "commandAddEditorOnRight",
 	"Add Editor Below":            "commandAddEditorBelow",
+	"Maximize Editor":             "commandMaximizeEditor",
 	"Show or Hide the Terminal":   "commandShowOrHideTheTerminal",
 	"Show Output":                 "commandShowOutput",
 	"New Terminal":                "commandNewTerminal",

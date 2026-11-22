@@ -35,7 +35,11 @@ func (a *App) captureSession() {
 		g := n.g
 		s := &config.Layout{Active: tabPath(g.active), ActivePreview: isMarkdownTab(g.active), Preview: g.preview, Focused: g == a.focus}
 		if isDiffTab(g.active) {
-			s.Active = g.active
+			if v := g.diffs[g.active]; v != nil && v.localHistory != nil {
+				s.Active = ""
+			} else {
+				s.Active = g.active
+			}
 		}
 		for _, key := range g.order {
 			path := tabPath(key)
@@ -53,6 +57,9 @@ func (a *App) captureSession() {
 				}
 			}
 			if isDiffTab(key) {
+				if v := g.diffs[key]; v != nil && v.localHistory != nil {
+					continue
+				}
 				if spec := diffTabSpec(g.diffs[key]); spec != nil {
 					s.Tabs = append(s.Tabs, config.Tab{Diff: spec})
 				}
@@ -305,7 +312,7 @@ func (a *App) restoreSession() {
 // cannot read again.
 func diffTabSpec(v *gitDiffTab) *config.DiffTab {
 	switch {
-	case v == nil || v.log != nil || v.branch != nil || v.cli:
+	case v == nil || v.localHistory != nil || v.log != nil || v.branch != nil || v.cli:
 		return nil
 	case v.commit != nil || v.rev != "":
 		if v.hash == "" {

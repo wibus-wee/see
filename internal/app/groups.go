@@ -25,6 +25,7 @@ type group struct {
 	cycle           []string     // the Ctrl+Tab walk left to do: tabs by recency, active first
 	cycleMod        ui.Modifiers // the modifier the walk began under; letting it go lands the walk
 	cycleActive     bool         // Ctrl+Tab is walking cycle: activating does not touch mru
+	colorPreview    *colorPreviewState
 	preview         string
 	eds             map[string]*editor.State
 	minimaps        map[string]*minimap
@@ -50,6 +51,7 @@ type group struct {
 	changeBars     []changeBar
 	changeBarPress bool
 	caretAnchor    ui.Point
+	regexAction    regexActionCache
 	// pin is the reading-position pin of the editor's top line.
 	pin readingPin
 }
@@ -89,7 +91,13 @@ func (a *App) tabFile(g *group, tab string) string {
 		return tabPath(tab)
 	}
 	v := g.diffs[tab]
-	if v == nil || v.page() || v.cli || a.git.root == "" {
+	if v == nil {
+		return ""
+	}
+	if v.localHistory != nil {
+		return v.localHistory.path
+	}
+	if v.page() || v.cli || a.git.root == "" {
 		return ""
 	}
 	return workspace.DocPath(a.root, a.realRoot, filepath.Join(a.git.root, filepath.FromSlash(v.name)))
@@ -163,6 +171,7 @@ func (a *App) newGroup() *group {
 
 // resetLayout leaves one empty group.
 func (a *App) resetLayout() {
+	a.maximized = nil
 	g := a.newGroup()
 	a.layout = &layout{g: g}
 	a.focus = g
@@ -174,6 +183,7 @@ func (a *App) splitBeside(g *group, s side) *group {
 	if leaf == nil || s == sideNone {
 		return g
 	}
+	a.maximized = nil
 	ng := a.newGroup()
 	old := &layout{g: g, parent: leaf}
 	nw := &layout{g: ng, parent: leaf}
@@ -194,6 +204,9 @@ func (a *App) removeGroup(g *group) {
 	leaf := a.layout.find(g)
 	if leaf == nil || leaf.parent == nil {
 		return
+	}
+	if a.maximized == g {
+		a.maximized = nil
 	}
 	for path := range g.videos {
 		g.closeVideo(path)
@@ -233,6 +246,15 @@ func (g *group) addTab(path string, at int) {
 func (a *App) activateIn(g *group, path string) {
 	if !g.has(path) {
 		return
+	}
+	if a.maximized != g {
+		a.maximized = nil
+	}
+	if a.focus != nil && a.focus != g {
+		a.focus.dismissColorPreview()
+	}
+	if g.active != path {
+		g.dismissColorPreview()
 	}
 	if g.cycleActive && !slices.Contains(g.cycle, path) {
 		a.endTabCycle() // something else activated: the walk is over
@@ -443,6 +465,9 @@ func (a *App) closeTab(g *group, path string) {
 		return
 	}
 	docPath := tabPath(path)
+	if g.colorPreview != nil && (g.colorPreview.path == docPath || g.active == path) {
+		g.dismissColorPreview()
+	}
 	if isDiffTab(path) {
 		delete(g.diffs, path)
 	}
@@ -510,6 +535,7 @@ func (a *App) releaseIfUnused(path string) {
 	if d == nil {
 		return
 	}
+	a.captureCurrentLocalHistory(d)
 	delete(a.docs, path)
 	if a.root == "" && !d.untitled {
 		releaseStandalonePathIfIdle(a, d, path)
@@ -712,6 +738,15 @@ func (a *App) splitActive(s side) {
 			cv := *v.commit
 			cv.scroll = ui.ScrollState{}
 			ng.diffs = map[string]*gitDiffTab{path: {name: v.name, rev: v.rev, hash: v.hash, commit: &cv}}
+		} else if v != nil && v.localHistory != nil {
+			clone := a.cloneLocalHistoryTab(v)
+			ng.diffs = map[string]*gitDiffTab{path: clone}
+			lh := clone.localHistory
+			keepID := ""
+			if lh.selected >= 0 && lh.selected < len(lh.snapshots) {
+				keepID = lh.snapshots[lh.selected].ID
+			}
+			a.loadLocalHistory(clone, keepID)
 		} else if v != nil {
 			nv := a.newGitDiffTab(v.patch, v.name, v.staged)
 			nv.rev, nv.hash, nv.oldPath, nv.untracked = v.rev, v.hash, v.oldPath, v.untracked
