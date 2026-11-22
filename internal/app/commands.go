@@ -37,7 +37,7 @@ func commandsFor(goos string) []command {
 		}},
 		{"Open Folder", "Cmd+", "O", ui.Cmd, ui.KeyO, func(a *App) { a.openFolderDialog() }},
 		{"Open Quickly", "Cmd+Shift+", "O", ui.Cmd | ui.Shift, ui.KeyO, func(a *App) { a.openQuickly() }},
-		{"Show Problems", "Cmd+Shift+", "M", ui.Cmd | ui.Shift, ui.KeyM, func(a *App) { a.sidebarOff, a.navigator = false, navProblems }},
+		{"Show Problems", "Cmd+Shift+", "M", ui.Cmd | ui.Shift, ui.KeyM, (*App).showProblems},
 		{"Show Quick Help", "Alt+Cmd+", "K", ui.Alt | ui.Cmd, ui.KeyK, func(a *App) { a.showQuickHelpAtCaret() }},
 		{"Test Regex", "", "", 0, 0, func(a *App) { a.openRegexPlayground() }},
 		{"Toggle Quick Help Inspector", "Alt+Cmd+", "I", ui.Alt | ui.Cmd, ui.KeyI, func(a *App) { a.toggleInspector() }},

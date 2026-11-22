@@ -485,6 +485,10 @@ func (a *App) closeTab(g *group, path string) {
 	g.mru = slices.DeleteFunc(g.mru, func(p string) bool { return p == path })
 	g.cycle = slices.DeleteFunc(g.cycle, func(p string) bool { return p == path })
 	if !g.hasDocument(docPath) {
+		if d := a.docs[docPath]; d != nil && g.pin.requested.doc == d {
+			g.pin.cancelRequest()
+			g.pin = readingPin{seq: g.pin.seq + 1}
+		}
 		g.closeVideo(docPath)
 		delete(g.eds, docPath)
 		delete(g.minimaps, docPath)
@@ -540,6 +544,10 @@ func (a *App) releaseIfUnused(path string) {
 	d.seq++ // drop a load on its way
 	a.clearDocumentLinks(d)
 	a.clearFoldingRanges(d)
+	if a.outline.requested.doc == d && a.outline.cancel != nil {
+		a.outline.cancel()
+		a.outline.cancel = nil
+	}
 	if m := a.serverFor(d.path); m != nil {
 		m.Close(d.uri)
 	}
