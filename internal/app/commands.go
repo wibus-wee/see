@@ -81,6 +81,7 @@ func commandsFor(goos string) []command {
 		{"Show Line's Commit in Git Log", "", "", 0, 0, func(a *App) { a.revealLineCommit() }},
 		{"Toggle Minimap", "", "", 0, 0, func(a *App) { a.cfg.HideMinimap = !a.cfg.HideMinimap; a.settingsChanged() }},
 		{"Toggle Inline Git Blame", "", "", 0, 0, func(a *App) { a.cfg.HideInlineBlame = !a.cfg.HideInlineBlame; a.settingsChanged() }},
+		{"Show Invisibles", "", "", 0, 0, func(a *App) { a.toggleInvisibles() }},
 		{"Toggle Type Hints", "", "", 0, 0, func(a *App) { a.toggleTypeHints() }},
 		{"Toggle Inline Diff", "", "", 0, 0, func(a *App) { a.toggleDiffLayout() }},
 		{"Next Change", "", "", 0, 0, func(a *App) { a.goToChange(1) }},
@@ -351,4 +352,13 @@ func installSeeLink(exe, dir string) (path string, already bool, err error) {
 		return path, false, err
 	}
 	return path, false, nil
+}
+
+// toggleInvisibles shows spaces and tabs as dots and arrows everywhere,
+// as Xcode's Editor > Invisibles; off, they show only in the selection.
+func (a *App) toggleInvisibles() {
+	a.cfg.ShowInvisibles = !a.cfg.ShowInvisibles
+	a.applyEditorPrefsAll()
+	a.settingsChanged()
+	a.host.RefreshMenu()
 }

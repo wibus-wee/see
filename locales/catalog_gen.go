@@ -1518,6 +1518,336 @@ func (msgs Messages) InspectorImplementations() string {
 	return Catalog.Format(msgs.locale, "inspectorImplementations", nil)
 }
 
+// InspectorTabs says "Inspectors"
+// in the language the app shows.
+func InspectorTabs() string { return In(i18n.Locale()).InspectorTabs() }
+
+// InspectorTabs says "Inspectors"
+// in the language of msgs.
+func (msgs Messages) InspectorTabs() string {
+	return Catalog.Format(msgs.locale, "inspectorTabs", nil)
+}
+
+// InspectorQuickHelpTip says "Quick Help Inspector"
+// in the language the app shows.
+func InspectorQuickHelpTip() string { return In(i18n.Locale()).InspectorQuickHelpTip() }
+
+// InspectorQuickHelpTip says "Quick Help Inspector"
+// in the language of msgs.
+func (msgs Messages) InspectorQuickHelpTip() string {
+	return Catalog.Format(msgs.locale, "inspectorQuickHelpTip", nil)
+}
+
+// InspectorFileTip says "File Inspector"
+// in the language the app shows.
+func InspectorFileTip() string { return In(i18n.Locale()).InspectorFileTip() }
+
+// InspectorFileTip says "File Inspector"
+// in the language of msgs.
+func (msgs Messages) InspectorFileTip() string {
+	return Catalog.Format(msgs.locale, "inspectorFileTip", nil)
+}
+
+// InspectorHistoryTip says "History Inspector"
+// in the language the app shows.
+func InspectorHistoryTip() string { return In(i18n.Locale()).InspectorHistoryTip() }
+
+// InspectorHistoryTip says "History Inspector"
+// in the language of msgs.
+func (msgs Messages) InspectorHistoryTip() string {
+	return Catalog.Format(msgs.locale, "inspectorHistoryTip", nil)
+}
+
+// InspectorFilePane says "File Inspector"
+// in the language the app shows.
+func InspectorFilePane() string { return In(i18n.Locale()).InspectorFilePane() }
+
+// InspectorFilePane says "File Inspector"
+// in the language of msgs.
+func (msgs Messages) InspectorFilePane() string {
+	return Catalog.Format(msgs.locale, "inspectorFilePane", nil)
+}
+
+// InspectorHistoryPane says "History Inspector"
+// in the language the app shows.
+func InspectorHistoryPane() string { return In(i18n.Locale()).InspectorHistoryPane() }
+
+// InspectorHistoryPane says "History Inspector"
+// in the language of msgs.
+func (msgs Messages) InspectorHistoryPane() string {
+	return Catalog.Format(msgs.locale, "inspectorHistoryPane", nil)
+}
+
+// InspectorNoFile says "No file is open in the focused editor."
+// in the language the app shows.
+func InspectorNoFile() string { return In(i18n.Locale()).InspectorNoFile() }
+
+// InspectorNoFile says "No file is open in the focused editor."
+// in the language of msgs.
+func (msgs Messages) InspectorNoFile() string {
+	return Catalog.Format(msgs.locale, "inspectorNoFile", nil)
+}
+
+// InspectorNotRepo says "This workspace is not a Git repository."
+// in the language the app shows.
+func InspectorNotRepo() string { return In(i18n.Locale()).InspectorNotRepo() }
+
+// InspectorNotRepo says "This workspace is not a Git repository."
+// in the language of msgs.
+func (msgs Messages) InspectorNotRepo() string {
+	return Catalog.Format(msgs.locale, "inspectorNotRepo", nil)
+}
+
+// InspectorNoHistory says "No commits touched this file yet."
+// in the language the app shows.
+func InspectorNoHistory() string { return In(i18n.Locale()).InspectorNoHistory() }
+
+// InspectorNoHistory says "No commits touched this file yet."
+// in the language of msgs.
+func (msgs Messages) InspectorNoHistory() string {
+	return Catalog.Format(msgs.locale, "inspectorNoHistory", nil)
+}
+
+// InspectorRecent says "Recent Commits"
+// in the language the app shows.
+func InspectorRecent() string { return In(i18n.Locale()).InspectorRecent() }
+
+// InspectorRecent says "Recent Commits"
+// in the language of msgs.
+func (msgs Messages) InspectorRecent() string {
+	return Catalog.Format(msgs.locale, "inspectorRecent", nil)
+}
+
+// InspectorIdentity says "Identity"
+// in the language the app shows.
+func InspectorIdentity() string { return In(i18n.Locale()).InspectorIdentity() }
+
+// InspectorIdentity says "Identity"
+// in the language of msgs.
+func (msgs Messages) InspectorIdentity() string {
+	return Catalog.Format(msgs.locale, "inspectorIdentity", nil)
+}
+
+// InspectorInfo says "Info"
+// in the language the app shows.
+func InspectorInfo() string { return In(i18n.Locale()).InspectorInfo() }
+
+// InspectorInfo says "Info"
+// in the language of msgs.
+func (msgs Messages) InspectorInfo() string {
+	return Catalog.Format(msgs.locale, "inspectorInfo", nil)
+}
+
+// InspectorLocation says "Location"
+// in the language the app shows.
+func InspectorLocation() string { return In(i18n.Locale()).InspectorLocation() }
+
+// InspectorLocation says "Location"
+// in the language of msgs.
+func (msgs Messages) InspectorLocation() string {
+	return Catalog.Format(msgs.locale, "inspectorLocation", nil)
+}
+
+// InspectorSize says "Size"
+// in the language the app shows.
+func InspectorSize() string { return In(i18n.Locale()).InspectorSize() }
+
+// InspectorSize says "Size"
+// in the language of msgs.
+func (msgs Messages) InspectorSize() string {
+	return Catalog.Format(msgs.locale, "inspectorSize", nil)
+}
+
+// InspectorModified says "Modified"
+// in the language the app shows.
+func InspectorModified() string { return In(i18n.Locale()).InspectorModified() }
+
+// InspectorModified says "Modified"
+// in the language of msgs.
+func (msgs Messages) InspectorModified() string {
+	return Catalog.Format(msgs.locale, "inspectorModified", nil)
+}
+
+// InspectorTextSettings says "Text Settings"
+// in the language the app shows.
+func InspectorTextSettings() string { return In(i18n.Locale()).InspectorTextSettings() }
+
+// InspectorTextSettings says "Text Settings"
+// in the language of msgs.
+func (msgs Messages) InspectorTextSettings() string {
+	return Catalog.Format(msgs.locale, "inspectorTextSettings", nil)
+}
+
+// InspectorEncoding says "Text Encoding"
+// in the language the app shows.
+func InspectorEncoding() string { return In(i18n.Locale()).InspectorEncoding() }
+
+// InspectorEncoding says "Text Encoding"
+// in the language of msgs.
+func (msgs Messages) InspectorEncoding() string {
+	return Catalog.Format(msgs.locale, "inspectorEncoding", nil)
+}
+
+// InspectorEncodingBOM says "UTF-8 with BOM"
+// in the language the app shows.
+func InspectorEncodingBOM() string { return In(i18n.Locale()).InspectorEncodingBOM() }
+
+// InspectorEncodingBOM says "UTF-8 with BOM"
+// in the language of msgs.
+func (msgs Messages) InspectorEncodingBOM() string {
+	return Catalog.Format(msgs.locale, "inspectorEncodingBOM", nil)
+}
+
+// InspectorEncodingLossy says " (invalid bytes replaced)"
+// in the language the app shows.
+func InspectorEncodingLossy() string { return In(i18n.Locale()).InspectorEncodingLossy() }
+
+// InspectorEncodingLossy says " (invalid bytes replaced)"
+// in the language of msgs.
+func (msgs Messages) InspectorEncodingLossy() string {
+	return Catalog.Format(msgs.locale, "inspectorEncodingLossy", nil)
+}
+
+// InspectorLineEndings says "Line Endings"
+// in the language the app shows.
+func InspectorLineEndings() string { return In(i18n.Locale()).InspectorLineEndings() }
+
+// InspectorLineEndings says "Line Endings"
+// in the language of msgs.
+func (msgs Messages) InspectorLineEndings() string {
+	return Catalog.Format(msgs.locale, "inspectorLineEndings", nil)
+}
+
+// InspectorSourceControl says "Source Control"
+// in the language the app shows.
+func InspectorSourceControl() string { return In(i18n.Locale()).InspectorSourceControl() }
+
+// InspectorSourceControl says "Source Control"
+// in the language of msgs.
+func (msgs Messages) InspectorSourceControl() string {
+	return Catalog.Format(msgs.locale, "inspectorSourceControl", nil)
+}
+
+// InspectorStatus says "Status"
+// in the language the app shows.
+func InspectorStatus() string { return In(i18n.Locale()).InspectorStatus() }
+
+// InspectorStatus says "Status"
+// in the language of msgs.
+func (msgs Messages) InspectorStatus() string {
+	return Catalog.Format(msgs.locale, "inspectorStatus", nil)
+}
+
+// InspectorStatusModified says "Modified"
+// in the language the app shows.
+func InspectorStatusModified() string { return In(i18n.Locale()).InspectorStatusModified() }
+
+// InspectorStatusModified says "Modified"
+// in the language of msgs.
+func (msgs Messages) InspectorStatusModified() string {
+	return Catalog.Format(msgs.locale, "inspectorStatusModified", nil)
+}
+
+// InspectorStatusAdded says "Added"
+// in the language the app shows.
+func InspectorStatusAdded() string { return In(i18n.Locale()).InspectorStatusAdded() }
+
+// InspectorStatusAdded says "Added"
+// in the language of msgs.
+func (msgs Messages) InspectorStatusAdded() string {
+	return Catalog.Format(msgs.locale, "inspectorStatusAdded", nil)
+}
+
+// InspectorStatusDeleted says "Deleted"
+// in the language the app shows.
+func InspectorStatusDeleted() string { return In(i18n.Locale()).InspectorStatusDeleted() }
+
+// InspectorStatusDeleted says "Deleted"
+// in the language of msgs.
+func (msgs Messages) InspectorStatusDeleted() string {
+	return Catalog.Format(msgs.locale, "inspectorStatusDeleted", nil)
+}
+
+// InspectorStatusRenamed says "Renamed"
+// in the language the app shows.
+func InspectorStatusRenamed() string { return In(i18n.Locale()).InspectorStatusRenamed() }
+
+// InspectorStatusRenamed says "Renamed"
+// in the language of msgs.
+func (msgs Messages) InspectorStatusRenamed() string {
+	return Catalog.Format(msgs.locale, "inspectorStatusRenamed", nil)
+}
+
+// InspectorStatusUntracked says "Untracked"
+// in the language the app shows.
+func InspectorStatusUntracked() string { return In(i18n.Locale()).InspectorStatusUntracked() }
+
+// InspectorStatusUntracked says "Untracked"
+// in the language of msgs.
+func (msgs Messages) InspectorStatusUntracked() string {
+	return Catalog.Format(msgs.locale, "inspectorStatusUntracked", nil)
+}
+
+// InspectorStatusConflicted says "Conflicted"
+// in the language the app shows.
+func InspectorStatusConflicted() string { return In(i18n.Locale()).InspectorStatusConflicted() }
+
+// InspectorStatusConflicted says "Conflicted"
+// in the language of msgs.
+func (msgs Messages) InspectorStatusConflicted() string {
+	return Catalog.Format(msgs.locale, "inspectorStatusConflicted", nil)
+}
+
+// InspectorTypeBinary says "Binary file"
+// in the language the app shows.
+func InspectorTypeBinary() string { return In(i18n.Locale()).InspectorTypeBinary() }
+
+// InspectorTypeBinary says "Binary file"
+// in the language of msgs.
+func (msgs Messages) InspectorTypeBinary() string {
+	return Catalog.Format(msgs.locale, "inspectorTypeBinary", nil)
+}
+
+// InspectorTypeText says "Plain text"
+// in the language the app shows.
+func InspectorTypeText() string { return In(i18n.Locale()).InspectorTypeText() }
+
+// InspectorTypeText says "Plain text"
+// in the language of msgs.
+func (msgs Messages) InspectorTypeText() string {
+	return Catalog.Format(msgs.locale, "inspectorTypeText", nil)
+}
+
+// InspectorTypeUnknown says "File"
+// in the language the app shows.
+func InspectorTypeUnknown() string { return In(i18n.Locale()).InspectorTypeUnknown() }
+
+// InspectorTypeUnknown says "File"
+// in the language of msgs.
+func (msgs Messages) InspectorTypeUnknown() string {
+	return Catalog.Format(msgs.locale, "inspectorTypeUnknown", nil)
+}
+
+// InspectorDocs says "Documentation"
+// in the language the app shows.
+func InspectorDocs() string { return In(i18n.Locale()).InspectorDocs() }
+
+// InspectorDocs says "Documentation"
+// in the language of msgs.
+func (msgs Messages) InspectorDocs() string {
+	return Catalog.Format(msgs.locale, "inspectorDocs", nil)
+}
+
+// InspectorOpenDocs says "Open in Developer Documentation"
+// in the language the app shows.
+func InspectorOpenDocs() string { return In(i18n.Locale()).InspectorOpenDocs() }
+
+// InspectorOpenDocs says "Open in Developer Documentation"
+// in the language of msgs.
+func (msgs Messages) InspectorOpenDocs() string {
+	return Catalog.Format(msgs.locale, "inspectorOpenDocs", nil)
+}
+
 // MsgQuickHelpInspector says "Quick Help Inspector"
 // in the language the app shows.
 func MsgQuickHelpInspector() string { return In(i18n.Locale()).MsgQuickHelpInspector() }
@@ -7630,6 +7960,36 @@ func CommandToggleMinimap() string { return In(i18n.Locale()).CommandToggleMinim
 // in the language of msgs.
 func (msgs Messages) CommandToggleMinimap() string {
 	return Catalog.Format(msgs.locale, "commandToggleMinimap", nil)
+}
+
+// ShowInvisibles says "Show invisibles"
+// in the language the app shows.
+func ShowInvisibles() string { return In(i18n.Locale()).ShowInvisibles() }
+
+// ShowInvisibles says "Show invisibles"
+// in the language of msgs.
+func (msgs Messages) ShowInvisibles() string {
+	return Catalog.Format(msgs.locale, "showInvisibles", nil)
+}
+
+// ShowInvisiblesDescription says "Draw spaces and tabs as dots and arrows everywhere, not only in the selection, as Xcode's Editor > Invisibles."
+// in the language the app shows.
+func ShowInvisiblesDescription() string { return In(i18n.Locale()).ShowInvisiblesDescription() }
+
+// ShowInvisiblesDescription says "Draw spaces and tabs as dots and arrows everywhere, not only in the selection, as Xcode's Editor > Invisibles."
+// in the language of msgs.
+func (msgs Messages) ShowInvisiblesDescription() string {
+	return Catalog.Format(msgs.locale, "showInvisiblesDescription", nil)
+}
+
+// CommandShowInvisibles says "Show Invisibles"
+// in the language the app shows.
+func CommandShowInvisibles() string { return In(i18n.Locale()).CommandShowInvisibles() }
+
+// CommandShowInvisibles says "Show Invisibles"
+// in the language of msgs.
+func (msgs Messages) CommandShowInvisibles() string {
+	return Catalog.Format(msgs.locale, "commandShowInvisibles", nil)
 }
 
 // NotifyTerminalBell says "Terminal bell"
