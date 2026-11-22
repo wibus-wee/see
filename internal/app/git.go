@@ -98,6 +98,7 @@ type gitDiffTab struct {
 	branch               *branchDiffView
 	localHistory         *localHistoryView
 	conflict             *gitConflictView
+	revision             *revisionView
 	// What the tab shows, to read it again in the next session: the
 	// commit's full hash, a renamed file's old path, and whether the
 	// change is of a file git does not track.

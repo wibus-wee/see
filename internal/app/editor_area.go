@@ -225,6 +225,8 @@ func (a *App) groupContent(c *ui.Context, g *group) {
 	} else if v != nil && v.log != nil {
 		a.gitLogContent(c, g, v.log)
 		return
+	} else if v != nil && v.revision != nil {
+		a.revisionContent(c, g, v)
 	} else if v != nil && v.localHistory != nil {
 		a.localHistoryContent(c, g, v)
 		return

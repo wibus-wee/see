@@ -84,6 +84,7 @@ func commandsFor(goos string) []command {
 		{"Edit Search Results", "", "", 0, 0, func(a *App) { a.openSearchEdit() }},
 		{"Git: Show Log", "", "", 0, 0, func(a *App) { a.openGitLog() }},
 		{"Show File History", "", "", 0, 0, func(a *App) { a.showActiveFileHistory() }},
+		{"Compare with Revision…", "", "", 0, 0, func(a *App) { a.showActiveRevision() }},
 		{"Show Local History", "", "", 0, 0, func(a *App) { a.showActiveLocalHistory() }},
 		{"Git: Reveal HEAD in Log", "", "", 0, 0, func(a *App) { a.revealLogRef("HEAD") }},
 		{"Git: Jump to Date…", "", "", 0, 0, func(a *App) { a.openJumpToDate() }},

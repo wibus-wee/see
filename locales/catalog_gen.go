@@ -34,6 +34,56 @@ type Messages struct{ locale string }
 // source language.
 func In(locale string) Messages { return Messages{locale} }
 
+// RevisionTitle says "Code Review"
+// in the language the app shows.
+func RevisionTitle() string { return In(i18n.Locale()).RevisionTitle() }
+
+// RevisionTitle says "Code Review"
+// in the language of msgs.
+func (msgs Messages) RevisionTitle() string {
+	return Catalog.Format(msgs.locale, "revisionTitle", nil)
+}
+
+// RevisionChoose says "Choose Revision"
+// in the language the app shows.
+func RevisionChoose() string { return In(i18n.Locale()).RevisionChoose() }
+
+// RevisionChoose says "Choose Revision"
+// in the language of msgs.
+func (msgs Messages) RevisionChoose() string {
+	return Catalog.Format(msgs.locale, "revisionChoose", nil)
+}
+
+// RevisionOlder says "Older commit"
+// in the language the app shows.
+func RevisionOlder() string { return In(i18n.Locale()).RevisionOlder() }
+
+// RevisionOlder says "Older commit"
+// in the language of msgs.
+func (msgs Messages) RevisionOlder() string {
+	return Catalog.Format(msgs.locale, "revisionOlder", nil)
+}
+
+// RevisionNewer says "Newer commit"
+// in the language the app shows.
+func RevisionNewer() string { return In(i18n.Locale()).RevisionNewer() }
+
+// RevisionNewer says "Newer commit"
+// in the language of msgs.
+func (msgs Messages) RevisionNewer() string {
+	return Catalog.Format(msgs.locale, "revisionNewer", nil)
+}
+
+// CommandCompareRevision says "Compare with Revision…"
+// in the language the app shows.
+func CommandCompareRevision() string { return In(i18n.Locale()).CommandCompareRevision() }
+
+// CommandCompareRevision says "Compare with Revision…"
+// in the language of msgs.
+func (msgs Messages) CommandCompareRevision() string {
+	return Catalog.Format(msgs.locale, "commandCompareRevision", nil)
+}
+
 // RenderDocComments says "Render Doc Comments"
 // in the language the app shows.
 func RenderDocComments() string { return In(i18n.Locale()).RenderDocComments() }
