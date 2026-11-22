@@ -1534,6 +1534,336 @@ func (msgs Messages) GitWorkingTree() string {
 	return Catalog.Format(msgs.locale, "gitWorkingTree", nil)
 }
 
+// GitConflictedFiles says "Conflicted Files"
+// in the language the app shows.
+func GitConflictedFiles() string { return In(i18n.Locale()).GitConflictedFiles() }
+
+// GitConflictedFiles says "Conflicted Files"
+// in the language of msgs.
+func (msgs Messages) GitConflictedFiles() string {
+	return Catalog.Format(msgs.locale, "gitConflictedFiles", nil)
+}
+
+// GitConflictTab says "Merge Conflict"
+// in the language the app shows.
+func GitConflictTab() string { return In(i18n.Locale()).GitConflictTab() }
+
+// GitConflictTab says "Merge Conflict"
+// in the language of msgs.
+func (msgs Messages) GitConflictTab() string {
+	return Catalog.Format(msgs.locale, "gitConflictTab", nil)
+}
+
+// GitResolveFile says "Resolve conflict in %s"
+// in the language the app shows.
+func GitResolveFile() string { return In(i18n.Locale()).GitResolveFile() }
+
+// GitResolveFile says "Resolve conflict in %s"
+// in the language of msgs.
+func (msgs Messages) GitResolveFile() string {
+	return Catalog.Format(msgs.locale, "gitResolveFile", nil)
+}
+
+// GitResolveBeforeCommit says "Resolve conflicts to commit"
+// in the language the app shows.
+func GitResolveBeforeCommit() string { return In(i18n.Locale()).GitResolveBeforeCommit() }
+
+// GitResolveBeforeCommit says "Resolve conflicts to commit"
+// in the language of msgs.
+func (msgs Messages) GitResolveBeforeCommit() string {
+	return Catalog.Format(msgs.locale, "gitResolveBeforeCommit", nil)
+}
+
+// GitCommitMerge says "Commit Merge"
+// in the language the app shows.
+func GitCommitMerge() string { return In(i18n.Locale()).GitCommitMerge() }
+
+// GitCommitMerge says "Commit Merge"
+// in the language of msgs.
+func (msgs Messages) GitCommitMerge() string {
+	return Catalog.Format(msgs.locale, "gitCommitMerge", nil)
+}
+
+// GitConflictReading says "Reading conflicts…"
+// in the language the app shows.
+func GitConflictReading() string { return In(i18n.Locale()).GitConflictReading() }
+
+// GitConflictReading says "Reading conflicts…"
+// in the language of msgs.
+func (msgs Messages) GitConflictReading() string {
+	return Catalog.Format(msgs.locale, "gitConflictReading", nil)
+}
+
+// GitConflictCurrent says "Current"
+// in the language the app shows.
+func GitConflictCurrent() string { return In(i18n.Locale()).GitConflictCurrent() }
+
+// GitConflictCurrent says "Current"
+// in the language of msgs.
+func (msgs Messages) GitConflictCurrent() string {
+	return Catalog.Format(msgs.locale, "gitConflictCurrent", nil)
+}
+
+// GitConflictIncoming says "Incoming"
+// in the language the app shows.
+func GitConflictIncoming() string { return In(i18n.Locale()).GitConflictIncoming() }
+
+// GitConflictIncoming says "Incoming"
+// in the language of msgs.
+func (msgs Messages) GitConflictIncoming() string {
+	return Catalog.Format(msgs.locale, "gitConflictIncoming", nil)
+}
+
+// GitConflictPreview says "Resolution Preview"
+// in the language the app shows.
+func GitConflictPreview() string { return In(i18n.Locale()).GitConflictPreview() }
+
+// GitConflictPreview says "Resolution Preview"
+// in the language of msgs.
+func (msgs Messages) GitConflictPreview() string {
+	return Catalog.Format(msgs.locale, "gitConflictPreview", nil)
+}
+
+// GitConflictChoose says "Choose what to keep for this conflict."
+// in the language the app shows.
+func GitConflictChoose() string { return In(i18n.Locale()).GitConflictChoose() }
+
+// GitConflictChoose says "Choose what to keep for this conflict."
+// in the language of msgs.
+func (msgs Messages) GitConflictChoose() string {
+	return Catalog.Format(msgs.locale, "gitConflictChoose", nil)
+}
+
+// GitConflictNoLines says "No lines"
+// in the language the app shows.
+func GitConflictNoLines() string { return In(i18n.Locale()).GitConflictNoLines() }
+
+// GitConflictNoLines says "No lines"
+// in the language of msgs.
+func (msgs Messages) GitConflictNoLines() string {
+	return Catalog.Format(msgs.locale, "gitConflictNoLines", nil)
+}
+
+// GitConflictOpenFile says "Open File"
+// in the language the app shows.
+func GitConflictOpenFile() string { return In(i18n.Locale()).GitConflictOpenFile() }
+
+// GitConflictOpenFile says "Open File"
+// in the language of msgs.
+func (msgs Messages) GitConflictOpenFile() string {
+	return Catalog.Format(msgs.locale, "gitConflictOpenFile", nil)
+}
+
+// GitConflictReload says "Reload from Disk"
+// in the language the app shows.
+func GitConflictReload() string { return In(i18n.Locale()).GitConflictReload() }
+
+// GitConflictReload says "Reload from Disk"
+// in the language of msgs.
+func (msgs Messages) GitConflictReload() string {
+	return Catalog.Format(msgs.locale, "gitConflictReload", nil)
+}
+
+// GitConflictSave says "Save & Stage"
+// in the language the app shows.
+func GitConflictSave() string { return In(i18n.Locale()).GitConflictSave() }
+
+// GitConflictSave says "Save & Stage"
+// in the language of msgs.
+func (msgs Messages) GitConflictSave() string {
+	return Catalog.Format(msgs.locale, "gitConflictSave", nil)
+}
+
+// GitConflictSaving says "Saving resolution…"
+// in the language the app shows.
+func GitConflictSaving() string { return In(i18n.Locale()).GitConflictSaving() }
+
+// GitConflictSaving says "Saving resolution…"
+// in the language of msgs.
+func (msgs Messages) GitConflictSaving() string {
+	return Catalog.Format(msgs.locale, "gitConflictSaving", nil)
+}
+
+// GitConflictPrevious says "Previous Conflict"
+// in the language the app shows.
+func GitConflictPrevious() string { return In(i18n.Locale()).GitConflictPrevious() }
+
+// GitConflictPrevious says "Previous Conflict"
+// in the language of msgs.
+func (msgs Messages) GitConflictPrevious() string {
+	return Catalog.Format(msgs.locale, "gitConflictPrevious", nil)
+}
+
+// GitConflictNext says "Next Conflict"
+// in the language the app shows.
+func GitConflictNext() string { return In(i18n.Locale()).GitConflictNext() }
+
+// GitConflictNext says "Next Conflict"
+// in the language of msgs.
+func (msgs Messages) GitConflictNext() string {
+	return Catalog.Format(msgs.locale, "gitConflictNext", nil)
+}
+
+// GitConflictPosition says "Conflict %d of %d"
+// in the language the app shows.
+func GitConflictPosition() string { return In(i18n.Locale()).GitConflictPosition() }
+
+// GitConflictPosition says "Conflict %d of %d"
+// in the language of msgs.
+func (msgs Messages) GitConflictPosition() string {
+	return Catalog.Format(msgs.locale, "gitConflictPosition", nil)
+}
+
+// GitConflictLine says "Line %d"
+// in the language the app shows.
+func GitConflictLine() string { return In(i18n.Locale()).GitConflictLine() }
+
+// GitConflictLine says "Line %d"
+// in the language of msgs.
+func (msgs Messages) GitConflictLine() string {
+	return Catalog.Format(msgs.locale, "gitConflictLine", nil)
+}
+
+// GitConflictProgress says "%d of %d resolved"
+// in the language the app shows.
+func GitConflictProgress() string { return In(i18n.Locale()).GitConflictProgress() }
+
+// GitConflictProgress says "%d of %d resolved"
+// in the language of msgs.
+func (msgs Messages) GitConflictProgress() string {
+	return Catalog.Format(msgs.locale, "gitConflictProgress", nil)
+}
+
+// GitConflictKeepCurrent says "Keep Current"
+// in the language the app shows.
+func GitConflictKeepCurrent() string { return In(i18n.Locale()).GitConflictKeepCurrent() }
+
+// GitConflictKeepCurrent says "Keep Current"
+// in the language of msgs.
+func (msgs Messages) GitConflictKeepCurrent() string {
+	return Catalog.Format(msgs.locale, "gitConflictKeepCurrent", nil)
+}
+
+// GitConflictKeepIncoming says "Keep Incoming"
+// in the language the app shows.
+func GitConflictKeepIncoming() string { return In(i18n.Locale()).GitConflictKeepIncoming() }
+
+// GitConflictKeepIncoming says "Keep Incoming"
+// in the language of msgs.
+func (msgs Messages) GitConflictKeepIncoming() string {
+	return Catalog.Format(msgs.locale, "gitConflictKeepIncoming", nil)
+}
+
+// GitConflictKeepBoth says "Keep Both"
+// in the language the app shows.
+func GitConflictKeepBoth() string { return In(i18n.Locale()).GitConflictKeepBoth() }
+
+// GitConflictKeepBoth says "Keep Both"
+// in the language of msgs.
+func (msgs Messages) GitConflictKeepBoth() string {
+	return Catalog.Format(msgs.locale, "gitConflictKeepBoth", nil)
+}
+
+// GitConflictBothOrder says "Keep current lines, then incoming lines"
+// in the language the app shows.
+func GitConflictBothOrder() string { return In(i18n.Locale()).GitConflictBothOrder() }
+
+// GitConflictBothOrder says "Keep current lines, then incoming lines"
+// in the language of msgs.
+func (msgs Messages) GitConflictBothOrder() string {
+	return Catalog.Format(msgs.locale, "gitConflictBothOrder", nil)
+}
+
+// GitConflictStaged says "Resolution staged"
+// in the language the app shows.
+func GitConflictStaged() string { return In(i18n.Locale()).GitConflictStaged() }
+
+// GitConflictStaged says "Resolution staged"
+// in the language of msgs.
+func (msgs Messages) GitConflictStaged() string {
+	return Catalog.Format(msgs.locale, "gitConflictStaged", nil)
+}
+
+// GitConflictStagedDetail says "Git no longer reports a conflict for this file. No commit was created."
+// in the language the app shows.
+func GitConflictStagedDetail() string { return In(i18n.Locale()).GitConflictStagedDetail() }
+
+// GitConflictStagedDetail says "Git no longer reports a conflict for this file. No commit was created."
+// in the language of msgs.
+func (msgs Messages) GitConflictStagedDetail() string {
+	return Catalog.Format(msgs.locale, "gitConflictStagedDetail", nil)
+}
+
+// GitConflictUnavailable says "Could not resolve this conflict"
+// in the language the app shows.
+func GitConflictUnavailable() string { return In(i18n.Locale()).GitConflictUnavailable() }
+
+// GitConflictUnavailable says "Could not resolve this conflict"
+// in the language of msgs.
+func (msgs Messages) GitConflictUnavailable() string {
+	return Catalog.Format(msgs.locale, "gitConflictUnavailable", nil)
+}
+
+// GitConflictAlreadyResolved says "Git no longer reports this file as conflicted."
+// in the language the app shows.
+func GitConflictAlreadyResolved() string { return In(i18n.Locale()).GitConflictAlreadyResolved() }
+
+// GitConflictAlreadyResolved says "Git no longer reports this file as conflicted."
+// in the language of msgs.
+func (msgs Messages) GitConflictAlreadyResolved() string {
+	return Catalog.Format(msgs.locale, "gitConflictAlreadyResolved", nil)
+}
+
+// GitConflictUnsupported says "This file has no supported text resolution. Resolve the path with Git, then refresh status."
+// in the language the app shows.
+func GitConflictUnsupported() string { return In(i18n.Locale()).GitConflictUnsupported() }
+
+// GitConflictUnsupported says "This file has no supported text resolution. Resolve the path with Git, then refresh status."
+// in the language of msgs.
+func (msgs Messages) GitConflictUnsupported() string {
+	return Catalog.Format(msgs.locale, "gitConflictUnsupported", nil)
+}
+
+// GitConflictMalformed says "Conflict markers are incomplete or nested. Edit the file, then reload it here."
+// in the language the app shows.
+func GitConflictMalformed() string { return In(i18n.Locale()).GitConflictMalformed() }
+
+// GitConflictMalformed says "Conflict markers are incomplete or nested. Edit the file, then reload it here."
+// in the language of msgs.
+func (msgs Messages) GitConflictMalformed() string {
+	return Catalog.Format(msgs.locale, "gitConflictMalformed", nil)
+}
+
+// GitConflictStale says "The working file or Git index changed. Reload before applying a resolution."
+// in the language the app shows.
+func GitConflictStale() string { return In(i18n.Locale()).GitConflictStale() }
+
+// GitConflictStale says "The working file or Git index changed. Reload before applying a resolution."
+// in the language of msgs.
+func (msgs Messages) GitConflictStale() string {
+	return Catalog.Format(msgs.locale, "gitConflictStale", nil)
+}
+
+// GitConflictNoMarkers says "No conflict markers found"
+// in the language the app shows.
+func GitConflictNoMarkers() string { return In(i18n.Locale()).GitConflictNoMarkers() }
+
+// GitConflictNoMarkers says "No conflict markers found"
+// in the language of msgs.
+func (msgs Messages) GitConflictNoMarkers() string {
+	return Catalog.Format(msgs.locale, "gitConflictNoMarkers", nil)
+}
+
+// GitConflictNoMarkersDetail says "Review the working file. If it contains the intended resolution, stage it with Git."
+// in the language the app shows.
+func GitConflictNoMarkersDetail() string { return In(i18n.Locale()).GitConflictNoMarkersDetail() }
+
+// GitConflictNoMarkersDetail says "Review the working file. If it contains the intended resolution, stage it with Git."
+// in the language of msgs.
+func (msgs Messages) GitConflictNoMarkersDetail() string {
+	return Catalog.Format(msgs.locale, "gitConflictNoMarkersDetail", nil)
+}
+
 // GitRefreshComparison says "Refresh Comparison"
 // in the language the app shows.
 func GitRefreshComparison() string { return In(i18n.Locale()).GitRefreshComparison() }
