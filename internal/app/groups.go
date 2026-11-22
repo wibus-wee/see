@@ -747,6 +747,11 @@ func (a *App) splitActive(s side) {
 				keepID = lh.snapshots[lh.selected].ID
 			}
 			a.loadLocalHistory(clone, keepID)
+		} else if v != nil && v.change {
+			nv := &gitDiffTab{name: v.name, staged: v.staged, change: true}
+			hunk, _ := v.state.CurrentHunk()
+			a.setGitChangeView(nv, gitChangeView{file: v.patch, partial: v.partial, untracked: v.untracked}, hunk)
+			ng.diffs = map[string]*gitDiffTab{path: nv}
 		} else if v != nil {
 			nv := a.newGitDiffTab(v.patch, v.name, v.staged)
 			nv.rev, nv.hash, nv.oldPath, nv.untracked = v.rev, v.hash, v.oldPath, v.untracked

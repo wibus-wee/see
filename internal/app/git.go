@@ -80,6 +80,7 @@ type gitPeek struct {
 type gitDiffTab struct {
 	state        *editor.DiffState // nil for a commit
 	patch        editor.FilePatch
+	partial      *gitPartialPatch
 	name         string
 	staged       bool
 	cli          bool        // `see --diff`'s: it compares paths, not repository changes
@@ -95,6 +96,7 @@ type gitDiffTab struct {
 	oldPath   string
 	untracked bool
 	pending   bool // restored, and waiting to be read
+	change    bool // compares a repository's working tree or index
 }
 
 // label tells what a diff compares: the commit, the index or the
@@ -754,8 +756,7 @@ func (a *App) showGitDiffIn(ch git.Change, staged bool, target *group, placement
 	a.git.diffSeq++
 	seq, gen, root, ctx := a.git.diffSeq, a.gen, a.git.root, a.wsCtx
 	go func() {
-		out, err := changeDiff(ctx, root, ch.Path, staged, ch.Index == '?')
-		patches, parseErr := editor.ParsePatch(string(out))
+		view, err := readGitChangeView(ctx, root, ch, staged)
 		a.post.Post(func() {
 			if a.gen != gen || a.git.diffSeq != seq || a.layout.find(target) == nil {
 				return
@@ -764,12 +765,12 @@ func (a *App) showGitDiffIn(ch git.Change, staged bool, target *group, placement
 				a.note(locales.MsgGitDiff()+err.Error(), true)
 				return
 			}
-			if parseErr != nil || len(patches) == 0 || patches[0].Binary {
+			if view.file.OldName == "" && view.file.NewName == "" {
 				a.note(locales.MsgNoTextDiffAvailableFor()+ch.Path, true)
 				return
 			}
-			v := a.newGitDiffTab(patches[0], ch.Path, staged)
-			v.untracked = ch.Index == '?'
+			v := &gitDiffTab{name: ch.Path, staged: staged, change: true}
+			a.setGitChangeView(v, view, 0)
 			key := diffTab(ch.Path, staged)
 			if placement != sideNone {
 				target = a.splitBeside(target, placement)
@@ -1102,21 +1103,4 @@ func (a *App) commitBar(c *ui.Context, staged int) {
 			b.OnClick(commit)
 		})
 	})
-}
-
-// changeDiff is the whole patch of a change of the working tree, or of
-// the index with staged; an untracked file's is against nothing.
-func changeDiff(ctx context.Context, root, path string, staged, untracked bool) ([]byte, error) {
-	if untracked {
-		out, err := git.Command(ctx, root, "diff", "--no-index", "--no-ext-diff", "--no-color", "--unified=2147483647", "--", "/dev/null", filepath.Join(root, path))
-		if len(out) > 0 {
-			err = nil // --no-index fails when there is a difference
-		}
-		return out, err
-	}
-	args := []string{"diff", "--no-ext-diff", "--no-color", "--unified=2147483647"}
-	if staged {
-		args = append(args, "--cached")
-	}
-	return git.Command(ctx, root, append(args, "--", path)...)
 }

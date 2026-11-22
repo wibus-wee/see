@@ -229,6 +229,11 @@ func (a *App) groupContent(c *ui.Context, g *group) {
 			ui.Text(c, locales.MsgReading()+v.name+"…").TextColor(colors(c).Muted)
 		})
 		return
+	} else if v != nil && v.change && v.patch.OldName == "" && v.patch.NewName == "" {
+		ui.Row(c).Grow(1).FillWidth().Center().Children(func() {
+			ui.Text(c, locales.MsgNoChanges()).TextColor(colors(c).Muted)
+		})
+		return
 	} else if v != nil {
 		view := editor.DiffView(c, v.state).Grow(1).FillWidth()
 		if a.focusGroupTarget == g {

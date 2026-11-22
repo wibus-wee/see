@@ -173,7 +173,7 @@ func (a *App) applyDiffPrefs(diff *editor.DiffState) {
 		}
 	}
 	diff.Wrap = a.cfg.SoftWrap
-	diff.NoLineNumbers = a.cfg.LineNumbers == int(editor.LineNumbersOff)
+	diff.NoLineNumbers = !diff.LineSelection && a.cfg.LineNumbers == int(editor.LineNumbersOff)
 	diff.Layout = editor.DiffSplit
 	if a.cfg.DiffUnified {
 		diff.Layout = editor.DiffUnified
@@ -216,6 +216,9 @@ func (a *App) goToChange(dir int) {
 		}
 		// i is the hunk the caret is in, else the last one before it.
 		i, inside := v.state.CurrentHunk()
+		if v.partial != nil {
+			v.state.SetSelectedLines(editor.DiffLineRange{}, false)
+		}
 		v.state.GoToHunk(nextHunk(i, inside, n, dir))
 		return
 	}
