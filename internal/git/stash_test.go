@@ -72,7 +72,10 @@ func TestStashPushListFilesApplyDrop(t *testing.T) {
 	if got := strings.Join(files, ","); got != "a.txt,b.txt,new.txt" {
 		t.Fatalf("stash files %s", got)
 	}
-	if out, err := CommitFileDiff(ctx, root, work.Hash, FileStat{Path: "new.txt"}); err != nil || !strings.Contains(string(out), "+new") {
+	if f := d.Files[2]; f.Commit == "" || f.Added != 1 {
+		t.Fatalf("untracked %+v", f)
+	}
+	if out, err := CommitFileDiff(ctx, root, d.Files[2].Commit, d.Files[2]); err != nil || !strings.Contains(string(out), "+new") {
 		t.Fatalf("untracked diff %q %v", out, err)
 	}
 	if out, err := CommitFileDiff(ctx, root, work.Hash, FileStat{Path: "a.txt"}); err != nil || !strings.Contains(string(out), "+changed") {
@@ -146,5 +149,38 @@ func TestStashDropDuplicateCommit(t *testing.T) {
 	}
 	if left, err := Stashes(ctx, root); err != nil || len(left) != 3 {
 		t.Fatalf("left %+v %v", left, err)
+	}
+}
+
+func TestStashPreviewRecreatedFileSHA256(t *testing.T) {
+	root, run := newRepo(t, "--object-format=sha256")
+	ctx := context.Background()
+	write(t, root, "a.txt", "tracked\n")
+	run("add", ".")
+	run("commit", "-qm", "first")
+	run("rm", "-q", "a.txt")
+	write(t, root, "a.txt", "untracked\n")
+	if err := StashPush(ctx, root, "recreated"); err != nil {
+		t.Fatal(err)
+	}
+	stashes, err := Stashes(ctx, root)
+	if err != nil || len(stashes) != 1 || len(stashes[0].Hash) != 64 {
+		t.Fatalf("stashes %+v %v", stashes, err)
+	}
+	hash := stashes[0].Hash
+	d, err := Show(ctx, root, hash)
+	if err != nil || len(d.Files) != 2 {
+		t.Fatalf("stash details %+v %v", d, err)
+	}
+	for i, want := range []string{"-tracked", "+untracked"} {
+		f := d.Files[i]
+		rev := hash
+		if f.Commit != "" {
+			rev = f.Commit
+		}
+		out, err := CommitFileDiff(ctx, root, rev, f)
+		if err != nil || !strings.Contains(string(out), want) {
+			t.Errorf("file %s: want %q in %q (%v)", f.Path, want, out, err)
+		}
 	}
 }

@@ -488,7 +488,8 @@ func (a *App) openCommit(cm git.Commit) {
 
 // openCommitFile shows the diff of a file of a commit beside the others.
 func (a *App) openCommitFile(g *group, cm git.Commit, f git.FileStat) {
-	key := commitFileTab(cm.Hash, f.Path)
+	hash := fileCommit(cm, f)
+	key := commitFileTab(hash, f.Path)
 	if g.has(key) && g.diffs[key] != nil {
 		a.activateIn(g, key)
 		return
@@ -496,7 +497,7 @@ func (a *App) openCommitFile(g *group, cm git.Commit, f git.FileStat) {
 	a.git.diffSeq++
 	seq, gen, ctx, root := a.git.diffSeq, a.gen, a.wsCtx, a.git.root
 	go func() {
-		out, err := git.CommitFileDiff(ctx, root, cm.Hash, f)
+		out, err := git.CommitFileDiff(ctx, root, hash, f)
 		patches, parseErr := editor.ParsePatch(string(out))
 		a.post.Post(func() {
 			if a.gen != gen || a.git.diffSeq != seq || a.layout.find(g) == nil {
@@ -511,7 +512,7 @@ func (a *App) openCommitFile(g *group, cm git.Commit, f git.FileStat) {
 				return
 			}
 			v := a.newGitDiffTab(patches[0], f.Path, false)
-			v.rev, v.hash, v.oldPath = cm.Short, cm.Hash, f.OldPath
+			v.rev, v.hash, v.oldPath = cm.Short, hash, f.OldPath
 			if g.diffs == nil {
 				g.diffs = map[string]*gitDiffTab{}
 			}
@@ -527,6 +528,15 @@ func (a *App) openCommitFile(g *group, cm git.Commit, f git.FileStat) {
 			a.activateIn(g, key)
 		})
 	}()
+}
+
+// fileCommit is the commit f's diff is read from: a stash's untracked
+// files are of a commit of their own.
+func fileCommit(cm git.Commit, f git.FileStat) string {
+	if f.Commit != "" {
+		return f.Commit
+	}
+	return cm.Hash
 }
 
 func indexOf(s []string, v string) int {
@@ -630,8 +640,8 @@ func (a *App) commitFiles(c *ui.Context, g *group, v *commitView) {
 	})
 	ui.Column(c).FillWidth().Gap(1).Children(func() {
 		for _, f := range files {
-			key := commitFileTab(v.commit.Hash, f.Path)
-			row := ui.Row(c.Key(f.Path)).FillWidth().Padding(5, 8).Gap(8).Radius(6).AlignItems(ui.Center).
+			key := commitFileTab(fileCommit(v.commit, f), f.Path)
+			row := ui.Row(c.Key(key)).FillWidth().Padding(5, 8).Gap(8).Radius(6).AlignItems(ui.Center).
 				Cursor(ui.CursorPointer).Label(f.Path).Tooltip(f.Path)
 			if g.has(key) {
 				row.Background(colors(c).SelectedRow)

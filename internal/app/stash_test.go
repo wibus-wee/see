@@ -48,6 +48,11 @@ func TestStashChangesBrowseApplyDrop(t *testing.T) {
 	if v.name != "parser work" || len(v.commit.details.Files) != 2 || v.commit.details.Files[0].Path != "a.txt" || v.commit.details.Files[1].Path != "new.txt" {
 		t.Fatalf("stash tab %q %+v", v.name, v.commit.details)
 	}
+	if err := h.tt.Click("new.txt"); err != nil {
+		t.Fatal(err)
+	}
+	newFileTab := commitFileTab(v.commit.details.Files[1].Commit, "new.txt")
+	h.settle(func() bool { return h.a.focus.active == newFileTab })
 
 	if err := h.tt.RightClick("Stash: parser work"); err != nil {
 		t.Fatal(err)

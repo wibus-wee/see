@@ -332,6 +332,9 @@ func commitRange(ctx context.Context, root, revision string) map[string]bool {
 type FileStat struct {
 	Path, OldPath  string
 	Added, Deleted int
+	// The commit the change is of when not the one listing it: of an
+	// untracked file a stash saved, the commit holding those files.
+	Commit string
 }
 
 // CommitDetails is what Show tells of a commit beyond its log line.
@@ -363,10 +366,13 @@ func Show(ctx context.Context, root, hash string) (CommitDetails, error) {
 	}
 	d.Files = ParseNumstat(out)
 	if u := stashUntracked(ctx, root, hash); u != "" {
-		if out, err = Command(ctx, root, "diff", "--numstat", "-z", "--no-color", "--no-ext-diff", emptyTree, u); err != nil {
+		if out, err = Command(ctx, root, "diff-tree", "--root", "-r", "--no-commit-id", "--numstat", "-z", "--no-ext-diff", u); err != nil {
 			return d, err
 		}
-		d.Files = append(d.Files, ParseNumstat(out)...)
+		for _, f := range ParseNumstat(out) {
+			f.Commit = u
+			d.Files = append(d.Files, f)
+		}
 	}
 	return d, nil
 }
@@ -408,16 +414,17 @@ func ParseNumstat(out []byte) []FileStat {
 }
 
 // CommitFileDiff is the patch of one file of a commit against its first
-// parent, whole, for a diff view; of a stash's untracked file, against
-// nothing.
+// parent, whole, for a diff view.
 func CommitFileDiff(ctx context.Context, root, hash string, f FileStat) ([]byte, error) {
-	from := Parent(ctx, root, hash)
-	if u := stashUntracked(ctx, root, hash); u != "" {
-		if _, err := Command(ctx, root, "cat-file", "-e", u+":"+f.Path); err == nil {
-			from, hash = emptyTree, u
-		}
+	flags := []string{"--no-ext-diff", "--no-color", "-M", "--unified=2147483647"}
+	parent := Parent(ctx, root, hash)
+	args := append([]string{"diff"}, flags...)
+	if parent == emptyTree {
+		args = append([]string{"diff-tree", "--root", "-r", "--no-commit-id", "-p"}, flags...)
+	} else {
+		args = append(args, parent)
 	}
-	args := []string{"diff", "--no-ext-diff", "--no-color", "-M", "--unified=2147483647", from, hash, "--", f.Path}
+	args = append(args, hash, "--", f.Path)
 	if f.OldPath != "" {
 		args = append(args, f.OldPath)
 	}
