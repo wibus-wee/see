@@ -288,6 +288,7 @@ type doc struct {
 	blameTimer        *time.Timer
 	blameCancel       context.CancelFunc
 	languageInlays    []editor.Inlay
+	parameterInlays   []editor.Inlay
 	inlayKey          inlayKey
 	inlaySeq          int
 	inlayTimer        *time.Timer
