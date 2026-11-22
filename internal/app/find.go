@@ -31,7 +31,6 @@ import (
 // results streaming in from ripgrep.
 type findState struct {
 	opts        search.Options
-	saved       []config.SavedFindQuery
 	field       ui.Handle
 	focus       bool
 	showFilters bool
@@ -86,15 +85,26 @@ func (f *findState) currentQuery() config.SavedFindQuery {
 	}
 }
 
-func (a *App) toggleSavedFindQuery(query config.SavedFindQuery) {
+func (a *App) setSavedFindQuery(query config.SavedFindQuery, save bool) {
 	if a.root == "" || strings.TrimSpace(query.Query) == "" {
 		return
 	}
-	f := &a.find
-	if i := slices.Index(f.saved, query); i >= 0 {
-		f.saved = slices.Delete(f.saved, i, i+1)
+	byWorkspace := a.cfg.SavedFindQueries
+	queries := byWorkspace[a.root]
+	i := slices.Index(queries, query)
+	if save == (i >= 0) {
+		return
+	}
+	if save {
+		if byWorkspace == nil {
+			byWorkspace = make(map[string][]config.SavedFindQuery)
+			a.cfg.SavedFindQueries = byWorkspace
+		}
+		byWorkspace[a.root] = slices.Insert(queries, 0, query)
+	} else if len(queries) == 1 {
+		delete(byWorkspace, a.root)
 	} else {
-		f.saved = slices.Insert(f.saved, 0, query)
+		byWorkspace[a.root] = slices.Delete(queries, i, i+1)
 	}
 	a.saveConfigSoon()
 }

@@ -83,8 +83,49 @@ func TestSavedFindQueryRerunsWithOptionsAfterReopen(t *testing.T) {
 	h.tt.Frame()
 	chooseSavedFindItem(t, h, "Remove Current Query")
 	h.a.closeWorkspace()
-	if saved := config.Load(configPath).Workspaces[root].SavedFindQueries; len(saved) != 0 {
+	if saved := config.Load(configPath).SavedFindQueries[root]; len(saved) != 0 {
 		t.Fatalf("removed query was still persisted: %+v", saved)
+	}
+}
+
+func TestSavedFindQueriesSharedAcrossWindowsAndPreservedOnSettingsReset(t *testing.T) {
+	root := writeTree(t, map[string]string{"notes.txt": "TODO\n"})
+	configPath := filepath.Join(t.TempDir(), "config.json")
+	shared := config.Load(configPath)
+	open := func() *harness {
+		h := newHarness(t, "")
+		h.a.cfg = shared
+		h.a.openWorkspace(root)
+		h.tt.Key(ui.Cmd|ui.Shift, ui.KeyF)
+		return h
+	}
+	first, second := open(), open()
+	first.tt.Type("TODO")
+	chooseSavedFindItem(t, first, "Save Current Query")
+	clickFindControl(t, second, "Saved Find Queries")
+	if got := second.tt.Menu(); !slices.Contains(got, "TODO") {
+		t.Fatalf("second window did not see the saved query: %v", got)
+	}
+	first.a.closeWorkspace()
+	second.a.closeWorkspace()
+	if saved := config.Load(configPath).SavedFindQueries[root]; len(saved) != 1 || saved[0].Query != "TODO" {
+		t.Fatalf("closing another window lost the query: %+v", saved)
+	}
+
+	other := newHarness(t, "")
+	other.a.cfg = shared
+	other.a.openWorkspace(writeTree(t, nil))
+	shared.FontSize = 23
+	settings := ui.NewTester(other.a.advancedPane, 900, 600)
+	if err := settings.Click("Reset"); err != nil {
+		t.Fatal(err)
+	}
+	reloaded := config.Load(configPath)
+	if reloaded.FontSize != 0 {
+		t.Fatal("reset did not restore the default font size")
+	}
+	if saved := reloaded.SavedFindQueries[root]; len(saved) != 1 || saved[0].Query != "TODO" {
+		t.Fatalf("resetting settings lost the query: %+v", saved)
 	}
 }
 

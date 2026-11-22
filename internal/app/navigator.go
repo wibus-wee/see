@@ -538,7 +538,8 @@ func (a *App) findNavigator(c *ui.Context) {
 func (a *App) savedFindMenu(c *ui.Context) {
 	f := &a.find
 	current := f.currentQuery()
-	saved := slices.Contains(f.saved, current)
+	queries := a.cfg.SavedFindQueries[a.root]
+	saved := slices.Contains(queries, current)
 	label := locales.MsgSavedFindQueries()
 	glyphButton(c.Key("saved-find-queries"), icBookmark, label, label, saved, a.root == "" || f.replacing).
 		Size(24, 24).Center().PopoverMenuButton(func(m *ui.Menu) {
@@ -548,14 +549,14 @@ func (a *App) savedFindMenu(c *ui.Context) {
 			action = locales.MsgRemoveSavedFindQuery()
 		}
 		if m.Item(action).Disabled(strings.TrimSpace(current.Query) == "").Chosen() {
-			a.toggleSavedFindQuery(current)
+			a.setSavedFindQuery(current, !saved)
 			return
 		}
 		m.Separator()
-		if len(f.saved) == 0 {
+		if len(queries) == 0 {
 			m.Item(locales.MsgNoSavedFindQueries()).Disabled(true)
 		}
-		for _, query := range f.saved {
+		for _, query := range queries {
 			var details []string
 			if query.CaseSensitive {
 				details = append(details, locales.MsgMatchCase())
