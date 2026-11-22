@@ -466,18 +466,17 @@ func (a *App) branchPickerPanel(c *ui.Context) {
 			}
 		}
 		panel := ui.Column(c).Absolute().Left(left).Width(width)
-		if p.compare {
-			panel.MaxHeight(height)
-		} else {
-			panel.Height(height)
-		}
-		if opensAbove {
+		panel.MaxHeight(height)
+		if p.compare && opensAbove {
 			panel.Bottom(bottom)
 		} else {
 			panel.Top(top)
 		}
-		panel.Radius(12).Padding(6).Gap(4).Material(glass.Glass{}).Border(1, colors(c).PopoverEdge).
-			Shadow(0, 12, 36, 0, ui.RGBA(0, 0, 0, 0.35))
+		panel.Radius(12).Padding(6).Gap(4).Material(glass.Glass{}).Border(1, colors(c).PopoverEdge)
+		if !p.compare {
+			panel.Role(ui.RoleGroup).Label(locales.MsgBranches())
+		}
+		panel.Shadow(0, 12, 36, 0, ui.RGBA(0, 0, 0, 0.35))
 		panel.OnClick(func() {})
 		panel.Children(func() {
 			ui.Row(c).Padding(4, 6).Gap(6).AlignItems(ui.Center).Children(func() {
@@ -518,15 +517,16 @@ func (a *App) branchPickerPanel(c *ui.Context) {
 				contentHeight := max(0, height-74)
 				listHeight := min(float32(250), contentHeight*0.45)
 				previewHeight := max(0, contentHeight-listHeight-8)
-				a.branchPickerList(c, items, listHeight).Height(listHeight).MinHeight(0).FillWidth()
+				a.branchPickerList(c, items, listHeight).MaxHeight(listHeight).MinHeight(0).FillWidth()
 				ui.Box(c).Height(1).FillWidth().Background(colors(c).Separator)
-				a.branchPreviewPane(c).Height(previewHeight).MinHeight(0).FillWidth()
+				a.branchPreviewPane(c).MaxHeight(previewHeight).MinHeight(0).FillWidth()
 			} else {
 				listHeight := min(float32(380), max(0, height-64))
-				ui.Row(c).FillWidth().Grow(1).MinHeight(0).Gap(8).AlignItems(ui.Start).Children(func() {
-					a.branchPickerList(c, items, listHeight).Width(280).FillHeight().MaxHeight(listHeight).MinHeight(0)
-					ui.Box(c).Width(1).FillHeight().Background(colors(c).Separator)
-					a.branchPreviewPane(c).Grow(1).MinWidth(0).FillHeight().MinHeight(0)
+				previewHeight := max(0, height-64)
+				ui.Row(c).FillWidth().MinHeight(0).Gap(8).AlignItems(ui.Start).Children(func() {
+					a.branchPickerList(c, items, listHeight).Width(280).MaxHeight(listHeight).MinHeight(0)
+					ui.Box(c).Width(1).AlignSelf(ui.Stretch).Background(colors(c).Separator)
+					a.branchPreviewPane(c).Grow(1).MinWidth(0).MaxHeight(previewHeight).MinHeight(0)
 				})
 			}
 		})

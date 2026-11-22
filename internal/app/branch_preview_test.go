@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -11,6 +12,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"see/internal/git"
+	"see/locales"
 )
 
 func openSwitchBranchPicker(t *testing.T, h *harness) {
@@ -168,9 +170,11 @@ func TestBranchPickerHoverKeepsRowBoundsStableWhilePreviewLoads(t *testing.T) {
 	for _, size := range []struct {
 		name          string
 		width, height int
+		anchorY       int
 	}{
 		{name: "wide", width: 1100, height: 700},
 		{name: "stacked", width: 620, height: 700},
+		{name: "above", width: 1100, height: 700, anchorY: 648},
 	} {
 		t.Run(size.name, func(t *testing.T) {
 			h := newHarness(t, root)
@@ -182,6 +186,18 @@ func TestBranchPickerHoverKeepsRowBoundsStableWhilePreviewLoads(t *testing.T) {
 			h.settle(func() bool {
 				return !p.previewLoading && (p.preview != nil || p.previewErr != "")
 			})
+			if size.anchorY != 0 {
+				p.at.Y = float32(size.anchorY)
+				h.tt.Frame()
+				_, above, _ := branchPickerBounds(p.at, float32(size.width), float32(size.height))
+				if !above {
+					t.Fatal("picker did not open above its anchor")
+				}
+				panel := branchPickerPanelAccess(t, h)
+				if panel.Bounds.Y < 8 || panel.Bounds.Y+panel.Bounds.H > float32(size.height-8) {
+					t.Fatalf("above-anchor popover escaped viewport: %+v", panel.Bounds)
+				}
+			}
 			if p.previewErr != "" {
 				t.Fatal(p.previewErr)
 			}
@@ -219,6 +235,12 @@ func TestBranchPickerHoverKeepsRowBoundsStableWhilePreviewLoads(t *testing.T) {
 				}
 				if p.previewLoading || p.preview == nil || p.preview.TargetRef != "refs/heads/feature" {
 					t.Fatalf("preview changed after frame %d: target %q loading %v", i+1, p.previewTarget, p.previewLoading)
+				}
+				if size.anchorY != 0 {
+					panel := branchPickerPanelAccess(t, h)
+					if panel.Bounds.Y < 8 || panel.Bounds.Y+panel.Bounds.H > float32(size.height-8) {
+						t.Fatalf("above-anchor popover escaped viewport after frame %d: %+v", i+1, panel.Bounds)
+					}
 				}
 			}
 		})
@@ -267,6 +289,122 @@ func TestBranchPickerWideColumnsAlignAtTopAndFavorPreview(t *testing.T) {
 	if branchList.Bounds.W < 260 || branchList.Bounds.W > 300 {
 		t.Fatalf("branch list width = %g, want about 280 DIPs", branchList.Bounds.W)
 	}
+}
+
+func TestBranchPickerHugsShortContent(t *testing.T) {
+	root := gitRepo(t, map[string]string{"a.go": "package a\n\nvar value = 1\n"}, "feature")
+	gitRun(t, root, "switch", "-q", "feature")
+	writeFile(t, root, "a.go", "package a\n\nvar value = 2\n")
+	gitRun(t, root, "add", "--", "a.go")
+	gitRun(t, root, "commit", "-qm", "update a.go")
+	gitRun(t, root, "switch", "-q", "main")
+
+	h := newHarness(t, root)
+	h.tt = ui.NewTester(h.a.view, 1100, 700)
+	h.readGit()
+	h.open("a.go")
+	openSwitchBranchPicker(t, h)
+	hoverBranch(t, h, "feature")
+	p := &h.a.git.picker
+	h.settle(func() bool {
+		return !p.previewLoading && p.preview != nil && p.preview.TargetRef == "refs/heads/feature"
+	})
+
+	panel := branchPickerPanelAccess(t, h)
+	if panel.Bounds.H >= 400 {
+		t.Fatalf("short preview popover remained tall: %+v", panel.Bounds)
+	}
+	contentBottom := branchPickerContentBottom(h, panel.Bounds)
+	blank := panel.Bounds.Y + panel.Bounds.H - contentBottom
+	if blank > 24 {
+		t.Fatalf("short preview leaves %g DIPs below its content: panel %+v, content bottom %g", blank, panel.Bounds, contentBottom)
+	}
+}
+
+func TestBranchPickerCapsLongContentInNarrowViewport(t *testing.T) {
+	files := make(map[string]string, 12)
+	for i := 0; i < 12; i++ {
+		files[fmt.Sprintf("file-%02d.go", i)] = "package a\n\nvar value = 1\n"
+	}
+	root := gitRepo(t, files, "feature")
+	gitRun(t, root, "switch", "-q", "feature")
+	for name := range files {
+		writeFile(t, root, name, "package a\n\nvar value = 2\n")
+	}
+	gitRun(t, root, "add", "--all")
+	gitRun(t, root, "commit", "-qm", "update files")
+	gitRun(t, root, "switch", "-q", "main")
+	for i := 0; i < 40; i++ {
+		gitRun(t, root, "branch", fmt.Sprintf("long-branch-%02d", i))
+	}
+
+	h := newHarness(t, root)
+	h.tt = ui.NewTester(h.a.view, 620, 380)
+	h.readGit()
+	for name := range files {
+		h.open(name)
+	}
+	openSwitchBranchPicker(t, h)
+	hoverBranch(t, h, "feature")
+	p := &h.a.git.picker
+	h.settle(func() bool {
+		return !p.previewLoading && p.preview != nil && p.preview.TargetRef == "refs/heads/feature"
+	})
+
+	panel := branchPickerPanelAccess(t, h)
+	maxBounds, _, stacked := branchPickerBounds(p.at, 620, 380)
+	if !stacked {
+		t.Fatal("narrow picker did not stack its columns")
+	}
+	if panel.Bounds.Y < 8 || panel.Bounds.Y+panel.Bounds.H > 372 || panel.Bounds.W > 604 {
+		t.Fatalf("narrow popover escaped viewport: panel %+v", panel.Bounds)
+	}
+	if panel.Bounds.H > maxBounds.H+1 {
+		t.Fatalf("narrow popover exceeded its viewport cap: panel %+v, cap %+v", panel.Bounds, maxBounds)
+	}
+	list, ok := h.tt.AccessByRole(ui.RoleList, locales.MsgBranches())
+	if !ok {
+		t.Fatal("branch list is not exposed to the UI tester")
+	}
+	listCap := min(float32(250), max(0, maxBounds.H-74)*0.45)
+	if list.SetSize < 40 || list.Bounds.H > listCap+2 || list.Bounds.H < listCap-20 {
+		t.Fatalf("long branch list was not capped to its narrow viewport: list %+v, cap %g", list, listCap)
+	}
+	if len(p.previewFiles) != len(files) {
+		t.Fatalf("preview has %d open changed files, want %d", len(p.previewFiles), len(files))
+	}
+}
+
+func branchPickerPanelAccess(t *testing.T, h *harness) ui.AccessInfo {
+	t.Helper()
+	list, ok := h.tt.AccessByRole(ui.RoleList, locales.MsgBranches())
+	if !ok {
+		t.Fatal("branch list is not exposed to the UI tester")
+	}
+	for _, access := range h.tt.AccessAll() {
+		if access.Role == ui.RoleGroup && access.Name == locales.MsgBranches() &&
+			access.Bounds.X <= list.Bounds.X && access.Bounds.Y <= list.Bounds.Y &&
+			access.Bounds.X+access.Bounds.W >= list.Bounds.X+list.Bounds.W &&
+			access.Bounds.Y+access.Bounds.H >= list.Bounds.Y+list.Bounds.H {
+			return access
+		}
+	}
+	t.Fatalf("branch picker bounds are not exposed to the UI tester: %+v", h.tt.AccessAll())
+	return ui.AccessInfo{}
+}
+
+func branchPickerContentBottom(h *harness, panel ui.Rect) float32 {
+	var bottom float32 = panel.Y
+	for _, access := range h.tt.AccessAll() {
+		if access.Role != ui.RoleText && access.Role != ui.RoleListItem {
+			continue
+		}
+		if access.Bounds.X < panel.X || access.Bounds.X >= panel.X+panel.W || access.Bounds.Y < panel.Y || access.Bounds.Y >= panel.Y+panel.H {
+			continue
+		}
+		bottom = max(bottom, access.Bounds.Y+access.Bounds.H)
+	}
+	return bottom
 }
 
 func TestBranchPickerKeyboardSelectionWinsOverStationaryHover(t *testing.T) {
