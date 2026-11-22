@@ -91,7 +91,13 @@ func (a *App) tabFile(g *group, tab string) string {
 		return tabPath(tab)
 	}
 	v := g.diffs[tab]
-	if v == nil || v.page() || v.cli || a.git.root == "" {
+	if v == nil {
+		return ""
+	}
+	if v.localHistory != nil {
+		return v.localHistory.path
+	}
+	if v.page() || v.cli || a.git.root == "" {
 		return ""
 	}
 	return workspace.DocPath(a.root, a.realRoot, filepath.Join(a.git.root, filepath.FromSlash(v.name)))
@@ -521,6 +527,7 @@ func (a *App) releaseIfUnused(path string) {
 	if d == nil {
 		return
 	}
+	a.captureCurrentLocalHistory(d)
 	delete(a.docs, path)
 	if a.root == "" && !d.untitled {
 		releaseStandalonePathIfIdle(a, d, path)
@@ -723,6 +730,15 @@ func (a *App) splitActive(s side) {
 			cv := *v.commit
 			cv.scroll = ui.ScrollState{}
 			ng.diffs = map[string]*gitDiffTab{path: {name: v.name, rev: v.rev, hash: v.hash, commit: &cv}}
+		} else if v != nil && v.localHistory != nil {
+			clone := a.cloneLocalHistoryTab(v)
+			ng.diffs = map[string]*gitDiffTab{path: clone}
+			lh := clone.localHistory
+			keepID := ""
+			if lh.selected >= 0 && lh.selected < len(lh.snapshots) {
+				keepID = lh.snapshots[lh.selected].ID
+			}
+			a.loadLocalHistory(clone, keepID)
 		} else if v != nil {
 			nv := a.newGitDiffTab(v.patch, v.name, v.staged)
 			nv.rev, nv.hash, nv.oldPath, nv.untracked = v.rev, v.hash, v.oldPath, v.untracked

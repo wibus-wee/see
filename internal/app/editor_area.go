@@ -214,6 +214,9 @@ func (a *App) groupContent(c *ui.Context, g *group) {
 	} else if v != nil && v.log != nil {
 		a.gitLogContent(c, g, v.log)
 		return
+	} else if v != nil && v.localHistory != nil {
+		a.localHistoryContent(c, g, v)
+		return
 	} else if v != nil && v.state == nil {
 		ui.Row(c).Grow(1).FillWidth().Center().Gap(8).Children(func() {
 			ui.Spinner(c)
@@ -270,6 +273,7 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 		if v := d.buf.Version(); v != d.lspVersion {
 			a.invalidateHover()
 			d.lspVersion = v
+			a.captureEditedLocalHistory(d)
 			if a.root == "" {
 				// Make a saved file's recovery record reachable from the shared
 				// standalone session if the process crashes.

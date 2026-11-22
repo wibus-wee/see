@@ -48,6 +48,9 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 	seen := map[string]bool{}
 	for _, p := range g.order {
 		path := tabPath(p)
+		if v := g.diffs[p]; v != nil && v.localHistory != nil {
+			path = v.localHistory.path
+		}
 		if !seen[path] {
 			count[filepath.Base(path)]++
 			seen[path] = true
@@ -65,7 +68,10 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 			d := a.docs[path]
 			diff := g.diffs[p]
 			if diff != nil {
-				if diff.branch != nil {
+				if diff.localHistory != nil {
+					path = diff.localHistory.path
+					d = &doc{name: diff.localHistory.name}
+				} else if diff.branch != nil {
 					path = ""
 					d = &doc{name: diff.name}
 				} else {

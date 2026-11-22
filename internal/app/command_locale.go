@@ -23,6 +23,7 @@ var commandMessages = map[string]string{
 	"Fold Level 5":                  "commandFoldLevel5",
 	"Show Line's Commit in Git Log": "commandShowLineCommit",
 	"Show File History":             "commandShowFileHistory",
+	"Show Local History":            "commandShowLocalHistory",
 	"Git: Reveal HEAD in Log":       "commandGitRevealHeadInLog",
 	"Git: Jump to Date…":            "commandGitJumpToDate",
 	"Toggle Inline Git Blame":       "commandToggleInlineBlame",
