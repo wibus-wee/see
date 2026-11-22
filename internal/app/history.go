@@ -170,12 +170,12 @@ func (a *App) gitHistoryHeader(c *ui.Context) {
 // VS Code's views': an arrow and its title, which a click folds and
 // unfolds, a count when not negative, and actions while it is open.
 func (a *App) gitSectionHeader(c *ui.Context, title string, count int, closed *bool, actions func()) {
-	ui.Row(c.Key(title)).Shrink(0).FillWidth().Height(28).Padding(0, 12, 0, sidebarInset).Gap(2).AlignItems(ui.Center).Children(func() {
+	ui.Row(c.Key(title)).Shrink(0).FillWidth().Height(28).Padding(0, sidebarInset, 0, sidebarInset).Gap(2).AlignItems(ui.Center).Children(func() {
 		tip := "Hide " + title
 		if *closed {
 			tip = "Show " + title
 		}
-		b := ui.ButtonBase(c).Label(title).Tooltip(tip).Padding(2, 6, 2, 2).Radius(5).Gap(4).AlignItems(ui.Center).KeepFocus()
+		b := ui.ButtonBase(c).Label(title).Tooltip(tip).Padding(2, 6, 2, 0).Radius(5).Gap(gitSidebarColumnGap).AlignItems(ui.Center).KeepFocus()
 		if b.Hovered() {
 			b.Background(colors(c).Pill)
 		}
@@ -190,7 +190,9 @@ func (a *App) gitSectionHeader(c *ui.Context, title string, count int, closed *b
 			turn = 0
 		}
 		b.Children(func() {
-			symbolIcon(c, icChevron, 9, colors(c).Dim).Rotate(turn)
+			ui.Box(c).Size(gitSidebarIconColumn, 12).Shrink(0).Center().Children(func() {
+				symbolIcon(c, icChevron, 9, colors(c).Dim).Rotate(turn)
+			})
 			ui.Text(c, title).FontSize(12).Bold().SingleLine()
 			if count > 0 {
 				ui.Text(c, fmt.Sprint(count)).FontSize(11).TextColor(colors(c).Dim).SingleLine()

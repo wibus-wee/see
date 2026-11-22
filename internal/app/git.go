@@ -794,6 +794,13 @@ func (a *App) showGitDiffIn(ch git.Change, staged bool, target *group, placement
 	}()
 }
 
+const (
+	gitSidebarIconColumn = 15
+	gitSidebarColumnGap  = 6
+	gitSidebarTextOffset = gitSidebarIconColumn + gitSidebarColumnGap
+	gitSidebarTextInset  = sidebarInset + gitSidebarTextOffset
+)
+
 func (a *App) gitNavigator(c *ui.Context) {
 	if a.git.root == "" {
 		msg := "Looking for a Git repository…"
@@ -841,7 +848,7 @@ func (a *App) gitNavigator(c *ui.Context) {
 		ui.Scroll(c).Grow(1).FillWidth().Children(func() {
 			ui.Column(c).FillWidth().Padding(0, 0, 6, 0).Children(func() {
 				if len(a.git.changes) == 0 {
-					ui.Text(c, locales.MsgNoChanges()).FontSize(12).TextColor(colors(c).Muted).Padding(4, 16, 8, 16)
+					ui.Text(c, locales.MsgNoChanges()).FontSize(12).TextColor(colors(c).Muted).Padding(4, sidebarInset, 8, gitSidebarTextInset)
 				}
 				if staged > 0 {
 					a.gitSection(c, "Staged Changes", staged)
@@ -934,7 +941,7 @@ func kindName(k filekind.Kind) string {
 // gitKindHeader is a change group's name: an arrow, the name and the
 // count, which a click folds or unfolds.
 func (a *App) gitKindHeader(c *ui.Context, k filekind.Kind, count int, open bool, toggle func()) {
-	row := ui.Row(c.Key("kind:"+fmt.Sprint(int(k)))).FillWidth().Padding(9, 16, 4, 16).Gap(5).AlignItems(ui.Center).
+	row := ui.Row(c.Key("kind:"+fmt.Sprint(int(k)))).FillWidth().Padding(9, sidebarInset, 4, sidebarInset).Gap(gitSidebarColumnGap).AlignItems(ui.Center).
 		Cursor(ui.CursorPointer).Label(kindName(k))
 	row.OnClick(toggle)
 	row.Children(func() {
@@ -942,14 +949,17 @@ func (a *App) gitKindHeader(c *ui.Context, k filekind.Kind, count int, open bool
 		if !open {
 			turn = 0
 		}
-		symbolIcon(c, icChevron, 9, colors(c).Dim).Rotate(turn)
+		ui.Box(c).Size(gitSidebarIconColumn, 12).Shrink(0).Center().Children(func() {
+			symbolIcon(c, icChevron, 9, colors(c).Dim).Rotate(turn)
+		})
 		ui.Text(c, kindName(k)).FontSize(11).Bold().TextColor(colors(c).Muted)
 		ui.Text(c, fmt.Sprint(count)).FontSize(11).TextColor(colors(c).Dim)
 	})
 }
 
 func (a *App) gitSection(c *ui.Context, name string, count int) {
-	ui.Row(c).FillWidth().Padding(9, 16, 4, 16).Gap(6).AlignItems(ui.Center).Children(func() {
+	ui.Row(c).FillWidth().Padding(9, sidebarInset, 4, sidebarInset).Gap(6).AlignItems(ui.Center).Children(func() {
+		ui.Box(c).Size(gitSidebarIconColumn, 1).Shrink(0)
 		ui.Text(c, name).FontSize(11).Bold().TextColor(colors(c).Muted)
 		ui.Text(c, fmt.Sprint(count)).FontSize(11).TextColor(colors(c).Dim)
 	})
@@ -960,7 +970,7 @@ func (a *App) gitRow(c *ui.Context, ch git.Change, staged bool) {
 	if staged {
 		label, action = "Staged", "Unstage"
 	}
-	container := ui.Row(c.Key(fmt.Sprintf("%t:%s", staged, ch.Path))).FillWidth().Padding(1, 13).Gap(2).Radius(4).AlignItems(ui.Center)
+	container := ui.Row(c.Key(fmt.Sprintf("%t:%s", staged, ch.Path))).FillWidth().Margin(1, 0).Padding(1, sidebarInset).Gap(2).Radius(4).AlignItems(ui.Center)
 	hovered := container.Hovered()
 	if a.git.selected[gitChangeKey(staged, ch.Path)] {
 		container.Background(colors(c).SelectedRow)
@@ -970,7 +980,7 @@ func (a *App) gitRow(c *ui.Context, ch git.Change, staged bool) {
 		container.Background(colors(c).Pill)
 	}
 	container.Children(func() {
-		row := ui.ButtonBase(c).Label(label+locales.MsgDiff()+ch.Path).Tooltip(ch.Path).Grow(1).Padding(4, 4).Radius(4)
+		row := ui.ButtonBase(c).Label(label+locales.MsgDiff()+ch.Path).Tooltip(ch.Path).Grow(1).Padding(4, 0).Radius(4)
 		row.Drag(&tabDrag{change: &ch, staged: staged})
 		row.Children(func() {
 			ui.Row(c).FillWidth().Gap(6).AlignItems(ui.Center).Children(func() {
@@ -1093,7 +1103,7 @@ func (a *App) commitBar(c *ui.Context, staged int) {
 		placeholder = "Stage changes to commit"
 	}
 	ui.Row(c).Shrink(0).FillWidth().Padding(2, sidebarInset, 6, sidebarInset).Children(func() {
-		ui.Row(c).FillWidth().Height(28).Radius(14).Background(colors(c).Pill).Padding(0, 3, 0, 12).Gap(4).AlignItems(ui.Center).Children(func() {
+		ui.Row(c).FillWidth().Height(28).Radius(14).Background(colors(c).Pill).Padding(0, 3, 0, gitSidebarTextOffset).Gap(4).AlignItems(ui.Center).Children(func() {
 			in := ui.TextInput(c, &a.git.message).Placeholder(placeholder).Label(locales.MsgCommitMessage()).
 				FontSize(12).Grow(1).Background(ui.Transparent).BorderWidth(0).Padding(0)
 			if in.Submitted() {

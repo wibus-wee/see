@@ -37,7 +37,7 @@ func (a *App) stashBar(c *ui.Context) {
 		a.stashJob("Stashed changes.", func() error { return git.StashPush(ctx, root, message) }, a.endStash)
 	}
 	ui.Row(c).Shrink(0).FillWidth().Padding(0, sidebarInset, 6, sidebarInset).Children(func() {
-		ui.Row(c).FillWidth().Height(28).Radius(14).Background(colors(c).Pill).Padding(0, 3, 0, 12).Gap(2).AlignItems(ui.Center).Children(func() {
+		ui.Row(c).FillWidth().Height(28).Radius(14).Background(colors(c).Pill).Padding(0, 3, 0, gitSidebarTextOffset).Gap(2).AlignItems(ui.Center).Children(func() {
 			in := ui.TextInput(c, &a.git.stashMessage).Placeholder("Stash Message (Optional)").Label("Stash Message").
 				FontSize(12).Grow(1).Background(ui.Transparent).BorderWidth(0).Padding(0).AutoFocus()
 			switch {
@@ -76,7 +76,7 @@ func (a *App) stashRows(c *ui.Context) {
 }
 
 func (a *App) stashRow(c *ui.Context, s git.Stash, now time.Time) {
-	row := ui.Row(c.Key("stash:"+s.EntryKey())).FillWidth().Padding(1, 13).Gap(2).Radius(4).AlignItems(ui.Center)
+	row := ui.Row(c.Key("stash:"+s.EntryKey())).FillWidth().Margin(1, 0).Padding(1, sidebarInset).Gap(2).Radius(4).AlignItems(ui.Center)
 	hovered := row.Hovered()
 	if a.focus.active == commitTab(s.Hash) {
 		row.Background(colors(c).SelectedRow)
@@ -104,10 +104,10 @@ func (a *App) stashRow(c *ui.Context, s git.Stash, now time.Time) {
 		}
 	})
 	row.Children(func() {
-		b := ui.ButtonBase(c).Label("Stash: "+s.Message).Tooltip(s.Ref()+" · "+s.Message).Grow(1).Shrink(1).MinWidth(0).Padding(4, 4).Radius(4)
+		b := ui.ButtonBase(c).Label("Stash: "+s.Message).Tooltip(s.Ref()+" · "+s.Message).Grow(1).Shrink(1).MinWidth(0).Padding(4, 0).Radius(4)
 		b.Children(func() {
-			ui.Row(c).FillWidth().Gap(6).AlignItems(ui.Center).Children(func() {
-				symbolIcon(c, icStash, 14, colors(c).Muted)
+			ui.Row(c).FillWidth().Gap(gitSidebarColumnGap).AlignItems(ui.Center).Children(func() {
+				symbolIcon(c, icStash, gitSidebarIconColumn, colors(c).Muted)
 				ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Gap(1).Children(func() {
 					ui.Text(c, s.Message).FontSize(12).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 					detail := relativeTime(s.Date, now)

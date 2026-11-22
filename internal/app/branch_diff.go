@@ -65,7 +65,7 @@ func (a *App) branchDiffModePicker(c *ui.Context) {
 		selected = branchDiffText("gitCompareAgainstBase")
 	}
 	selectMode := ui.SelectBase(c, mode)
-	selectMode.Trigger.Label(selected).Padding(3, sidebarInset).Radius(6).Gap(6).AlignItems(ui.Center).KeepFocus()
+	selectMode.Trigger.Label(selected).FillWidth().Padding(3, sidebarInset, 3, gitSidebarTextInset).Radius(6).Gap(gitSidebarColumnGap).AlignItems(ui.Center).KeepFocus()
 	selectMode.Trigger.Children(func() {
 		ui.Row(c).FillWidth().Gap(6).AlignItems(ui.Center).Children(func() {
 			ui.Text(c, selected).FontSize(12).Bold().SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
