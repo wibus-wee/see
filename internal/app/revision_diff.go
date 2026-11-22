@@ -70,7 +70,7 @@ func (a *App) loadRevision(v *gitDiffTab, hash string) {
 	}
 	root, path, post := r.root, r.path, a.post.Post
 	go func() {
-		rel, err := filepath.Rel(root, path)
+		rel, err := filepath.Rel(standalonePathKey(root), standalonePathKey(path))
 		var commits []git.Commit
 		if err == nil {
 			commits, err = git.LogFile(context.Background(), root, false, 0, 50, filepath.ToSlash(rel))
@@ -107,7 +107,7 @@ func (a *App) selectRevision(v *gitDiffTab, index int) {
 	r.loading, r.err = true, nil
 	root, path, hash, current, post := r.root, r.path, r.commits[index].Hash, r.current, a.post.Post
 	go func() {
-		rel, err := filepath.Rel(root, path)
+		rel, err := filepath.Rel(standalonePathKey(root), standalonePathKey(path))
 		var old []byte
 		if err == nil {
 			old, err = git.FileAtCommit(context.Background(), root, rel, hash)

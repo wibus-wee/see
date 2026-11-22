@@ -2,8 +2,27 @@ package app
 
 import (
 	"github.com/egoist/mygo/ui/editor"
+	"os"
+	"path/filepath"
 	"testing"
 )
+
+func TestRevisionSymlinkWorkspace(t *testing.T) {
+	root := gitRepo(t, map[string]string{"a.txt": "committed\n"})
+	alias := filepath.Join(t.TempDir(), "repo")
+	if err := os.Symlink(root, alias); err != nil {
+		t.Skipf("symlink unavailable: %v", err)
+	}
+	h := newHarness(t, alias)
+	d := h.open("a.txt")
+	h.readGit()
+	h.a.showRevision(h.a.focus, d, "")
+	v := h.a.focus.diffs[revisionPrefix+d.path]
+	h.settle(func() bool { return !v.revision.loading })
+	if v.revision.err != nil || v.state == nil || v.state.Old.String() != "committed\n" {
+		t.Fatalf("symlink workspace comparison: %v", v.revision.err)
+	}
+}
 
 func TestRevisionComparison(t *testing.T) {
 	root := gitRepo(t, map[string]string{"old.txt": "first\n"})
