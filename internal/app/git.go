@@ -73,27 +73,31 @@ type gitState struct {
 }
 
 type gitPeek struct {
-	doc    *doc
-	group  *group
-	line   int
-	diff   *editor.DiffState
-	scroll ui.ScrollState
+	doc             *doc
+	group           *group
+	line            int
+	diff            *editor.DiffState
+	scroll          ui.ScrollState
+	filtered        *editor.DiffState
+	filteredVersion uint64
+	filteredHunk    int
 }
 
 type gitDiffTab struct {
-	state        *editor.DiffState // nil for a commit
-	patch        editor.FilePatch
-	partial      *gitPartialPatch
-	name         string
-	staged       bool
-	cli          bool        // `see --diff`'s: it compares paths, not repository changes
-	rev          string      // the commit's short hash, for a file of a commit
-	commit       *commitView // a commit, which shows in place of a diff
-	log          *gitLogView // the log, which shows in place of a diff
-	branch       *branchDiffView
-	localHistory *localHistoryView
-	conflict     *gitConflictView
-	search       *searchEditView
+	state                *editor.DiffState // nil for a commit
+	patch                editor.FilePatch
+	partial              *gitPartialPatch
+	search               *searchEditView
+	oldBuffer, newBuffer *editor.Buffer // source buffers for a CLI file comparison
+	name                 string
+	staged               bool
+	cli                  bool        // `see --diff`'s: it compares paths, not repository changes
+	rev                  string      // the commit's short hash, for a file of a commit
+	commit               *commitView // a commit, which shows in place of a diff
+	log                  *gitLogView // the log, which shows in place of a diff
+	branch               *branchDiffView
+	localHistory         *localHistoryView
+	conflict             *gitConflictView
 	// What the tab shows, to read it again in the next session: the
 	// commit's full hash, a renamed file's old path, and whether the
 	// change is of a file git does not track.
@@ -157,7 +161,7 @@ func (v *gitDiffTab) diffStates() []*editor.DiffState {
 func (a *App) newGitDiffTab(p editor.FilePatch, name string, staged bool) *gitDiffTab {
 	d := &editor.DiffState{Theme: a.edTheme}
 	a.applyDiffPrefs(d)
-	setPatch(d, p)
+	a.setDiffPatch(d, p, true)
 	d.GoToHunk(0)
 	return &gitDiffTab{state: d, patch: p, name: name, staged: staged}
 }
@@ -464,6 +468,15 @@ func (a *App) showGitPeek(g *group, d *doc, st *editor.State, line int) {
 		end = d.buf.Offset(editor.Pos{Line: line + 1})
 	}
 	st.Select(start, end)
+}
+
+func gitHunkAtLine(diff *editor.DiffState, line int) int {
+	for i, h := range diff.Hunks() {
+		if line >= h.NewStart && line < max(h.NewEnd, h.NewStart+1) || h.NewStart >= diff.New.LineCount() && line == diff.New.LineCount()-1 {
+			return i
+		}
+	}
+	return -1
 }
 
 func (a *App) gitStatusColor(status byte) ui.Color {

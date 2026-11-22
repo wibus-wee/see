@@ -57,6 +57,7 @@ type logFile struct {
 	path, oldPath  string
 	added, deleted int // -1 each for a binary file
 	diff           *editor.DiffState
+	patch          editor.FilePatch
 }
 
 // openGitLog shows the log in the focused group, where it is already
@@ -181,8 +182,9 @@ func (a *App) logFiles(stats []git.FileStat, patches []editor.FilePatch) []logFi
 		if p, ok := byName[f.Path]; ok && !p.Binary && len(p.Hunks) > 0 {
 			d := &editor.DiffState{Theme: a.edTheme, FitContent: true}
 			a.applyDiffPrefs(d)
-			d.SetPatch(p)
+			a.setDiffPatch(d, p, false)
 			lf.diff = d
+			lf.patch = p
 		}
 		files = append(files, lf)
 	}
@@ -485,8 +487,9 @@ func (a *App) logCommitContent(c *ui.Context, g *group, lc *logCommit) {
 func (a *App) logCommitFiles(c *ui.Context, g *group, lc *logCommit) {
 	added, deleted := 0, 0
 	for _, f := range lc.files {
-		added += max(f.added, 0)
-		deleted += max(f.deleted, 0)
+		plus, minus := a.diffStats(f.diff, f.added, f.deleted)
+		added += max(plus, 0)
+		deleted += max(minus, 0)
 	}
 	ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 		ui.Text(c, locales.MsgDFileSChanged(len(lc.files))).FontSize(13).Bold()
@@ -519,8 +522,9 @@ func (a *App) logCommitFiles(c *ui.Context, g *group, lc *logCommit) {
 					ui.Text(c, locales.MsgBinary()).FontSize(11).TextColor(colors(c).Muted)
 					return
 				}
-				ui.Text(c, fmt.Sprintf("+%d", f.added)).FontSize(11).TextColor(a.gitStatusColor('A'))
-				ui.Text(c, fmt.Sprintf("−%d", f.deleted)).FontSize(11).TextColor(a.gitStatusColor('D'))
+				added, deleted := a.diffStats(f.diff, f.added, f.deleted)
+				ui.Text(c, fmt.Sprintf("+%d", added)).FontSize(11).TextColor(a.gitStatusColor('A'))
+				ui.Text(c, fmt.Sprintf("−%d", deleted)).FontSize(11).TextColor(a.gitStatusColor('D'))
 			})
 			if f.diff == nil {
 				what := locales.MsgNoChangesToShow()
@@ -530,7 +534,11 @@ func (a *App) logCommitFiles(c *ui.Context, g *group, lc *logCommit) {
 				ui.Text(c, what).FontSize(12).TextColor(colors(c).Muted).Padding(10, 12)
 				return
 			}
-			editor.DiffView(c, f.diff).FillWidth()
+			if a.diffChangesHidden(f.diff) {
+				a.hiddenWhitespaceDiff(c)
+			} else {
+				editor.DiffView(c, f.diff).FillWidth()
+			}
 		})
 	}
 }

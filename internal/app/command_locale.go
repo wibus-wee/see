@@ -32,6 +32,8 @@ var commandMessages = map[string]string{
 	"Toggle Inline Git Blame":       "commandToggleInlineBlame",
 	"Toggle Type Hints":             "commandToggleTypeHints",
 	"Toggle Minimap":                "commandToggleMinimap",
+	"Toggle Whitespace Changes":     "commandToggleWhitespaceChanges",
+	"Toggle Reader Mode":            "commandToggleReaderMode",
 	"Show Invisibles":               "commandShowInvisibles",
 
 	"Show Problems":               "commandShowProblems",
