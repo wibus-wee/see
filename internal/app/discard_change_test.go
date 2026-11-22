@@ -1,9 +1,12 @@
 package app
 
 import (
+	"math"
 	"os"
+	"strings"
 	"testing"
 
+	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 )
 
@@ -48,6 +51,39 @@ func TestDiscardBufferChange(t *testing.T) {
 	}
 	if discardBufferChange(nil, 0) {
 		t.Fatal("discard without a base succeeded")
+	}
+}
+
+func TestGitPeekHugsContentAndCapsLongHunks(t *testing.T) {
+	for _, unified := range []bool{false, true} {
+		for _, lines := range []int{3, 7, 80} {
+			base := strings.Repeat("old line\n", lines)
+			current := strings.Repeat("new line\n", lines)
+			h := newHarness(t, gitRepo(t, map[string]string{"a.txt": base}))
+			h.a.cfg.DiffUnified = unified
+			h.a.cfg.DiffLayout = ""
+			h.tt = ui.NewTester(h.a.view, 1100, 700)
+			h.readGit()
+			d := h.open("a.txt")
+			d.buf.Set(current)
+			h.settle(func() bool { return d.gitChanges != nil })
+			h.a.showGitPeek(h.a.focus, d, h.a.activeEditor(), 0)
+			for range 4 {
+				h.tt.Frame()
+			}
+			panel, ok := h.tt.AccessByRole(ui.RoleGroup, "a.txt — Git changes")
+			if !ok {
+				t.Fatal("Git preview panel missing")
+			}
+			contentHeight := float32(h.a.git.peek.diff.ViewportHeight())
+			want := min(float32(300), 36+contentHeight+6)
+			if math.Abs(float64(panel.Bounds.H-want)) > 2 {
+				t.Fatalf("unified=%v lines=%d: panel height %g, content %g, want %g", unified, lines, panel.Bounds.H, contentHeight, want)
+			}
+			if lines == 80 && panel.Bounds.H != 300 {
+				t.Fatalf("long hunk did not reach cap: %+v", panel.Bounds)
+			}
+		}
 	}
 }
 
