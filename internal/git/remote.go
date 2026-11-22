@@ -87,13 +87,14 @@ func remoteInfo(ctx context.Context, root, upstream string) (remotes []string, w
 	urls := map[string]string{}
 	var names []string
 	for _, line := range strings.Split(string(out), "\n") {
-		f := strings.Fields(line)
-		if len(f) < 3 || f[2] != "(fetch)" {
+		name, rest, ok := strings.Cut(line, "\t")
+		url, fetch := strings.CutSuffix(rest, " (fetch)")
+		if !ok || !fetch {
 			continue
 		}
-		if _, ok := urls[f[0]]; !ok {
-			names = append(names, f[0])
-			urls[f[0]] = f[1]
+		if _, ok := urls[name]; !ok {
+			names = append(names, name)
+			urls[name] = url
 		}
 	}
 	remotes = orderRemotes(names)

@@ -47,12 +47,20 @@ func (a *App) quickOpenPanel(c *ui.Context) {
 						q.list.ScrollTo(q.sel, ui.Center)
 					}
 				})
+				a.rankQuick()
 				commandMode := strings.HasPrefix(q.query, ">")
-				fileSymbolMode := strings.HasPrefix(q.query, "@")
+				_, _, targeted := splitQuickFileSymbol(q.query)
+				fileSymbolMode := strings.HasPrefix(q.query, "@") || targeted
 				symbolMode := strings.HasPrefix(q.query, "#") || fileSymbolMode
 				lineMode := strings.HasPrefix(q.query, ":")
+				if targeted && q.filePath != "" {
+					ui.Row(c).Padding(5, 8).Gap(8).AlignItems(ui.Center).Children(func() {
+						fileIcon(c, filepath.Base(q.filePath), 16)
+						ui.Text(c, workspace.RelPath(a.root, q.filePath)).TextColor(colors(c).Muted).SingleLine().Ellipsis("…").MinWidth(0)
+					})
+				}
 				switch {
-				case fileSymbolMode && a.activeEditor() == nil:
+				case fileSymbolMode && !targeted && a.activeEditor() == nil:
 					ui.Text(c, locales.Catalog.Format(i18n.Locale(), "fileSymbolsOpenText", nil)).TextColor(colors(c).Muted).Padding(8)
 				case lineMode && len(q.results) == 0:
 					ui.Text(c, locales.Catalog.Format(i18n.Locale(), "goToLineHint", nil)).TextColor(colors(c).Muted).Padding(8)
@@ -101,7 +109,8 @@ func (a *App) quickOpenPanel(c *ui.Context) {
 func (a *App) quickRow(c *ui.Context, i int) {
 	q := &a.quick
 	r := q.results[i]
-	if strings.HasPrefix(q.query, "#") || strings.HasPrefix(q.query, "@") {
+	_, _, targeted := splitQuickFileSymbol(q.query)
+	if strings.HasPrefix(q.query, "#") || strings.HasPrefix(q.query, "@") || targeted {
 		s := q.symbols[i]
 		row := ui.Row(c.Key(i)).FillWidth().Padding(8).Gap(8).Radius(8).AlignItems(ui.Center)
 		if i == q.sel {

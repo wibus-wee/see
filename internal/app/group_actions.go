@@ -32,12 +32,23 @@ func (a *App) moveTabToNextEditor() {
 }
 
 func (a *App) requestGroupFocus(g *group) {
+	if a.maximized != g {
+		a.maximized = nil
+	}
 	a.focus = g
 	a.focusGroupTarget = g
 	a.focusEditor = nil
 	a.focusImage = ""
 	if isImagePath(g.active) {
 		a.focusImage = g.active
+	}
+}
+
+func (a *App) toggleMaximizeEditor() {
+	if a.maximized != nil {
+		a.maximized = nil
+	} else if len(a.groups()) > 1 && a.focus != nil && a.layout.find(a.focus) != nil {
+		a.maximized = a.focus
 	}
 }
 

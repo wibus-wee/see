@@ -70,6 +70,7 @@ type Client struct {
 	documentRangeFormat bool
 	diagMu              sync.Mutex
 	onDiagnostics       func(string, *int, []Diagnostic)
+	earlyDiagnostics    map[string]publishedDiagnostics
 	applyEdit           func(*WorkspaceEdit) error
 
 	cmd    *exec.Cmd
@@ -637,6 +638,22 @@ func (c *Client) SetDiagnosticsHandler(fn func(string, *int, []Diagnostic)) {
 	c.diagMu.Lock()
 	defer c.diagMu.Unlock()
 	c.onDiagnostics = fn
+	if fn != nil {
+		for _, p := range c.earlyDiagnostics {
+			fn(p.URI, p.Version, p.Diagnostics)
+		}
+	}
+	c.earlyDiagnostics = nil
+}
+
+type publishedDiagnostics struct {
+	URI         string       `json:"uri"`
+	Version     *int         `json:"version"`
+	Diagnostics []Diagnostic `json:"diagnostics"`
+}
+
+func (c *Client) DidChangeWatchedFiles(changes []FileChange) error {
+	return c.conn.Notify("workspace/didChangeWatchedFiles", map[string]any{"changes": changes})
 }
 
 // Diagnostics requests a full diagnostic report when the server supports it.
@@ -949,14 +966,16 @@ func (h *handler) Handle(ctx context.Context, method string, params json.RawMess
 func (h *handler) Notify(method string, params json.RawMessage) {
 	switch method {
 	case "textDocument/publishDiagnostics":
-		var p struct {
-			URI         string       `json:"uri"`
-			Version     *int         `json:"version"`
-			Diagnostics []Diagnostic `json:"diagnostics"`
-		}
+		var p publishedDiagnostics
 		if json.Unmarshal(params, &p) == nil {
 			h.diagMu.Lock()
 			fn := h.onDiagnostics
+			if fn == nil {
+				if h.earlyDiagnostics == nil {
+					h.earlyDiagnostics = make(map[string]publishedDiagnostics)
+				}
+				h.earlyDiagnostics[p.URI] = p
+			}
 			h.diagMu.Unlock()
 			if fn != nil {
 				fn(p.URI, p.Version, p.Diagnostics)

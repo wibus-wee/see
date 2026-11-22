@@ -85,6 +85,8 @@ Edit and save UTF-8 text in the source view. Unsaved changes are marked on tabs,
 
 Use **Replace in File** in the command palette to replace one match or all matches in the editor; these edits can be undone. In the Find navigator, turn on **Replace** to preview the replacement next to each match. Replace individual matches from their rows or choose **Replace All** and confirm. Workspace replacement writes to disk, skips files with unsaved edits or stale matches, and cannot be undone from the editor. Replacement text is literal, including when the search uses a regular expression; leave it empty to delete the matches.
 
+In the Find navigator, open the bookmark button next to the search field and choose **Save Current Query**. Saved queries remember the match options and file filters for this workspace. Select one from the same menu to rerun it, or choose **Remove Current Query** when it is active to forget it.
+
 See caches unsaved text for open files so it can restore edits after an unexpected exit. If the disk version changed in the meantime, it preserves the recovered edits and asks before overwriting.
 
 Use **Ctrl+G** or **Go to Line** in the command palette, then enter `:42` or `:42:8` to jump within the current text buffer. Line and column numbers start at 1; columns count UTF-8 bytes. Positions beyond the buffer are clamped. **Go Back** returns to the previous position.
@@ -129,9 +131,11 @@ tsrs is a TypeScript 7 implementation under active development, so expect it to 
 
 The app asks you to trust a folder when you open a supported source file: a server can invoke project tools and download dependencies or toolchains. Reading files does not require trust, and server executables inside the open workspace are not used. Use **Show Output** in the command palette, or **Output** in the bottom panel, to inspect server activity and errors; output is kept in memory for the current session.
 
-Use **Cmd+Shift+M** or **Show Problems** to open the Problems navigator. It lists diagnostics from open files with their severity, location, and source. Filter by file path, message, or source, then click a problem to jump to it. Results disappear after edits until the language server publishes diagnostics for the new buffer version.
+Use **Cmd+Shift+M** or **Show Problems** to open the Problems navigator. In a trusted project, it starts the applicable language servers and lists the diagnostics they publish, including for files you have never opened. Servers that only diagnose open documents still report only those documents. Filter by file path, message, or source, then click a problem to jump to it. Unsaved edits hide old diagnostics for that file until its server reports against the new buffer version.
 
 Use **F8** / **Shift+F8** or **Next Problem** / **Previous Problem** in the command palette to move through current-file diagnostics in source order, wrapping at either end. Navigation waits for fresh diagnostics after edits.
+
+Use **Next Method** / **Previous Method** to move the caret to the name of the next or previous function, method or constructor in the current file, as JetBrains IDEs do. The shortcuts are **Ctrl+Option+↓/↑** on macOS and **Alt+↓/↑** on Windows and Linux, which replace the editor's move-line keys there. Navigation uses the language server's document symbols, stops at the first and last declaration, and waits for fresh symbols after edits.
 
 Use **Search File Symbols** or type `@` in Open Quickly to list declarations in the current text file. Type after `@` to filter names, then select a result to jump to it. This uses the file’s language server and requires workspace trust. Results refresh when the active file or buffer changes.
 
@@ -157,9 +161,11 @@ These are the macOS shortcuts; on other platforms, use Ctrl in place of Cmd. The
 | Replace in workspace | Cmd+Shift+H |
 | Go to line / column | Ctrl+G |
 | Toggle navigator | Cmd+B or Cmd+0 |
+| Reveal in Project Navigator | Cmd+Shift+J |
 | Open Markdown preview | Cmd+Shift+V |
 | Go to definition | F12 |
 | Next / previous problem in current file | F8 / Shift+F8 |
+| Next / previous method in current file | Ctrl+Option+↓/↑ (macOS), Alt+↓/↑ (Windows/Linux) |
 | Show Problems | Cmd+Shift+M |
 | Find references | Shift+F12 |
 | Navigate back / forward | Ctrl+- / Ctrl+Shift+- |
