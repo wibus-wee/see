@@ -67,19 +67,26 @@ func TestResolveConflictStagesOnlyChosenFile(t *testing.T) {
 	run("config", "core.autocrlf", "false")
 	write(t, root, ".gitattributes", "*.txt conflict-marker-size=4\n")
 	const file, sibling = "conflict file.txt", "other.txt"
+	const example = "\nExample of a conflict:\n<<<< HEAD\nfirst choice\n====\nsecond choice\n>>>> feature\n"
+	content := func(name, line string) string {
+		if name == file {
+			return line + example
+		}
+		return line
+	}
 	for _, name := range []string{file, sibling} {
-		write(t, root, name, "base\n")
+		write(t, root, name, content(name, "base\n"))
 	}
 	run("add", ".")
 	run("commit", "-qm", "base")
 	run("switch", "-qc", "feature")
 	for _, name := range []string{file, sibling} {
-		write(t, root, name, "incoming\n")
+		write(t, root, name, content(name, "incoming\n"))
 	}
 	run("commit", "-qam", "incoming")
 	run("switch", "-q", "main")
 	for _, name := range []string{file, sibling} {
-		write(t, root, name, "current\n")
+		write(t, root, name, content(name, "current\n"))
 	}
 	run("commit", "-qam", "current")
 	ctx := context.Background()
@@ -105,7 +112,7 @@ func TestResolveConflictStagesOnlyChosenFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, err := os.ReadFile(filepath.Join(root, file))
-	if err != nil || string(got) != "current\nincoming\nexternal edit\n" {
+	if err != nil || string(got) != "current\nincoming\n"+example+"external edit\n" {
 		t.Fatalf("working file = %q, %v", got, err)
 	}
 	out, err := Command(ctx, root, "show", ":"+file)

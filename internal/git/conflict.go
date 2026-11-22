@@ -145,7 +145,74 @@ func LoadConflict(ctx context.Context, root, path string) (*ConflictFile, error)
 	if err != nil {
 		return nil, err
 	}
+	if len(hunks) > 0 {
+		hunks, err = excludeConflictExamples(ctx, root, index, text, width, hunks)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return &ConflictFile{Hunks: hunks, root: root, path: path, text: text, index: index, mode: mode}, nil
+}
+
+// A complete marker block already in both sides may be literal file content.
+func excludeConflictExamples(ctx context.Context, root, index, text string, width int, hunks []ConflictHunk) ([]ConflictHunk, error) {
+	var sides [2]map[string]int
+	for rec := range strings.SplitSeq(index, "\x00") {
+		meta, _, _ := strings.Cut(rec, "\t")
+		fields := strings.Fields(meta)
+		if len(fields) != 3 || fields[2] != "2" && fields[2] != "3" {
+			continue
+		}
+		oid := fields[1]
+		size, err := Command(ctx, root, "cat-file", "-s", oid)
+		if err != nil {
+			return nil, err
+		}
+		if n, err := strconv.Atoi(strings.TrimSpace(string(size))); err != nil || n > conflictFileLimit {
+			return nil, ErrConflictUnsupported
+		}
+		blob, err := Command(ctx, root, "cat-file", "blob", oid)
+		if err != nil {
+			return nil, err
+		}
+		if !utf8.Valid(blob) || bytes.IndexByte(blob, 0) >= 0 {
+			return nil, ErrConflictUnsupported
+		}
+		content := string(blob)
+		blocks, err := parseConflictHunks(content, width)
+		if err != nil {
+			return nil, err
+		}
+		sides[fields[2][0]-'2'] = conflictBlockCounts(content, blocks)
+	}
+	if sides[0] == nil || sides[1] == nil {
+		return nil, ErrConflictUnsupported
+	}
+	work := conflictBlockCounts(text, hunks)
+	kept := hunks[:0]
+	for _, h := range hunks {
+		block := conflictBlock(text, h)
+		if common := min(sides[0][block], sides[1][block]); common > 0 {
+			if work[block] > common {
+				return nil, ErrConflictMarkers
+			}
+			continue
+		}
+		kept = append(kept, h)
+	}
+	return kept, nil
+}
+
+func conflictBlockCounts(text string, hunks []ConflictHunk) map[string]int {
+	counts := make(map[string]int, len(hunks))
+	for _, h := range hunks {
+		counts[conflictBlock(text, h)]++
+	}
+	return counts
+}
+
+func conflictBlock(text string, h ConflictHunk) string {
+	return strings.ReplaceAll(text[h.start:h.end], "\r\n", "\n")
 }
 
 func parseConflictHunks(text string, width int) ([]ConflictHunk, error) {
