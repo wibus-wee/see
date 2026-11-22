@@ -39,7 +39,7 @@ type minimap struct {
 	bmp      *ui.Bitmap
 	from, to int
 	version  uint64
-	theme    *editor.Theme
+	themeGen int // the theme generation the bitmap was drawn in
 	busy     bool
 
 	find       minimapFind
@@ -133,7 +133,7 @@ func (a *App) minimap(c *ui.Context, g *group, d *doc, st *editor.State) {
 	m.lastLayout = l
 	first := int(l.off / minimapRow)
 	last := min(lines, first+int(m.h/minimapRow)+1)
-	if m.h > 0 && !m.busy && (m.bmp == nil || m.version != version || m.theme != a.edTheme || first < m.from || last > m.to) {
+	if m.h > 0 && !m.busy && (m.bmp == nil || m.version != version || m.themeGen != a.themeGen || first < m.from || last > m.to) {
 		a.renderMinimap(m, d, first, last)
 	}
 	if count, _ := st.FindMatches(); count == 0 {
@@ -202,7 +202,7 @@ func (a *App) paintMinimap(p *ui.Painter, r ui.Rect, m *minimap, l minimapLayout
 	rowRect := func(line int, x, w float32) ui.Rect {
 		return ui.Rect{X: r.X + x, Y: y0 + float32(line)*minimapRow, W: w, H: minimapRow}
 	}
-	if m.bmp != nil && m.theme == t {
+	if m.bmp != nil && m.themeGen == a.themeGen {
 		bw, bh := m.bmp.Size()
 		p.ImageRegion(m.bmp, ui.Rect{W: float32(bw), H: float32(bh)},
 			ui.Rect{X: r.X, Y: y0 + float32(m.from)*minimapRow, W: float32(bw) / minimapDensity, H: float32(bh) / minimapDensity}, ui.ImageOptions{})
@@ -275,17 +275,20 @@ func (a *App) renderMinimap(m *minimap, d *doc, first, last int) {
 	from := max(0, first-minimapMaxLines/4)
 	to := min(d.buf.LineCount(), max(last, from+minimapMaxLines))
 	from = max(0, min(from, to-minimapMaxLines))
-	snap, t := d.buf.Snapshot(), a.edTheme
+	snap := d.buf.Snapshot()
+	// The theme is drawn from a copy: applyAppearance replaces the
+	// shared object's contents while the bitmap renders off thread.
+	t, gen := *a.edTheme, a.themeGen
 	var lang *editor.Language
 	if !d.plain {
 		lang = d.buf.Language()
 	}
 	m.busy = true
 	go func() {
-		img := drawMinimap(snap, lang, t, from, to)
+		img := drawMinimap(snap, lang, &t, from, to)
 		a.post.Post(func() {
 			m.busy = false
-			m.bmp, m.from, m.to, m.version, m.theme = ui.NewBitmap(img), from, to, snap.Version(), t
+			m.bmp, m.from, m.to, m.version, m.themeGen = ui.NewBitmap(img), from, to, snap.Version(), gen
 		})
 	}()
 }

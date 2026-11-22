@@ -23,28 +23,23 @@ func (a *App) colors() *theme.Palette {
 // follows the system unless the user chose one, and its accent color:
 // the app's theme and colors follow, and the editors' themes with them.
 // It does the work only when the appearance changes.
+//
+// The theme objects never change: their contents are replaced, so every
+// editor and diff holding them — a preview pinned in a panel or a peek
+// as much as a tab's editor — follows without being found and re-pointed.
 func (a *App) applyAppearance(c *ui.Context) {
 	base := c.Theme() // the default theme: the system's appearance and accent
 	if a.theme != nil && a.themeDark == base.Dark && a.themeAccent == base.Accent {
 		return
 	}
 	a.themeDark, a.themeAccent = base.Dark, base.Accent
-	a.theme, a.edTheme = theme.New(base, c.Preferences().TextScale)
-	for _, g := range a.groups() {
-		for _, v := range g.diffs {
-			for _, d := range v.diffStates() {
-				d.Theme = a.edTheme
-			}
-		}
+	a.themeGen++
+	ut, ed := theme.New(base, c.Preferences().TextScale)
+	if a.theme == nil {
+		a.theme, a.edTheme = ut, ed
+		return
 	}
-	if a.git.peek != nil {
-		a.git.peek.diff.Theme = a.edTheme
-	}
-	for _, g := range a.groups() {
-		for _, st := range g.eds {
-			st.Theme = a.edTheme
-		}
-	}
+	*a.theme, *a.edTheme = *ut, *ed
 }
 
 // chooseAppearance forces light or dark, or "" follows the system, and
