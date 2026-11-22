@@ -6,6 +6,28 @@ import (
 	"testing"
 )
 
+func TestReaderModeDefaultAndPersistence(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "reader.json")
+	c := Load(p)
+	if c.HideDocComments {
+		t.Fatal("reader mode should default on")
+	}
+	c.HideDocComments = true
+	if err := c.Save(); err != nil {
+		t.Fatal(err)
+	}
+	if !Load(p).HideDocComments {
+		t.Fatal("disabled reader mode was not persisted")
+	}
+	c.HideDocComments = false
+	if err := c.Save(); err != nil {
+		t.Fatal(err)
+	}
+	if Load(p).HideDocComments {
+		t.Fatal("enabled reader mode was not persisted")
+	}
+}
+
 func TestLSPConfigParses(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "config.json")
 	json := `{

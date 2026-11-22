@@ -17,6 +17,11 @@ func editorBindings() []editor.Binding {
 		return editor.Binding{Mods: m, Key: k, Command: editor.NoCommand}
 	}
 	bs := []editor.Binding{
+		none(ui.Cmd, ui.KeyEqual),
+		none(ui.Cmd|ui.Shift, ui.KeyEqual),
+		none(ui.Cmd, ui.KeyMinus),
+		none(ui.Ctrl|ui.Alt, ui.KeyMinus),
+		none(ui.Ctrl|ui.Alt|ui.Shift, ui.KeyMinus),
 		none(ui.Cmd|ui.Shift, ui.KeyM),
 		none(ui.Alt|ui.Cmd, ui.KeyO),
 		none(ui.Cmd|ui.Shift, ui.KeyB),
@@ -65,6 +70,10 @@ func editorBindings() []editor.Binding {
 	bs = append(bs, none(mods, key))
 	_, _, scopeMods, scopeKey := editAllScopeShortcut(runtime.GOOS)
 	bs = append(bs, none(scopeMods, scopeKey))
+	// Next and Previous Method take Alt+↑/↓ from the editor's line moving
+	// off macOS, as JetBrains does.
+	_, methodMods := methodShortcut(runtime.GOOS)
+	bs = append(bs, none(methodMods, ui.KeyUp), none(methodMods, ui.KeyDown))
 	if runtime.GOOS != "darwin" {
 		// Back and forward, as VS Code on Windows; the editor would move
 		// by subwords.
@@ -124,6 +133,7 @@ func (a *App) view(c *ui.Context) {
 		return
 	}
 	a.shortcuts(c)
+	a.syncSymbolHighlights()
 	if a.inspectorOpen() {
 		a.followInspector()
 	}
@@ -167,6 +177,9 @@ func (a *App) view(c *ui.Context) {
 		a.jumpToDatePanel(c)
 	}
 	a.codeActionMenu(c)
+	if a.git.repositoryView.tag != nil {
+		a.createTagDialog(c)
+	}
 }
 
 // shortcuts handles the app's keys wherever the focus is.
@@ -176,6 +189,8 @@ func (a *App) shortcuts(c *ui.Context) {
 	// the key (Alt+Left moves by words there, Control+- undoes).
 	inTerm := a.term.open && a.term.focused
 	switch {
+	case c.Shortcut(ui.Cmd|ui.Shift, ui.KeyEqual):
+		a.changeEditorFontSize(1)
 	case c.Shortcut(ui.Cmd|ui.Shift, ui.Key1):
 		a.showWelcome = true
 	case c.Shortcut(ui.Cmd, ui.KeyP):

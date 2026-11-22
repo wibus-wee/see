@@ -23,6 +23,7 @@ func TestPublishedDiagnosticsRejectObsoleteDocumentAndServer(t *testing.T) {
 	type report struct {
 		text, message string
 		version       uint64
+		onDisk        bool
 	}
 	var reports []report
 	clients := []*publishingClient{{}, {}}
@@ -34,11 +35,15 @@ func TestPublishedDiagnosticsRejectObsoleteDocumentAndServer(t *testing.T) {
 			exits = append(exits, onExit)
 			return c, nil
 		},
-		OnDiagnostics: func(_ *Server, _ string, snap editor.Snapshot, ds []lsp.Diagnostic, enc string) {
-			if enc != lsp.UTF16 {
-				t.Errorf("encoding: %q", enc)
+		OnDiagnostics: func(_ *Server, r DiagnosticReport) {
+			if r.Client.Encoding() != lsp.UTF16 {
+				t.Errorf("encoding: %q", r.Client.Encoding())
 			}
-			reports = append(reports, report{snap.String(), ds[0].Message, snap.Version()})
+			got := report{message: r.Items[0].Message, onDisk: r.Buffer == nil}
+			if r.Buffer != nil {
+				got.text, got.version = r.Buffer.String(), r.Buffer.Version()
+			}
+			reports = append(reports, got)
 		},
 	})
 	defer s.StopWait(time.Second)
@@ -75,6 +80,10 @@ func TestPublishedDiagnosticsRejectObsoleteDocumentAndServer(t *testing.T) {
 	if len(reports) != 2 {
 		t.Fatalf("closed document published: %+v", reports)
 	}
+	publish(clients[0], nil, "on-disk problem")
+	if len(reports) != 3 || !reports[2].onDisk || reports[2].message != "on-disk problem" {
+		t.Fatalf("workspace publication: %+v", reports)
+	}
 	exits[0](errors.New("crash"))
 	s.Retry()
 	replacement, err := s.Get(ctx)
@@ -86,12 +95,12 @@ func TestPublishedDiagnosticsRejectObsoleteDocumentAndServer(t *testing.T) {
 	}
 	publish(clients[0], nil, "old server without version")
 	publish(clients[1], nil, "recovered problem")
-	if len(reports) != 3 || reports[2].message != "recovered problem" || reports[2].text != "edited" {
+	if len(reports) != 4 || reports[3].message != "recovered problem" || reports[3].text != "edited" {
 		t.Fatalf("restart publications: %+v", reports)
 	}
 	s.Stop()
 	publish(clients[1], nil, "after shutdown")
-	if len(reports) != 3 {
+	if len(reports) != 4 {
 		t.Fatalf("stopped server published: %+v", reports)
 	}
 }
