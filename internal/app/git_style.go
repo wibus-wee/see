@@ -7,6 +7,7 @@ import (
 )
 
 const (
+	gitSidebarMinimumWidth      = 260
 	gitSidebarIconColumn        = 15
 	gitSidebarColumnGap         = 6
 	gitSidebarTextOffset        = gitSidebarIconColumn + gitSidebarColumnGap

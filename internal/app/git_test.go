@@ -14,6 +14,7 @@ import (
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 
+	"see/internal/config"
 	"see/internal/git"
 	"see/locales"
 )
@@ -341,7 +342,7 @@ func TestGitCommitFooterStaysOutsideTreeScrollAndRetainsDraft(t *testing.T) {
 	}
 }
 
-func TestGitConflictFooterStaysOutsideTreeWithStashAndHistory(t *testing.T) {
+func TestGitConflictHidesFooterUntilResolvedWithStashAndHistory(t *testing.T) {
 	root := gitRepo(t, map[string]string{"settings.go": "base\n", "saved.txt": "saved\n"}, "feature")
 	writeFile(t, root, "saved.txt", "stashed\n")
 	gitRun(t, root, "stash", "push", "-q", "-m", "conflict scenario stash")
@@ -363,6 +364,8 @@ func TestGitConflictFooterStaysOutsideTreeWithStashAndHistory(t *testing.T) {
 	h := newHarness(t, root)
 	h.readGit()
 	h.a.navigator = navGit
+	const draft = "merge draft"
+	h.a.git.message = draft
 	h.tt.SetSize(harnessWidth, 900)
 	h.tt.Frame()
 	h.settle(func() bool { return !h.a.git.history.loading })
@@ -371,8 +374,8 @@ func TestGitConflictFooterStaysOutsideTreeWithStashAndHistory(t *testing.T) {
 	if !h.tt.HasText("Conflicted Files") || len(h.a.git.stashes) != 1 {
 		t.Fatalf("conflicts or stash missing: %q, stashes %+v", h.tt.Texts(), h.a.git.stashes)
 	}
-	var field, commitButton, conflictStatus ui.AccessInfo
-	var fieldOK, buttonOK, statusOK bool
+	var field, commitButton, conflictStatus, treeScroll, historyDivider ui.AccessInfo
+	var fieldOK, buttonOK, statusOK, treeScrollOK, dividerOK bool
 	for _, access := range h.tt.AccessAll() {
 		switch {
 		case access.Role == ui.RoleTextField && access.Name == locales.MsgCommitMessage():
@@ -381,35 +384,23 @@ func TestGitConflictFooterStaysOutsideTreeWithStashAndHistory(t *testing.T) {
 			commitButton, buttonOK = access, true
 		case access.Role == ui.RoleText && access.Name == reason:
 			conflictStatus, statusOK = access, true
+		case access.Role == ui.RoleScroll && !treeScrollOK:
+			treeScroll, treeScrollOK = access, true
+		case access.Role == ui.RoleSplitter && access.Bounds.W > 100 && access.Bounds.H <= 2:
+			historyDivider, dividerOK = access, true
 		}
 	}
-	if !fieldOK || !buttonOK || !statusOK || field.Offscreen || commitButton.Offscreen || field.Placeholder == reason || !commitButton.Disabled || !strings.Contains(commitButton.Description, reason) {
-		t.Fatalf("conflict composer state: field %+v (%v), Commit %+v (%v), status %+v (%v), texts %q", field, fieldOK, commitButton, buttonOK, conflictStatus, statusOK, h.tt.Texts())
+	gap := float32(0)
+	if treeScrollOK && dividerOK {
+		gap = historyDivider.Bounds.Y - (treeScroll.Bounds.Y + treeScroll.Bounds.H)
 	}
-	if conflictStatus.Bounds.Y <= field.Bounds.Y {
-		t.Fatalf("conflict reason is not a separate footer status line: field %v, status %v", field.Bounds, conflictStatus.Bounds)
-	}
-	if err := h.tt.Click(locales.MsgCommitMessage()); err != nil {
-		t.Fatal(err)
-	}
-	h.tt.Type("merge draft")
-	h.tt.Frame()
-	if h.a.git.message != "merge draft" {
-		t.Fatalf("typing during conflicts lost the commit draft: %q", h.a.git.message)
-	}
-	field = ui.AccessInfo{}
-	fieldOK = false
-	for _, access := range h.tt.AccessAll() {
-		if access.Role == ui.RoleTextField && access.Name == locales.MsgCommitMessage() {
-			field = access
-			fieldOK = true
-			break
-		}
+	if fieldOK || buttonOK || statusOK || !treeScrollOK || !dividerOK || gap > 3 || h.a.git.message != draft {
+		t.Fatalf("conflict should hide the composer without reserving footer space and retain the draft: field %+v (%v), Commit %+v (%v), status %+v (%v), tree %v (%v), History divider %v (%v), gap %v, draft %q, texts %q", field, fieldOK, commitButton, buttonOK, conflictStatus, statusOK, treeScroll.Bounds, treeScrollOK, historyDivider.Bounds, dividerOK, gap, h.a.git.message, h.tt.Texts())
 	}
 	historyBefore, historyOK := h.tt.Find("History")
 	file, fileOK := h.tt.Find("Unstaged diff: work-0.go")
-	if !fieldOK || !historyOK || !fileOK {
-		t.Fatalf("conflict scroll anchors missing: field %+v, History %v (%v), file %v (%v)", field, historyBefore, historyOK, file, fileOK)
+	if !historyOK || !fileOK {
+		t.Fatalf("conflict scroll anchors missing: History %v (%v), file %v (%v)", historyBefore, historyOK, file, fileOK)
 	}
 	x, y := file.X+file.W/2, file.Y+file.H/2
 	for i := 0; i < 32 && !h.tt.HasText("Stash: conflict scenario stash"); i++ {
@@ -420,15 +411,113 @@ func TestGitConflictFooterStaysOutsideTreeWithStashAndHistory(t *testing.T) {
 		t.Fatalf("stash row did not enter the conflict tree viewport: %q", h.tt.Texts())
 	}
 	var fieldAfter ui.AccessInfo
+	fieldAfterOK := false
 	for _, access := range h.tt.AccessAll() {
 		if access.Role == ui.RoleTextField && access.Name == locales.MsgCommitMessage() {
 			fieldAfter = access
+			fieldAfterOK = true
 			break
 		}
 	}
 	historyAfter, historyOK := h.tt.Find("History")
-	if fieldAfter.Bounds != field.Bounds || !historyOK || historyAfter.Y != historyBefore.Y {
-		t.Fatalf("conflict tree scrolling moved the composer or History: field %v -> %v, History %v -> %v", field.Bounds, fieldAfter.Bounds, historyBefore, historyAfter)
+	var treeScrollAfter ui.AccessInfo
+	for _, access := range h.tt.AccessAll() {
+		if access.Role == ui.RoleScroll {
+			treeScrollAfter = access
+			break
+		}
+	}
+	if fieldAfterOK || !historyOK || historyAfter.Y != historyBefore.Y || treeScrollAfter.Bounds != treeScroll.Bounds || h.a.git.message != draft {
+		t.Fatalf("conflict tree scrolling changed the absent composer, tree viewport, History, or draft: field %v (%v), tree %v -> %v, History %v -> %v, draft %q", fieldAfter, fieldAfterOK, treeScroll.Bounds, treeScrollAfter.Bounds, historyBefore, historyAfter, h.a.git.message)
+	}
+
+	writeFile(t, root, "settings.go", "resolved\n")
+	gitRun(t, root, "add", "settings.go")
+	h.readGit()
+	h.settle(func() bool { return !h.a.git.loading && !h.a.git.busy })
+	field, fieldOK = h.tt.AccessByRole(ui.RoleTextField, locales.MsgCommitMessage())
+	commitButton, buttonOK = h.tt.AccessByRole(ui.RoleButton, locales.MsgCommit())
+	if !h.a.git.merging || !fieldOK || field.Value != draft || !buttonOK || commitButton.Disabled || h.a.git.message != draft {
+		t.Fatalf("composer did not restore with its draft after conflict resolution: merging %v, field %+v (%v), Commit %+v (%v), draft %q", h.a.git.merging, field, fieldOK, commitButton, buttonOK, h.a.git.message)
+	}
+	previousHead := h.a.git.head
+	if err := h.tt.Click(locales.MsgCommit()); err != nil {
+		t.Fatal(err)
+	}
+	h.settle(func() bool { return !h.a.git.loading && !h.a.git.busy })
+	if h.a.git.merging || h.a.git.head == previousHead {
+		t.Fatalf("restored composer could not create the merge commit: merging %v, HEAD %q -> %q, notice %q", h.a.git.merging, previousHead, h.a.git.head, h.a.notice)
+	}
+}
+
+func gitSidebarDivider(t *testing.T, h *harness) ui.AccessInfo {
+	t.Helper()
+	for _, access := range h.tt.AccessAll() {
+		if access.Role == ui.RoleSplitter && access.Bounds.W <= 2 && access.Bounds.H > 10 {
+			return access
+		}
+	}
+	t.Fatalf("Git sidebar divider not found: %q", h.tt.Texts())
+	return ui.AccessInfo{}
+}
+
+func TestGitSidebarMinimumDuringDrag(t *testing.T) {
+	const minWidth = 260
+	root := gitRepo(t, map[string]string{"a.go": "base\n"})
+	writeFile(t, root, "a.go", "staged\n")
+	gitRun(t, root, "add", "a.go")
+	h := newHarness(t, root)
+	h.readGit()
+	h.a.navigator = navGit
+	h.a.git.message = "drag draft"
+	h.tt.Advance(300 * time.Millisecond)
+	h.tt.Frame()
+
+	field, fieldOK := h.tt.AccessByRole(ui.RoleTextField, locales.MsgCommitMessage())
+	button, buttonOK := h.tt.AccessByRole(ui.RoleButton, locales.MsgCommit())
+	if !fieldOK || !buttonOK || button.Disabled {
+		t.Fatalf("staged commit controls unavailable before drag: field %+v (%v), button %+v (%v)", field, fieldOK, button, buttonOK)
+	}
+	divider := gitSidebarDivider(t, h)
+	x, y := divider.Bounds.X+divider.Bounds.W/2, divider.Bounds.Y+divider.Bounds.H/2
+	targetX := float32(70)
+	h.tt.Press(x, y)
+	h.tt.Move(targetX, y)
+	h.tt.Frame()
+
+	divider = gitSidebarDivider(t, h)
+	field, fieldOK = h.tt.AccessByRole(ui.RoleTextField, locales.MsgCommitMessage())
+	button, buttonOK = h.tt.AccessByRole(ui.RoleButton, locales.MsgCommit())
+	if divider.Bounds.X < minWidth-1 || h.a.sidebarW < minWidth || !fieldOK || field.Bounds.W < 100 || field.Offscreen || !buttonOK || button.Disabled || button.Bounds.W < 40 || button.Offscreen {
+		t.Fatalf("Git sidebar became unusable during an active left drag: divider %v, saved width %v, field %+v (%v), Commit %+v (%v)", divider.Bounds, h.a.sidebarW, field, fieldOK, button, buttonOK)
+	}
+	h.tt.Release(targetX, y)
+	h.tt.Frame()
+}
+
+func TestGitSidebarMinimumFromNarrowSavedWidthIsGitOnly(t *testing.T) {
+	const minWidth, savedWidth = 260, 180
+	root := gitRepo(t, map[string]string{"a.go": "base\n"})
+	cfg := &config.Config{ConfirmClose: true, SidebarWidth: savedWidth}
+	h := newHarnessWithConfig(t, root, cfg)
+	h.readGit()
+	if h.a.sidebarW != savedWidth {
+		t.Fatalf("saved sidebar width loaded as %v, want %v", h.a.sidebarW, savedWidth)
+	}
+
+	h.a.navigator = navGit
+	h.tt.Advance(300 * time.Millisecond)
+	h.tt.Frame()
+	gitDivider := gitSidebarDivider(t, h)
+	if gitDivider.Bounds.X < minWidth-1 || h.a.sidebarW != savedWidth || h.a.cfg.SidebarWidth != savedWidth {
+		t.Fatalf("narrow startup width was not limited to Git display: divider %v, stored width %v, config width %v", gitDivider.Bounds, h.a.sidebarW, h.a.cfg.SidebarWidth)
+	}
+
+	h.a.navigator = navFiles
+	h.tt.Frame()
+	filesDivider := gitSidebarDivider(t, h)
+	if filesDivider.Bounds.X < savedWidth-1 || filesDivider.Bounds.X > savedWidth+1 {
+		t.Fatalf("non-Git navigator lost its saved sidebar width: divider %v, saved width %v", filesDivider.Bounds, savedWidth)
 	}
 }
 

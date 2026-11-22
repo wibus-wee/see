@@ -1146,7 +1146,10 @@ func (a *App) lineCounts(c *ui.Context, path string, staged bool) {
 
 // commitBar is the fixed composer below the Git changes tree.
 func (a *App) commitBar(c *ui.Context, staged int, conflicted bool) {
-	can := !a.git.busy && !conflicted && (staged > 0 || a.git.merging) && strings.TrimSpace(a.git.message) != ""
+	if conflicted {
+		return
+	}
+	can := !a.git.busy && (staged > 0 || a.git.merging) && strings.TrimSpace(a.git.message) != ""
 	commit := func() {
 		if can {
 			a.gitAction("commit", "-m", a.git.message)
@@ -1156,16 +1159,9 @@ func (a *App) commitBar(c *ui.Context, staged int, conflicted bool) {
 	if staged == 0 && !a.git.merging {
 		placeholder = "Stage changes to commit"
 	}
-	conflictReason := ""
-	if conflicted {
-		conflictReason = gitConflictText("gitResolveBeforeCommit")
-	}
 	tip := "Commit " + fmt.Sprint(staged) + " staged change" + plural(staged)
 	if a.git.merging {
 		tip = gitConflictText("gitCommitMerge")
-	}
-	if conflictReason != "" {
-		tip = conflictReason
 	}
 	ui.Column(c).Shrink(0).FillWidth().Children(func() {
 		ui.Box(c).FillWidth().Height(1).Background(colors(c).Separator)
@@ -1188,9 +1184,5 @@ func (a *App) commitBar(c *ui.Context, staged int, conflicted bool) {
 			})
 			b.OnClick(commit)
 		})
-		if conflictReason != "" {
-			ui.Text(c, conflictReason).FontSize(10).TextColor(colors(c).Muted).SingleLine().Ellipsis("…").
-				Padding(4, sidebarInset, 6, sidebarInset).Tooltip(conflictReason)
-		}
 	})
 }

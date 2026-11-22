@@ -31,18 +31,17 @@ type gitTagDialog struct {
 func (a *App) gitNavigatorTabs(c *ui.Context) {
 	page := &a.git.repositoryView.page
 	ui.Row(c).FillWidth().Shrink(0).Padding(0, sidebarInset, 4, sidebarInset).Children(func() {
-		tabs := ui.SegmentedBase(c, page, 2)
-		tabs.Track.FillWidth().Height(gitSidebarTabsHeight).Padding(1).Gap(1).Radius(5).Background(colors(c).Pill).Children(func() {
+		tabs := ui.TabsBase(c, page, 2)
+		tabs.List.FillWidth().Height(gitSidebarTabsHeight).AlignItems(ui.Stretch).Children(func() {
 			for i, label := range []string{locales.GitRepositoryChanges(), locales.GitRepositories()} {
-				seg := tabs.Segment(i).Grow(1).Basis(0).MinWidth(0).Radius(4).Label(label)
+				tab := tabs.Tab(i).Grow(1).Basis(0).MinWidth(0).Shrink(1).FillHeight().Padding(0, 6).Label(label)
+				tab.TextColor(colors(c).Muted)
 				if i == *page {
-					seg.Background(c.Theme().Accent.Alpha(0.16))
+					tab.TextColor(c.Theme().Text).FontWeight(500).
+						BorderWidth(0, 0, 1, 0).BorderColor(colors(c).Separator)
 				}
-				seg.Children(func() {
-					t := ui.Text(c, label).FontSize(gitSidebarGroupLabelSize).FontWeight(400).SingleLine().Ellipsis("…").MinWidth(0)
-					if i == *page {
-						t.FontWeight(500)
-					}
+				tab.Children(func() {
+					ui.Text(c, label).FontSize(gitSidebarGroupLabelSize).SingleLine().Ellipsis("…").MinWidth(0)
 				})
 			}
 		})
