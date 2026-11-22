@@ -97,3 +97,81 @@ func TestStashRefusesUnsavedEdits(t *testing.T) {
 		t.Fatal("busy")
 	}
 }
+
+// Each row's actions reach its own stash, not the newest, and still do
+// once dropping a newer stash renumbers the older ones.
+func TestStashActionsTargetTheirRow(t *testing.T) {
+	root := gitRepo(t, map[string]string{"a.txt": "a\n", "b.txt": "b\n", "c.txt": "c\n"})
+	for _, f := range []string{"a", "b", "c"} {
+		writeFile(t, root, f+".txt", f+"\nstashed\n")
+		gitRun(t, root, "stash", "push", "-q", "-m", "edit "+f)
+	}
+	h := newHarness(t, root)
+	h.readGit()
+	h.a.navigator = navGit
+	h.a.git.historyClosed = true
+	h.tt.Frame()
+	stashes := func() []string {
+		var m []string
+		for _, s := range h.a.git.stashes {
+			m = append(m, s.Message)
+		}
+		return m
+	}
+	changed := func() []string {
+		var m []string
+		for _, c := range h.a.git.changes {
+			m = append(m, c.Path)
+		}
+		return m
+	}
+	if got := strings.Join(stashes(), ","); got != "edit c,edit b,edit a" {
+		t.Fatalf("stashes %s", got)
+	}
+
+	if err := h.tt.RightClick("Stash: edit b"); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.tt.ChooseMenuItem("Apply Stashed Changes"); err != nil {
+		t.Fatal(err)
+	}
+	h.settle(func() bool { return !h.a.git.busy && !h.a.git.loading && len(h.a.git.changes) > 0 })
+	if got := strings.Join(changed(), ","); got != "b.txt" {
+		t.Fatalf("applying the middle stash changed %s", got)
+	}
+
+	r, ok := h.tt.Find("Stash: edit c")
+	if !ok {
+		t.Fatal("no row for edit c")
+	}
+	h.tt.Move(r.X+r.W/2, r.Y+r.H/2)
+	h.tt.Frame()
+	if err := h.tt.Click("Drop stash edit c"); err != nil {
+		t.Fatal(err)
+	}
+	h.tt.Frame()
+	if h.a.deleteConfirm == nil || !strings.Contains(h.a.deleteConfirm.message, "“edit c”") {
+		t.Fatalf("drop asks %+v", h.a.deleteConfirm)
+	}
+	if err := h.tt.Click("Drop Stash"); err != nil {
+		t.Fatal(err)
+	}
+	h.settle(func() bool { return !h.a.git.busy && !h.a.git.loading && len(h.a.git.stashes) == 2 })
+	if got := strings.Join(stashes(), ","); got != "edit b,edit a" {
+		t.Fatalf("after dropping the newest: %s", got)
+	}
+
+	if err := h.tt.RightClick("Stash: edit a"); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.tt.ChooseMenuItem("Apply and Drop Stash"); err != nil {
+		t.Fatal(err)
+	}
+	h.settle(func() bool { return !h.a.git.busy && !h.a.git.loading && len(h.a.git.stashes) == 1 })
+	if got := strings.Join(stashes(), ","); got != "edit b" {
+		t.Fatalf("apply and drop removed the wrong stash: %s", got)
+	}
+	if got := strings.Join(changed(), ","); got != "a.txt,b.txt" {
+		t.Fatalf("after apply and drop: %s", got)
+	}
+}
