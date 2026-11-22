@@ -89,12 +89,7 @@ func TestFormatSelectionSendsRange(t *testing.T) {
 	h.tt.Frame()
 	h.a.formatSelection()
 	h.settle(func() bool {
-		for _, s := range h.fc.calls() {
-			if s == "rangeFormatting" {
-				return true
-			}
-		}
-		return false
+		return d.buf.Snapshot().Line(3) == "\tx := 1"
 	})
 	want := lsp.Range{Start: lsp.Position{Line: 3, Character: 0}, End: lsp.Position{Line: 4, Character: 9}}
 	fc := h.fc.format.rng
