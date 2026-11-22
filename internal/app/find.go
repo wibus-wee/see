@@ -236,6 +236,10 @@ type quickOpen struct {
 	fileVersion   uint64
 	fileSymbols   []quickSymbol
 	fileLoaded    bool
+	targetQuery   string
+	targetFiles   []string
+	targetPath    string
+	targetLoading bool
 }
 
 type quickSymbol struct {
@@ -304,9 +308,14 @@ func (a *App) rankQuick() {
 	fileQuery, _, targeted := splitQuickFileSymbol(q.query)
 	if targeted {
 		a.ensureFiles()
-		path, version := "", uint64(0)
-		if files := search.Files(q.files, fileQuery, 60); len(files) > 0 {
-			path = workspace.DocPath(a.root, a.realRoot, joinRoot(a.root, files[0].Path))
+		if fileQuery != q.targetQuery || len(q.files) != len(q.targetFiles) || len(q.files) > 0 && &q.files[0] != &q.targetFiles[0] {
+			q.targetQuery, q.targetFiles, q.targetPath = fileQuery, q.files, ""
+			if files := search.Files(q.files, fileQuery, 60); len(files) > 0 {
+				q.targetPath = workspace.DocPath(a.root, a.realRoot, joinRoot(a.root, files[0].Path))
+			}
+		}
+		path, version, loading := q.targetPath, uint64(0), false
+		if path != "" {
 			if a.cfg.IsTrusted(a.root) {
 				d := a.docs[path]
 				if d == nil {
@@ -317,10 +326,12 @@ func (a *App) rankQuick() {
 				if d.buf != nil {
 					version = d.buf.Version()
 				}
-				if d.loading || q.symbolLoading && q.symbolCancel == nil {
-					q.ranked = "\x00"
-				}
+				loading = d.loading
 			}
+		}
+		if q.targetLoading != loading {
+			q.targetLoading = loading
+			q.ranked = "\x00"
 		}
 		if path != q.filePath || version != q.fileVersion {
 			q.filePath, q.fileVersion, q.fileLoaded, q.fileSymbols = path, version, false, nil
@@ -562,7 +573,7 @@ func splitQuickFileSymbol(query string) (string, string, bool) {
 		return "", "", false
 	}
 	i := strings.LastIndex(query, "@")
-	if i <= 0 || strings.Contains(query[i+1:], "/") {
+	if i <= 0 || query[i-1] == '/' || strings.Contains(query[i+1:], "/") {
 		return "", "", false
 	}
 	return query[:i], query[i+1:], true

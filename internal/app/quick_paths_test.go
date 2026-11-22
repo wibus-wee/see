@@ -23,7 +23,7 @@ func TestQuickFileSymbolParser(t *testing.T) {
 		{"util@", "util", "", true},
 		{"pkg/@types/x@Help", "pkg/@types/x", "Help", true},
 		{"node_modules/@types/x", "", "", false},
-		{"node_modules/@types", "node_modules/", "types", true},
+		{"node_modules/@types", "", "", false},
 		{"@Help", "", "", false},
 		{"#util@Help", "", "", false},
 		{">util@Help", "", "", false},
@@ -37,6 +37,31 @@ func TestQuickFileSymbolParser(t *testing.T) {
 				t.Fatalf("got (%q, %q, %v)", file, symbol, ok)
 			}
 		})
+	}
+}
+
+func TestQuickFileSymbolTargetCache(t *testing.T) {
+	h := newHarness(t, writeTree(t, map[string]string{"pkg/util.go": "package pkg\n", "other/util.go": "package other\n"}))
+	h.a.quick.files = []string{"pkg/util.go"}
+	h.a.openQuickPanel("util@")
+	h.tt.Frame()
+	first := h.a.quick.targetFiles
+	for _, query := range []string{"util@H", "util@Help", "util@"} {
+		h.a.quick.query = query
+		h.tt.Frame()
+		if &h.a.quick.targetFiles[0] != &first[0] || h.a.quick.targetPath != filepath.Join(h.a.root, "pkg/util.go") {
+			t.Fatal("symbol filtering changed the cached target")
+		}
+	}
+	h.a.quick.files = []string{"other/util.go"}
+	h.tt.Frame()
+	if h.a.quick.targetPath != filepath.Join(h.a.root, "other/util.go") {
+		t.Fatal("replacing the file list did not invalidate the target")
+	}
+	h.a.quick.query = "absent@"
+	h.tt.Frame()
+	if h.a.quick.targetPath != "" {
+		t.Fatal("changing the file query did not invalidate the target")
 	}
 }
 
@@ -83,7 +108,7 @@ func TestQuickFileSymbolUnopenedGoFile(t *testing.T) {
 	if h.a.quick.open || h.a.activeEditor().CursorPos().Line != 2 {
 		t.Fatal("did not navigate to Help")
 	}
-	h.a.openQuickPanel("node_modules/@types/x")
+	h.a.openQuickPanel("node_modules/@types")
 	h.tt.Frame()
 	if _, _, ok := splitQuickFileSymbol(h.a.quick.query); ok || len(h.a.quick.symbols) != 0 {
 		t.Fatal("scoped package path entered symbol mode")
