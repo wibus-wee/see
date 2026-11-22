@@ -46,7 +46,7 @@ type settingsPane struct {
 
 var settingsPanes = []settingsPane{
 	{"general", "General", icGear, ui.RGB(0x8e, 0x8e, 0x93), 0, "appearance light dark system theme reopen launch recent folders shell command install uninstall path cli"},
-	{"editor", "Editor", icLines, ui.RGB(0x0a, 0x84, 0xff), 0, "font size line numbers relative soft wrap minimap"},
+	{"editor", "Editor", icLines, ui.RGB(0x0a, 0x84, 0xff), 0, "font size line numbers relative soft wrap minimap page guide column 页面参考线"},
 	{"terminal", "Terminal", icPrompt, ui.RGB(0x2c, 0x2c, 0x2e), 0, "shell font size copy on select panel external ghostty rex seedmux"},
 	{"notifications", "Notifications", icPrompt, ui.RGB(0xff, 0x95, 0x00), 1, "notify waiting done failed sound dock badge bounce"},
 	{"intelligence", "Code Intelligence", icSparkle, ui.RGB(0xaf, 0x52, 0xde), 1, "gopls tsrs typescript javascript language server go to definition hover trusted folders trust"},
@@ -653,6 +653,43 @@ func (a *App) editorPane(c *ui.Context) {
 	s := &a.settings
 	a.initFontValues()
 	s.lineNumbers = a.cfg.LineNumbers
+	heading(c, locales.EditorDisplay())
+	card(c,
+		func() {
+			labeled(c, locales.MsgLineNumbers(), locales.MsgRelativeNumbersCountFromTheCaretSLine())
+			if ui.Segmented(c, &s.lineNumbers, "On", locales.MsgRelative(), locales.MsgOff()).Label(locales.MsgLineNumbers()).Changed() {
+				a.cfg.LineNumbers = s.lineNumbers
+				a.applyEditorPrefsAll()
+				a.settingsChanged()
+			}
+		},
+		func() {
+			labeled(c, locales.MsgWrapLines(), locales.MsgLongLinesWrapAtTheEditorSWidth())
+			if ui.Switch(c, &a.cfg.SoftWrap).Label(locales.MsgWrapLines()).Changed() {
+				a.applyEditorPrefsAll()
+				a.settingsChanged()
+			}
+		},
+		func() {
+			labeled(c, locales.ShowInvisibles(), locales.ShowInvisiblesDescription())
+			if ui.Switch(c, &a.cfg.ShowInvisibles).Label(locales.ShowInvisibles()).Changed() {
+				a.applyEditorPrefsAll()
+				a.settingsChanged()
+			}
+		},
+		func() {
+			labeled(c, locales.PageGuide(), locales.PageGuideDescription())
+			column := float64(a.cfg.PageGuideColumn())
+			if ui.NumberInput(c, &column, 1, config.MaxPageGuideColumn, 1).
+				Label(locales.PageGuideColumn()).Width(104).Disabled(!a.cfg.EditorShowPageGuide).Changed() {
+				a.cfg.EditorPageGuide = int(column)
+				a.settingsChanged()
+			}
+			if ui.Switch(c, &a.cfg.EditorShowPageGuide).Label(locales.ShowPageGuide()).Changed() {
+				a.settingsChanged()
+			}
+		},
+	)
 	heading(c, locales.MsgTypography())
 	a.fontPreview(c, false)
 	card(c,
@@ -718,28 +755,6 @@ func (a *App) editorPane(c *ui.Context) {
 					}
 				}
 				a.cfg.EditorFontFeatures = feats
-				a.applyEditorPrefsAll()
-				a.settingsChanged()
-			}
-		},
-		func() {
-			labeled(c, locales.MsgLineNumbers(), locales.MsgRelativeNumbersCountFromTheCaretSLine())
-			if ui.Segmented(c, &s.lineNumbers, "On", locales.MsgRelative(), locales.MsgOff()).Label(locales.MsgLineNumbers()).Changed() {
-				a.cfg.LineNumbers = s.lineNumbers
-				a.applyEditorPrefsAll()
-				a.settingsChanged()
-			}
-		},
-		func() {
-			labeled(c, locales.MsgWrapLines(), locales.MsgLongLinesWrapAtTheEditorSWidth())
-			if ui.Switch(c, &a.cfg.SoftWrap).Label(locales.MsgWrapLines()).Changed() {
-				a.applyEditorPrefsAll()
-				a.settingsChanged()
-			}
-		},
-		func() {
-			labeled(c, locales.ShowInvisibles(), locales.ShowInvisiblesDescription())
-			if ui.Switch(c, &a.cfg.ShowInvisibles).Label(locales.ShowInvisibles()).Changed() {
 				a.applyEditorPrefsAll()
 				a.settingsChanged()
 			}

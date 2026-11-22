@@ -368,6 +368,10 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 		gutterMarks := st.GutterMarks
 		st.GutterMarks = a.bookmarkGutterMarks(d.path)
 		st.OnGutterClick = func(line int) { a.bookmarks.Toggle(d.path, line); a.saveConfigSoon() }
+		st.WrapGuides = st.WrapGuides[:0]
+		if a.cfg.EditorShowPageGuide {
+			st.WrapGuides = append(st.WrapGuides, a.cfg.PageGuideColumn())
+		}
 		var ed ui.Element
 		minimap := a.showsMinimap(g, d)
 		ui.Row(c).Grow(1).FillWidth().Children(func() {
