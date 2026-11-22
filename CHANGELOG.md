@@ -2,18 +2,35 @@
 
 User-facing changes are grouped by release. Earlier releases are documented on the [Releases page](https://github.com/wibus-wee/see/releases).
 
-## Unreleased
+## 0.3.5
 
 ### Added
 
+- Reveal the active file in Project Navigator from the keyboard, command palette, or tab menu; the command opens Files, clears its filter, expands the file's folders, and selects it.
+- Show whitespace characters in the editor and highlight occurrences of the symbol under the caret, with a stronger tint for writes when the language server distinguishes them.
+- Maximize the focused editor in split layouts, change editor font size with commands, and move to the next or previous method.
+- Keep enclosing declarations pinned while scrolling and configure an editor page guide.
 - Read documentation comments inline with code, emphasis, links, and parameter labels. Move the caret into a comment to edit its source, or disable Render Doc Comments in Editor settings or with Toggle Reader Mode.
 - Browse Type Hierarchy with expandable Supertypes and Subtypes trees, code previews, and navigation for language servers that support it.
+- Save Find navigator queries, edit workspace search results in place, and open file symbols from Open Quickly with `file@symbol`.
+- View workspace diagnostics in the Problems navigator.
+- Navigate repositories and use commit actions in the Git navigator; stage or unstage selected hunks and lines, and discard a change from its preview.
+- Compare files against past commits in Code Review and ignore whitespace in diffs.
+- Resolve merge conflicts in See's native conflict editor.
+- Create and browse Git stashes, then apply or drop them, including stashes with staged, unstaged, and untracked changes.
+
+### Changed
+
+- Improve file search and editor scrolling in large workspaces.
+
+### Fixed
+
+- Fix first-run issues involving F12 navigation, unsaved-file close prompts, cloning, trust handling, and command-palette use with split editors.
 
 ## 0.3.4
 
 ### Added
 
-- Highlight occurrences of the symbol under the caret in the current file, with a stronger tint for writes when the language server distinguishes them. Turn this off in Editor settings.
 - Test regular expressions in an inline playground with sample text, match and capture inspection, and a railroad diagram. The playground uses Go / RE2 and reports unsupported JavaScript flags and features without changing source code.
 - Preview hex, RGB(A), and HSL(A) color literals with inline swatches; click a swatch to compare the color against light and dark backgrounds.
 - Browse local file history in a diff tab and restore selected changed lines with click and Shift-click. Recovery preserves other edits, does not save automatically, and can be undone in the source editor.
