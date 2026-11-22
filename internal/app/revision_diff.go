@@ -46,6 +46,10 @@ func (a *App) showRevision(g *group, d *doc, hash string) {
 	a.loadRevision(v, hash)
 }
 
+func (a *App) compareInspectorRevision(hash string) {
+	a.showRevision(a.focus, a.inspectorFileDoc(), hash)
+}
+
 func (a *App) hasRevision(v *gitDiffTab) bool {
 	for _, g := range a.groups() {
 		if g.diffs[revisionPrefix+v.revision.path] == v {
@@ -177,23 +181,7 @@ func (a *App) revisionContent(c *ui.Context, g *group, v *gitDiffTab) {
 				ui.Box(c).Grow(1)
 			}
 		}
-		ui.Row(c).FillWidth().Height(30).Padding(0, 8).Gap(2).AlignItems(ui.Center).Children(func() {
-			for i := len(r.commits) - 1; i >= 0; i-- {
-				cm := r.commits[i]
-				b := ui.ButtonBase(c.Key(cm.Hash)).Label(revisionLabel(cm)).Tooltip(revisionLabel(cm)).Grow(1).Basis(0).MinWidth(3).Height(22)
-				b.Children(func() {
-					color := p.Dim
-					if i == r.selected {
-						color = c.Theme().Accent
-					}
-					ui.Box(c).Width(3).Height(14).Background(color)
-				})
-				if b.Clicked() {
-					a.selectRevision(v, i)
-				}
-			}
-			ui.Text(c, "● "+localHistoryText("localHistoryWorkingTree")).FontSize(10).TextColor(p.Muted).SingleLine()
-		})
+		a.revisionTimeline(c, v)
 		ui.Row(c).FillWidth().Height(30).Padding(0, 8).Gap(6).AlignItems(ui.Center).BorderWidth(1, 0, 0, 0).BorderColor(p.Separator).Children(func() {
 			label := localHistoryText("revisionChoose")
 			if r.selected >= 0 && r.selected < len(r.commits) {
@@ -227,6 +215,45 @@ func (a *App) revisionContent(c *ui.Context, g *group, v *gitDiffTab) {
 			if ui.Button(c, localHistoryText("localHistoryRefresh")).Disabled(r.loading).Clicked() {
 				a.refreshRevision(v)
 			}
+		})
+	})
+}
+
+func (a *App) revisionTimeline(c *ui.Context, v *gitDiffTab) {
+	r, palette := v.revision, colors(c)
+	ui.Box(c).FillWidth().Height(32).Children(func() {
+		ui.Box(c).Absolute().Left(10).Right(78).Top(16).Height(1).Background(palette.Dim)
+		ui.Row(c).Absolute().Left(8).Right(8).Top(0).Bottom(0).Gap(0).Children(func() {
+			for i := len(r.commits) - 1; i >= 0; i-- {
+				cm, index := r.commits[i], i
+				b := ui.ButtonBase(c.Key(struct {
+					hash string
+				}{cm.Hash})).Grow(1).Basis(0).Height(32).Padding(0).Radius(3).KeepFocus().
+					Tooltip(revisionLabel(cm))
+				hovered := b.Hovered()
+				if hovered {
+					b.Background(palette.Pill)
+				}
+				b.Children(func() {
+					height := float32(10)
+					color := palette.Dim
+					if index == r.selected {
+						height, color = 18, c.Theme().Accent
+					} else if hovered {
+						height, color = 14, palette.Text
+					}
+					ui.Box(c).Width(3).Height(height).Radius(2).Background(color)
+				})
+				if b.Clicked() {
+					a.selectRevision(v, index)
+				}
+			}
+			working := ui.Row(c).Width(70).Height(32).Gap(4).AlignItems(ui.Center).Justify(ui.End).
+				Tooltip(localHistoryText("localHistoryWorkingTree"))
+			working.Children(func() {
+				ui.Box(c).Width(3).Height(16).Radius(2).Background(palette.Muted)
+				ui.Text(c, localHistoryText("localHistoryWorkingTree")).FontSize(9).TextColor(palette.Muted).SingleLine()
+			})
 		})
 	})
 }

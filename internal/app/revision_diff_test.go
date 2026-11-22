@@ -31,10 +31,11 @@ func TestRevisionComparison(t *testing.T) {
 		t.Fatalf("renamed revision: %v", v.revision.err)
 	}
 	hash := v.revision.commits[1].Hash
-	h.a.showRevision(h.a.focus, d, hash)
+	h.a.activateIn(h.a.focus, d.path)
+	h.a.compareInspectorRevision(hash)
 	h.settle(func() bool { return !v.revision.loading })
-	if v.revision.selected != 1 {
-		t.Fatal("explicit inspector revision not selected")
+	if got := h.a.focus.diffs[revisionPrefix+d.path]; got == nil || got.revision.selected != 1 {
+		t.Fatal("inspector compare action did not select the requested revision")
 	}
 	d.buf.Edit(editor.Edit{Start: 0, End: 0, Text: "refresh\n"})
 	h.a.refreshRevision(v)

@@ -358,8 +358,14 @@ func (a *App) inspectorHistoryPage(c *ui.Context) {
 									ui.Text(c, a.commitByline(cm)+" · "+cm.Short).FontSize(11).
 										TextColor(colors(c).Muted).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 								})
-								if ui.Button(c, "⇄").Tooltip(commandLabel("Compare with Revision…")).Clicked() {
-									a.showRevision(a.focus, a.inspectorFileDoc(), cm.Hash)
+								compare := ui.ButtonBase(c).Size(22, 22).Padding(0).Radius(4).Center().KeepFocus().
+									Tooltip(commandLabel("Compare with Revision…"))
+								if compare.Hovered() {
+									compare.Background(colors(c).Pill)
+								}
+								compare.Children(func() { symbolIcon(c, icReplaceMatch, 12, colors(c).Muted) })
+								if compare.Clicked() {
+									a.compareInspectorRevision(cm.Hash)
 								}
 							})
 						})

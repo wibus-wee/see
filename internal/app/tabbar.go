@@ -141,7 +141,7 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 				if isMarkdownTab(p) {
 					nameLabel += " Preview"
 				}
-				if diff != nil && !diff.page() {
+				if diff != nil && !diff.page() && diff.revision == nil {
 					nameLabel += " (" + diff.label() + ")"
 				}
 				cl := ui.ButtonBase(c).Label(locales.MsgClose()+nameLabel).Size(16, 16).Radius(4).Center().KeepFocus()
