@@ -94,6 +94,20 @@ func (a *App) settingsGo(pane string) {
 	s.pane = pane
 }
 
+func (a *App) changeEditorFontSize(delta float64) {
+	a.setEditorFontSize(a.cfg.EditorFontSize() + delta)
+}
+
+func (a *App) setEditorFontSize(size float64) {
+	size = min(max(size, 9), 28)
+	if size == a.cfg.EditorFontSize() {
+		return
+	}
+	a.cfg.FontSize = size
+	a.applyEditorPrefsAll()
+	a.settingsChanged()
+}
+
 // changed tells the main window that a setting changed what it shows.
 func (a *App) settingsChanged() {
 	a.saveConfig()

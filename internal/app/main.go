@@ -411,6 +411,7 @@ func Main() {
 				}}}}},
 				{Label: locales.View(), Submenu: append(append([]*mygo.MenuItem{
 					{Label: locales.CommandPalette(), Click: func(*mygo.MenuItem, *mygo.Window) { currentWin.Update(currentApp.openPalette) }},
+					{Label: locales.EditorFontSize(), Submenu: currentApp.editorFontSizeMenu(currentWin.Update)},
 				}, currentApp.navigationMenuItems(currentWin.Update)...), []*mygo.MenuItem{
 					{Label: locales.Appearance(), Submenu: appearanceMenu(currentApp)},
 					{Label: locales.Folding(), Submenu: currentApp.foldingMenu(currentWin.Update)},

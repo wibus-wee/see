@@ -8,6 +8,9 @@ import (
 )
 
 var commandMessages = map[string]string{
+	"Bigger":                        "commandBigger",
+	"Smaller":                       "commandSmaller",
+	"Reset Editor Font Size":        "commandResetEditorFontSize",
 	"Fold":                          "commandFold",
 	"Unfold":                        "commandUnfold",
 	"Toggle Fold":                   "commandToggleFold",

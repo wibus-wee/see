@@ -34,6 +34,46 @@ type Messages struct{ locale string }
 // source language.
 func In(locale string) Messages { return Messages{locale} }
 
+// CommandBigger says "Bigger"
+// in the language the app shows.
+func CommandBigger() string { return In(i18n.Locale()).CommandBigger() }
+
+// CommandBigger says "Bigger"
+// in the language of msgs.
+func (msgs Messages) CommandBigger() string {
+	return Catalog.Format(msgs.locale, "commandBigger", nil)
+}
+
+// CommandSmaller says "Smaller"
+// in the language the app shows.
+func CommandSmaller() string { return In(i18n.Locale()).CommandSmaller() }
+
+// CommandSmaller says "Smaller"
+// in the language of msgs.
+func (msgs Messages) CommandSmaller() string {
+	return Catalog.Format(msgs.locale, "commandSmaller", nil)
+}
+
+// CommandResetEditorFontSize says "Reset Editor Font Size"
+// in the language the app shows.
+func CommandResetEditorFontSize() string { return In(i18n.Locale()).CommandResetEditorFontSize() }
+
+// CommandResetEditorFontSize says "Reset Editor Font Size"
+// in the language of msgs.
+func (msgs Messages) CommandResetEditorFontSize() string {
+	return Catalog.Format(msgs.locale, "commandResetEditorFontSize", nil)
+}
+
+// EditorFontSize says "Editor Font Size"
+// in the language the app shows.
+func EditorFontSize() string { return In(i18n.Locale()).EditorFontSize() }
+
+// EditorFontSize says "Editor Font Size"
+// in the language of msgs.
+func (msgs Messages) EditorFontSize() string {
+	return Catalog.Format(msgs.locale, "editorFontSize", nil)
+}
+
 // RelativeJustNow says "Just now"
 // in the language the app shows.
 func RelativeJustNow() string { return In(i18n.Locale()).RelativeJustNow() }

@@ -17,6 +17,11 @@ func editorBindings() []editor.Binding {
 		return editor.Binding{Mods: m, Key: k, Command: editor.NoCommand}
 	}
 	bs := []editor.Binding{
+		none(ui.Cmd, ui.KeyEqual),
+		none(ui.Cmd|ui.Shift, ui.KeyEqual),
+		none(ui.Cmd, ui.KeyMinus),
+		none(ui.Ctrl|ui.Alt, ui.KeyMinus),
+		none(ui.Ctrl|ui.Alt|ui.Shift, ui.KeyMinus),
 		none(ui.Cmd|ui.Shift, ui.KeyM),
 		none(ui.Alt|ui.Cmd, ui.KeyO),
 		none(ui.Cmd|ui.Shift, ui.KeyB),
@@ -175,6 +180,8 @@ func (a *App) shortcuts(c *ui.Context) {
 	// the key (Alt+Left moves by words there, Control+- undoes).
 	inTerm := a.term.open && a.term.focused
 	switch {
+	case c.Shortcut(ui.Cmd|ui.Shift, ui.KeyEqual):
+		a.changeEditorFontSize(1)
 	case c.Shortcut(ui.Cmd|ui.Shift, ui.Key1):
 		a.showWelcome = true
 	case c.Shortcut(ui.Cmd, ui.KeyP):

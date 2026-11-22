@@ -1,4 +1,8 @@
 {
+  "commandBigger": "增大字号",
+  "commandSmaller": "减小字号",
+  "commandResetEditorFontSize": "重置编辑器字号",
+  "editorFontSize": "编辑器字号",
   "relativeJustNow": "刚刚",
   "relativeMinutesAgo": "%d 分钟前",
   "relativeHoursAgo": "%d 小时前",

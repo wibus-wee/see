@@ -1,4 +1,8 @@
 {
+  "commandBigger": "Bigger",
+  "commandSmaller": "Smaller",
+  "commandResetEditorFontSize": "Reset Editor Font Size",
+  "editorFontSize": "Editor Font Size",
   "relativeJustNow": "Just now",
   "relativeMinutesAgo": "%d min ago",
   "relativeHoursAgo": "%d hr ago",
