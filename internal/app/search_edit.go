@@ -344,6 +344,9 @@ func (a *App) saveSearchEdit(v *searchEditView) {
 	if saved > 0 {
 		a.invalidateHover()
 		a.refreshGit()
+		if a.find.ran == v.opts {
+			a.runFind()
+		}
 	}
 }
 

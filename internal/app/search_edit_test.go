@@ -73,7 +73,7 @@ func TestSearchResultsEditInPlaceAndSaveEachFile(t *testing.T) {
 	}
 	excerpt("a.txt").st.Buffer.Set("one\nsprout a\nadded\ntwo")
 	excerpt("b.txt").st.Buffer.Set("sprout b")
-	writeFindTestFile(t, filepath.Join(root, "c.txt"), "changed\n")
+	writeFindTestFile(t, filepath.Join(root, "c.txt"), "seed changed\n")
 	excerpt("c.txt").st.Buffer.Set("sprout c")
 	h.tt.Frame()
 	if !v.search.dirty() {
@@ -91,11 +91,15 @@ func TestSearchResultsEditInPlaceAndSaveEachFile(t *testing.T) {
 	if got := readFindTestFile(t, filepath.Join(root, "b.txt")); got != "sprout b\n" {
 		t.Fatalf("closed file = %q", got)
 	}
-	if got := readFindTestFile(t, filepath.Join(root, "c.txt")); got != "changed\n" {
+	if got := readFindTestFile(t, filepath.Join(root, "c.txt")); got != "seed changed\n" {
 		t.Fatalf("file changed on disk was overwritten: %q", got)
 	}
 	if !strings.Contains(v.search.note, "Saved 2 files.") || !v.search.noteErr {
 		t.Fatalf("note = %q, err=%v", v.search.note, v.search.noteErr)
+	}
+	h.settle(func() bool { return !h.a.find.running && h.a.find.stats.Matches == 1 })
+	if r := h.a.find.results; len(r) != 1 || filepath.Base(r[0].Path) != "c.txt" {
+		t.Fatalf("navigator results were not refreshed from disk: %+v", r)
 	}
 	if !excerpt("c.txt").st.Buffer.Modified() || excerpt("b.txt").st.Buffer.Modified() {
 		t.Fatal("only the unsaved file should stay edited")
