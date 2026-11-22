@@ -47,6 +47,7 @@ func (a *App) quickOpenPanel(c *ui.Context) {
 						q.list.ScrollTo(q.sel, ui.Center)
 					}
 				})
+				a.rankQuick()
 				commandMode := strings.HasPrefix(q.query, ">")
 				_, _, targeted := splitQuickFileSymbol(q.query)
 				fileSymbolMode := strings.HasPrefix(q.query, "@") || targeted
