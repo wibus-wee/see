@@ -694,6 +694,7 @@
   "commandGitPush": "Git: Push",
   "commandGitSwitchBranch": "Git: Switch Branch…",
   "commandFilterFiles": "Filter Files",
+  "commandRevealInProjectNavigator": "Reveal in Project Navigator",
   "commandShowOrHideTheNavigator": "Show or Hide the Navigator",
   "commandGoBack": "Go Back",
   "commandGoForward": "Go Forward",

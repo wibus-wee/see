@@ -694,6 +694,7 @@
   "commandGitPush": "Git：推送",
   "commandGitSwitchBranch": "Git：切换分支…",
   "commandFilterFiles": "筛选文件",
+  "commandRevealInProjectNavigator": "在项目导航器中显示",
   "commandShowOrHideTheNavigator": "显示或隐藏导航器",
   "commandGoBack": "后退",
   "commandGoForward": "前进",

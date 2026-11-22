@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"see/locales"
+	"slices"
 	"strings"
 	"time"
 
@@ -236,7 +237,42 @@ func (a *App) retryFiles() {
 // stand in from the sidebar's edges, as AppKit's on macOS 26 and later.
 const sidebarInset = 10
 
+func (a *App) activeProjectFile() string {
+	if a.focus == nil {
+		return ""
+	}
+	return a.tabFile(a.focus, a.focus.active)
+}
+
+func (a *App) canRevealInProjectNavigator(path string) bool {
+	if a.root == "" || path == "" || path == a.root || !workspace.Within(a.root, path) || a.hiddenPath(path) {
+		return false
+	}
+	d := a.docs[path]
+	return d == nil || (!d.untitled && !d.gone)
+}
+
+func (a *App) revealInProjectNavigator(path string) {
+	if !a.canRevealInProjectNavigator(path) {
+		return
+	}
+	a.sidebarOff, a.navigator = false, navFiles
+	a.filter.query, a.filter.focus, a.filter.toList = "", false, false
+	a.syncFilter()
+	a.revealInTree(path)
+}
+
 func (a *App) fileTree(c *ui.Context, roots []string) {
+	if a.reveal != "" && !a.filtering() {
+		if d := a.dirs[filepath.Dir(a.reveal)]; d != nil {
+			for parent, children := range d.nested {
+				if slices.Contains(children, a.reveal) {
+					a.tree.Open.Add(parent)
+					break
+				}
+			}
+		}
+	}
 	a.tree.Indent = 12
 	tree := ui.Outline(c, &a.tree, roots, a.children, func(p string) { a.treeItem(c, p) }).Grow(1).FillWidth().Padding(0, sidebarInset).Label(locales.Files())
 	a.tree.List.Handle.OnShortcut(c, ui.Cmd, ui.KeyC, func() {
@@ -251,7 +287,7 @@ func (a *App) fileTree(c *ui.Context, roots []string) {
 	if a.reveal != "" {
 		for i := range a.tree.Rows() {
 			if a.tree.Item(i) == a.reveal {
-				a.treeRow = i
+				a.tree.List.Choose(i)
 				a.tree.List.ScrollTo(i, ui.Center)
 				a.reveal = ""
 				break

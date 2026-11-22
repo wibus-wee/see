@@ -9,8 +9,6 @@ import (
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
-
-	"see/internal/workspace"
 )
 
 // tabFileMenu adds to a file tab's context menu the items the
@@ -22,8 +20,8 @@ func (a *App) tabFileMenu(c *ui.Context, m *ui.Menu, tab string, d *doc, diff *g
 	}
 	path := tabPath(tab)
 	services := c.Services()
-	if m.Item("Reveal in Navigator").Disabled(!workspace.Within(a.root, path) || path == a.root).Chosen() {
-		a.revealInTree(path)
+	if m.Item(commandLabel("Reveal in Project Navigator")).Disabled(!a.canRevealInProjectNavigator(path)).Chosen() {
+		a.revealInProjectNavigator(path)
 	}
 	if m.Item("Show File History").Disabled(a.git.root == "").Chosen() {
 		a.showFileHistory(path)
