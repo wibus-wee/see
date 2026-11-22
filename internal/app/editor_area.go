@@ -310,6 +310,9 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 			a.markdownView(c, g, d)
 			return
 		}
+		if p := g.colorPreview; p != nil && (g != a.focus || g.active != d.path || p.path != d.path || d.buf == nil || p.version != d.buf.Version()) {
+			g.dismissColorPreview()
+		}
 		// Reserve the Git gutter even before a base is available. Comparing
 		// the buffer with itself gives an empty diff without moving line numbers.
 		base := st.DiffBase
@@ -322,6 +325,10 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 		a.syncFoldingRanges(d, st)
 		a.linkBackgrounds(st, d)
 		st.SetInlays(a.editorInlays(d, st))
+		if g.colorPreview != nil {
+			g.colorPreview.seen = false
+		}
+		st.SetReplacements(a.colorReplacements(g, d, st))
 		backgrounds := st.LineBackgrounds
 		st.LineBackgrounds = a.diagnosticLineBackgrounds(d, st)
 		st.LineBackgrounds = append(st.LineBackgrounds, bookmarkLineBackgrounds(a.bookmarkedLines(d.path), st.Theme)...)
@@ -345,6 +352,9 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 				})
 			}
 		})
+		if p := g.colorPreview; p != nil && p.path == d.path && p.open && !p.seen {
+			g.dismissColorPreview()
+		}
 		st.LineBackgrounds = backgrounds
 		st.GutterMarks = gutterMarks
 		st.OnGutterClick = nil
@@ -433,6 +443,9 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 		}
 		origin := ui.Point{X: bounds.X, Y: bounds.Y}
 		st.OnInput = func(ev ui.InputEvent) bool {
+			if g.colorPreview != nil && (ev.Kind == ui.InputScroll || ev.Kind == ui.InputZoom) {
+				g.dismissColorPreview()
+			}
 			if a.changeBarInput(g, d, st, origin, ev) {
 				return true
 			}
