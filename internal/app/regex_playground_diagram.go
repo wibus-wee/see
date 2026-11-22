@@ -244,7 +244,7 @@ func layoutAlternate(layout *regexRailLayout) {
 		}
 		totalHeight += child.height
 	}
-	layout.width, layout.height = maxWidth+64, totalHeight
+	layout.width, layout.height = maxWidth+96, totalHeight
 	y := float32(0)
 	for _, child := range layout.children {
 		layout.positions = append(layout.positions, regexRailPoint{x: 32, y: y})
@@ -301,12 +301,15 @@ func drawRegexRailNode(paint *ui.Painter, layout regexRailLayout, x, y, scale fl
 			return
 		}
 		left, right := x+12*scale, x+width-12*scale
+		exitLane := x + width - 48*scale
 		for i, child := range layout.children {
 			pos := layout.positions[i]
 			branchY := y + (pos.y+child.height/2)*scale
 			drawRailCurve(paint, left, mid, x+pos.x*scale, branchY, scale, lineColor, false)
 			drawRegexRailNode(paint, child, x+pos.x*scale, y+pos.y*scale, scale, lineColor, textColor, mutedColor, surfaceColor)
-			drawRailCurve(paint, x+(pos.x+child.width)*scale, branchY, right, mid, scale, lineColor, true)
+			childRight := x + (pos.x+child.width)*scale
+			drawRailStraight(paint, childRight, branchY, exitLane, branchY, 1.8*scale, lineColor)
+			drawRailConnection(paint, exitLane, branchY, right, mid, scale, lineColor, true)
 		}
 		drawRailStraight(paint, x, mid, left, mid, 1.8*scale, lineColor)
 		drawRailStraight(paint, right, mid, x+width, mid, 1.8*scale, lineColor)
