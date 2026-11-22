@@ -198,7 +198,7 @@ func (a *App) diffJumpBar(c *ui.Context, g *group) {
 		if v.search != nil {
 			symbolIcon(c, icSearch, 12, colors(c).Muted)
 			ui.Text(c, "“"+v.search.opts.Query+"”").FontSize(12).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
-			ui.Text(c, searchEditCount("searchEditSummary", v.search.matchCount(), len(v.search.files))).FontSize(12).TextColor(colors(c).Muted).SingleLine()
+			ui.Text(c, v.search.summary()).FontSize(12).TextColor(colors(c).Muted).SingleLine()
 			label = ""
 		} else if v.branch != nil {
 			symbolIcon(c, icGit, 12, colors(c).Muted)

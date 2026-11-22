@@ -101,6 +101,9 @@ func TestSearchResultsEditInPlaceAndSaveEachFile(t *testing.T) {
 	if r := h.a.find.results; len(r) != 1 || filepath.Base(r[0].Path) != "c.txt" {
 		t.Fatalf("navigator results were not refreshed from disk: %+v", r)
 	}
+	if got := v.search.summary(); got != "0 matches in 0 files" {
+		t.Fatalf("summary counts the results as first read: %q", got)
+	}
 	if !excerpt("c.txt").st.Buffer.Modified() || excerpt("b.txt").st.Buffer.Modified() {
 		t.Fatal("only the unsaved file should stay edited")
 	}

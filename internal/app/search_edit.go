@@ -430,7 +430,7 @@ func (a *App) searchEditContent(c *ui.Context, g *group, v *searchEditView) {
 		ui.Column(c).FillWidth().Children(func() {
 			for _, f := range v.files {
 				ui.Column(c.Key(f)).FillWidth().Children(func() {
-					a.searchEditHeader(c, g, f)
+					a.searchEditHeader(c, g, v, f)
 					if f.err != nil {
 						ui.Text(c, describeErr(f.err)).FontSize(12).TextColor(colors(c).Err).Padding(4, 10)
 						return
@@ -450,7 +450,7 @@ func (a *App) searchEditContent(c *ui.Context, g *group, v *searchEditView) {
 	})
 }
 
-func (a *App) searchEditHeader(c *ui.Context, g *group, f *searchEditFile) {
+func (a *App) searchEditHeader(c *ui.Context, g *group, v *searchEditView, f *searchEditFile) {
 	header := ui.Row(c).FillWidth().Height(26).Padding(0, 10).Gap(6).AlignItems(ui.Center).
 		Background(colors(c).TabBar).BorderWidth(1, 0, 1, 0).BorderColor(colors(c).Hairline).
 		Cursor(ui.CursorPointer).Label(f.path).Tooltip(searchEditText("searchEditOpenFile"))
@@ -472,7 +472,9 @@ func (a *App) searchEditHeader(c *ui.Context, g *group, f *searchEditFile) {
 			ui.Text(c, "●").FontSize(10).TextColor(c.Theme().Accent).Tooltip(searchEditText("searchEditEdited"))
 		}
 		ui.Box(c).Grow(1)
-		ui.Text(c, fmt.Sprint(f.matches)).FontSize(11).TextColor(colors(c).Muted).Padding(0, 6).Radius(8).Background(colors(c).Pill)
+		if n := v.fileMatches(f); n > 0 {
+			ui.Text(c, fmt.Sprint(n)).FontSize(11).TextColor(colors(c).Muted).Padding(0, 6).Radius(8).Background(colors(c).Pill)
+		}
 	})
 }
 
@@ -563,10 +565,31 @@ func (a *App) searchEditStatusBar(c *ui.Context, g *group, v *searchEditView) {
 	})
 }
 
-func (v *searchEditView) matchCount() int {
+func (v *searchEditView) summary() string {
+	matches, files := v.matchCount()
+	return searchEditCount("searchEditSummary", matches, files)
+}
+
+// fileMatches counts the query in a file's excerpts as they read now.
+func (v *searchEditView) fileMatches(f *searchEditFile) int {
+	if v.matcher == nil {
+		return f.matches
+	}
 	n := 0
-	for _, f := range v.files {
-		n += f.matches
+	for _, x := range f.excerpts {
+		n += len(v.matcher.FindAllStringIndex(x.st.Buffer.String(), -1))
 	}
 	return n
+}
+
+// matchCount counts the matches, and the files with any, as the
+// excerpts read now.
+func (v *searchEditView) matchCount() (matches, files int) {
+	for _, f := range v.files {
+		if n := v.fileMatches(f); n > 0 {
+			matches += n
+			files++
+		}
+	}
+	return matches, files
 }
