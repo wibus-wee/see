@@ -28,6 +28,7 @@ type gitState struct {
 	decor                  map[string]byte
 	err                    string
 	loading, pending, busy bool
+	merging                bool
 	diffSeq                uint64
 	resolvingPath          string
 	peek                   *gitPeek
@@ -268,6 +269,7 @@ func (a *App) refreshGit() {
 				a.git.refs = s.Refs
 			}
 			a.git.root, a.git.branch, a.git.changes, a.git.head = s.Root, s.Branch, s.Changes, s.Head
+			a.git.merging = s.Merging
 			a.git.branchFingerprint = branchFingerprint
 			a.git.pruneSelection()
 			a.git.upstream, a.git.ahead, a.git.behind = s.Upstream, s.Ahead, s.Behind
@@ -1109,14 +1111,14 @@ func (a *App) lineCounts(c *ui.Context, path string, staged bool) {
 // project navigator's filter: a commit message, Return commits what is
 // staged, and its button at the end does the same.
 func (a *App) commitBar(c *ui.Context, staged int, conflicted bool) {
-	can := !a.git.busy && !conflicted && staged > 0 && strings.TrimSpace(a.git.message) != ""
+	can := !a.git.busy && !conflicted && (staged > 0 || a.git.merging) && strings.TrimSpace(a.git.message) != ""
 	commit := func() {
 		if can {
 			a.gitAction("commit", "-m", a.git.message)
 		}
 	}
 	placeholder := "Commit Message"
-	if staged == 0 {
+	if staged == 0 && !a.git.merging {
 		placeholder = "Stage changes to commit"
 	}
 	if conflicted {
@@ -1130,6 +1132,9 @@ func (a *App) commitBar(c *ui.Context, staged int, conflicted bool) {
 				commit()
 			}
 			tip := "Commit " + fmt.Sprint(staged) + " staged change" + plural(staged)
+			if a.git.merging {
+				tip = gitConflictText("gitCommitMerge")
+			}
 			b := ui.ButtonBase(c).Label(locales.MsgCommit()).Tooltip(tip).Size(22, 22).Radius(11).Center().Disabled(!can).KeepFocus()
 			color := colors(c).Dim
 			if can {

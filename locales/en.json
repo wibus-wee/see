@@ -122,6 +122,7 @@
   "gitConflictTab": "Merge Conflict",
   "gitResolveFile": "Resolve conflict in %s",
   "gitResolveBeforeCommit": "Resolve conflicts to commit",
+  "gitCommitMerge": "Commit Merge",
   "gitConflictReading": "Reading conflicts…",
   "gitConflictCurrent": "Current",
   "gitConflictIncoming": "Incoming",

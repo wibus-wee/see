@@ -115,3 +115,46 @@ func TestGitConflictResolverStagesEachChoice(t *testing.T) {
 		t.Fatalf("working file/editor not updated: disk %q, buffer %q, %v", work, doc.buf.String(), err)
 	}
 }
+
+func TestGitConflictKeepCurrentAllowsMergeCommitWithoutStagedChanges(t *testing.T) {
+	const name = "settings.go"
+	root := gitRepo(t, map[string]string{name: "base\n"})
+	gitRun(t, root, "switch", "-qc", "feature")
+	writeFile(t, root, name, "incoming\n")
+	gitRun(t, root, "commit", "-qam", "feature")
+	gitRun(t, root, "switch", "-q", "main")
+	writeFile(t, root, name, "current\n")
+	gitRun(t, root, "commit", "-qam", "main")
+	ctx := context.Background()
+	if _, err := git.Command(ctx, root, "merge", "feature"); err == nil {
+		t.Fatal("expected a conflict")
+	}
+	h := newHarness(t, root)
+	h.readGit()
+	h.a.navigator, h.a.git.historyClosed = navGit, true
+	h.a.git.message = "Merge feature"
+	h.tt.Frame()
+	click := func(label string) {
+		t.Helper()
+		if err := h.tt.Click(label); err != nil {
+			t.Fatal(err)
+		}
+	}
+	click("Resolve conflict in " + name)
+	h.settle(func() bool {
+		v := h.a.focus.diffs[h.a.focus.active]
+		return v != nil && v.conflict != nil && !v.conflict.loading
+	})
+	click("Keep Current")
+	click("Save & Stage")
+	h.settle(func() bool { return !h.a.git.busy && !h.a.git.loading })
+	if out, err := git.Command(ctx, root, "status", "--porcelain"); err != nil || len(out) != 0 {
+		t.Fatalf("expected a clean index and worktree, got %q, %v", out, err)
+	}
+	click("Commit")
+	h.settle(func() bool { return !h.a.git.busy && !h.a.git.loading })
+	parents, err := git.Command(ctx, root, "rev-list", "--parents", "-n", "1", "HEAD")
+	if err != nil || len(strings.Fields(string(parents))) != 3 {
+		t.Fatalf("expected a two-parent merge commit, got %q, %v", parents, err)
+	}
+}

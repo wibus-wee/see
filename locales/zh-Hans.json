@@ -122,6 +122,7 @@
   "gitConflictTab": "合并冲突",
   "gitResolveFile": "解决 %s 中的冲突",
   "gitResolveBeforeCommit": "解决冲突后提交",
+  "gitCommitMerge": "提交合并",
   "gitConflictReading": "正在读取冲突…",
   "gitConflictCurrent": "当前更改",
   "gitConflictIncoming": "传入更改",
