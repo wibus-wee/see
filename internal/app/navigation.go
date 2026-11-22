@@ -117,6 +117,8 @@ func (a *App) commandEnabled(name string) bool {
 	case "Find in Workspace", "Replace in Workspace", "Search Workspace Symbols",
 		"Filter Files", "Open Quickly", "Show Outline", "Show Group Files":
 		return a.root != ""
+	case "Edit Search Results":
+		return len(a.find.results) > 0 && !a.find.running
 	case "Reveal in Project Navigator":
 		return a.canRevealInProjectNavigator(a.activeProjectFile())
 	// Commands that only read or act on the repository.

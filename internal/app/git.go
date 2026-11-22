@@ -89,6 +89,7 @@ type gitDiffTab struct {
 	log          *gitLogView // the log, which shows in place of a diff
 	branch       *branchDiffView
 	localHistory *localHistoryView
+	search       *searchEditView
 	// What the tab shows, to read it again in the next session: the
 	// commit's full hash, a renamed file's old path, and whether the
 	// change is of a file git does not track.
@@ -117,7 +118,9 @@ func (v *gitDiffTab) label() string {
 
 // page reports whether the tab shows a commit or the log, not a file's
 // diff.
-func (v *gitDiffTab) page() bool { return v.commit != nil || v.log != nil || v.branch != nil }
+func (v *gitDiffTab) page() bool {
+	return v.commit != nil || v.log != nil || v.branch != nil || v.search != nil
+}
 
 // diffStates are the diffs the tab shows: its own, or the log's of the
 // commit chosen.

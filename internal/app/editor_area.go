@@ -108,6 +108,8 @@ func (a *App) groupView(c *ui.Context, g *group) {
 		a.dropArea(c, g, func() { a.groupContent(c, g) })
 		if v := g.diffs[g.active]; v != nil && v.branch != nil {
 			a.branchDiffStatusBar(c, g, v.branch)
+		} else if v != nil && v.search != nil {
+			a.searchEditStatusBar(c, g, v.search)
 		}
 		if st := g.eds[g.active]; st != nil {
 			pos := st.CursorPos()
@@ -213,6 +215,9 @@ func (a *App) dropTab(v *tabDrag, g *group, s side, at int) {
 func (a *App) groupContent(c *ui.Context, g *group) {
 	if v := g.diffs[g.active]; v != nil && v.commit != nil {
 		a.commitContent(c, g, v.commit)
+		return
+	} else if v != nil && v.search != nil {
+		a.searchEditContent(c, g, v.search)
 		return
 	} else if v != nil && v.branch != nil {
 		a.branchDiffContent(c, g, v.branch)

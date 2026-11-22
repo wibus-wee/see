@@ -81,6 +81,7 @@ func commandsFor(goos string) []command {
 			a.sidebarOff, a.navigator, a.git.historyClosed = false, navGit, false
 			a.refreshGit()
 		}},
+		{"Edit Search Results", "", "", 0, 0, func(a *App) { a.openSearchEdit() }},
 		{"Git: Show Log", "", "", 0, 0, func(a *App) { a.openGitLog() }},
 		{"Show File History", "", "", 0, 0, func(a *App) { a.showActiveFileHistory() }},
 		{"Show Local History", "", "", 0, 0, func(a *App) { a.showActiveLocalHistory() }},
