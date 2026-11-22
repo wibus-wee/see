@@ -225,6 +225,50 @@ func TestBranchPickerHoverKeepsRowBoundsStableWhilePreviewLoads(t *testing.T) {
 	}
 }
 
+func TestBranchPickerWideColumnsAlignAtTopAndFavorPreview(t *testing.T) {
+	root := gitRepo(t, map[string]string{"a.go": "package a\n"}, "feature")
+	h := newHarness(t, root)
+	h.tt = ui.NewTester(h.a.view, 1100, 700)
+	h.readGit()
+	openSwitchBranchPicker(t, h)
+
+	p := &h.a.git.picker
+	h.settle(func() bool {
+		return !p.previewLoading && (p.preview != nil || p.previewErr != "")
+	})
+	if p.previewErr != "" {
+		t.Fatal(p.previewErr)
+	}
+
+	branchList, ok := h.tt.AccessByRole(ui.RoleList, "Branches")
+	if !ok {
+		t.Fatal("branch list is not exposed to the UI tester")
+	}
+	var branchHeader ui.AccessInfo
+	var previewTitle ui.AccessInfo
+	for _, access := range h.tt.AccessAll() {
+		if access.Role == ui.RoleText && access.Name == "Branches" && access.Bounds.X >= branchList.Bounds.X && access.Bounds.X < branchList.Bounds.X+branchList.Bounds.W {
+			branchHeader = access
+		}
+		if access.Role == ui.RoleText && access.Name == p.previewBranch.Name && access.Bounds.X >= branchList.Bounds.X+branchList.Bounds.W {
+			previewTitle = access
+		}
+	}
+	if branchHeader.Name == "" {
+		t.Fatalf("visible branch list heading is not shown: %+v", h.tt.AccessAll())
+	}
+	if previewTitle.Name == "" {
+		t.Fatalf("preview title %q is not shown in the preview column: %+v", p.previewBranch.Name, h.tt.AccessAll())
+	}
+	branchHeaderTextY := branchHeader.Bounds.Y + 8
+	if branchHeaderTextY > previewTitle.Bounds.Y+2 || previewTitle.Bounds.Y > branchHeaderTextY+2 {
+		t.Fatalf("branch and preview headers are not top-aligned: branches %+v (text y %g), preview %+v, list %+v", branchHeader.Bounds, branchHeaderTextY, previewTitle.Bounds, branchList.Bounds)
+	}
+	if branchList.Bounds.W < 260 || branchList.Bounds.W > 300 {
+		t.Fatalf("branch list width = %g, want about 280 DIPs", branchList.Bounds.W)
+	}
+}
+
 func TestBranchPickerKeyboardSelectionWinsOverStationaryHover(t *testing.T) {
 	root := gitRepo(t, map[string]string{"a.go": "package a\n"}, "feature")
 	h := newHarness(t, root)

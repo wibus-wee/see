@@ -523,8 +523,8 @@ func (a *App) branchPickerPanel(c *ui.Context) {
 				a.branchPreviewPane(c).Height(previewHeight).MinHeight(0).FillWidth()
 			} else {
 				listHeight := min(float32(380), max(0, height-64))
-				ui.Row(c).FillWidth().Grow(1).MinHeight(0).Gap(8).Children(func() {
-					a.branchPickerList(c, items, listHeight).Grow(1).Width(350).FillHeight().MaxHeight(listHeight).MinHeight(0)
+				ui.Row(c).FillWidth().Grow(1).MinHeight(0).Gap(8).AlignItems(ui.Start).Children(func() {
+					a.branchPickerList(c, items, listHeight).Width(280).FillHeight().MaxHeight(listHeight).MinHeight(0)
 					ui.Box(c).Width(1).FillHeight().Background(colors(c).Separator)
 					a.branchPreviewPane(c).Grow(1).MinWidth(0).FillHeight().MinHeight(0)
 				})
