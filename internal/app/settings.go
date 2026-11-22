@@ -113,6 +113,10 @@ func (a *App) applyEditorPrefs(st *editor.State) {
 		st.Font.LineHeight = float32(a.cfg.EditorLineHeight)
 	}
 	st.SoftWrap = a.cfg.SoftWrap
+	st.Whitespace = editor.WhitespaceSelection
+	if a.cfg.ShowInvisibles {
+		st.Whitespace = editor.WhitespaceAll
+	}
 	st.LineNumbers = editor.LineNumbers(min(max(a.cfg.LineNumbers, 0), 2))
 	if a.cfg.EditorNoLigatures {
 		if st.Font.Features == "" {
@@ -712,6 +716,13 @@ func (a *App) editorPane(c *ui.Context) {
 		func() {
 			labeled(c, locales.MsgWrapLines(), locales.MsgLongLinesWrapAtTheEditorSWidth())
 			if ui.Switch(c, &a.cfg.SoftWrap).Label(locales.MsgWrapLines()).Changed() {
+				a.applyEditorPrefsAll()
+				a.settingsChanged()
+			}
+		},
+		func() {
+			labeled(c, locales.ShowInvisibles(), locales.ShowInvisiblesDescription())
+			if ui.Switch(c, &a.cfg.ShowInvisibles).Label(locales.ShowInvisibles()).Changed() {
 				a.applyEditorPrefsAll()
 				a.settingsChanged()
 			}
