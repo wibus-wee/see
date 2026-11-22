@@ -58,6 +58,7 @@ type Config struct {
 	ParameterHelp        string               `json:"parameterHelp,omitempty"` // "trigger" (default), "always", "off"
 	HideInlineBlame      bool                 `json:"hideInlineGitBlame,omitempty"`
 	HideTypeHints        bool                 `json:"hideTypeHints,omitempty"`
+	HideSymbolHighlights bool                 `json:"hideSymbolHighlights,omitempty"`
 	HideMinimap          bool                 `json:"hideEditorMinimap,omitempty"`
 	HideReadingPin       bool                 `json:"hideReadingPositionPin,omitempty"`
 	DiffUnified          bool                 `json:"diffUnified,omitempty"` // diffs inline rather than side by side

@@ -333,6 +333,10 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 		a.syncInlayHints(d, st)
 		a.syncDocumentLinks(d, st)
 		a.syncFoldingRanges(d, st)
+		textBackgrounds := st.TextBackgrounds
+		if s := &a.symbolHighlights; s.target.editor == st && len(s.backgrounds) > 0 {
+			st.TextBackgrounds = append(append([]editor.TextBackground(nil), s.backgrounds...), textBackgrounds...)
+		}
 		a.linkBackgrounds(st, d)
 		st.SetInlays(a.editorInlays(d, st))
 		if g.colorPreview != nil {
@@ -366,6 +370,7 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 			g.dismissColorPreview()
 		}
 		st.LineBackgrounds = backgrounds
+		st.TextBackgrounds = textBackgrounds
 		st.GutterMarks = gutterMarks
 		st.OnGutterClick = nil
 		if row := ed.LayoutBounds().W; row > 0 {

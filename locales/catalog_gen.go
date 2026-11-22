@@ -504,6 +504,28 @@ func (msgs Messages) FoldImportsOnOpenDescription() string {
 	return Catalog.Format(msgs.locale, "foldImportsOnOpenDescription", nil)
 }
 
+// HighlightSymbolOccurrences says "Highlight occurrences of the symbol under the caret"
+// in the language the app shows.
+func HighlightSymbolOccurrences() string { return In(i18n.Locale()).HighlightSymbolOccurrences() }
+
+// HighlightSymbolOccurrences says "Highlight occurrences of the symbol under the caret"
+// in the language of msgs.
+func (msgs Messages) HighlightSymbolOccurrences() string {
+	return Catalog.Format(msgs.locale, "highlightSymbolOccurrences", nil)
+}
+
+// HighlightSymbolOccurrencesDescription says "Highlight uses of the same symbol in the current file when the language server supports it."
+// in the language the app shows.
+func HighlightSymbolOccurrencesDescription() string {
+	return In(i18n.Locale()).HighlightSymbolOccurrencesDescription()
+}
+
+// HighlightSymbolOccurrencesDescription says "Highlight uses of the same symbol in the current file when the language server supports it."
+// in the language of msgs.
+func (msgs Messages) HighlightSymbolOccurrencesDescription() string {
+	return Catalog.Format(msgs.locale, "highlightSymbolOccurrencesDescription", nil)
+}
+
 // ShowInlineBlame says "Show inline Git blame"
 // in the language the app shows.
 func ShowInlineBlame() string { return In(i18n.Locale()).ShowInlineBlame() }

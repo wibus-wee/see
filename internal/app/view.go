@@ -123,6 +123,7 @@ func (a *App) view(c *ui.Context) {
 		return
 	}
 	a.shortcuts(c)
+	a.syncSymbolHighlights()
 	if a.inspectorOpen() {
 		a.followInspector()
 	}
