@@ -44,11 +44,16 @@ func commandInput(ctx context.Context, dir string, input []byte, args ...string)
 }
 
 func commandSeparateOutput(ctx context.Context, dir string, args ...string) ([]byte, []byte, error) {
+	return commandOutputEnv(ctx, dir, nil, args...)
+}
+
+func commandOutputEnv(ctx context.Context, dir string, env []string, args ...string) ([]byte, []byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	args = append([]string{"-c", "core.fsmonitor=false", "-C", dir}, args...)
 	cmd := proc.CommandContext(ctx, "git", args...)
 	cmd.Env = append(cmd.Environ(), "GIT_OPTIONAL_LOCKS=0", "GIT_TERMINAL_PROMPT=0", "GIT_PAGER=cat", "GIT_LITERAL_PATHSPECS=1")
+	cmd.Env = append(cmd.Env, env...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &stdout, &stderr
 	err := cmd.Run()
