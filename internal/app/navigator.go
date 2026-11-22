@@ -514,7 +514,15 @@ func (a *App) findNavigator(c *ui.Context) {
 		if f.showReplace {
 			a.findReplaceControls(c)
 		}
-		a.findSummary(c)
+		ui.Row(c).FillWidth().Gap(6).AlignItems(ui.Center).Children(func() {
+			a.findSummary(c)
+			ui.Box(c).Grow(1)
+			if len(f.results) > 0 {
+				b := ui.Button(c, searchEditText("searchEditOpen")).FontSize(11).Height(20).Padding(1, 7).Shrink(0).KeepFocus().
+					Disabled(f.running).Tooltip(searchEditText("searchEditOpenHint"))
+				b.OnClick(func() { a.openSearchEdit() })
+			}
+		})
 	})
 	if len(f.results) == 0 {
 		return
