@@ -45,7 +45,7 @@ func TestStashChangesBrowseApplyDrop(t *testing.T) {
 	h.settle(func() bool { return h.a.focus.active == commitTab(s.Hash) })
 	v := h.a.focus.diffs[commitTab(s.Hash)]
 	h.settle(func() bool { return !v.commit.loading })
-	if v.name != "parser work" || len(v.commit.details.Files) != 1 || v.commit.details.Files[0].Path != "a.txt" {
+	if v.name != "parser work" || len(v.commit.details.Files) != 2 || v.commit.details.Files[0].Path != "a.txt" || v.commit.details.Files[1].Path != "new.txt" {
 		t.Fatalf("stash tab %q %+v", v.name, v.commit.details)
 	}
 
@@ -173,5 +173,19 @@ func TestStashActionsTargetTheirRow(t *testing.T) {
 	}
 	if got := strings.Join(changed(), ","); got != "a.txt,b.txt" {
 		t.Fatalf("after apply and drop: %s", got)
+	}
+}
+
+// Stash Changes from the palette shows its field even while the navigator
+// compares against a base branch.
+func TestStashLeavesBranchComparison(t *testing.T) {
+	root := gitRepo(t, map[string]string{"a.txt": "a\n"})
+	writeFile(t, root, "a.txt", "a\nchanged\n")
+	h := newHarness(t, root)
+	h.readGit()
+	h.a.git.branchDiffMode = compareBaseMode
+	h.a.beginStash()
+	if h.a.git.branchDiffMode != uncommittedMode || !h.a.git.stashing || h.a.navigator != navGit {
+		t.Fatalf("mode %v stashing %v", h.a.git.branchDiffMode, h.a.git.stashing)
 	}
 }

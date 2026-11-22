@@ -18,7 +18,7 @@ func (a *App) beginStash() {
 		return
 	}
 	a.sidebarOff, a.navigator, a.git.changesClosed = false, navGit, false
-	a.git.stashing = true
+	a.git.branchDiffMode, a.git.stashing = uncommittedMode, true
 }
 
 func (a *App) endStash() {
