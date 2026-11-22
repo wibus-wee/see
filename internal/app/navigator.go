@@ -514,17 +514,20 @@ func (a *App) dirError(c *ui.Context, dir string, err error) {
 func (a *App) findNavigator(c *ui.Context) {
 	f := &a.find
 	ui.Column(c).FillWidth().Padding(8, 10).Gap(6).Children(func() {
-		field := ui.SearchField(c, &f.opts.Query).Label(locales.MsgFindInWorkspace()).FillWidth().Bind(&f.field)
-		if f.focus {
-			f.focus = false
-			f.field.Focus(c)
-		}
-		if field.Changed() {
-			a.findSoon()
-		}
-		if field.Submitted() {
-			a.runFind()
-		}
+		ui.Row(c).FillWidth().Gap(4).AlignItems(ui.Center).Children(func() {
+			field := ui.SearchField(c, &f.opts.Query).Label(locales.MsgFindInWorkspace()).Grow(1).MinWidth(0).Bind(&f.field)
+			if f.focus {
+				f.focus = false
+				f.field.Focus(c)
+			}
+			if field.Changed() {
+				a.findSoon()
+			}
+			if field.Submitted() {
+				a.runFind()
+			}
+			a.savedFindMenu(c)
+		})
 		ui.Row(c).Gap(4).AlignItems(ui.Center).Children(func() {
 			changed := false
 			changed = ui.Toggle(c, &f.opts.CaseSensitive, "Aa").Label(locales.MsgMatchCase()).Tooltip(locales.MsgMatchCase()).KeepFocus().Changed() || changed
@@ -540,10 +543,11 @@ func (a *App) findNavigator(c *ui.Context) {
 			}
 		})
 		if f.showFilters {
-			if ui.TextInput(c, &f.opts.Include).Placeholder(locales.MsgIncludeGoCmd()).FillWidth().Changed() {
+			include, exclude := locales.MsgIncludeGoCmd(), locales.MsgExcludeTestGo()
+			if ui.TextInput(c, &f.opts.Include).Label(include).Placeholder(include).FillWidth().Changed() {
 				a.findSoon()
 			}
-			if ui.TextInput(c, &f.opts.Exclude).Placeholder(locales.MsgExcludeTestGo()).FillWidth().Changed() {
+			if ui.TextInput(c, &f.opts.Exclude).Label(exclude).Placeholder(exclude).FillWidth().Changed() {
 				a.findSoon()
 			}
 		}
@@ -564,6 +568,58 @@ func (a *App) findNavigator(c *ui.Context) {
 	if list.Submitted() && f.row >= 0 && f.row < f.tree.Rows() {
 		a.openMatch(f.tree.Item(f.row))
 	}
+}
+
+func (a *App) savedFindMenu(c *ui.Context) {
+	f := &a.find
+	current := f.currentQuery()
+	queries := a.cfg.SavedFindQueries[a.root]
+	saved := slices.Contains(queries, current)
+	label := locales.MsgSavedFindQueries()
+	glyphButton(c.Key("saved-find-queries"), icBookmark, label, label, saved, a.root == "" || f.replacing).
+		Size(24, 24).Center().PopoverMenuButton(func(m *ui.Menu) {
+		m.MaxWidth(320)
+		action := locales.MsgSaveFindQuery()
+		if saved {
+			action = locales.MsgRemoveSavedFindQuery()
+		}
+		if m.Item(action).Disabled(strings.TrimSpace(current.Query) == "").Chosen() {
+			a.setSavedFindQuery(current, !saved)
+			return
+		}
+		m.Separator()
+		if len(queries) == 0 {
+			m.Item(locales.MsgNoSavedFindQueries()).Disabled(true)
+		}
+		for _, query := range queries {
+			var details []string
+			if query.CaseSensitive {
+				details = append(details, locales.MsgMatchCase())
+			}
+			if query.WholeWord {
+				details = append(details, locales.MsgWholeWords())
+			}
+			if query.Regexp {
+				details = append(details, locales.MsgRegularExpression())
+			}
+			if query.Include != "" {
+				details = append(details, locales.MsgSavedFindInclude(query.Include))
+			}
+			if query.Exclude != "" {
+				details = append(details, locales.MsgSavedFindExclude(query.Exclude))
+			}
+			item := m.Item(query.Query).Checked(query == current)
+			if len(details) > 0 {
+				subtitle := strings.Join(details, " · ")
+				item.Subtitle(subtitle).Tooltip(query.Query + "\n" + subtitle)
+			} else {
+				item.Tooltip(query.Query)
+			}
+			if item.Chosen() {
+				a.rerunSavedFindQuery(query)
+			}
+		}
+	}, ui.PopoverMenuButtonOptions{At: ui.AnchorBottomEnd, Self: ui.AnchorTopEnd})
 }
 
 func (a *App) findSummary(c *ui.Context) {

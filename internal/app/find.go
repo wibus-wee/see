@@ -15,6 +15,7 @@ import (
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 
+	"see/internal/config"
 	"see/internal/lsp"
 	"see/internal/nav"
 	"see/internal/search"
@@ -74,6 +75,54 @@ func (f *findState) reset() {
 	opts := f.opts
 	*f = findState{opts: opts}
 	f.init()
+}
+
+func (f *findState) currentQuery() config.SavedFindQuery {
+	opts := f.opts
+	return config.SavedFindQuery{
+		Query: opts.Query, CaseSensitive: opts.CaseSensitive, WholeWord: opts.WholeWord,
+		Regexp: opts.Regexp, Include: opts.Include, Exclude: opts.Exclude,
+	}
+}
+
+func (a *App) setSavedFindQuery(query config.SavedFindQuery, save bool) {
+	if a.root == "" || strings.TrimSpace(query.Query) == "" {
+		return
+	}
+	byWorkspace := a.cfg.SavedFindQueries
+	queries := byWorkspace[a.root]
+	i := slices.Index(queries, query)
+	if save == (i >= 0) {
+		return
+	}
+	if save {
+		if byWorkspace == nil {
+			byWorkspace = make(map[string][]config.SavedFindQuery)
+			a.cfg.SavedFindQueries = byWorkspace
+		}
+		byWorkspace[a.root] = slices.Insert(queries, 0, query)
+	} else if len(queries) == 1 {
+		delete(byWorkspace, a.root)
+	} else {
+		byWorkspace[a.root] = slices.Delete(queries, i, i+1)
+	}
+	a.saveConfigSoon()
+}
+
+func (a *App) rerunSavedFindQuery(query config.SavedFindQuery) {
+	f := &a.find
+	if f.replacing {
+		return
+	}
+	f.opts = search.Options{
+		Query: query.Query, CaseSensitive: query.CaseSensitive, WholeWord: query.WholeWord,
+		Regexp: query.Regexp, Include: query.Include, Exclude: query.Exclude,
+		MaxMatches: f.opts.MaxMatches,
+	}
+	f.showFilters = query.Include != "" || query.Exclude != ""
+	f.showReplace = false
+	f.replacement, f.replaceNote, f.replaceErr = "", "", false
+	a.runFind()
 }
 
 // findSoon searches once typing stops for a moment.

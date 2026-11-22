@@ -5972,6 +5972,66 @@ func (msgs Messages) MsgFindInWorkspace() string {
 	return Catalog.Format(msgs.locale, "msgFindInWorkspace", nil)
 }
 
+// MsgSavedFindQueries says "Saved Find Queries"
+// in the language the app shows.
+func MsgSavedFindQueries() string { return In(i18n.Locale()).MsgSavedFindQueries() }
+
+// MsgSavedFindQueries says "Saved Find Queries"
+// in the language of msgs.
+func (msgs Messages) MsgSavedFindQueries() string {
+	return Catalog.Format(msgs.locale, "msgSavedFindQueries", nil)
+}
+
+// MsgSaveFindQuery says "Save Current Query"
+// in the language the app shows.
+func MsgSaveFindQuery() string { return In(i18n.Locale()).MsgSaveFindQuery() }
+
+// MsgSaveFindQuery says "Save Current Query"
+// in the language of msgs.
+func (msgs Messages) MsgSaveFindQuery() string {
+	return Catalog.Format(msgs.locale, "msgSaveFindQuery", nil)
+}
+
+// MsgRemoveSavedFindQuery says "Remove Current Query"
+// in the language the app shows.
+func MsgRemoveSavedFindQuery() string { return In(i18n.Locale()).MsgRemoveSavedFindQuery() }
+
+// MsgRemoveSavedFindQuery says "Remove Current Query"
+// in the language of msgs.
+func (msgs Messages) MsgRemoveSavedFindQuery() string {
+	return Catalog.Format(msgs.locale, "msgRemoveSavedFindQuery", nil)
+}
+
+// MsgNoSavedFindQueries says "No saved queries"
+// in the language the app shows.
+func MsgNoSavedFindQueries() string { return In(i18n.Locale()).MsgNoSavedFindQueries() }
+
+// MsgNoSavedFindQueries says "No saved queries"
+// in the language of msgs.
+func (msgs Messages) MsgNoSavedFindQueries() string {
+	return Catalog.Format(msgs.locale, "msgNoSavedFindQueries", nil)
+}
+
+// MsgSavedFindInclude says "Include: {glob}"
+// in the language the app shows.
+func MsgSavedFindInclude(glob string) string { return In(i18n.Locale()).MsgSavedFindInclude(glob) }
+
+// MsgSavedFindInclude says "Include: {glob}"
+// in the language of msgs.
+func (msgs Messages) MsgSavedFindInclude(glob string) string {
+	return Catalog.Format(msgs.locale, "msgSavedFindInclude", map[string]any{"glob": glob})
+}
+
+// MsgSavedFindExclude says "Exclude: {glob}"
+// in the language the app shows.
+func MsgSavedFindExclude(glob string) string { return In(i18n.Locale()).MsgSavedFindExclude(glob) }
+
+// MsgSavedFindExclude says "Exclude: {glob}"
+// in the language of msgs.
+func (msgs Messages) MsgSavedFindExclude(glob string) string {
+	return Catalog.Format(msgs.locale, "msgSavedFindExclude", map[string]any{"glob": glob})
+}
+
 // MsgMatchCase says "Match Case"
 // in the language the app shows.
 func MsgMatchCase() string { return In(i18n.Locale()).MsgMatchCase() }

@@ -1131,6 +1131,7 @@ func (a *App) advancedPane(c *ui.Context) {
 				// reset fields
 				def := config.Load("")
 				def.SetPath(a.cfg.Path())
+				def.SavedFindQueries = a.cfg.SavedFindQueries
 				*a.cfg = *def
 				a.settingsChanged()
 			}

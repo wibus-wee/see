@@ -81,6 +81,8 @@ type Config struct {
 	TermCopyOnSelect     bool                 `json:"terminalCopyOnSelect,omitempty"`
 	Workspaces           map[string]Workspace `json:"workspaceSessions,omitempty"`
 
+	SavedFindQueries map[string][]SavedFindQuery `json:"savedFindQueries,omitempty"`
+
 	// LSP lists language servers the user configured, started for files
 	// a built-in server does not cover. Same role as the servers See
 	// wires in code, given by hand in the configuration file.
@@ -88,6 +90,15 @@ type Config struct {
 
 	path     string // where it is saved; "" saves nowhere, as in tests
 	onRecent func() // called when the recent folders change
+}
+
+type SavedFindQuery struct {
+	Query         string `json:"query"`
+	CaseSensitive bool   `json:"caseSensitive,omitempty"`
+	WholeWord     bool   `json:"wholeWord,omitempty"`
+	Regexp        bool   `json:"regexp,omitempty"`
+	Include       string `json:"include,omitempty"`
+	Exclude       string `json:"exclude,omitempty"`
 }
 
 // LSPConfig describes one configured language server: what it is called,
