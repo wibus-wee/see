@@ -229,9 +229,10 @@ type App struct {
 	discardedSessionDocs  map[string]struct{} // documents approved for discard until their workspace is gone
 	theme                 *ui.Theme
 	modifiers             ui.Modifiers // keyboard modifiers held this frame
-	edTheme               *editor.Theme
+	edTheme               *editor.Theme // a stable object: applyAppearance replaces its contents
 	themeDark             bool
 	themeAccent           ui.Color
+	themeGen              int // bumped when the themes' contents are replaced
 	// setAppearance forces light or dark, or "" the system's; the app's
 	// windows follow it.
 }

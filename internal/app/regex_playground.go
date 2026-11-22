@@ -146,7 +146,6 @@ func (a *App) regexPlaygroundView(c *ui.Context, bounds ui.Rect, st *editor.Stat
 		a.closeRegexPlayground(p)
 		return
 	}
-	p.sample.Theme = a.edTheme
 	a.editorPeekSized(c, bounds, st, p.line, locales.RegexPlaygroundTitle(), locales.Close(), 540, 580, nil,
 		func() { a.closeRegexPlayground(p) }, func() {
 			ui.Column(c).Grow(1).FillWidth().Children(func() {

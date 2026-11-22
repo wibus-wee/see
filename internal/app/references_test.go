@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"see/internal/lsp"
+	"see/internal/theme"
 	"see/internal/uri"
 
 	"github.com/egoist/mygo/ui/editor"
@@ -149,6 +150,30 @@ func TestReferencesStaleListDropped(t *testing.T) {
 	}
 	if h.a.references.activeRun() != nil {
 		t.Fatal("stale list stayed active")
+	}
+}
+
+// An appearance change recolors a preview made under the old one: the
+// theme every editor state keeps is replaced in place, so nothing
+// holding it stays behind — the white preview a dark window showed.
+func TestReferencesPreviewFollowsAppearance(t *testing.T) {
+	root := writeTree(t, referencesFixture())
+	h := newHarness(t, root)
+	defer h.a.lsp.StopWait(5e9)
+	d := h.open("a.go")
+	findReferencesOf(t, h, d)
+	h.a.pinReferences(h.a.choices)
+	h.tt.Frame()
+
+	st := h.a.references.activeRun().choices.previewEditor
+	th := h.a.edTheme
+	h.tt.SetDark(!h.a.theme.Dark)
+	h.tt.Frame()
+	if h.a.edTheme != th {
+		t.Fatal("the appearance replaced the theme object: states keeping it went stale")
+	}
+	if want := theme.For(h.a.theme.Dark).Editor; st.Theme.Background != want {
+		t.Fatalf("the preview kept the old appearance: %v, want %v", st.Theme.Background, want)
 	}
 }
 
