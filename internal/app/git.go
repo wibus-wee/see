@@ -38,12 +38,12 @@ type gitState struct {
 	branchDiffMode         branchDiffMode
 	branchPanel            *branchDiffView
 	branchFingerprint      string
-	// changesClosed and historyClosed are the navigator's sections
-	// folded away, as VS Code's views; both show by default.
-	changesClosed, historyClosed bool
-	split                        float32 // the changes' share of the height while both show, as a percentage
-	conflictSplit                float32
-	logSplit                     float32 // the commits' share of the log's tab, as a percentage
+	// changesClosed, stashesClosed, and historyClosed are the navigator's
+	// sections folded away; all show by default.
+	changesClosed, stashesClosed, historyClosed bool
+	split                                       float32 // the changes' share of the Git navigator, as a percentage
+	conflictSplit                               float32
+	logSplit                                    float32 // the commits' share of the log's tab, as a percentage
 	// upstream is the branch HEAD's tracks, and ahead and behind how
 	// far apart they are; remotes are the repository's, origin first.
 	upstream      string
@@ -70,6 +70,10 @@ type gitState struct {
 	// docs and generated files start folded, as Peek's, and a click on
 	// the group's name opens it.
 	kindOpen map[filekind.Kind]bool
+
+	stashes      []git.Stash
+	stashing     bool // the stash message field shows under the commit field
+	stashMessage string
 }
 
 type gitPeek struct {
@@ -269,6 +273,10 @@ func (a *App) refreshGit() {
 		// -v are the only other calls, plus the diffs the counts ask for.
 		s, err := git.Sync(ctx, root, counting)
 		branchFingerprint := gitBranchFingerprint(ctx, s.Root, s.Head, s.Refs, s.Changes)
+		var stashes []git.Stash
+		if s.Root != "" {
+			stashes, _ = git.Stashes(ctx, s.Root)
+		}
 		a.post.Post(func() {
 			if a.gen != gen {
 				return
@@ -284,6 +292,10 @@ func (a *App) refreshGit() {
 			a.git.root, a.git.branch, a.git.changes, a.git.head = s.Root, s.Branch, s.Changes, s.Head
 			a.git.merging = s.Merging
 			a.git.branchFingerprint = branchFingerprint
+			a.git.stashes = stashes
+			if len(s.Changes) == 0 {
+				a.endStash()
+			}
 			a.git.pruneSelection()
 			a.git.upstream, a.git.ahead, a.git.behind = s.Upstream, s.Ahead, s.Behind
 			if s.Behind < a.git.notifiedBehind {
@@ -825,6 +837,13 @@ func (a *App) showGitDiffIn(ch git.Change, staged bool, target *group, placement
 	}()
 }
 
+const (
+	gitSidebarIconColumn = 15
+	gitSidebarColumnGap  = 6
+	gitSidebarTextOffset = gitSidebarIconColumn + gitSidebarColumnGap
+	gitSidebarTextInset  = sidebarInset + gitSidebarTextOffset
+)
+
 func (a *App) gitNavigator(c *ui.Context) {
 	if a.git.root == "" {
 		msg := "Looking for a Git repository…"
@@ -851,56 +870,48 @@ func (a *App) gitNavigator(c *ui.Context) {
 			unstaged++
 		}
 	}
-	// The changes over the history, each a section that folds, as VS
-	// Code's views; while both show, a divider between them sets how
-	// much of the navigator each takes.
 	changes := func() {
-		if a.git.branchDiffMode == compareBaseMode {
-			count := 0
-			if a.git.branchPanel != nil {
-				count = len(a.git.branchPanel.files)
-			}
-			a.gitSectionHeader(c, "Changes", count, &a.git.changesClosed, func() {})
-			if a.git.changesClosed {
-				return
-			}
-			a.branchDiffModePicker(c)
-			if conflicts > 0 {
-				label := fmt.Sprintf("%s (%d)", gitConflictText("gitConflictedFiles"), conflicts)
-				ui.Row(c).Padding(2, sidebarInset).Children(func() {
-					ui.Button(c, label).FontSize(11).OnClick(func() { a.git.branchDiffMode = uncommittedMode })
-				})
-			}
-			a.branchDiffNavigator(c)
-			return
-		}
-		a.gitChangesHeader(c)
-		if a.git.changesClosed {
-			return
-		}
-		a.branchDiffModePicker(c)
-		a.commitBar(c, staged, conflicts > 0)
-		ui.Scroll(c).Grow(1).FillWidth().Children(func() {
+		ui.Scroll(c.Key("git-changes")).Grow(1).FillWidth().Children(func() {
 			ui.Column(c).FillWidth().Padding(0, 0, 6, 0).Children(func() {
-				if len(a.git.changes) == 0 {
-					ui.Text(c, locales.MsgNoChanges()).FontSize(12).TextColor(colors(c).Muted).Padding(4, 16, 8, 16)
-				}
-				if conflicts > 0 {
-					a.gitSection(c, gitConflictText("gitConflictedFiles"), conflicts)
-					for _, ch := range a.git.changes {
-						if ch.Conflicted() {
-							a.gitConflictRow(c, ch)
+				a.gitChangesHeader(c)
+				if !a.git.changesClosed {
+					if a.git.stashing {
+						a.stashBar(c)
+					}
+					if a.git.branchDiffMode == compareBaseMode {
+						if conflicts > 0 {
+							label := fmt.Sprintf("%s (%d)", gitConflictText("gitConflictedFiles"), conflicts)
+							ui.Row(c).Padding(2, sidebarInset).Children(func() {
+								ui.Button(c, label).FontSize(11).OnClick(func() { a.git.branchDiffMode = uncommittedMode })
+							})
+						}
+						a.branchDiffNavigator(c)
+					} else {
+						if len(a.git.changes) == 0 {
+							ui.Text(c, locales.MsgNoChanges()).FontSize(12).TextColor(colors(c).Muted).Padding(4, sidebarInset, 8, gitSidebarTextInset)
+						}
+						if conflicts > 0 {
+							a.gitSection(c, gitConflictText("gitConflictedFiles"), conflicts)
+							for _, ch := range a.git.changes {
+								if ch.Conflicted() {
+									a.gitConflictRow(c, ch)
+								}
+							}
+						}
+						if staged > 0 {
+							a.gitSection(c, "Staged Changes", staged)
+						}
+						a.gitRowsByKind(c, true)
+						if unstaged > 0 && (staged > 0 || conflicts > 0) {
+							a.gitSection(c, "Changes", unstaged)
+						}
+						a.gitRowsByKind(c, false)
+						if staged > 0 || a.git.message != "" || a.git.merging || conflicts > 0 {
+							a.commitBar(c, staged, conflicts > 0)
 						}
 					}
 				}
-				if staged > 0 {
-					a.gitSection(c, "Staged Changes", staged)
-				}
-				a.gitRowsByKind(c, true)
-				if unstaged > 0 && (staged > 0 || conflicts > 0) {
-					a.gitSection(c, "Changes", unstaged)
-				}
-				a.gitRowsByKind(c, false)
+				a.stashRows(c)
 			})
 		})
 	}
@@ -914,7 +925,7 @@ func (a *App) gitNavigator(c *ui.Context) {
 		a.git.conflictSplit = 0
 	}
 	switch {
-	case !a.git.changesClosed && !a.git.historyClosed:
+	case !a.git.historyClosed:
 		if a.git.split <= 0 {
 			a.git.split = 40
 		}
@@ -928,13 +939,11 @@ func (a *App) gitNavigator(c *ui.Context) {
 		ui.SplitVerticalPercent(c, split,
 			func() { ui.Column(c).Fill().Children(changes) },
 			func() { ui.Column(c).Fill().Children(history) }).Grow(1).FillWidth()
-	case a.git.historyClosed:
-		// The history's head at the navigator's foot, under the changes.
-		ui.Column(c).Grow(1).FillWidth().Children(changes)
-		history()
 	default:
-		changes()
-		ui.Column(c).Grow(1).FillWidth().Children(history)
+		ui.Column(c).Grow(1).FillWidth().Children(func() {
+			changes()
+			history()
+		})
 	}
 }
 
@@ -987,7 +996,7 @@ func kindName(k filekind.Kind) string {
 // gitKindHeader is a change group's name: an arrow, the name and the
 // count, which a click folds or unfolds.
 func (a *App) gitKindHeader(c *ui.Context, k filekind.Kind, count int, open bool, toggle func()) {
-	row := ui.Row(c.Key("kind:"+fmt.Sprint(int(k)))).FillWidth().Padding(9, 16, 4, 16).Gap(5).AlignItems(ui.Center).
+	row := ui.Row(c.Key("kind:"+fmt.Sprint(int(k)))).FillWidth().Padding(9, sidebarInset, 4, sidebarInset).Gap(gitSidebarColumnGap).AlignItems(ui.Center).
 		Cursor(ui.CursorPointer).Label(kindName(k))
 	row.OnClick(toggle)
 	row.Children(func() {
@@ -995,14 +1004,17 @@ func (a *App) gitKindHeader(c *ui.Context, k filekind.Kind, count int, open bool
 		if !open {
 			turn = 0
 		}
-		symbolIcon(c, icChevron, 9, colors(c).Dim).Rotate(turn)
+		ui.Box(c).Size(gitSidebarIconColumn, 12).Shrink(0).Center().Children(func() {
+			symbolIcon(c, icChevron, 9, colors(c).Dim).Rotate(turn)
+		})
 		ui.Text(c, kindName(k)).FontSize(11).Bold().TextColor(colors(c).Muted)
 		ui.Text(c, fmt.Sprint(count)).FontSize(11).TextColor(colors(c).Dim)
 	})
 }
 
 func (a *App) gitSection(c *ui.Context, name string, count int) {
-	ui.Row(c).FillWidth().Padding(9, 16, 4, 16).Gap(6).AlignItems(ui.Center).Children(func() {
+	ui.Row(c).FillWidth().Padding(9, sidebarInset, 4, sidebarInset).Gap(6).AlignItems(ui.Center).Children(func() {
+		ui.Box(c).Size(gitSidebarIconColumn, 1).Shrink(0)
 		ui.Text(c, name).FontSize(11).Bold().TextColor(colors(c).Muted)
 		ui.Text(c, fmt.Sprint(count)).FontSize(11).TextColor(colors(c).Dim)
 	})
@@ -1013,7 +1025,7 @@ func (a *App) gitRow(c *ui.Context, ch git.Change, staged bool) {
 	if staged {
 		label, action = "Staged", "Unstage"
 	}
-	container := ui.Row(c.Key(fmt.Sprintf("%t:%s", staged, ch.Path))).FillWidth().Padding(1, 13).Gap(2).Radius(4).AlignItems(ui.Center)
+	container := ui.Row(c.Key(fmt.Sprintf("%t:%s", staged, ch.Path))).FillWidth().Margin(1, 0).Padding(1, sidebarInset).Gap(2).Radius(4).AlignItems(ui.Center)
 	hovered := container.Hovered()
 	if a.git.selected[gitChangeKey(staged, ch.Path)] {
 		container.Background(colors(c).SelectedRow)
@@ -1023,7 +1035,7 @@ func (a *App) gitRow(c *ui.Context, ch git.Change, staged bool) {
 		container.Background(colors(c).Pill)
 	}
 	container.Children(func() {
-		row := ui.ButtonBase(c).Label(label+locales.MsgDiff()+ch.Path).Tooltip(ch.Path).Grow(1).Padding(4, 4).Radius(4)
+		row := ui.ButtonBase(c).Label(label+locales.MsgDiff()+ch.Path).Tooltip(ch.Path).Grow(1).Padding(4, 0).Radius(4)
 		row.Drag(&tabDrag{change: &ch, staged: staged})
 		row.Children(func() {
 			ui.Row(c).FillWidth().Gap(6).AlignItems(ui.Center).Children(func() {
@@ -1149,8 +1161,8 @@ func (a *App) commitBar(c *ui.Context, staged int, conflicted bool) {
 		placeholder = gitConflictText("gitResolveBeforeCommit")
 	}
 	ui.Row(c).Shrink(0).FillWidth().Padding(2, sidebarInset, 6, sidebarInset).Children(func() {
-		ui.Row(c).FillWidth().Height(28).Radius(14).Background(colors(c).Pill).Padding(0, 3, 0, 12).Gap(4).AlignItems(ui.Center).Children(func() {
-			in := ui.TextInput(c, &a.git.message).Placeholder(placeholder).Label(locales.MsgCommitMessage()).
+		ui.Row(c).FillWidth().Height(28).Radius(14).Background(colors(c).Pill).Padding(0, 3, 0, gitSidebarTextOffset).Gap(4).AlignItems(ui.Center).Children(func() {
+			in := ui.TextInput(c.Key("git-commit-message"), &a.git.message).Placeholder(placeholder).Label(locales.MsgCommitMessage()).
 				FontSize(12).Grow(1).Background(ui.Transparent).BorderWidth(0).Padding(0)
 			if in.Submitted() {
 				commit()

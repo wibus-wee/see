@@ -332,6 +332,9 @@ func commitRange(ctx context.Context, root, revision string) map[string]bool {
 type FileStat struct {
 	Path, OldPath  string
 	Added, Deleted int
+	// The commit the change is of when not the one listing it: of an
+	// untracked file a stash saved, the commit holding those files.
+	Commit string
 }
 
 // CommitDetails is what Show tells of a commit beyond its log line.
@@ -362,6 +365,15 @@ func Show(ctx context.Context, root, hash string) (CommitDetails, error) {
 		return d, err
 	}
 	d.Files = ParseNumstat(out)
+	if u := stashUntracked(ctx, root, hash); u != "" {
+		if out, err = Command(ctx, root, "diff-tree", "--root", "-r", "--no-commit-id", "--numstat", "-z", "--no-ext-diff", u); err != nil {
+			return d, err
+		}
+		for _, f := range ParseNumstat(out) {
+			f.Commit = u
+			d.Files = append(d.Files, f)
+		}
+	}
 	return d, nil
 }
 
@@ -404,7 +416,15 @@ func ParseNumstat(out []byte) []FileStat {
 // CommitFileDiff is the patch of one file of a commit against its first
 // parent, whole, for a diff view.
 func CommitFileDiff(ctx context.Context, root, hash string, f FileStat) ([]byte, error) {
-	args := []string{"diff", "--no-ext-diff", "--no-color", "-M", "--unified=2147483647", Parent(ctx, root, hash), hash, "--", f.Path}
+	flags := []string{"--no-ext-diff", "--no-color", "-M", "--unified=2147483647"}
+	parent := Parent(ctx, root, hash)
+	args := append([]string{"diff"}, flags...)
+	if parent == emptyTree {
+		args = append([]string{"diff-tree", "--root", "-r", "--no-commit-id", "-p"}, flags...)
+	} else {
+		args = append(args, parent)
+	}
+	args = append(args, hash, "--", f.Path)
 	if f.OldPath != "" {
 		args = append(args, f.OldPath)
 	}

@@ -84,7 +84,7 @@ func (a *App) captureSession() {
 	if a.cfg.Workspaces == nil {
 		a.cfg.Workspaces = make(map[string]config.Workspace)
 	}
-	workspace := config.Workspace{Layout: snapshot(a.layout), SidebarHidden: a.sidebarOff, Navigator: a.navigator, ChangesClosed: a.git.changesClosed, HistoryClosed: a.git.historyClosed, GitSplit: a.git.split, GitLogSplit: a.git.logSplit, WindowWidth: a.windowWidth, WindowHeight: a.windowHeight, Bookmarks: a.sessionBookmarks()}
+	workspace := config.Workspace{Layout: snapshot(a.layout), SidebarHidden: a.sidebarOff, Navigator: a.navigator, ChangesClosed: a.git.changesClosed, StashesClosed: a.git.stashesClosed, HistoryClosed: a.git.historyClosed, GitSplit: a.git.split, GitLogSplit: a.git.logSplit, WindowWidth: a.windowWidth, WindowHeight: a.windowHeight, Bookmarks: a.sessionBookmarks()}
 	workspace.Terminals, workspace.ActiveTerminal, workspace.PanelOpen = a.termSession()
 	if a.root == "" {
 		a.mergeStandaloneSession(workspace)
@@ -198,7 +198,7 @@ func (a *App) restoreSession() {
 	if s.Navigator >= navFiles && s.Navigator <= navBookmarks {
 		a.navigator = s.Navigator
 	}
-	a.git.changesClosed, a.git.historyClosed, a.git.split, a.git.logSplit = s.ChangesClosed, s.HistoryClosed, s.GitSplit, s.GitLogSplit
+	a.git.changesClosed, a.git.stashesClosed, a.git.historyClosed, a.git.split, a.git.logSplit = s.ChangesClosed, s.StashesClosed, s.HistoryClosed, s.GitSplit, s.GitLogSplit
 	a.openRestoredTerminals(s)
 	for _, bm := range s.Bookmarks {
 		if filepath.IsAbs(bm.Path) && bm.Line >= 0 {

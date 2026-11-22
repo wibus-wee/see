@@ -770,6 +770,7 @@
   "commandGitShowHistory": "Git：显示历史记录",
   "commandEditSearchResults": "编辑搜索结果",
   "commandGitShowLog": "Git：显示日志",
+  "commandGitStashChanges": "Git：储藏更改…",
   "commandToggleInlineDiff": "切换内联差异",
   "commandNextChange": "下一个更改",
   "commandPreviousChange": "上一个更改",

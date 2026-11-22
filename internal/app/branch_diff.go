@@ -65,12 +65,16 @@ func (a *App) branchDiffModePicker(c *ui.Context) {
 	if *mode == compareBaseMode {
 		selected = branchDiffText("gitCompareAgainstBase")
 	}
-	selectMode := ui.SelectBase(c, mode)
-	selectMode.Trigger.Label(selected).Padding(3, sidebarInset).Radius(6).Gap(6).AlignItems(ui.Center).KeepFocus()
+	iconColor := colors(c).Muted
+	if *mode == compareBaseMode {
+		iconColor = c.Theme().Accent
+	}
+	selectMode := ui.SelectBase(c.Key("git-change-mode"), mode)
+	selectMode.Trigger.Label(selected).Tooltip("Current mode: "+selected+". Click to change comparison mode.").Padding(2, 5).Radius(6).Gap(4).AlignItems(ui.Center).KeepFocus()
 	selectMode.Trigger.Children(func() {
-		ui.Row(c).FillWidth().Gap(6).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, selected).FontSize(12).Bold().SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
-			symbolIcon(c, icChevron, 9, colors(c).Muted)
+		ui.Row(c).Gap(4).AlignItems(ui.Center).Children(func() {
+			symbolIcon(c, icDiffSplit, 14, iconColor).Shrink(0)
+			symbolIcon(c, icChevron, 9, colors(c).Muted).Shrink(0)
 		})
 	})
 	selectMode.Popup(func(panel ui.Element) {
@@ -158,21 +162,19 @@ func (a *App) branchDiffNavigator(c *ui.Context) {
 				})
 			}
 		}
-		ui.Scroll(c.Key("branch-diff-files")).Grow(1).FillWidth().Children(func() {
-			ui.Column(c).FillWidth().Padding(0, 0, 8).Children(func() {
-				list(groups[filekind.Code])
-				for _, k := range []filekind.Kind{filekind.Test, filekind.Docs, filekind.Generated} {
-					files := groups[k]
-					if len(files) == 0 {
-						continue
-					}
-					open := a.git.kindOpen[k]
-					a.gitKindHeader(c, k, len(files), open, func() { a.git.kindOpen[k] = !open })
-					if open {
-						list(files)
-					}
+		ui.Column(c.Key("branch-diff-files")).FillWidth().Padding(0, 0, 8).Children(func() {
+			list(groups[filekind.Code])
+			for _, k := range []filekind.Kind{filekind.Test, filekind.Docs, filekind.Generated} {
+				files := groups[k]
+				if len(files) == 0 {
+					continue
 				}
-			})
+				open := a.git.kindOpen[k]
+				a.gitKindHeader(c, k, len(files), open, func() { a.git.kindOpen[k] = !open })
+				if open {
+					list(files)
+				}
+			}
 		})
 	}
 }

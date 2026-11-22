@@ -28,6 +28,12 @@ func Command(ctx context.Context, dir string, args ...string) ([]byte, error) {
 }
 
 func commandInput(ctx context.Context, dir string, input []byte, args ...string) ([]byte, error) {
+	return commandEnv(ctx, dir, input, nil, args...)
+}
+
+// commandEnv is commandInput with env added after, and so overriding, the
+// variables every command runs with.
+func commandEnv(ctx context.Context, dir string, input []byte, env []string, args ...string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	args = append([]string{"-c", "core.fsmonitor=false", "-C", dir}, args...)
@@ -36,6 +42,7 @@ func commandInput(ctx context.Context, dir string, input []byte, args ...string)
 		cmd.Stdin = bytes.NewReader(input)
 	}
 	cmd.Env = append(cmd.Environ(), "GIT_OPTIONAL_LOCKS=0", "GIT_TERMINAL_PROMPT=0", "GIT_PAGER=cat", "GIT_LITERAL_PATHSPECS=1")
+	cmd.Env = append(cmd.Env, env...)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return out, fmt.Errorf("%v: %s", err, strings.TrimSpace(string(out)))

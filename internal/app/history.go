@@ -111,7 +111,18 @@ func (a *App) loadHistory(reset bool) {
 // gitChangesHeader is the head of the Git navigator's changes: their
 // number, and the actions on the repository at its end.
 func (a *App) gitChangesHeader(c *ui.Context) {
-	a.gitSectionHeader(c, "Changes", len(a.git.changes), &a.git.changesClosed, func() {
+	count := len(a.git.changes)
+	if a.git.branchDiffMode == compareBaseMode {
+		count = 0
+		if a.git.branchPanel != nil {
+			count = len(a.git.branchPanel.files)
+		}
+	}
+	a.gitSectionHeader(c, "Changes", count, &a.git.changesClosed, func() {
+		a.branchDiffModePicker(c)
+		if a.git.changesClosed || a.git.branchDiffMode == compareBaseMode {
+			return
+		}
 		staged, unstaged := false, false
 		for _, ch := range a.git.changes {
 			staged = staged || gitChangeInSection(ch, true)
@@ -122,6 +133,13 @@ func (a *App) gitChangesHeader(c *ui.Context) {
 		}
 		if unstaged && glyphButton(c, icPlus, "Stage All Changes", "Stage All Changes", false, a.git.busy).Clicked() {
 			a.stageAllGitChanges(false)
+		}
+		if len(a.git.changes) > 0 && glyphButton(c, icStash, "Stash Changes", "Stash Changes…", a.git.stashing, a.git.busy).Clicked() {
+			if a.git.stashing {
+				a.endStash()
+			} else {
+				a.beginStash()
+			}
 		}
 		if a.git.syncing != "" {
 			ui.Spinner(c).FontSize(10).Tooltip(a.git.syncing)
@@ -142,6 +160,9 @@ func (a *App) gitChangesHeader(c *ui.Context) {
 func (a *App) gitHistoryHeader(c *ui.Context) {
 	h := &a.git.history
 	a.gitSectionHeader(c, "History", -1, &a.git.historyClosed, func() {
+		if a.git.historyClosed {
+			return
+		}
 		if h.loading {
 			ui.Spinner(c).FontSize(10)
 		}
@@ -161,14 +182,14 @@ func (a *App) gitHistoryHeader(c *ui.Context) {
 
 // gitSectionHeader is the head of a section of the Git navigator, as
 // VS Code's views': an arrow and its title, which a click folds and
-// unfolds, a count when not negative, and actions while it is open.
+// unfolds, a count when not negative, and actions at its end.
 func (a *App) gitSectionHeader(c *ui.Context, title string, count int, closed *bool, actions func()) {
-	ui.Row(c.Key(title)).Shrink(0).FillWidth().Height(28).Padding(0, 12, 0, sidebarInset).Gap(2).AlignItems(ui.Center).Children(func() {
+	ui.Row(c.Key(title)).Shrink(0).FillWidth().Height(28).Padding(0, sidebarInset, 0, sidebarInset).Gap(2).AlignItems(ui.Center).Children(func() {
 		tip := "Hide " + title
 		if *closed {
 			tip = "Show " + title
 		}
-		b := ui.ButtonBase(c).Label(title).Tooltip(tip).Padding(2, 6, 2, 2).Radius(5).Gap(4).AlignItems(ui.Center).KeepFocus()
+		b := ui.ButtonBase(c).Label(title).Tooltip(tip).Padding(2, 6, 2, 0).Radius(5).Gap(gitSidebarColumnGap).AlignItems(ui.Center).KeepFocus()
 		if b.Hovered() {
 			b.Background(colors(c).Pill)
 		}
@@ -183,16 +204,16 @@ func (a *App) gitSectionHeader(c *ui.Context, title string, count int, closed *b
 			turn = 0
 		}
 		b.Children(func() {
-			symbolIcon(c, icChevron, 9, colors(c).Dim).Rotate(turn)
+			ui.Box(c).Size(gitSidebarIconColumn, 12).Shrink(0).Center().Children(func() {
+				symbolIcon(c, icChevron, 9, colors(c).Dim).Rotate(turn)
+			})
 			ui.Text(c, title).FontSize(12).Bold().SingleLine()
 			if count > 0 {
 				ui.Text(c, fmt.Sprint(count)).FontSize(11).TextColor(colors(c).Dim).SingleLine()
 			}
 		})
 		ui.Box(c).Grow(1)
-		if !*closed {
-			actions()
-		}
+		actions()
 	})
 }
 
@@ -200,9 +221,6 @@ func (a *App) gitSectionHeader(c *ui.Context, title string, count int, closed *b
 func (a *App) historyNavigator(c *ui.Context) {
 	h := &a.git.history
 	a.syncHistory()
-	if n := len(a.git.changes); n > 0 && a.git.changesClosed {
-		a.uncommittedRow(c, n)
-	}
 	switch {
 	case h.err != "":
 		ui.Text(c, h.err).FontSize(12).TextColor(colors(c).Err).Padding(10, 14)
@@ -214,43 +232,8 @@ func (a *App) historyNavigator(c *ui.Context) {
 	case len(h.commits) == 0 && a.git.head == "":
 		ui.Text(c, locales.MsgNoCommits()).FontSize(12).TextColor(colors(c).Muted).Padding(10, 14)
 	default:
-		ui.List(c, &h.list, len(h.commits), func(i int) { a.historyRow(c, i) }).Grow(1).FillWidth().Padding(0, sidebarInset).Label(locales.MsgHistory())
+		ui.List(c.Key("git-history-list"), &h.list, len(h.commits), func(i int) { a.historyRow(c, i) }).Grow(1).FillWidth().Padding(0, sidebarInset).Label(locales.MsgHistory())
 	}
-}
-
-// uncommittedRow stands for the working tree's changes over the history
-// while their section is folded, as Peek's: an orange disc in place of
-// an avatar; it unfolds them.
-func (a *App) uncommittedRow(c *ui.Context, n int) {
-	row := ui.Row(c).FillWidth().Height(historyRowHeight).Margin(0, sidebarInset).Padding(0, 8, 0, 0).Gap(historyGap).AlignItems(ui.Center).Radius(6).
-		Cursor(ui.CursorPointer).Label(locales.MsgUncommittedChanges())
-	if row.Hovered() {
-		row.Background(colors(c).Pill)
-	}
-	row.OnClick(func() { a.git.changesClosed = false })
-	orange := a.gitStatusColor('M')
-	if a.edTheme != nil {
-		orange = ui.RGB(0xff, 0x9f, 0x0a)
-	}
-	row.Children(func() {
-		lanes := min(max(a.git.history.lanesW, 1), graphMaxLanes)
-		ui.Box(c).Size(graphX(lanes-1)+graphLane, historyRowHeight).Shrink(0).Draw(func(p *ui.Painter, r ui.Rect) {
-			x, y := r.X+graphX(0), r.Y+r.H/2
-			var path ui.Path
-			path.MoveTo(x, y+4).LineTo(x, r.Y+r.H).Dash(0, 2, 2)
-			p.StrokePath(&path, 1.5, orange)
-			var dot ui.Path
-			dot.Circle(x, y, 4)
-			p.StrokePath(&dot, 1.5, orange)
-		})
-		ui.Box(c).Size(avatarSize, avatarSize).Shrink(0).Radius(avatarSize / 2).Center().Background(orange.Alpha(0.16)).Children(func() {
-			symbolIcon(c, icPage, 11, orange)
-		})
-		ui.Column(c).Grow(1).Shrink(1).Gap(1).Children(func() {
-			ui.Text(c, locales.MsgUncommittedChanges()).FontSize(12).Bold().SingleLine()
-			ui.Text(c, locales.MsgDFileS(n)).FontSize(11).TextColor(colors(c).Muted).SingleLine()
-		})
-	})
 }
 
 // The graph's geometry: rows of one height, so that the lanes of one row
@@ -481,7 +464,8 @@ func (a *App) openCommit(cm git.Commit) {
 
 // openCommitFile shows the diff of a file of a commit beside the others.
 func (a *App) openCommitFile(g *group, cm git.Commit, f git.FileStat) {
-	key := commitFileTab(cm.Hash, f.Path)
+	hash := fileCommit(cm, f)
+	key := commitFileTab(hash, f.Path)
 	if g.has(key) && g.diffs[key] != nil {
 		a.activateIn(g, key)
 		return
@@ -489,7 +473,7 @@ func (a *App) openCommitFile(g *group, cm git.Commit, f git.FileStat) {
 	a.git.diffSeq++
 	seq, gen, ctx, root := a.git.diffSeq, a.gen, a.wsCtx, a.git.root
 	go func() {
-		out, err := git.CommitFileDiff(ctx, root, cm.Hash, f)
+		out, err := git.CommitFileDiff(ctx, root, hash, f)
 		patches, parseErr := editor.ParsePatch(string(out))
 		a.post.Post(func() {
 			if a.gen != gen || a.git.diffSeq != seq || a.layout.find(g) == nil {
@@ -504,7 +488,7 @@ func (a *App) openCommitFile(g *group, cm git.Commit, f git.FileStat) {
 				return
 			}
 			v := a.newGitDiffTab(patches[0], f.Path, false)
-			v.rev, v.hash, v.oldPath = cm.Short, cm.Hash, f.OldPath
+			v.rev, v.hash, v.oldPath = cm.Short, hash, f.OldPath
 			if g.diffs == nil {
 				g.diffs = map[string]*gitDiffTab{}
 			}
@@ -520,6 +504,15 @@ func (a *App) openCommitFile(g *group, cm git.Commit, f git.FileStat) {
 			a.activateIn(g, key)
 		})
 	}()
+}
+
+// fileCommit is the commit f's diff is read from: a stash's untracked
+// files are of a commit of their own.
+func fileCommit(cm git.Commit, f git.FileStat) string {
+	if f.Commit != "" {
+		return f.Commit
+	}
+	return cm.Hash
 }
 
 func indexOf(s []string, v string) int {
@@ -623,8 +616,8 @@ func (a *App) commitFiles(c *ui.Context, g *group, v *commitView) {
 	})
 	ui.Column(c).FillWidth().Gap(1).Children(func() {
 		for _, f := range files {
-			key := commitFileTab(v.commit.Hash, f.Path)
-			row := ui.Row(c.Key(f.Path)).FillWidth().Padding(5, 8).Gap(8).Radius(6).AlignItems(ui.Center).
+			key := commitFileTab(fileCommit(v.commit, f), f.Path)
+			row := ui.Row(c.Key(key)).FillWidth().Padding(5, 8).Gap(8).Radius(6).AlignItems(ui.Center).
 				Cursor(ui.CursorPointer).Label(f.Path).Tooltip(f.Path)
 			if g.has(key) {
 				row.Background(colors(c).SelectedRow)

@@ -7894,6 +7894,16 @@ func (msgs Messages) CommandGitShowLog() string {
 	return Catalog.Format(msgs.locale, "commandGitShowLog", nil)
 }
 
+// CommandGitStashChanges says "Git: Stash Changes…"
+// in the language the app shows.
+func CommandGitStashChanges() string { return In(i18n.Locale()).CommandGitStashChanges() }
+
+// CommandGitStashChanges says "Git: Stash Changes…"
+// in the language of msgs.
+func (msgs Messages) CommandGitStashChanges() string {
+	return Catalog.Format(msgs.locale, "commandGitStashChanges", nil)
+}
+
 // CommandToggleInlineDiff says "Toggle Inline Diff"
 // in the language the app shows.
 func CommandToggleInlineDiff() string { return In(i18n.Locale()).CommandToggleInlineDiff() }

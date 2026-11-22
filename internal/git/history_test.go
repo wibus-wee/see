@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func newRepo(t *testing.T) (string, func(args ...string) string) {
+func newRepo(t *testing.T, initOpts ...string) (string, func(args ...string) string) {
 	t.Helper()
 	// GIT_AUTHOR_* and GIT_COMMITTER_* exported by the caller's shell
 	// override the -c flags below, so the tests pin them too.
@@ -48,7 +48,7 @@ func newRepo(t *testing.T) (string, func(args ...string) string) {
 		}
 		return string(out)
 	}
-	run("init", "-q")
+	run(append([]string{"init", "-q"}, initOpts...)...)
 	return root, run
 }
 
