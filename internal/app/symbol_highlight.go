@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 
 	"see/internal/langserver"
@@ -123,12 +124,12 @@ func (a *App) requestSymbolHighlights(target symbolHighlightTarget, seq uint64, 
 				if !startOK || !endOK || start >= end {
 					continue
 				}
-				alpha := float32(0.14)
+				alpha := float32(0.23)
 				if h.Kind == documentHighlightWrite {
-					alpha = 0.25
+					alpha = 0.36
 				}
 				s.backgrounds = append(s.backgrounds, editor.TextBackground{
-					Start: start, End: end, Color: a.colors().Link.Alpha(alpha),
+					Start: start, End: end, Color: ui.RGBA(0x58, 0x87, 0xbb, alpha),
 				})
 			}
 		})

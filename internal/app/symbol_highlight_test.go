@@ -33,8 +33,8 @@ func TestCaretSymbolHighlights(t *testing.T) {
 			t.Fatalf("background %d = %+v", i, bg)
 		}
 	}
-	if s.backgrounds[0].Color == s.backgrounds[1].Color {
-		t.Fatal("write and read tints are the same")
+	if write, read := s.backgrounds[0].Color.A, s.backgrounds[1].Color.A; read < 51 || write <= read {
+		t.Fatalf("occurrence tint alpha: write = %d, read = %d; want read at least 20%% and write stronger", write, read)
 	}
 	st.Select(offsets[1], offsets[1]+len("名字"))
 	h.tt.Frame()
