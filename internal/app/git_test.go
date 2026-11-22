@@ -272,34 +272,38 @@ func TestGitNavigatorStashesCollapseIndependently(t *testing.T) {
 	}
 }
 
-func TestGitCommitInputFollowsStagedRows(t *testing.T) {
-	root := gitRepo(t, map[string]string{"a.go": "package a\n"})
-	writeFile(t, root, "a.go", "package a\n// current\n")
+func TestGitCommitFooterStaysOutsideTreeScrollAndRetainsDraft(t *testing.T) {
+	root := gitRepo(t, map[string]string{"saved.txt": "saved\n"})
+	writeFile(t, root, "saved.txt", "saved stash\n")
+	gitRun(t, root, "stash", "push", "-q", "-m", "saved work")
+	for i := 0; i < 30; i++ {
+		writeFile(t, root, "change-"+strconv.Itoa(i)+".go", "package changes\n")
+	}
 	h := newHarness(t, root)
 	h.readGit()
 	h.a.navigator = navGit
-	h.a.git.historyClosed = true
+	h.tt.SetSize(harnessWidth, 700)
 	h.tt.Frame()
 
-	hasCommitField := func() bool {
+	commitField := func() (ui.AccessInfo, bool) {
 		for _, access := range h.tt.AccessAll() {
 			if access.Role == ui.RoleTextField && access.Name == locales.MsgCommitMessage() {
-				return true
+				return access, true
 			}
 		}
-		return false
+		return ui.AccessInfo{}, false
 	}
-	if hasCommitField() {
+	if _, ok := commitField(); ok {
 		t.Fatal("empty commit field shown without staged changes or a draft")
 	}
 	if err := h.tt.Click("Stage All Changes"); err != nil {
 		t.Fatal(err)
 	}
 	h.settle(func() bool { return !h.a.git.busy && !h.a.git.loading })
-	file, fileOK := h.tt.Find("Staged diff: a.go")
-	commit, commitOK := h.tt.Find(locales.MsgCommitMessage())
-	if !fileOK || !commitOK || commit.Y <= file.Y {
-		t.Fatalf("commit field is not after staged rows: file %v (%v), commit %v (%v), texts %q", file, fileOK, commit, commitOK, h.tt.Texts())
+	file, fileOK := h.tt.Find("Staged diff: change-0.go")
+	commit, commitOK := commitField()
+	if !fileOK || !commitOK || commit.Bounds.Y <= file.Y {
+		t.Fatalf("commit footer is not visible after staging: file %v (%v), commit %v (%v), texts %q", file, fileOK, commit, commitOK, h.tt.Texts())
 	}
 	if err := h.tt.Click(locales.MsgCommitMessage()); err != nil {
 		t.Fatal(err)
@@ -313,8 +317,118 @@ func TestGitCommitInputFollowsStagedRows(t *testing.T) {
 		t.Fatal(err)
 	}
 	h.settle(func() bool { return !h.a.git.busy && !h.a.git.loading })
-	if !hasCommitField() {
+	if _, ok := commitField(); !ok {
 		t.Fatal("commit draft field disappeared when changes were unstaged")
+	}
+	commitBefore, _ := commitField()
+	historyBefore, historyOK := h.tt.Find("History")
+	file, fileOK = h.tt.Find("Unstaged diff: change-0.go")
+	if !historyOK || !fileOK {
+		t.Fatalf("scroll anchors missing: History %v (%v), file %v (%v), texts %q", historyBefore, historyOK, file, fileOK, h.tt.Texts())
+	}
+	x, y := file.X+file.W/2, file.Y+file.H/2
+	for i := 0; i < 32 && !h.tt.HasText("Stash: saved work"); i++ {
+		h.tt.Wheel(x, y, 0, 120)
+		h.tt.Advance(150 * time.Millisecond)
+	}
+	if !h.tt.HasText("Stash: saved work") {
+		t.Fatalf("stash row did not enter the tree viewport: %q", h.tt.Texts())
+	}
+	commitAfter, commitOK := commitField()
+	historyAfter, historyOK := h.tt.Find("History")
+	if !commitOK || commitAfter.Bounds != commitBefore.Bounds || !historyOK || historyAfter.Y != historyBefore.Y {
+		t.Fatalf("scrolling the file/stash tree moved the footer or History: commit %v -> %v, History %v -> %v", commitBefore, commitAfter, historyBefore, historyAfter)
+	}
+}
+
+func TestGitConflictFooterStaysOutsideTreeWithStashAndHistory(t *testing.T) {
+	root := gitRepo(t, map[string]string{"settings.go": "base\n", "saved.txt": "saved\n"}, "feature")
+	writeFile(t, root, "saved.txt", "stashed\n")
+	gitRun(t, root, "stash", "push", "-q", "-m", "conflict scenario stash")
+	gitRun(t, root, "switch", "-q", "feature")
+	writeFile(t, root, "settings.go", "incoming\n")
+	gitRun(t, root, "add", "settings.go")
+	gitRun(t, root, "commit", "-qm", "feature change")
+	gitRun(t, root, "switch", "-q", "main")
+	writeFile(t, root, "settings.go", "current\n")
+	gitRun(t, root, "add", "settings.go")
+	gitRun(t, root, "commit", "-qm", "main change")
+	if _, err := git.Command(context.Background(), root, "merge", "feature"); err == nil {
+		t.Fatal("expected a merge conflict")
+	}
+	for i := 0; i < 28; i++ {
+		writeFile(t, root, "work-"+strconv.Itoa(i)+".go", "package work\n")
+	}
+
+	h := newHarness(t, root)
+	h.readGit()
+	h.a.navigator = navGit
+	h.tt.SetSize(harnessWidth, 900)
+	h.tt.Frame()
+	h.settle(func() bool { return !h.a.git.history.loading })
+
+	reason := gitConflictText("gitResolveBeforeCommit")
+	if !h.tt.HasText("Conflicted Files") || len(h.a.git.stashes) != 1 {
+		t.Fatalf("conflicts or stash missing: %q, stashes %+v", h.tt.Texts(), h.a.git.stashes)
+	}
+	var field, commitButton, conflictStatus ui.AccessInfo
+	var fieldOK, buttonOK, statusOK bool
+	for _, access := range h.tt.AccessAll() {
+		switch {
+		case access.Role == ui.RoleTextField && access.Name == locales.MsgCommitMessage():
+			field, fieldOK = access, true
+		case access.Role == ui.RoleButton && access.Name == locales.MsgCommit():
+			commitButton, buttonOK = access, true
+		case access.Role == ui.RoleText && access.Name == reason:
+			conflictStatus, statusOK = access, true
+		}
+	}
+	if !fieldOK || !buttonOK || !statusOK || field.Offscreen || commitButton.Offscreen || field.Placeholder == reason || !commitButton.Disabled || !strings.Contains(commitButton.Description, reason) {
+		t.Fatalf("conflict composer state: field %+v (%v), Commit %+v (%v), status %+v (%v), texts %q", field, fieldOK, commitButton, buttonOK, conflictStatus, statusOK, h.tt.Texts())
+	}
+	if conflictStatus.Bounds.Y <= field.Bounds.Y {
+		t.Fatalf("conflict reason is not a separate footer status line: field %v, status %v", field.Bounds, conflictStatus.Bounds)
+	}
+	if err := h.tt.Click(locales.MsgCommitMessage()); err != nil {
+		t.Fatal(err)
+	}
+	h.tt.Type("merge draft")
+	h.tt.Frame()
+	if h.a.git.message != "merge draft" {
+		t.Fatalf("typing during conflicts lost the commit draft: %q", h.a.git.message)
+	}
+	field = ui.AccessInfo{}
+	fieldOK = false
+	for _, access := range h.tt.AccessAll() {
+		if access.Role == ui.RoleTextField && access.Name == locales.MsgCommitMessage() {
+			field = access
+			fieldOK = true
+			break
+		}
+	}
+	historyBefore, historyOK := h.tt.Find("History")
+	file, fileOK := h.tt.Find("Unstaged diff: work-0.go")
+	if !fieldOK || !historyOK || !fileOK {
+		t.Fatalf("conflict scroll anchors missing: field %+v, History %v (%v), file %v (%v)", field, historyBefore, historyOK, file, fileOK)
+	}
+	x, y := file.X+file.W/2, file.Y+file.H/2
+	for i := 0; i < 32 && !h.tt.HasText("Stash: conflict scenario stash"); i++ {
+		h.tt.Wheel(x, y, 0, 120)
+		h.tt.Advance(150 * time.Millisecond)
+	}
+	if !h.tt.HasText("Stash: conflict scenario stash") {
+		t.Fatalf("stash row did not enter the conflict tree viewport: %q", h.tt.Texts())
+	}
+	var fieldAfter ui.AccessInfo
+	for _, access := range h.tt.AccessAll() {
+		if access.Role == ui.RoleTextField && access.Name == locales.MsgCommitMessage() {
+			fieldAfter = access
+			break
+		}
+	}
+	historyAfter, historyOK := h.tt.Find("History")
+	if fieldAfter.Bounds != field.Bounds || !historyOK || historyAfter.Y != historyBefore.Y {
+		t.Fatalf("conflict tree scrolling moved the composer or History: field %v -> %v, History %v -> %v", field.Bounds, fieldAfter.Bounds, historyBefore, historyAfter)
 	}
 }
 

@@ -5,8 +5,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/egoist/mygo/ui"
+	"see/internal/git"
 )
 
 // Stashing from the Changes header names the stash, lists it under
@@ -107,9 +109,14 @@ func TestStashRefusesUnsavedEdits(t *testing.T) {
 // once dropping a newer stash renumbers the older ones.
 func TestStashActionsTargetTheirRow(t *testing.T) {
 	root := gitRepo(t, map[string]string{"a.txt": "a\n", "b.txt": "b\n", "c.txt": "c\n"})
+	longMessage := strings.TrimSpace(strings.Repeat("middle stash message ", 4))
 	for _, f := range []string{"a", "b", "c"} {
 		writeFile(t, root, f+".txt", f+"\nstashed\n")
-		gitRun(t, root, "stash", "push", "-q", "-m", "edit "+f)
+		message := "edit " + f
+		if f == "b" {
+			message = longMessage
+		}
+		gitRun(t, root, "stash", "push", "-q", "-m", message)
 	}
 	h := newHarness(t, root)
 	h.readGit()
@@ -130,11 +137,44 @@ func TestStashActionsTargetTheirRow(t *testing.T) {
 		}
 		return m
 	}
-	if got := strings.Join(stashes(), ","); got != "edit c,edit b,edit a" {
+	if got := strings.Join(stashes(), ","); got != "edit c,"+longMessage+",edit a" {
 		t.Fatalf("stashes %s", got)
 	}
 
-	if err := h.tt.RightClick("Stash: edit b"); err != nil {
+	var stash git.Stash
+	for _, candidate := range h.a.git.stashes {
+		if candidate.Message == longMessage {
+			stash = candidate
+			break
+		}
+	}
+	if stash.Message == "" {
+		t.Fatal("long-message stash missing")
+	}
+	stashAccess := func() (ui.AccessInfo, bool) {
+		for _, access := range h.tt.AccessAll() {
+			if access.Role == ui.RoleButton && access.Name == "Stash: "+longMessage {
+				return access, true
+			}
+		}
+		return ui.AccessInfo{}, false
+	}
+	row, ok := stashAccess()
+	if !ok || row.Bounds.H > 26 {
+		t.Fatalf("long stash is not a single-line tree row: %v (%v), texts %q", row.Bounds, ok, h.tt.Texts())
+	}
+	for _, detail := range []string{stash.Ref(), stash.Branch, relativeTime(stash.Date, time.Now())} {
+		if detail != "" && !strings.Contains(row.Description, detail) {
+			t.Fatalf("stash accessible description %q misses %q", row.Description, detail)
+		}
+	}
+	h.tt.Move(row.Bounds.X+row.Bounds.W/2, row.Bounds.Y+row.Bounds.H/2)
+	h.tt.Frame()
+	hovered, ok := stashAccess()
+	if !ok || hovered.Bounds != row.Bounds {
+		t.Fatalf("hover moved the stash message: before %v, after %v", row.Bounds, hovered.Bounds)
+	}
+	if err := h.tt.RightClick("Stash: " + longMessage); err != nil {
 		t.Fatal(err)
 	}
 	if err := h.tt.ChooseMenuItem("Apply Stashed Changes"); err != nil {
@@ -162,7 +202,7 @@ func TestStashActionsTargetTheirRow(t *testing.T) {
 		t.Fatal(err)
 	}
 	h.settle(func() bool { return !h.a.git.busy && !h.a.git.loading && len(h.a.git.stashes) == 2 })
-	if got := strings.Join(stashes(), ","); got != "edit b,edit a" {
+	if got := strings.Join(stashes(), ","); got != longMessage+",edit a" {
 		t.Fatalf("after dropping the newest: %s", got)
 	}
 
@@ -173,7 +213,7 @@ func TestStashActionsTargetTheirRow(t *testing.T) {
 		t.Fatal(err)
 	}
 	h.settle(func() bool { return !h.a.git.busy && !h.a.git.loading && len(h.a.git.stashes) == 1 })
-	if got := strings.Join(stashes(), ","); got != "edit b" {
+	if got := strings.Join(stashes(), ","); got != longMessage {
 		t.Fatalf("apply and drop removed the wrong stash: %s", got)
 	}
 	if got := strings.Join(changed(), ","); got != "a.txt,b.txt" {

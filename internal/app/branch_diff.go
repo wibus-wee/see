@@ -102,8 +102,8 @@ func (a *App) branchDiffModePicker(c *ui.Context) {
 func (a *App) branchDiffNavigator(c *ui.Context) {
 	v := a.git.branchPanel
 	if v == nil {
-		ui.Row(c).Padding(8, sidebarInset).Children(func() {
-			button := ui.Button(c, branchDiffText("gitChooseBaseBranch")).FontSize(12)
+		ui.Row(c).Height(gitSidebarGroupHeaderHeight).Padding(0, sidebarInset+gitSidebarTreeIndent).Children(func() {
+			button := ui.Button(c, branchDiffText("gitChooseBaseBranch")).FontSize(gitSidebarGroupLabelSize).MinWidth(0).Shrink(1)
 			if button.Clicked() {
 				a.openBaseBranchPicker(button.Bounds(), nil)
 			}
@@ -112,16 +112,19 @@ func (a *App) branchDiffNavigator(c *ui.Context) {
 	}
 	switch {
 	case v.loading && v.result == nil:
-		ui.Row(c).Padding(10, sidebarInset).Gap(8).Children(func() {
+		ui.Row(c).Height(gitSidebarGroupHeaderHeight).Padding(0, sidebarInset+gitSidebarTreeIndent).Gap(8).Children(func() {
 			ui.Spinner(c)
-			ui.Text(c, branchDiffText("gitReadingBranchDiff")).FontSize(12).TextColor(colors(c).Muted)
+			ui.Text(c, branchDiffText("gitReadingBranchDiff")).FontSize(gitSidebarGroupLabelSize).TextColor(colors(c).Muted)
 		})
 	case v.err != "":
-		ui.Text(c, v.err).FontSize(12).TextColor(colors(c).Err).Padding(8, sidebarInset)
+		ui.Text(c, v.err).FontSize(gitSidebarRowLabelSize).TextColor(colors(c).Err).
+			Padding(gitSidebarStatusInset, sidebarInset+gitSidebarTreeIndent).SingleLine().Ellipsis("…").MinWidth(0)
 	case v.result == nil:
-		ui.Text(c, branchDiffText("gitChooseBaseBranch")).FontSize(12).TextColor(colors(c).Muted).Padding(8, sidebarInset)
+		ui.Text(c, branchDiffText("gitChooseBaseBranch")).FontSize(gitSidebarRowLabelSize).TextColor(colors(c).Muted).
+			Padding(gitSidebarStatusInset, sidebarInset+gitSidebarTreeIndent).SingleLine().Ellipsis("…").MinWidth(0)
 	case len(v.files) == 0:
-		ui.Text(c, branchDiffText("gitNoBranchChanges")).FontSize(12).TextColor(colors(c).Muted).Padding(8, sidebarInset)
+		ui.Text(c, branchDiffText("gitNoBranchChanges")).FontSize(gitSidebarRowLabelSize).TextColor(colors(c).Muted).
+			Padding(gitSidebarStatusInset, sidebarInset+gitSidebarTreeIndent).SingleLine().Ellipsis("…").MinWidth(0)
 	default:
 		if a.git.kindOpen == nil {
 			a.git.kindOpen = map[filekind.Kind]bool{}
@@ -133,7 +136,8 @@ func (a *App) branchDiffNavigator(c *ui.Context) {
 		}
 		list := func(files []branchDiffFile) {
 			for _, f := range files {
-				row := ui.Row(c.Key(f.Path)).FillWidth().Height(28).Padding(0, sidebarInset).Gap(7).AlignItems(ui.Center).
+				row := ui.Row(c.Key(f.Path)).FillWidth().Height(gitSidebarRowHeight).
+					Padding(0, sidebarInset+gitSidebarTreeIndent).Gap(gitSidebarColumnGap).AlignItems(ui.Center).
 					Cursor(ui.CursorPointer).Label(f.Path).Tooltip(branchDiffText("gitReadOnly"))
 				if v.selectedPath == f.Path {
 					row.Background(colors(c).SelectedRow)
@@ -142,27 +146,27 @@ func (a *App) branchDiffNavigator(c *ui.Context) {
 				}
 				row.OnClick(func() { a.openBranchDiff(a.focus, v.baseRef, v.baseName, f.Path) })
 				row.Children(func() {
-					fileIcon(c, filepath.Base(f.Path), 13)
+					fileIcon(c, filepath.Base(f.Path), gitSidebarIconColumn)
 					name := filepath.ToSlash(f.Path)
 					if f.OldPath != "" {
 						name = filepath.ToSlash(f.OldPath) + " → " + name
 					}
-					ui.Text(c, name).FontSize(11).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(1)
+					ui.Text(c, name).FontSize(gitSidebarRowLabelSize).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(1)
 					ui.Box(c).Grow(1)
 					if f.Added < 0 {
-						ui.Text(c, branchDiffText("gitBinary")).FontSize(10).TextColor(colors(c).Muted)
+						ui.Text(c, branchDiffText("gitBinary")).FontSize(10).TextColor(colors(c).Muted).SingleLine().Shrink(0)
 					} else {
 						if f.Added > 0 {
-							ui.Text(c, fmt.Sprintf("+%d", f.Added)).FontSize(10).TextColor(a.gitStatusColor('A'))
+							ui.Text(c, fmt.Sprintf("+%d", f.Added)).FontSize(10).TextColor(a.gitStatusColor('A')).SingleLine().Shrink(0)
 						}
 						if f.Deleted > 0 {
-							ui.Text(c, fmt.Sprintf("−%d", f.Deleted)).FontSize(10).TextColor(a.gitStatusColor('D'))
+							ui.Text(c, fmt.Sprintf("−%d", f.Deleted)).FontSize(10).TextColor(a.gitStatusColor('D')).SingleLine().Shrink(0)
 						}
 					}
 				})
 			}
 		}
-		ui.Column(c.Key("branch-diff-files")).FillWidth().Padding(0, 0, 8).Children(func() {
+		ui.Column(c.Key("branch-diff-files")).FillWidth().Padding(0, 0, gitSidebarEmptyInset).Children(func() {
 			list(groups[filekind.Code])
 			for _, k := range []filekind.Kind{filekind.Test, filekind.Docs, filekind.Generated} {
 				files := groups[k]
