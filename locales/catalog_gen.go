@@ -7252,6 +7252,26 @@ func (msgs Messages) CommandAddEditorBelow() string {
 	return Catalog.Format(msgs.locale, "commandAddEditorBelow", nil)
 }
 
+// CommandMaximizeEditor says "Maximize Editor"
+// in the language the app shows.
+func CommandMaximizeEditor() string { return In(i18n.Locale()).CommandMaximizeEditor() }
+
+// CommandMaximizeEditor says "Maximize Editor"
+// in the language of msgs.
+func (msgs Messages) CommandMaximizeEditor() string {
+	return Catalog.Format(msgs.locale, "commandMaximizeEditor", nil)
+}
+
+// RestoreEditorLayout says "Restore Editor Layout"
+// in the language the app shows.
+func RestoreEditorLayout() string { return In(i18n.Locale()).RestoreEditorLayout() }
+
+// RestoreEditorLayout says "Restore Editor Layout"
+// in the language of msgs.
+func (msgs Messages) RestoreEditorLayout() string {
+	return Catalog.Format(msgs.locale, "restoreEditorLayout", nil)
+}
+
 // CommandShowOrHideTheTerminal says "Show or Hide the Terminal"
 // in the language the app shows.
 func CommandShowOrHideTheTerminal() string { return In(i18n.Locale()).CommandShowOrHideTheTerminal() }

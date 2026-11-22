@@ -706,6 +706,8 @@
   "commandReopenClosedTab": "Reopen Closed Tab",
   "commandAddEditorOnRight": "Add Editor on Right",
   "commandAddEditorBelow": "Add Editor Below",
+  "commandMaximizeEditor": "Maximize Editor",
+  "restoreEditorLayout": "Restore Editor Layout",
   "commandShowOrHideTheTerminal": "Show or Hide the Terminal",
   "commandShowOutput": "Show Output",
   "commandNewTerminal": "New Terminal",

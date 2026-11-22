@@ -706,6 +706,8 @@
   "commandReopenClosedTab": "重新打开已关闭的标签页",
   "commandAddEditorOnRight": "在右侧添加编辑器",
   "commandAddEditorBelow": "在下方添加编辑器",
+  "commandMaximizeEditor": "最大化编辑器",
+  "restoreEditorLayout": "恢复编辑器布局",
   "commandShowOrHideTheTerminal": "显示或隐藏终端",
   "commandShowOutput": "显示输出",
   "commandNewTerminal": "新建终端",

@@ -108,6 +108,7 @@ type App struct {
 	localHistoryStore *localhistory.Store
 	localHistoryErr   error
 	layout            *layout
+	maximized         *group
 	recents           []string // the files activated lately, across groups, most recent last
 	focus             *group
 	focusGroupTarget  *group
@@ -1301,6 +1302,7 @@ func (a *App) newEditor(g *group, d *doc) *editor.State {
 		st.SetDiagnostics(d.diagnosticVersion, d.diagnostics)
 	}
 	st.OnDefinition = func(offset int) { a.goToDefinition(g, d, offset) }
+	st.NoDefinitionLink = true // hover.go draws the Cmd link once the server confirms a definition
 	a.loadGitBase(d)
 	st.ContextMenu = func(menu *ui.Menu) {
 		if menu.Item(commandLabel("Test Regex")).Chosen() {
