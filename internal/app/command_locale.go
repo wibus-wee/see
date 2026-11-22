@@ -78,6 +78,7 @@ var commandMessages = map[string]string{
 	"Git: Push":                   "commandGitPush",
 	"Git: Switch Branch…":         "commandGitSwitchBranch",
 	"Filter Files":                "commandFilterFiles",
+	"Reveal in Project Navigator": "commandRevealInProjectNavigator",
 	"Show or Hide the Navigator":  "commandShowOrHideTheNavigator",
 	"Go Back":                     "commandGoBack",
 	"Go Forward":                  "commandGoForward",
