@@ -89,6 +89,7 @@ func commandsFor(goos string) []command {
 		{"Git: Jump to Date…", "", "", 0, 0, func(a *App) { a.openJumpToDate() }},
 		{"Show Line's Commit in Git Log", "", "", 0, 0, func(a *App) { a.revealLineCommit() }},
 		{"Toggle Minimap", "", "", 0, 0, func(a *App) { a.cfg.HideMinimap = !a.cfg.HideMinimap; a.settingsChanged() }},
+		{"Toggle Reader Mode", "", "", 0, 0, func(a *App) { a.cfg.HideDocComments = !a.cfg.HideDocComments; a.settingsChanged() }},
 		{"Toggle Inline Git Blame", "", "", 0, 0, func(a *App) { a.cfg.HideInlineBlame = !a.cfg.HideInlineBlame; a.settingsChanged() }},
 		{"Show Invisibles", "", "", 0, 0, func(a *App) { a.toggleInvisibles() }},
 		{"Toggle Type Hints", "", "", 0, 0, func(a *App) { a.toggleTypeHints() }},

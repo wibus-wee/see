@@ -1,4 +1,7 @@
 {
+  "renderDocComments": "Render Doc Comments",
+  "renderDocCommentsDescription": "Format documentation inline; move the caret into a comment to edit its source.",
+  "commandToggleReaderMode": "Toggle Reader Mode",
   "typeHierarchy": "Type Hierarchy",
   "commandShowTypeHierarchy": "Show Type Hierarchy",
   "typeHierarchyIncoming": "Supertypes",

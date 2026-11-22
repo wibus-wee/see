@@ -296,6 +296,7 @@ type doc struct {
 	blameTimer        *time.Timer
 	blameCancel       context.CancelFunc
 	languageInlays    []editor.Inlay
+	readerCache       *readerCache
 	parameterInlays   []editor.Inlay
 	inlayKey          inlayKey
 	inlaySeq          int

@@ -419,6 +419,9 @@ func Main() {
 					{Label: locales.EditorFontSize(), Submenu: currentApp.editorFontSizeMenu(currentWin.Update)},
 				}, currentApp.navigationMenuItems(currentWin.Update)...), []*mygo.MenuItem{
 					{Label: locales.Appearance(), Submenu: appearanceMenu(currentApp)},
+					{Label: commandLabel("Toggle Reader Mode"), Click: func(*mygo.MenuItem, *mygo.Window) {
+						currentWin.Update(func() { currentApp.cfg.HideDocComments = !currentApp.cfg.HideDocComments; currentApp.settingsChanged() })
+					}},
 					{Label: locales.Folding(), Submenu: currentApp.foldingMenu(currentWin.Update)},
 				}...)}, {Role: mygo.RoleWindowMenu},
 			}))

@@ -352,7 +352,7 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 		if g.colorPreview != nil {
 			g.colorPreview.seen = false
 		}
-		st.SetReplacements(a.colorReplacements(g, d, st))
+		st.SetReplacements(mergeReaderReplacements(a.colorReplacements(g, d, st), a.readerReplacements(c, d, st)))
 		backgrounds := st.LineBackgrounds
 		st.LineBackgrounds = a.diagnosticLineBackgrounds(d, st)
 		st.LineBackgrounds = append(st.LineBackgrounds, bookmarkLineBackgrounds(a.bookmarkedLines(d.path), st.Theme)...)

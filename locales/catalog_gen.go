@@ -34,6 +34,36 @@ type Messages struct{ locale string }
 // source language.
 func In(locale string) Messages { return Messages{locale} }
 
+// RenderDocComments says "Render Doc Comments"
+// in the language the app shows.
+func RenderDocComments() string { return In(i18n.Locale()).RenderDocComments() }
+
+// RenderDocComments says "Render Doc Comments"
+// in the language of msgs.
+func (msgs Messages) RenderDocComments() string {
+	return Catalog.Format(msgs.locale, "renderDocComments", nil)
+}
+
+// RenderDocCommentsDescription says "Format documentation inline; move the caret into a comment to edit its source."
+// in the language the app shows.
+func RenderDocCommentsDescription() string { return In(i18n.Locale()).RenderDocCommentsDescription() }
+
+// RenderDocCommentsDescription says "Format documentation inline; move the caret into a comment to edit its source."
+// in the language of msgs.
+func (msgs Messages) RenderDocCommentsDescription() string {
+	return Catalog.Format(msgs.locale, "renderDocCommentsDescription", nil)
+}
+
+// CommandToggleReaderMode says "Toggle Reader Mode"
+// in the language the app shows.
+func CommandToggleReaderMode() string { return In(i18n.Locale()).CommandToggleReaderMode() }
+
+// CommandToggleReaderMode says "Toggle Reader Mode"
+// in the language of msgs.
+func (msgs Messages) CommandToggleReaderMode() string {
+	return Catalog.Format(msgs.locale, "commandToggleReaderMode", nil)
+}
+
 // TypeHierarchy says "Type Hierarchy"
 // in the language the app shows.
 func TypeHierarchy() string { return In(i18n.Locale()).TypeHierarchy() }
