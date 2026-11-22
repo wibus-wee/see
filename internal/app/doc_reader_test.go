@@ -63,7 +63,7 @@ func TestReaderSourceRanges(t *testing.T) {
 		t.Fatalf("%+v", blocks)
 	}
 	for i, line := range blocks[0].lines {
-		if line.end <= line.start || strings.HasPrefix(text[line.start:line.end], "\t") {
+		if line.end <= line.start || !line.hidden && strings.HasPrefix(text[line.start:line.end], "\t") {
 			t.Fatalf("bad range: %+v", line)
 		}
 		if i != 1 && line.text != "" {
@@ -82,7 +82,7 @@ func TestReaderBlockCommentAlignment(t *testing.T) {
 			}
 			offsets := readerOffsets(strings.Split(text, "\n"))
 			for i, line := range blocks[0].lines {
-				if line.start != offsets[i]+len(indent) {
+				if !line.hidden && line.start != offsets[i]+len(indent) {
 					t.Errorf("line %d starts at column %d, want %d", i, line.start-offsets[i], len(indent))
 				}
 			}
@@ -201,5 +201,66 @@ func TestReaderModeEditorRevealAndToggle(t *testing.T) {
 	}
 	if d.buf.String() != text {
 		t.Fatal("reader mode changed source")
+	}
+}
+
+func TestReaderDelimiterRowsCollapse(t *testing.T) {
+	for _, test := range []struct {
+		name, text      string
+		hidden, spacers []int
+	}{
+		{"example.ts", "const x = 1;\n\n/**\n * First.\n *\n * Second.\n */\nfunction f() {}\n", []int{2, 6}, []int{1, 4}},
+		{"example.py", "value = 1\n\ndef f():\n    \"\"\"\n    First.\n\n    Second.\n    \"\"\"\n    pass\n", []int{3, 7}, []int{1, 5}},
+		{"module.py", "\"\"\"\nFirst.\n\nSecond.\n\"\"\"\n\nvalue = 1\n", []int{0, 4}, []int{2, 5}},
+		{"empty.ts", "const x = 1;\n\n/**   */\nfunction f() {}\n", []int{2}, []int{1}},
+		{"empty.py", "def f():\n    '''   '''\n    pass\n", []int{1}, nil},
+		{"crlf.ts", "const x = 1;\r\n\r\n\t/**\r\n\t * First.\r\n\t *\r\n\t */\r\nfunction f() {}\r\n", []int{2, 5}, []int{1, 4}},
+		{"example.go", "package p\n\n// First.\n//\n// Second.\nfunc f() {}\n", nil, []int{1, 3}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			h := newHarness(t, writeTree(t, map[string]string{test.name: test.text}))
+			d := h.open(test.name)
+			source := d.buf.String()
+			st := h.a.activeEditor()
+			st.Select(len(source)-2, len(source)-2)
+			h.tt.Frame()
+			for _, line := range test.hidden {
+				if height := st.LineTop(line+1) - st.LineTop(line); height != 0 {
+					t.Errorf("delimiter line %d still has height %g", line+1, height)
+				}
+			}
+			for _, line := range test.spacers {
+				if height := st.LineTop(line+1) - st.LineTop(line); height <= 0 {
+					t.Errorf("spacer line %d lost its height", line+1)
+				}
+			}
+			replacements := st.Replacements()
+			for i, r := range replacements {
+				if i > 0 && replacements[i-1].End > r.Start {
+					t.Fatalf("overlapping replacements: %+v", replacements)
+				}
+				if r.Content == nil {
+					if r.Text != "" || source[r.End-1] != '\n' {
+						t.Fatalf("delimiter must hide the whole row: %+v", r)
+					}
+					color := editor.Replacement{Start: r.Start, End: r.Start + 1, Text: "color"}
+					merged := mergeReaderReplacements([]editor.Replacement{color}, replacements)
+					if len(merged) != len(replacements) {
+						t.Fatalf("color overlap did not drop exactly one hidden range: %+v", merged)
+					}
+				}
+			}
+			for _, line := range test.hidden {
+				offset := d.buf.Snapshot().LineStart(line)
+				st.Select(offset, offset)
+				h.tt.Frame()
+				if len(st.Replacements()) != 0 || st.LineTop(line+1) <= st.LineTop(line) {
+					t.Fatalf("caret on hidden delimiter line %d did not restore source", line+1)
+				}
+			}
+			if d.buf.String() != source {
+				t.Fatal("reader mode changed source")
+			}
+		})
 	}
 }

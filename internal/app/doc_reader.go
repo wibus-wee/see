@@ -11,6 +11,7 @@ import (
 type readerLine struct {
 	start, end int
 	text       string
+	hidden     bool
 }
 
 type readerBlock struct {
@@ -130,6 +131,9 @@ func readerBlocks(text, language string) []readerBlock {
 				}
 				line := readerSourceLine(lines, offsets, i, strings.TrimSpace(body))
 				line.start = min(line.start, offsets[i]+indent)
+				if line.text == "" && (i == first || closed) {
+					line = readerHiddenLine(lines, offsets, i)
+				}
 				rendered = append(rendered, line)
 				if closed {
 					i++
@@ -159,7 +163,15 @@ func readerOffsets(lines []string) []int {
 
 func readerSourceLine(lines []string, offsets []int, i int, body string) readerLine {
 	indent := len(lines[i]) - len(strings.TrimLeft(lines[i], " \t"))
-	return readerLine{offsets[i] + indent, offsets[i] + len(strings.TrimSuffix(lines[i], "\r")), body}
+	return readerLine{start: offsets[i] + indent, end: offsets[i] + len(strings.TrimSuffix(lines[i], "\r")), text: body}
+}
+
+func readerHiddenLine(lines []string, offsets []int, i int) readerLine {
+	end := offsets[i] + len(lines[i])
+	if i+1 < len(offsets) {
+		end = offsets[i+1]
+	}
+	return readerLine{start: offsets[i], end: end, hidden: true}
 }
 
 func pythonReaderBlocks(text string) []readerBlock {
@@ -202,7 +214,11 @@ func pythonReaderBlocks(text string) []readerBlock {
 					body = body[:end]
 					closed = true
 				}
-				rendered = append(rendered, readerSourceLine(lines, offsets, i, body))
+				line := readerSourceLine(lines, offsets, i, body)
+				if strings.TrimSpace(body) == "" && (i == first || closed) {
+					line = readerHiddenLine(lines, offsets, i)
+				}
+				rendered = append(rendered, line)
 				if closed {
 					break
 				}
@@ -349,6 +365,10 @@ func (a *App) readerReplacements(c *ui.Context, d *doc, st *editor.State) []edit
 		}
 		for _, line := range block.lines {
 			if line.end <= line.start {
+				continue
+			}
+			if line.hidden {
+				replacements = append(replacements, editor.Replacement{Start: line.start, End: line.end})
 				continue
 			}
 			layout, ok := cache.layouts[line.start]
