@@ -35,13 +35,17 @@ func (a *App) gitNavigatorTabs(c *ui.Context) {
 		tabs.List.FillWidth().Height(gitSidebarTabsHeight).AlignItems(ui.Stretch).Children(func() {
 			for i, label := range []string{locales.GitRepositoryChanges(), locales.GitRepositories()} {
 				tab := tabs.Tab(i).Grow(1).Basis(0).MinWidth(0).Shrink(1).FillHeight().Padding(0, 6).Label(label)
+				active := i == *page
 				tab.TextColor(colors(c).Muted)
-				if i == *page {
-					tab.TextColor(c.Theme().Text).FontWeight(500).
-						BorderWidth(0, 0, 1, 0).BorderColor(colors(c).Separator)
+				if active {
+					tab.BorderWidth(0, 0, 2, 0).BorderColor(c.Theme().Text)
 				}
 				tab.Children(func() {
-					ui.Text(c, label).FontSize(gitSidebarGroupLabelSize).SingleLine().Ellipsis("…").MinWidth(0)
+					text := ui.Text(c, label).FontSize(gitSidebarGroupLabelSize).TextColor(colors(c).Muted)
+					if active {
+						text.TextColor(c.Theme().Text).FontWeight(600)
+					}
+					text.SingleLine().Ellipsis("…").MinWidth(0)
 				})
 			}
 		})
