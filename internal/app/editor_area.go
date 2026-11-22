@@ -436,7 +436,8 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 			return a.quickHelpEditorInput(g, d, st, ev)
 		}
 		if peek := a.git.peek; peek != nil && peek.doc == d && peek.group == g {
-			a.editorPeek(c, bounds, st, peek.line, d.name+" — Git changes", "Close Change Preview", diffHeight(st, peek.diff), func() { a.git.peek = nil }, func() {
+			act := &peekAction{label: commandLabel("Discard Change"), destructive: true, do: func() { a.discardChangeAt(d, st, peek.line) }}
+			a.editorPeekAction(c, bounds, st, peek.line, d.name+" — Git changes", "Close Change Preview", diffHeight(st, peek.diff), act, func() { a.git.peek = nil }, func() {
 				ui.Scroll(c).Grow(1).FillWidth().TrackScroll(&peek.scroll).Label(locales.MsgGitChangePreview()).Children(func() {
 					editor.DiffView(c, peek.diff).FillWidth()
 				})
@@ -612,10 +613,11 @@ func (a *App) relatedView(c *ui.Context, ch *defChoices) {
 // peekAction is a second button of a peek's header, beside its close
 // button, as the references peek's pin.
 type peekAction struct {
-	icon  *ui.SVG
-	label string
-	tip   string
-	do    func()
+	destructive bool
+	icon        *ui.SVG
+	label       string
+	tip         string
+	do          func()
 }
 
 // editorPeek shows content in a popover at a line of the editor, as
@@ -665,8 +667,16 @@ func (a *App) editorPeekAction(c *ui.Context, bounds ui.Rect, st *editor.State, 
 					ui.Text(c, detail).FontSize(12).TextColor(pal.Muted).SingleLine().Shrink(2)
 				}
 				ui.Box(c).Grow(1)
-				if act != nil && glyphButton(c, act.icon, act.label, act.tip, false, false).Clicked() {
-					act.do()
+				if act != nil {
+					if act.destructive {
+						button := ui.ButtonBase(c).Label(act.label).Padding(3, 6).Radius(4).Cursor(ui.CursorPointer)
+						if button.Hovered() {
+							button.Background(pal.Pill)
+						}
+						button.OnClick(act.do).Children(func() { ui.Text(c, act.label).FontSize(11).TextColor(pal.Err.Alpha(0.75)) })
+					} else if glyphButton(c, act.icon, act.label, act.tip, false, false).Clicked() {
+						act.do()
+					}
 				}
 				if glyphButton(c, icClose, closeLabel, "Close", false, false).Clicked() {
 					close()

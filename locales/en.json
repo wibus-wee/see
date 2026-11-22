@@ -652,6 +652,7 @@
   "commandToggleInlineDiff": "Toggle Inline Diff",
   "commandNextChange": "Next Change",
   "commandPreviousChange": "Previous Change",
+  "commandDiscardChange": "Discard Change",
   "commandGitFetch": "Git: Fetch",
   "commandGitPull": "Git: Pull",
   "commandGitPush": "Git: Push",

@@ -408,7 +408,9 @@ func Main() {
 				{Label: locales.Editor(), Submenu: []*mygo.MenuItem{{Label: quickHelpText("navigate"), Submenu: []*mygo.MenuItem{{
 					Label: commandLabel("Show Quick Help"), Accelerator: "Alt+CmdOrCtrl+K",
 					Click: func(*mygo.MenuItem, *mygo.Window) { currentWin.Update(currentApp.showQuickHelpAtCaret) },
-				}}}}},
+				}}}, {Label: commandLabel("Discard Change"), Disabled: !currentApp.canDiscardChange(),
+					Click: func(*mygo.MenuItem, *mygo.Window) { currentWin.Update(currentApp.discardChange) },
+				}}},
 				{Label: locales.View(), Submenu: append(append([]*mygo.MenuItem{
 					{Label: locales.CommandPalette(), Click: func(*mygo.MenuItem, *mygo.Window) { currentWin.Update(currentApp.openPalette) }},
 				}, currentApp.navigationMenuItems(currentWin.Update)...), []*mygo.MenuItem{

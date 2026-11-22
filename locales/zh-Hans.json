@@ -652,6 +652,7 @@
   "commandToggleInlineDiff": "切换内联差异",
   "commandNextChange": "下一个更改",
   "commandPreviousChange": "上一个更改",
+  "commandDiscardChange": "丢弃更改",
   "commandGitFetch": "Git：获取",
   "commandGitPull": "Git：拉取",
   "commandGitPush": "Git：推送",

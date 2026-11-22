@@ -71,6 +71,7 @@ var commandMessages = map[string]string{
 	"Toggle Inline Diff":          "commandToggleInlineDiff",
 	"Next Change":                 "commandNextChange",
 	"Previous Change":             "commandPreviousChange",
+	"Discard Change":              "commandDiscardChange",
 	"Git: Fetch":                  "commandGitFetch",
 	"Git: Pull":                   "commandGitPull",
 	"Git: Push":                   "commandGitPush",

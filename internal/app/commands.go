@@ -79,6 +79,7 @@ func commandsFor(goos string) []command {
 		{"Toggle Inline Diff", "", "", 0, 0, func(a *App) { a.toggleDiffLayout() }},
 		{"Next Change", "", "", 0, 0, func(a *App) { a.goToChange(1) }},
 		{"Previous Change", "", "", 0, 0, func(a *App) { a.goToChange(-1) }},
+		{"Discard Change", "", "", 0, 0, func(a *App) { a.discardChange() }},
 		{"Git: Fetch", "", "", 0, 0, func(a *App) { a.gitFetch() }},
 		{"Git: Pull", "", "", 0, 0, func(a *App) { a.gitPull() }},
 		{"Git: Push", "", "", 0, 0, func(a *App) { a.gitPush() }},
