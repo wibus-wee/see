@@ -3922,6 +3922,56 @@ func (msgs Messages) MsgLongLinesWrapAtTheEditorSWidth() string {
 	return Catalog.Format(msgs.locale, "msgLongLinesWrapAtTheEditorSWidth", nil)
 }
 
+// EditorDisplay says "Display"
+// in the language the app shows.
+func EditorDisplay() string { return In(i18n.Locale()).EditorDisplay() }
+
+// EditorDisplay says "Display"
+// in the language of msgs.
+func (msgs Messages) EditorDisplay() string {
+	return Catalog.Format(msgs.locale, "editorDisplay", nil)
+}
+
+// PageGuide says "Page Guide"
+// in the language the app shows.
+func PageGuide() string { return In(i18n.Locale()).PageGuide() }
+
+// PageGuide says "Page Guide"
+// in the language of msgs.
+func (msgs Messages) PageGuide() string {
+	return Catalog.Format(msgs.locale, "pageGuide", nil)
+}
+
+// ShowPageGuide says "Show Page Guide"
+// in the language the app shows.
+func ShowPageGuide() string { return In(i18n.Locale()).ShowPageGuide() }
+
+// ShowPageGuide says "Show Page Guide"
+// in the language of msgs.
+func (msgs Messages) ShowPageGuide() string {
+	return Catalog.Format(msgs.locale, "showPageGuide", nil)
+}
+
+// PageGuideDescription says "Mark a column without changing line wrapping."
+// in the language the app shows.
+func PageGuideDescription() string { return In(i18n.Locale()).PageGuideDescription() }
+
+// PageGuideDescription says "Mark a column without changing line wrapping."
+// in the language of msgs.
+func (msgs Messages) PageGuideDescription() string {
+	return Catalog.Format(msgs.locale, "pageGuideDescription", nil)
+}
+
+// PageGuideColumn says "Page Guide Column"
+// in the language the app shows.
+func PageGuideColumn() string { return In(i18n.Locale()).PageGuideColumn() }
+
+// PageGuideColumn says "Page Guide Column"
+// in the language of msgs.
+func (msgs Messages) PageGuideColumn() string {
+	return Catalog.Format(msgs.locale, "pageGuideColumn", nil)
+}
+
 // MsgNotifyWhenWaiting says "Notify when waiting"
 // in the language the app shows.
 func MsgNotifyWhenWaiting() string { return In(i18n.Locale()).MsgNotifyWhenWaiting() }
