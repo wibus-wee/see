@@ -297,6 +297,8 @@
   "commandCloseSavedTabs": "关闭已保存的标签页",
   "commandNextProblem": "下一个问题",
   "commandPreviousProblem": "上一个问题",
+  "commandNextMethod": "下一个方法",
+  "commandPreviousMethod": "上一个方法",
   "commandGoToLine": "跳转到行",
   "goToLineHint": "输入 :行号 或 :行号:列号",
   "language": "语言",

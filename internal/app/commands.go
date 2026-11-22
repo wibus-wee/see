@@ -33,6 +33,7 @@ func commandsFor(goos string) []command {
 	docItemsLabel, docItemsKeyName, docItemsMods, docItemsKey, groupFilesLabel, groupFilesKeyName, groupFilesMods, groupFilesKey := jumpBarShortcutsFor(goos)
 	scopeLabel, scopeKeyName, scopeMods, scopeKey := editAllScopeShortcut(goos)
 	counterpartLabel, counterpartMods := counterpartShortcut(goos)
+	methodLabel, methodMods := methodShortcut(goos)
 	maximizeLabel, maximizeMods := maximizeEditorShortcut(goos)
 	cmds := []command{
 		{"Bigger", "Cmd+", "=", ui.Cmd, ui.KeyEqual, func(a *App) { a.changeEditorFontSize(1) }},
@@ -160,6 +161,8 @@ func commandsFor(goos string) []command {
 		command{"Pin References", "", "", 0, 0, func(a *App) { a.pinReferencesCommand() }},
 		command{"Find Callers", "", "", 0, 0, func(a *App) { a.findUsages(true) }},
 		command{"Show Call Hierarchy", "Shift+Alt+", "H", ui.Shift | ui.Alt, ui.KeyH, func(a *App) { a.showCallHierarchy() }},
+		command{"Next Method", methodLabel, "↓", methodMods, ui.KeyDown, func(a *App) { a.goToMethod(1) }},
+		command{"Previous Method", methodLabel, "↑", methodMods, ui.KeyUp, func(a *App) { a.goToMethod(-1) }},
 		command{"Go to Definition", "", "F12", 0, 0, func(a *App) {
 			if st := a.activeEditor(); st != nil && st.OnDefinition != nil {
 				st.OnDefinition(st.Buffer.Offset(st.CursorPos()))

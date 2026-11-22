@@ -297,6 +297,8 @@
   "commandCloseSavedTabs": "Close Saved Tabs",
   "commandNextProblem": "Next Problem",
   "commandPreviousProblem": "Previous Problem",
+  "commandNextMethod": "Next Method",
+  "commandPreviousMethod": "Previous Method",
   "commandGoToLine": "Go to Line",
   "goToLineHint": "Enter :line or :line:column",
   "language": "Language",

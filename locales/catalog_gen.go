@@ -616,11 +616,11 @@ func (msgs Messages) ShowTypeHints() string {
 	return Catalog.Format(msgs.locale, "showTypeHints", nil)
 }
 
-// TypeHintsDescription says "Show inferred types and parameter names inside code, as the language server reports them."
+// TypeHintsDescription says "Show inferred types inside code. Hold Option on macOS (Ctrl+Alt on Windows/Linux) to reveal parameter-name hints."
 // in the language the app shows.
 func TypeHintsDescription() string { return In(i18n.Locale()).TypeHintsDescription() }
 
-// TypeHintsDescription says "Show inferred types and parameter names inside code, as the language server reports them."
+// TypeHintsDescription says "Show inferred types inside code. Hold Option on macOS (Ctrl+Alt on Windows/Linux) to reveal parameter-name hints."
 // in the language of msgs.
 func (msgs Messages) TypeHintsDescription() string {
 	return Catalog.Format(msgs.locale, "typeHintsDescription", nil)
@@ -704,6 +704,220 @@ func CommandShowFileHistory() string { return In(i18n.Locale()).CommandShowFileH
 // in the language of msgs.
 func (msgs Messages) CommandShowFileHistory() string {
 	return Catalog.Format(msgs.locale, "commandShowFileHistory", nil)
+}
+
+// CommandShowLocalHistory says "Show Local History"
+// in the language the app shows.
+func CommandShowLocalHistory() string { return In(i18n.Locale()).CommandShowLocalHistory() }
+
+// CommandShowLocalHistory says "Show Local History"
+// in the language of msgs.
+func (msgs Messages) CommandShowLocalHistory() string {
+	return Catalog.Format(msgs.locale, "commandShowLocalHistory", nil)
+}
+
+// LocalHistoryTab says "Local History"
+// in the language the app shows.
+func LocalHistoryTab() string { return In(i18n.Locale()).LocalHistoryTab() }
+
+// LocalHistoryTab says "Local History"
+// in the language of msgs.
+func (msgs Messages) LocalHistoryTab() string {
+	return Catalog.Format(msgs.locale, "localHistoryTab", nil)
+}
+
+// LocalHistoryLocalOnly says "Private local snapshots · independent of Git"
+// in the language the app shows.
+func LocalHistoryLocalOnly() string { return In(i18n.Locale()).LocalHistoryLocalOnly() }
+
+// LocalHistoryLocalOnly says "Private local snapshots · independent of Git"
+// in the language of msgs.
+func (msgs Messages) LocalHistoryLocalOnly() string {
+	return Catalog.Format(msgs.locale, "localHistoryLocalOnly", nil)
+}
+
+// LocalHistoryChooseSnapshot says "Choose a historical snapshot"
+// in the language the app shows.
+func LocalHistoryChooseSnapshot() string { return In(i18n.Locale()).LocalHistoryChooseSnapshot() }
+
+// LocalHistoryChooseSnapshot says "Choose a historical snapshot"
+// in the language of msgs.
+func (msgs Messages) LocalHistoryChooseSnapshot() string {
+	return Catalog.Format(msgs.locale, "localHistoryChooseSnapshot", nil)
+}
+
+// LocalHistorySnapshotLines says "{lines} lines"
+// in the language the app shows.
+func LocalHistorySnapshotLines(lines string) string {
+	return In(i18n.Locale()).LocalHistorySnapshotLines(lines)
+}
+
+// LocalHistorySnapshotLines says "{lines} lines"
+// in the language of msgs.
+func (msgs Messages) LocalHistorySnapshotLines(lines string) string {
+	return Catalog.Format(msgs.locale, "localHistorySnapshotLines", map[string]any{"lines": lines})
+}
+
+// LocalHistoryWorkingTree says "Working Tree"
+// in the language the app shows.
+func LocalHistoryWorkingTree() string { return In(i18n.Locale()).LocalHistoryWorkingTree() }
+
+// LocalHistoryWorkingTree says "Working Tree"
+// in the language of msgs.
+func (msgs Messages) LocalHistoryWorkingTree() string {
+	return Catalog.Format(msgs.locale, "localHistoryWorkingTree", nil)
+}
+
+// LocalHistoryCurrentUnsaved says "Current (unsaved)"
+// in the language the app shows.
+func LocalHistoryCurrentUnsaved() string { return In(i18n.Locale()).LocalHistoryCurrentUnsaved() }
+
+// LocalHistoryCurrentUnsaved says "Current (unsaved)"
+// in the language of msgs.
+func (msgs Messages) LocalHistoryCurrentUnsaved() string {
+	return Catalog.Format(msgs.locale, "localHistoryCurrentUnsaved", nil)
+}
+
+// LocalHistoryNoSnapshots says "No local snapshots yet"
+// in the language the app shows.
+func LocalHistoryNoSnapshots() string { return In(i18n.Locale()).LocalHistoryNoSnapshots() }
+
+// LocalHistoryNoSnapshots says "No local snapshots yet"
+// in the language of msgs.
+func (msgs Messages) LocalHistoryNoSnapshots() string {
+	return Catalog.Format(msgs.locale, "localHistoryNoSnapshots", nil)
+}
+
+// LocalHistoryNoSnapshotsDetail says "Snapshots appear after edits and pauses or when the file is saved."
+// in the language the app shows.
+func LocalHistoryNoSnapshotsDetail() string { return In(i18n.Locale()).LocalHistoryNoSnapshotsDetail() }
+
+// LocalHistoryNoSnapshotsDetail says "Snapshots appear after edits and pauses or when the file is saved."
+// in the language of msgs.
+func (msgs Messages) LocalHistoryNoSnapshotsDetail() string {
+	return Catalog.Format(msgs.locale, "localHistoryNoSnapshotsDetail", nil)
+}
+
+// LocalHistoryLoading says "Loading local snapshots…"
+// in the language the app shows.
+func LocalHistoryLoading() string { return In(i18n.Locale()).LocalHistoryLoading() }
+
+// LocalHistoryLoading says "Loading local snapshots…"
+// in the language of msgs.
+func (msgs Messages) LocalHistoryLoading() string {
+	return Catalog.Format(msgs.locale, "localHistoryLoading", nil)
+}
+
+// LocalHistoryLoadError says "Could not load local history: "
+// in the language the app shows.
+func LocalHistoryLoadError() string { return In(i18n.Locale()).LocalHistoryLoadError() }
+
+// LocalHistoryLoadError says "Could not load local history: "
+// in the language of msgs.
+func (msgs Messages) LocalHistoryLoadError() string {
+	return Catalog.Format(msgs.locale, "localHistoryLoadError", nil)
+}
+
+// LocalHistoryWriteError says "Could not save local history: "
+// in the language the app shows.
+func LocalHistoryWriteError() string { return In(i18n.Locale()).LocalHistoryWriteError() }
+
+// LocalHistoryWriteError says "Could not save local history: "
+// in the language of msgs.
+func (msgs Messages) LocalHistoryWriteError() string {
+	return Catalog.Format(msgs.locale, "localHistoryWriteError", nil)
+}
+
+// LocalHistoryRetry says "Retry"
+// in the language the app shows.
+func LocalHistoryRetry() string { return In(i18n.Locale()).LocalHistoryRetry() }
+
+// LocalHistoryRetry says "Retry"
+// in the language of msgs.
+func (msgs Messages) LocalHistoryRetry() string {
+	return Catalog.Format(msgs.locale, "localHistoryRetry", nil)
+}
+
+// LocalHistoryStale says "The current buffer changed. Refresh before restoring lines."
+// in the language the app shows.
+func LocalHistoryStale() string { return In(i18n.Locale()).LocalHistoryStale() }
+
+// LocalHistoryStale says "The current buffer changed. Refresh before restoring lines."
+// in the language of msgs.
+func (msgs Messages) LocalHistoryStale() string {
+	return Catalog.Format(msgs.locale, "localHistoryStale", nil)
+}
+
+// LocalHistoryTargetClosed says "The source file is closed. Open it and refresh to restore lines."
+// in the language the app shows.
+func LocalHistoryTargetClosed() string { return In(i18n.Locale()).LocalHistoryTargetClosed() }
+
+// LocalHistoryTargetClosed says "The source file is closed. Open it and refresh to restore lines."
+// in the language of msgs.
+func (msgs Messages) LocalHistoryTargetClosed() string {
+	return Catalog.Format(msgs.locale, "localHistoryTargetClosed", nil)
+}
+
+// LocalHistorySelectChangedLines says "Click a line number; Shift-click to select more."
+// in the language the app shows.
+func LocalHistorySelectChangedLines() string {
+	return In(i18n.Locale()).LocalHistorySelectChangedLines()
+}
+
+// LocalHistorySelectChangedLines says "Click a line number; Shift-click to select more."
+// in the language of msgs.
+func (msgs Messages) LocalHistorySelectChangedLines() string {
+	return Catalog.Format(msgs.locale, "localHistorySelectChangedLines", nil)
+}
+
+// LocalHistoryRestoreSelected says "Restore Selected Lines"
+// in the language the app shows.
+func LocalHistoryRestoreSelected() string { return In(i18n.Locale()).LocalHistoryRestoreSelected() }
+
+// LocalHistoryRestoreSelected says "Restore Selected Lines"
+// in the language of msgs.
+func (msgs Messages) LocalHistoryRestoreSelected() string {
+	return Catalog.Format(msgs.locale, "localHistoryRestoreSelected", nil)
+}
+
+// LocalHistoryRefresh says "Refresh"
+// in the language the app shows.
+func LocalHistoryRefresh() string { return In(i18n.Locale()).LocalHistoryRefresh() }
+
+// LocalHistoryRefresh says "Refresh"
+// in the language of msgs.
+func (msgs Messages) LocalHistoryRefresh() string {
+	return Catalog.Format(msgs.locale, "localHistoryRefresh", nil)
+}
+
+// LocalHistoryRestored says "Selected lines restored. Use Open File to return to the source editor and Undo."
+// in the language the app shows.
+func LocalHistoryRestored() string { return In(i18n.Locale()).LocalHistoryRestored() }
+
+// LocalHistoryRestored says "Selected lines restored. Use Open File to return to the source editor and Undo."
+// in the language of msgs.
+func (msgs Messages) LocalHistoryRestored() string {
+	return Catalog.Format(msgs.locale, "localHistoryRestored", nil)
+}
+
+// LocalHistoryOpenFile says "Open File"
+// in the language the app shows.
+func LocalHistoryOpenFile() string { return In(i18n.Locale()).LocalHistoryOpenFile() }
+
+// LocalHistoryOpenFile says "Open File"
+// in the language of msgs.
+func (msgs Messages) LocalHistoryOpenFile() string {
+	return Catalog.Format(msgs.locale, "localHistoryOpenFile", nil)
+}
+
+// LocalHistoryUnsupported says "Local history is unavailable for binary, lossy, or files over 1 MiB."
+// in the language the app shows.
+func LocalHistoryUnsupported() string { return In(i18n.Locale()).LocalHistoryUnsupported() }
+
+// LocalHistoryUnsupported says "Local history is unavailable for binary, lossy, or files over 1 MiB."
+// in the language of msgs.
+func (msgs Messages) LocalHistoryUnsupported() string {
+	return Catalog.Format(msgs.locale, "localHistoryUnsupported", nil)
 }
 
 // CommandGitRevealHeadInLog says "Git: Reveal HEAD in Log"
@@ -864,6 +1078,140 @@ func GitIncomingCommit() string { return In(i18n.Locale()).GitIncomingCommit() }
 // in the language of msgs.
 func (msgs Messages) GitIncomingCommit() string {
 	return Catalog.Format(msgs.locale, "gitIncomingCommit", nil)
+}
+
+// GitBranchPreviewBasis says "Committed changes from HEAD to this branch"
+// in the language the app shows.
+func GitBranchPreviewBasis() string { return In(i18n.Locale()).GitBranchPreviewBasis() }
+
+// GitBranchPreviewBasis says "Committed changes from HEAD to this branch"
+// in the language of msgs.
+func (msgs Messages) GitBranchPreviewBasis() string {
+	return Catalog.Format(msgs.locale, "gitBranchPreviewBasis", nil)
+}
+
+// GitBranchPreviewDirtyWarning says "Unsaved or working-tree edits may prevent switching."
+// in the language the app shows.
+func GitBranchPreviewDirtyWarning() string { return In(i18n.Locale()).GitBranchPreviewDirtyWarning() }
+
+// GitBranchPreviewDirtyWarning says "Unsaved or working-tree edits may prevent switching."
+// in the language of msgs.
+func (msgs Messages) GitBranchPreviewDirtyWarning() string {
+	return Catalog.Format(msgs.locale, "gitBranchPreviewDirtyWarning", nil)
+}
+
+// GitBranchPreviewLocalTarget says "Switch will use local branch {branch}"
+// in the language the app shows.
+func GitBranchPreviewLocalTarget(branch string) string {
+	return In(i18n.Locale()).GitBranchPreviewLocalTarget(branch)
+}
+
+// GitBranchPreviewLocalTarget says "Switch will use local branch {branch}"
+// in the language of msgs.
+func (msgs Messages) GitBranchPreviewLocalTarget(branch string) string {
+	return Catalog.Format(msgs.locale, "gitBranchPreviewLocalTarget", map[string]any{"branch": branch})
+}
+
+// GitBranchPreviewRecentCommits says "Recent commits"
+// in the language the app shows.
+func GitBranchPreviewRecentCommits() string { return In(i18n.Locale()).GitBranchPreviewRecentCommits() }
+
+// GitBranchPreviewRecentCommits says "Recent commits"
+// in the language of msgs.
+func (msgs Messages) GitBranchPreviewRecentCommits() string {
+	return Catalog.Format(msgs.locale, "gitBranchPreviewRecentCommits", nil)
+}
+
+// GitBranchPreviewOpenFiles says "%d open files affected"
+// in the language the app shows.
+func GitBranchPreviewOpenFiles() string { return In(i18n.Locale()).GitBranchPreviewOpenFiles() }
+
+// GitBranchPreviewOpenFiles says "%d open files affected"
+// in the language of msgs.
+func (msgs Messages) GitBranchPreviewOpenFiles() string {
+	return Catalog.Format(msgs.locale, "gitBranchPreviewOpenFiles", nil)
+}
+
+// GitBranchPreviewNoOpenFiles says "No files are open."
+// in the language the app shows.
+func GitBranchPreviewNoOpenFiles() string { return In(i18n.Locale()).GitBranchPreviewNoOpenFiles() }
+
+// GitBranchPreviewNoOpenFiles says "No files are open."
+// in the language of msgs.
+func (msgs Messages) GitBranchPreviewNoOpenFiles() string {
+	return Catalog.Format(msgs.locale, "gitBranchPreviewNoOpenFiles", nil)
+}
+
+// GitBranchPreviewNoChanges says "No committed changes between HEAD and this branch."
+// in the language the app shows.
+func GitBranchPreviewNoChanges() string { return In(i18n.Locale()).GitBranchPreviewNoChanges() }
+
+// GitBranchPreviewNoChanges says "No committed changes between HEAD and this branch."
+// in the language of msgs.
+func (msgs Messages) GitBranchPreviewNoChanges() string {
+	return Catalog.Format(msgs.locale, "gitBranchPreviewNoChanges", nil)
+}
+
+// GitBranchPreviewNoAffectedOpenFiles says "No open files will change."
+// in the language the app shows.
+func GitBranchPreviewNoAffectedOpenFiles() string {
+	return In(i18n.Locale()).GitBranchPreviewNoAffectedOpenFiles()
+}
+
+// GitBranchPreviewNoAffectedOpenFiles says "No open files will change."
+// in the language of msgs.
+func (msgs Messages) GitBranchPreviewNoAffectedOpenFiles() string {
+	return Catalog.Format(msgs.locale, "gitBranchPreviewNoAffectedOpenFiles", nil)
+}
+
+// GitBranchPreviewNoCommits says "No commits to show."
+// in the language the app shows.
+func GitBranchPreviewNoCommits() string { return In(i18n.Locale()).GitBranchPreviewNoCommits() }
+
+// GitBranchPreviewNoCommits says "No commits to show."
+// in the language of msgs.
+func (msgs Messages) GitBranchPreviewNoCommits() string {
+	return Catalog.Format(msgs.locale, "gitBranchPreviewNoCommits", nil)
+}
+
+// GitBranchPreviewLoading says "Loading branch preview…"
+// in the language the app shows.
+func GitBranchPreviewLoading() string { return In(i18n.Locale()).GitBranchPreviewLoading() }
+
+// GitBranchPreviewLoading says "Loading branch preview…"
+// in the language of msgs.
+func (msgs Messages) GitBranchPreviewLoading() string {
+	return Catalog.Format(msgs.locale, "gitBranchPreviewLoading", nil)
+}
+
+// GitBranchPreviewError says "Could not read this branch preview."
+// in the language the app shows.
+func GitBranchPreviewError() string { return In(i18n.Locale()).GitBranchPreviewError() }
+
+// GitBranchPreviewError says "Could not read this branch preview."
+// in the language of msgs.
+func (msgs Messages) GitBranchPreviewError() string {
+	return Catalog.Format(msgs.locale, "gitBranchPreviewError", nil)
+}
+
+// GitBranchPreviewPrompt says "Hover or select a branch to preview it."
+// in the language the app shows.
+func GitBranchPreviewPrompt() string { return In(i18n.Locale()).GitBranchPreviewPrompt() }
+
+// GitBranchPreviewPrompt says "Hover or select a branch to preview it."
+// in the language of msgs.
+func (msgs Messages) GitBranchPreviewPrompt() string {
+	return Catalog.Format(msgs.locale, "gitBranchPreviewPrompt", nil)
+}
+
+// GitBranchPreviewUnsaved says "Unsaved"
+// in the language the app shows.
+func GitBranchPreviewUnsaved() string { return In(i18n.Locale()).GitBranchPreviewUnsaved() }
+
+// GitBranchPreviewUnsaved says "Unsaved"
+// in the language of msgs.
+func (msgs Messages) GitBranchPreviewUnsaved() string {
+	return Catalog.Format(msgs.locale, "gitBranchPreviewUnsaved", nil)
 }
 
 // GitUncommitted says "Uncommitted"
@@ -2680,6 +3028,26 @@ func CommandPreviousProblem() string { return In(i18n.Locale()).CommandPreviousP
 // in the language of msgs.
 func (msgs Messages) CommandPreviousProblem() string {
 	return Catalog.Format(msgs.locale, "commandPreviousProblem", nil)
+}
+
+// CommandNextMethod says "Next Method"
+// in the language the app shows.
+func CommandNextMethod() string { return In(i18n.Locale()).CommandNextMethod() }
+
+// CommandNextMethod says "Next Method"
+// in the language of msgs.
+func (msgs Messages) CommandNextMethod() string {
+	return Catalog.Format(msgs.locale, "commandNextMethod", nil)
+}
+
+// CommandPreviousMethod says "Previous Method"
+// in the language the app shows.
+func CommandPreviousMethod() string { return In(i18n.Locale()).CommandPreviousMethod() }
+
+// CommandPreviousMethod says "Previous Method"
+// in the language of msgs.
+func (msgs Messages) CommandPreviousMethod() string {
+	return Catalog.Format(msgs.locale, "commandPreviousMethod", nil)
 }
 
 // CommandGoToLine says "Go to Line"
@@ -6946,6 +7314,26 @@ func (msgs Messages) CommandAddEditorBelow() string {
 	return Catalog.Format(msgs.locale, "commandAddEditorBelow", nil)
 }
 
+// CommandMaximizeEditor says "Maximize Editor"
+// in the language the app shows.
+func CommandMaximizeEditor() string { return In(i18n.Locale()).CommandMaximizeEditor() }
+
+// CommandMaximizeEditor says "Maximize Editor"
+// in the language of msgs.
+func (msgs Messages) CommandMaximizeEditor() string {
+	return Catalog.Format(msgs.locale, "commandMaximizeEditor", nil)
+}
+
+// RestoreEditorLayout says "Restore Editor Layout"
+// in the language the app shows.
+func RestoreEditorLayout() string { return In(i18n.Locale()).RestoreEditorLayout() }
+
+// RestoreEditorLayout says "Restore Editor Layout"
+// in the language of msgs.
+func (msgs Messages) RestoreEditorLayout() string {
+	return Catalog.Format(msgs.locale, "restoreEditorLayout", nil)
+}
+
 // CommandShowOrHideTheTerminal says "Show or Hide the Terminal"
 // in the language the app shows.
 func CommandShowOrHideTheTerminal() string { return In(i18n.Locale()).CommandShowOrHideTheTerminal() }
@@ -8356,6 +8744,176 @@ func (msgs Messages) RegexEngineNote() string {
 	return Catalog.Format(msgs.locale, "regexEngineNote", nil)
 }
 
+// RegexDiagramTitle says "Matching structure"
+// in the language the app shows.
+func RegexDiagramTitle() string { return In(i18n.Locale()).RegexDiagramTitle() }
+
+// RegexDiagramTitle says "Matching structure"
+// in the language of msgs.
+func (msgs Messages) RegexDiagramTitle() string {
+	return Catalog.Format(msgs.locale, "regexDiagramTitle", nil)
+}
+
+// RegexDiagramStart says "Start"
+// in the language the app shows.
+func RegexDiagramStart() string { return In(i18n.Locale()).RegexDiagramStart() }
+
+// RegexDiagramStart says "Start"
+// in the language of msgs.
+func (msgs Messages) RegexDiagramStart() string {
+	return Catalog.Format(msgs.locale, "regexDiagramStart", nil)
+}
+
+// RegexDiagramEnd says "End"
+// in the language the app shows.
+func RegexDiagramEnd() string { return In(i18n.Locale()).RegexDiagramEnd() }
+
+// RegexDiagramEnd says "End"
+// in the language of msgs.
+func (msgs Messages) RegexDiagramEnd() string {
+	return Catalog.Format(msgs.locale, "regexDiagramEnd", nil)
+}
+
+// RegexDiagramGroup says "Group %d"
+// in the language the app shows.
+func RegexDiagramGroup() string { return In(i18n.Locale()).RegexDiagramGroup() }
+
+// RegexDiagramGroup says "Group %d"
+// in the language of msgs.
+func (msgs Messages) RegexDiagramGroup() string {
+	return Catalog.Format(msgs.locale, "regexDiagramGroup", nil)
+}
+
+// RegexDiagramAbbreviated says "Structure abbreviated for complexity."
+// in the language the app shows.
+func RegexDiagramAbbreviated() string { return In(i18n.Locale()).RegexDiagramAbbreviated() }
+
+// RegexDiagramAbbreviated says "Structure abbreviated for complexity."
+// in the language of msgs.
+func (msgs Messages) RegexDiagramAbbreviated() string {
+	return Catalog.Format(msgs.locale, "regexDiagramAbbreviated", nil)
+}
+
+// RegexDiagramUnavailable says "Structure unavailable for this pattern."
+// in the language the app shows.
+func RegexDiagramUnavailable() string { return In(i18n.Locale()).RegexDiagramUnavailable() }
+
+// RegexDiagramUnavailable says "Structure unavailable for this pattern."
+// in the language of msgs.
+func (msgs Messages) RegexDiagramUnavailable() string {
+	return Catalog.Format(msgs.locale, "regexDiagramUnavailable", nil)
+}
+
+// RegexDiagramNote says "Structure is explanatory, not the path this match took."
+// in the language the app shows.
+func RegexDiagramNote() string { return In(i18n.Locale()).RegexDiagramNote() }
+
+// RegexDiagramNote says "Structure is explanatory, not the path this match took."
+// in the language of msgs.
+func (msgs Messages) RegexDiagramNote() string {
+	return Catalog.Format(msgs.locale, "regexDiagramNote", nil)
+}
+
+// RegexDiagramLetter says "Letter"
+// in the language the app shows.
+func RegexDiagramLetter() string { return In(i18n.Locale()).RegexDiagramLetter() }
+
+// RegexDiagramLetter says "Letter"
+// in the language of msgs.
+func (msgs Messages) RegexDiagramLetter() string {
+	return Catalog.Format(msgs.locale, "regexDiagramLetter", nil)
+}
+
+// RegexDiagramDigit says "0–9"
+// in the language the app shows.
+func RegexDiagramDigit() string { return In(i18n.Locale()).RegexDiagramDigit() }
+
+// RegexDiagramDigit says "0–9"
+// in the language of msgs.
+func (msgs Messages) RegexDiagramDigit() string {
+	return Catalog.Format(msgs.locale, "regexDiagramDigit", nil)
+}
+
+// RegexDiagramWhitespace says "Whitespace"
+// in the language the app shows.
+func RegexDiagramWhitespace() string { return In(i18n.Locale()).RegexDiagramWhitespace() }
+
+// RegexDiagramWhitespace says "Whitespace"
+// in the language of msgs.
+func (msgs Messages) RegexDiagramWhitespace() string {
+	return Catalog.Format(msgs.locale, "regexDiagramWhitespace", nil)
+}
+
+// RegexDiagramWord says "Word"
+// in the language the app shows.
+func RegexDiagramWord() string { return In(i18n.Locale()).RegexDiagramWord() }
+
+// RegexDiagramWord says "Word"
+// in the language of msgs.
+func (msgs Messages) RegexDiagramWord() string {
+	return Catalog.Format(msgs.locale, "regexDiagramWord", nil)
+}
+
+// RegexDiagramNonDigit says "Not 0–9"
+// in the language the app shows.
+func RegexDiagramNonDigit() string { return In(i18n.Locale()).RegexDiagramNonDigit() }
+
+// RegexDiagramNonDigit says "Not 0–9"
+// in the language of msgs.
+func (msgs Messages) RegexDiagramNonDigit() string {
+	return Catalog.Format(msgs.locale, "regexDiagramNonDigit", nil)
+}
+
+// RegexDiagramNonWhitespace says "Not whitespace"
+// in the language the app shows.
+func RegexDiagramNonWhitespace() string { return In(i18n.Locale()).RegexDiagramNonWhitespace() }
+
+// RegexDiagramNonWhitespace says "Not whitespace"
+// in the language of msgs.
+func (msgs Messages) RegexDiagramNonWhitespace() string {
+	return Catalog.Format(msgs.locale, "regexDiagramNonWhitespace", nil)
+}
+
+// RegexDiagramNonWord says "Non-word"
+// in the language the app shows.
+func RegexDiagramNonWord() string { return In(i18n.Locale()).RegexDiagramNonWord() }
+
+// RegexDiagramNonWord says "Non-word"
+// in the language of msgs.
+func (msgs Messages) RegexDiagramNonWord() string {
+	return Catalog.Format(msgs.locale, "regexDiagramNonWord", nil)
+}
+
+// RegexDiagramOptional says "Optional"
+// in the language the app shows.
+func RegexDiagramOptional() string { return In(i18n.Locale()).RegexDiagramOptional() }
+
+// RegexDiagramOptional says "Optional"
+// in the language of msgs.
+func (msgs Messages) RegexDiagramOptional() string {
+	return Catalog.Format(msgs.locale, "regexDiagramOptional", nil)
+}
+
+// RegexDiagramLazy says "lazy"
+// in the language the app shows.
+func RegexDiagramLazy() string { return In(i18n.Locale()).RegexDiagramLazy() }
+
+// RegexDiagramLazy says "lazy"
+// in the language of msgs.
+func (msgs Messages) RegexDiagramLazy() string {
+	return Catalog.Format(msgs.locale, "regexDiagramLazy", nil)
+}
+
+// RegexNoCapture says "No capture"
+// in the language the app shows.
+func RegexNoCapture() string { return In(i18n.Locale()).RegexNoCapture() }
+
+// RegexNoCapture says "No capture"
+// in the language of msgs.
+func (msgs Messages) RegexNoCapture() string {
+	return Catalog.Format(msgs.locale, "regexNoCapture", nil)
+}
+
 // RegexIgnoreCase says "Ignore case (i)"
 // in the language the app shows.
 func RegexIgnoreCase() string { return In(i18n.Locale()).RegexIgnoreCase() }
@@ -8546,16 +9104,6 @@ func (msgs Messages) RegexCaptures() string {
 	return Catalog.Format(msgs.locale, "regexCaptures", nil)
 }
 
-// RegexCopyCapture says "Copy capture %d"
-// in the language the app shows.
-func RegexCopyCapture() string { return In(i18n.Locale()).RegexCopyCapture() }
-
-// RegexCopyCapture says "Copy capture %d"
-// in the language of msgs.
-func (msgs Messages) RegexCopyCapture() string {
-	return Catalog.Format(msgs.locale, "regexCopyCapture", nil)
-}
-
 // RegexUnmatched says "Unmatched"
 // in the language the app shows.
 func RegexUnmatched() string { return In(i18n.Locale()).RegexUnmatched() }
@@ -8576,174 +9124,14 @@ func (msgs Messages) RegexEmptyCapture() string {
 	return Catalog.Format(msgs.locale, "regexEmptyCapture", nil)
 }
 
-// RegexDiagramTitle says "Matching structure"
+// RegexCopyCapture says "Copy capture %d"
 // in the language the app shows.
-func RegexDiagramTitle() string { return In(i18n.Locale()).RegexDiagramTitle() }
+func RegexCopyCapture() string { return In(i18n.Locale()).RegexCopyCapture() }
 
-// RegexDiagramTitle says "Matching structure"
+// RegexCopyCapture says "Copy capture %d"
 // in the language of msgs.
-func (msgs Messages) RegexDiagramTitle() string {
-	return Catalog.Format(msgs.locale, "regexDiagramTitle", nil)
-}
-
-// RegexDiagramStart says "Start"
-// in the language the app shows.
-func RegexDiagramStart() string { return In(i18n.Locale()).RegexDiagramStart() }
-
-// RegexDiagramStart says "Start"
-// in the language of msgs.
-func (msgs Messages) RegexDiagramStart() string {
-	return Catalog.Format(msgs.locale, "regexDiagramStart", nil)
-}
-
-// RegexDiagramEnd says "End"
-// in the language the app shows.
-func RegexDiagramEnd() string { return In(i18n.Locale()).RegexDiagramEnd() }
-
-// RegexDiagramEnd says "End"
-// in the language of msgs.
-func (msgs Messages) RegexDiagramEnd() string {
-	return Catalog.Format(msgs.locale, "regexDiagramEnd", nil)
-}
-
-// RegexDiagramGroup says "Group %d"
-// in the language the app shows.
-func RegexDiagramGroup() string { return In(i18n.Locale()).RegexDiagramGroup() }
-
-// RegexDiagramGroup says "Group %d"
-// in the language of msgs.
-func (msgs Messages) RegexDiagramGroup() string {
-	return Catalog.Format(msgs.locale, "regexDiagramGroup", nil)
-}
-
-// RegexDiagramAbbreviated says "Structure abbreviated for complexity."
-// in the language the app shows.
-func RegexDiagramAbbreviated() string { return In(i18n.Locale()).RegexDiagramAbbreviated() }
-
-// RegexDiagramAbbreviated says "Structure abbreviated for complexity."
-// in the language of msgs.
-func (msgs Messages) RegexDiagramAbbreviated() string {
-	return Catalog.Format(msgs.locale, "regexDiagramAbbreviated", nil)
-}
-
-// RegexDiagramUnavailable says "Structure unavailable for this pattern."
-// in the language the app shows.
-func RegexDiagramUnavailable() string { return In(i18n.Locale()).RegexDiagramUnavailable() }
-
-// RegexDiagramUnavailable says "Structure unavailable for this pattern."
-// in the language of msgs.
-func (msgs Messages) RegexDiagramUnavailable() string {
-	return Catalog.Format(msgs.locale, "regexDiagramUnavailable", nil)
-}
-
-// RegexDiagramNote says "Structure is explanatory, not the path this match took."
-// in the language the app shows.
-func RegexDiagramNote() string { return In(i18n.Locale()).RegexDiagramNote() }
-
-// RegexDiagramNote says "Structure is explanatory, not the path this match took."
-// in the language of msgs.
-func (msgs Messages) RegexDiagramNote() string {
-	return Catalog.Format(msgs.locale, "regexDiagramNote", nil)
-}
-
-// RegexDiagramLetter says "Letter"
-// in the language the app shows.
-func RegexDiagramLetter() string { return In(i18n.Locale()).RegexDiagramLetter() }
-
-// RegexDiagramLetter says "Letter"
-// in the language of msgs.
-func (msgs Messages) RegexDiagramLetter() string {
-	return Catalog.Format(msgs.locale, "regexDiagramLetter", nil)
-}
-
-// RegexDiagramDigit says "0–9"
-// in the language the app shows.
-func RegexDiagramDigit() string { return In(i18n.Locale()).RegexDiagramDigit() }
-
-// RegexDiagramDigit says "0–9"
-// in the language of msgs.
-func (msgs Messages) RegexDiagramDigit() string {
-	return Catalog.Format(msgs.locale, "regexDiagramDigit", nil)
-}
-
-// RegexDiagramWhitespace says "Whitespace"
-// in the language the app shows.
-func RegexDiagramWhitespace() string { return In(i18n.Locale()).RegexDiagramWhitespace() }
-
-// RegexDiagramWhitespace says "Whitespace"
-// in the language of msgs.
-func (msgs Messages) RegexDiagramWhitespace() string {
-	return Catalog.Format(msgs.locale, "regexDiagramWhitespace", nil)
-}
-
-// RegexDiagramWord says "Word"
-// in the language the app shows.
-func RegexDiagramWord() string { return In(i18n.Locale()).RegexDiagramWord() }
-
-// RegexDiagramWord says "Word"
-// in the language of msgs.
-func (msgs Messages) RegexDiagramWord() string {
-	return Catalog.Format(msgs.locale, "regexDiagramWord", nil)
-}
-
-// RegexDiagramNonDigit says "Not 0–9"
-// in the language the app shows.
-func RegexDiagramNonDigit() string { return In(i18n.Locale()).RegexDiagramNonDigit() }
-
-// RegexDiagramNonDigit says "Not 0–9"
-// in the language of msgs.
-func (msgs Messages) RegexDiagramNonDigit() string {
-	return Catalog.Format(msgs.locale, "regexDiagramNonDigit", nil)
-}
-
-// RegexDiagramNonWhitespace says "Not whitespace"
-// in the language the app shows.
-func RegexDiagramNonWhitespace() string { return In(i18n.Locale()).RegexDiagramNonWhitespace() }
-
-// RegexDiagramNonWhitespace says "Not whitespace"
-// in the language of msgs.
-func (msgs Messages) RegexDiagramNonWhitespace() string {
-	return Catalog.Format(msgs.locale, "regexDiagramNonWhitespace", nil)
-}
-
-// RegexDiagramNonWord says "Non-word"
-// in the language the app shows.
-func RegexDiagramNonWord() string { return In(i18n.Locale()).RegexDiagramNonWord() }
-
-// RegexDiagramNonWord says "Non-word"
-// in the language of msgs.
-func (msgs Messages) RegexDiagramNonWord() string {
-	return Catalog.Format(msgs.locale, "regexDiagramNonWord", nil)
-}
-
-// RegexDiagramOptional says "Optional"
-// in the language the app shows.
-func RegexDiagramOptional() string { return In(i18n.Locale()).RegexDiagramOptional() }
-
-// RegexDiagramOptional says "Optional"
-// in the language of msgs.
-func (msgs Messages) RegexDiagramOptional() string {
-	return Catalog.Format(msgs.locale, "regexDiagramOptional", nil)
-}
-
-// RegexDiagramLazy says "lazy"
-// in the language the app shows.
-func RegexDiagramLazy() string { return In(i18n.Locale()).RegexDiagramLazy() }
-
-// RegexDiagramLazy says "lazy"
-// in the language of msgs.
-func (msgs Messages) RegexDiagramLazy() string {
-	return Catalog.Format(msgs.locale, "regexDiagramLazy", nil)
-}
-
-// RegexNoCapture says "No capture"
-// in the language the app shows.
-func RegexNoCapture() string { return In(i18n.Locale()).RegexNoCapture() }
-
-// RegexNoCapture says "No capture"
-// in the language of msgs.
-func (msgs Messages) RegexNoCapture() string {
-	return Catalog.Format(msgs.locale, "regexNoCapture", nil)
+func (msgs Messages) RegexCopyCapture() string {
+	return Catalog.Format(msgs.locale, "regexCopyCapture", nil)
 }
 
 // CallHierarchy says "Call Hierarchy"

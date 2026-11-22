@@ -70,6 +70,10 @@ func editorBindings() []editor.Binding {
 	bs = append(bs, none(mods, key))
 	_, _, scopeMods, scopeKey := editAllScopeShortcut(runtime.GOOS)
 	bs = append(bs, none(scopeMods, scopeKey))
+	// Next and Previous Method take Alt+↑/↓ from the editor's line moving
+	// off macOS, as JetBrains does.
+	_, methodMods := methodShortcut(runtime.GOOS)
+	bs = append(bs, none(methodMods, ui.KeyUp), none(methodMods, ui.KeyDown))
 	if runtime.GOOS != "darwin" {
 		// Back and forward, as VS Code on Windows; the editor would move
 		// by subwords.
