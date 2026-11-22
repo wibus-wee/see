@@ -122,6 +122,8 @@ func (a *App) commandEnabled(name string) bool {
 	case "Find in Workspace", "Replace in Workspace", "Search Workspace Symbols",
 		"Filter Files", "Open Quickly", "Show Outline", "Show Group Files":
 		return a.root != ""
+	case "Edit Search Results":
+		return len(a.find.results) > 0 && !a.find.running
 	case "Reveal in Project Navigator":
 		return a.canRevealInProjectNavigator(a.activeProjectFile())
 	// Commands that only read or act on the repository.
@@ -140,6 +142,8 @@ func (a *App) commandEnabled(name string) bool {
 		return g != nil && isMarkdown(tabPath(g.active)) && a.docs[tabPath(g.active)] != nil
 	case "Show Line's Commit in Git Log":
 		return a.canRevealLineCommit()
+	case "Discard Change":
+		return a.canDiscardChange()
 	case "Show File History":
 		return a.canShowFileHistory()
 	case "Git: Reveal HEAD in Log", "Git: Jump to Date…":
@@ -198,7 +202,7 @@ func (a *App) navigationMenuItems(run func(func())) []*mygo.MenuItem {
 }
 
 func (a *App) refreshNavigationMenu() {
-	state := [5]bool{a.activeEditor() != nil, a.commandEnabled("Go to Implementation"), a.commandEnabled("Go to Type Definition"), a.commandEnabled("Peek Definition"), a.commandEnabled("Show Type Hierarchy")}
+	state := [6]bool{a.activeEditor() != nil, a.commandEnabled("Go to Implementation"), a.commandEnabled("Go to Type Definition"), a.commandEnabled("Peek Definition"), a.commandEnabled("Show Type Hierarchy"), a.canDiscardChange()}
 	if state != a.navigationMenuState {
 		a.navigationMenuState = state
 		a.host.RefreshMenu()

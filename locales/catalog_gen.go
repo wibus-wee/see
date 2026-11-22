@@ -34,6 +34,156 @@ type Messages struct{ locale string }
 // source language.
 func In(locale string) Messages { return Messages{locale} }
 
+// TypeHierarchy says "Type Hierarchy"
+// in the language the app shows.
+func TypeHierarchy() string { return In(i18n.Locale()).TypeHierarchy() }
+
+// TypeHierarchy says "Type Hierarchy"
+// in the language of msgs.
+func (msgs Messages) TypeHierarchy() string {
+	return Catalog.Format(msgs.locale, "typeHierarchy", nil)
+}
+
+// CommandShowTypeHierarchy says "Show Type Hierarchy"
+// in the language the app shows.
+func CommandShowTypeHierarchy() string { return In(i18n.Locale()).CommandShowTypeHierarchy() }
+
+// CommandShowTypeHierarchy says "Show Type Hierarchy"
+// in the language of msgs.
+func (msgs Messages) CommandShowTypeHierarchy() string {
+	return Catalog.Format(msgs.locale, "commandShowTypeHierarchy", nil)
+}
+
+// TypeHierarchyIncoming says "Supertypes"
+// in the language the app shows.
+func TypeHierarchyIncoming() string { return In(i18n.Locale()).TypeHierarchyIncoming() }
+
+// TypeHierarchyIncoming says "Supertypes"
+// in the language of msgs.
+func (msgs Messages) TypeHierarchyIncoming() string {
+	return Catalog.Format(msgs.locale, "typeHierarchyIncoming", nil)
+}
+
+// TypeHierarchyOutgoing says "Subtypes"
+// in the language the app shows.
+func TypeHierarchyOutgoing() string { return In(i18n.Locale()).TypeHierarchyOutgoing() }
+
+// TypeHierarchyOutgoing says "Subtypes"
+// in the language of msgs.
+func (msgs Messages) TypeHierarchyOutgoing() string {
+	return Catalog.Format(msgs.locale, "typeHierarchyOutgoing", nil)
+}
+
+// TypeHierarchyPreparing says "Preparing type hierarchy…"
+// in the language the app shows.
+func TypeHierarchyPreparing() string { return In(i18n.Locale()).TypeHierarchyPreparing() }
+
+// TypeHierarchyPreparing says "Preparing type hierarchy…"
+// in the language of msgs.
+func (msgs Messages) TypeHierarchyPreparing() string {
+	return Catalog.Format(msgs.locale, "typeHierarchyPreparing", nil)
+}
+
+// TypeHierarchyLoading says "Loading types…"
+// in the language the app shows.
+func TypeHierarchyLoading() string { return In(i18n.Locale()).TypeHierarchyLoading() }
+
+// TypeHierarchyLoading says "Loading types…"
+// in the language of msgs.
+func (msgs Messages) TypeHierarchyLoading() string {
+	return Catalog.Format(msgs.locale, "typeHierarchyLoading", nil)
+}
+
+// TypeHierarchyNoCallers says "No supertypes found"
+// in the language the app shows.
+func TypeHierarchyNoCallers() string { return In(i18n.Locale()).TypeHierarchyNoCallers() }
+
+// TypeHierarchyNoCallers says "No supertypes found"
+// in the language of msgs.
+func (msgs Messages) TypeHierarchyNoCallers() string {
+	return Catalog.Format(msgs.locale, "typeHierarchyNoCallers", nil)
+}
+
+// TypeHierarchyNoCallees says "No subtypes found"
+// in the language the app shows.
+func TypeHierarchyNoCallees() string { return In(i18n.Locale()).TypeHierarchyNoCallees() }
+
+// TypeHierarchyNoCallees says "No subtypes found"
+// in the language of msgs.
+func (msgs Messages) TypeHierarchyNoCallees() string {
+	return Catalog.Format(msgs.locale, "typeHierarchyNoCallees", nil)
+}
+
+// TypeHierarchyNoIncoming says "This language server does not report supertypes"
+// in the language the app shows.
+func TypeHierarchyNoIncoming() string { return In(i18n.Locale()).TypeHierarchyNoIncoming() }
+
+// TypeHierarchyNoIncoming says "This language server does not report supertypes"
+// in the language of msgs.
+func (msgs Messages) TypeHierarchyNoIncoming() string {
+	return Catalog.Format(msgs.locale, "typeHierarchyNoIncoming", nil)
+}
+
+// TypeHierarchyNoOutgoing says "This language server does not report subtypes"
+// in the language the app shows.
+func TypeHierarchyNoOutgoing() string { return In(i18n.Locale()).TypeHierarchyNoOutgoing() }
+
+// TypeHierarchyNoOutgoing says "This language server does not report subtypes"
+// in the language of msgs.
+func (msgs Messages) TypeHierarchyNoOutgoing() string {
+	return Catalog.Format(msgs.locale, "typeHierarchyNoOutgoing", nil)
+}
+
+// TypeHierarchyNoItem says "No type hierarchy at this position"
+// in the language the app shows.
+func TypeHierarchyNoItem() string { return In(i18n.Locale()).TypeHierarchyNoItem() }
+
+// TypeHierarchyNoItem says "No type hierarchy at this position"
+// in the language of msgs.
+func (msgs Messages) TypeHierarchyNoItem() string {
+	return Catalog.Format(msgs.locale, "typeHierarchyNoItem", nil)
+}
+
+// TypeHierarchySelectToPreview says "Select a type to preview it"
+// in the language the app shows.
+func TypeHierarchySelectToPreview() string { return In(i18n.Locale()).TypeHierarchySelectToPreview() }
+
+// TypeHierarchySelectToPreview says "Select a type to preview it"
+// in the language of msgs.
+func (msgs Messages) TypeHierarchySelectToPreview() string {
+	return Catalog.Format(msgs.locale, "typeHierarchySelectToPreview", nil)
+}
+
+// TypeHierarchyPreview says "Type code preview"
+// in the language the app shows.
+func TypeHierarchyPreview() string { return In(i18n.Locale()).TypeHierarchyPreview() }
+
+// TypeHierarchyPreview says "Type code preview"
+// in the language of msgs.
+func (msgs Messages) TypeHierarchyPreview() string {
+	return Catalog.Format(msgs.locale, "typeHierarchyPreview", nil)
+}
+
+// TypeHierarchyMakeRoot says "Make Root"
+// in the language the app shows.
+func TypeHierarchyMakeRoot() string { return In(i18n.Locale()).TypeHierarchyMakeRoot() }
+
+// TypeHierarchyMakeRoot says "Make Root"
+// in the language of msgs.
+func (msgs Messages) TypeHierarchyMakeRoot() string {
+	return Catalog.Format(msgs.locale, "typeHierarchyMakeRoot", nil)
+}
+
+// TypeHierarchyCopyLocation says "Copy Location"
+// in the language the app shows.
+func TypeHierarchyCopyLocation() string { return In(i18n.Locale()).TypeHierarchyCopyLocation() }
+
+// TypeHierarchyCopyLocation says "Copy Location"
+// in the language of msgs.
+func (msgs Messages) TypeHierarchyCopyLocation() string {
+	return Catalog.Format(msgs.locale, "typeHierarchyCopyLocation", nil)
+}
+
 // CommandBigger says "Bigger"
 // in the language the app shows.
 func CommandBigger() string { return In(i18n.Locale()).CommandBigger() }
@@ -868,6 +1018,66 @@ func LocalHistorySelectChangedLines() string {
 // in the language of msgs.
 func (msgs Messages) LocalHistorySelectChangedLines() string {
 	return Catalog.Format(msgs.locale, "localHistorySelectChangedLines", nil)
+}
+
+// GitStageHunk says "Stage Hunk"
+// in the language the app shows.
+func GitStageHunk() string { return In(i18n.Locale()).GitStageHunk() }
+
+// GitStageHunk says "Stage Hunk"
+// in the language of msgs.
+func (msgs Messages) GitStageHunk() string {
+	return Catalog.Format(msgs.locale, "gitStageHunk", nil)
+}
+
+// GitUnstageHunk says "Unstage Hunk"
+// in the language the app shows.
+func GitUnstageHunk() string { return In(i18n.Locale()).GitUnstageHunk() }
+
+// GitUnstageHunk says "Unstage Hunk"
+// in the language of msgs.
+func (msgs Messages) GitUnstageHunk() string {
+	return Catalog.Format(msgs.locale, "gitUnstageHunk", nil)
+}
+
+// GitStageSelectedLines says "Stage Selected Lines"
+// in the language the app shows.
+func GitStageSelectedLines() string { return In(i18n.Locale()).GitStageSelectedLines() }
+
+// GitStageSelectedLines says "Stage Selected Lines"
+// in the language of msgs.
+func (msgs Messages) GitStageSelectedLines() string {
+	return Catalog.Format(msgs.locale, "gitStageSelectedLines", nil)
+}
+
+// GitUnstageSelectedLines says "Unstage Selected Lines"
+// in the language the app shows.
+func GitUnstageSelectedLines() string { return In(i18n.Locale()).GitUnstageSelectedLines() }
+
+// GitUnstageSelectedLines says "Unstage Selected Lines"
+// in the language of msgs.
+func (msgs Messages) GitUnstageSelectedLines() string {
+	return Catalog.Format(msgs.locale, "gitUnstageSelectedLines", nil)
+}
+
+// GitPartialSelectionHint says "Click line numbers to select · Shift-click for a range"
+// in the language the app shows.
+func GitPartialSelectionHint() string { return In(i18n.Locale()).GitPartialSelectionHint() }
+
+// GitPartialSelectionHint says "Click line numbers to select · Shift-click for a range"
+// in the language of msgs.
+func (msgs Messages) GitPartialSelectionHint() string {
+	return Catalog.Format(msgs.locale, "gitPartialSelectionHint", nil)
+}
+
+// GitPartialDiffChanged says "The diff changed. Review the updated changes and try again."
+// in the language the app shows.
+func GitPartialDiffChanged() string { return In(i18n.Locale()).GitPartialDiffChanged() }
+
+// GitPartialDiffChanged says "The diff changed. Review the updated changes and try again."
+// in the language of msgs.
+func (msgs Messages) GitPartialDiffChanged() string {
+	return Catalog.Format(msgs.locale, "gitPartialDiffChanged", nil)
 }
 
 // LocalHistoryRestoreSelected says "Restore Selected Lines"
@@ -7204,6 +7414,16 @@ func (msgs Messages) CommandGitShowHistory() string {
 	return Catalog.Format(msgs.locale, "commandGitShowHistory", nil)
 }
 
+// CommandEditSearchResults says "Edit Search Results"
+// in the language the app shows.
+func CommandEditSearchResults() string { return In(i18n.Locale()).CommandEditSearchResults() }
+
+// CommandEditSearchResults says "Edit Search Results"
+// in the language of msgs.
+func (msgs Messages) CommandEditSearchResults() string {
+	return Catalog.Format(msgs.locale, "commandEditSearchResults", nil)
+}
+
 // CommandGitShowLog says "Git: Show Log"
 // in the language the app shows.
 func CommandGitShowLog() string { return In(i18n.Locale()).CommandGitShowLog() }
@@ -7242,6 +7462,16 @@ func CommandPreviousChange() string { return In(i18n.Locale()).CommandPreviousCh
 // in the language of msgs.
 func (msgs Messages) CommandPreviousChange() string {
 	return Catalog.Format(msgs.locale, "commandPreviousChange", nil)
+}
+
+// CommandDiscardChange says "Discard Change"
+// in the language the app shows.
+func CommandDiscardChange() string { return In(i18n.Locale()).CommandDiscardChange() }
+
+// CommandDiscardChange says "Discard Change"
+// in the language of msgs.
+func (msgs Messages) CommandDiscardChange() string {
+	return Catalog.Format(msgs.locale, "commandDiscardChange", nil)
 }
 
 // CommandGitFetch says "Git: Fetch"
@@ -7292,6 +7522,18 @@ func CommandFilterFiles() string { return In(i18n.Locale()).CommandFilterFiles()
 // in the language of msgs.
 func (msgs Messages) CommandFilterFiles() string {
 	return Catalog.Format(msgs.locale, "commandFilterFiles", nil)
+}
+
+// CommandRevealInProjectNavigator says "Reveal in Project Navigator"
+// in the language the app shows.
+func CommandRevealInProjectNavigator() string {
+	return In(i18n.Locale()).CommandRevealInProjectNavigator()
+}
+
+// CommandRevealInProjectNavigator says "Reveal in Project Navigator"
+// in the language of msgs.
+func (msgs Messages) CommandRevealInProjectNavigator() string {
+	return Catalog.Format(msgs.locale, "commandRevealInProjectNavigator", nil)
 }
 
 // CommandShowOrHideTheNavigator says "Show or Hide the Navigator"
@@ -8462,21 +8704,21 @@ func (msgs Messages) MinimapDescription() string {
 	return Catalog.Format(msgs.locale, "minimapDescription", nil)
 }
 
-// ReadingPositionPin says "Reading position pin"
+// ReadingPositionPin says "Sticky scope headers"
 // in the language the app shows.
 func ReadingPositionPin() string { return In(i18n.Locale()).ReadingPositionPin() }
 
-// ReadingPositionPin says "Reading position pin"
+// ReadingPositionPin says "Sticky scope headers"
 // in the language of msgs.
 func (msgs Messages) ReadingPositionPin() string {
 	return Catalog.Format(msgs.locale, "readingPositionPin", nil)
 }
 
-// ReadingPositionPinDescription says "Name the declaration the top of the editor is inside, once it scrolls out of view."
+// ReadingPositionPinDescription says "Keep enclosing types and functions at the top of the editor as their declarations scroll out of view."
 // in the language the app shows.
 func ReadingPositionPinDescription() string { return In(i18n.Locale()).ReadingPositionPinDescription() }
 
-// ReadingPositionPinDescription says "Name the declaration the top of the editor is inside, once it scrolls out of view."
+// ReadingPositionPinDescription says "Keep enclosing types and functions at the top of the editor as their declarations scroll out of view."
 // in the language of msgs.
 func (msgs Messages) ReadingPositionPinDescription() string {
 	return Catalog.Format(msgs.locale, "readingPositionPinDescription", nil)
@@ -9382,6 +9624,166 @@ func GitKindGenerated() string { return In(i18n.Locale()).GitKindGenerated() }
 // in the language of msgs.
 func (msgs Messages) GitKindGenerated() string {
 	return Catalog.Format(msgs.locale, "gitKindGenerated", nil)
+}
+
+// SearchEditTab says "Search Results"
+// in the language the app shows.
+func SearchEditTab() string { return In(i18n.Locale()).SearchEditTab() }
+
+// SearchEditTab says "Search Results"
+// in the language of msgs.
+func (msgs Messages) SearchEditTab() string {
+	return Catalog.Format(msgs.locale, "searchEditTab", nil)
+}
+
+// SearchEditOpen says "Edit Results"
+// in the language the app shows.
+func SearchEditOpen() string { return In(i18n.Locale()).SearchEditOpen() }
+
+// SearchEditOpen says "Edit Results"
+// in the language of msgs.
+func (msgs Messages) SearchEditOpen() string {
+	return Catalog.Format(msgs.locale, "searchEditOpen", nil)
+}
+
+// SearchEditOpenHint says "Edit every match in place, across files, and save the edits back"
+// in the language the app shows.
+func SearchEditOpenHint() string { return In(i18n.Locale()).SearchEditOpenHint() }
+
+// SearchEditOpenHint says "Edit every match in place, across files, and save the edits back"
+// in the language of msgs.
+func (msgs Messages) SearchEditOpenHint() string {
+	return Catalog.Format(msgs.locale, "searchEditOpenHint", nil)
+}
+
+// SearchEditReading says "Reading results…"
+// in the language the app shows.
+func SearchEditReading() string { return In(i18n.Locale()).SearchEditReading() }
+
+// SearchEditReading says "Reading results…"
+// in the language of msgs.
+func (msgs Messages) SearchEditReading() string {
+	return Catalog.Format(msgs.locale, "searchEditReading", nil)
+}
+
+// SearchEditEmpty says "No results to edit"
+// in the language the app shows.
+func SearchEditEmpty() string { return In(i18n.Locale()).SearchEditEmpty() }
+
+// SearchEditEmpty says "No results to edit"
+// in the language of msgs.
+func (msgs Messages) SearchEditEmpty() string {
+	return Catalog.Format(msgs.locale, "searchEditEmpty", nil)
+}
+
+// SearchEditOpenFile says "Open in editor"
+// in the language the app shows.
+func SearchEditOpenFile() string { return In(i18n.Locale()).SearchEditOpenFile() }
+
+// SearchEditOpenFile says "Open in editor"
+// in the language of msgs.
+func (msgs Messages) SearchEditOpenFile() string {
+	return Catalog.Format(msgs.locale, "searchEditOpenFile", nil)
+}
+
+// SearchEditOpenLine says "Open this line in the editor"
+// in the language the app shows.
+func SearchEditOpenLine() string { return In(i18n.Locale()).SearchEditOpenLine() }
+
+// SearchEditOpenLine says "Open this line in the editor"
+// in the language of msgs.
+func (msgs Messages) SearchEditOpenLine() string {
+	return Catalog.Format(msgs.locale, "searchEditOpenLine", nil)
+}
+
+// SearchEditEdited says "Edited"
+// in the language the app shows.
+func SearchEditEdited() string { return In(i18n.Locale()).SearchEditEdited() }
+
+// SearchEditEdited says "Edited"
+// in the language of msgs.
+func (msgs Messages) SearchEditEdited() string {
+	return Catalog.Format(msgs.locale, "searchEditEdited", nil)
+}
+
+// SearchEditEditedFiles says "%d edited files"
+// in the language the app shows.
+func SearchEditEditedFiles() string { return In(i18n.Locale()).SearchEditEditedFiles() }
+
+// SearchEditEditedFiles says "%d edited files"
+// in the language of msgs.
+func (msgs Messages) SearchEditEditedFiles() string {
+	return Catalog.Format(msgs.locale, "searchEditEditedFiles", nil)
+}
+
+// SearchEditHint says "Edit matches in place; save writes each file"
+// in the language the app shows.
+func SearchEditHint() string { return In(i18n.Locale()).SearchEditHint() }
+
+// SearchEditHint says "Edit matches in place; save writes each file"
+// in the language of msgs.
+func (msgs Messages) SearchEditHint() string {
+	return Catalog.Format(msgs.locale, "searchEditHint", nil)
+}
+
+// SearchEditRevert says "Revert"
+// in the language the app shows.
+func SearchEditRevert() string { return In(i18n.Locale()).SearchEditRevert() }
+
+// SearchEditRevert says "Revert"
+// in the language of msgs.
+func (msgs Messages) SearchEditRevert() string {
+	return Catalog.Format(msgs.locale, "searchEditRevert", nil)
+}
+
+// SearchEditSave says "Save All"
+// in the language the app shows.
+func SearchEditSave() string { return In(i18n.Locale()).SearchEditSave() }
+
+// SearchEditSave says "Save All"
+// in the language of msgs.
+func (msgs Messages) SearchEditSave() string {
+	return Catalog.Format(msgs.locale, "searchEditSave", nil)
+}
+
+// SearchEditSaved says "Saved %d files."
+// in the language the app shows.
+func SearchEditSaved() string { return In(i18n.Locale()).SearchEditSaved() }
+
+// SearchEditSaved says "Saved %d files."
+// in the language of msgs.
+func (msgs Messages) SearchEditSaved() string {
+	return Catalog.Format(msgs.locale, "searchEditSaved", nil)
+}
+
+// SearchEditSaveFailed says "could not save"
+// in the language the app shows.
+func SearchEditSaveFailed() string { return In(i18n.Locale()).SearchEditSaveFailed() }
+
+// SearchEditSaveFailed says "could not save"
+// in the language of msgs.
+func (msgs Messages) SearchEditSaveFailed() string {
+	return Catalog.Format(msgs.locale, "searchEditSaveFailed", nil)
+}
+
+// SearchEditSummary says "%d matches in %d files"
+// in the language the app shows.
+func SearchEditSummary() string { return In(i18n.Locale()).SearchEditSummary() }
+
+// SearchEditSummary says "%d matches in %d files"
+// in the language of msgs.
+func (msgs Messages) SearchEditSummary() string {
+	return Catalog.Format(msgs.locale, "searchEditSummary", nil)
+}
+
+// SearchEditCloseDirty says "Save or revert the edited search results before closing them."
+// in the language the app shows.
+func SearchEditCloseDirty() string { return In(i18n.Locale()).SearchEditCloseDirty() }
+
+// SearchEditCloseDirty says "Save or revert the edited search results before closing them."
+// in the language of msgs.
+func (msgs Messages) SearchEditCloseDirty() string {
+	return Catalog.Format(msgs.locale, "searchEditCloseDirty", nil)
 }
 
 // GitRepositoryChanges says "Working Copy"

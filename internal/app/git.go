@@ -89,6 +89,7 @@ type gitDiffTab struct {
 	log          *gitLogView // the log, which shows in place of a diff
 	branch       *branchDiffView
 	localHistory *localHistoryView
+	search       *searchEditView
 	// What the tab shows, to read it again in the next session: the
 	// commit's full hash, a renamed file's old path, and whether the
 	// change is of a file git does not track.
@@ -117,7 +118,9 @@ func (v *gitDiffTab) label() string {
 
 // page reports whether the tab shows a commit or the log, not a file's
 // diff.
-func (v *gitDiffTab) page() bool { return v.commit != nil || v.log != nil || v.branch != nil }
+func (v *gitDiffTab) page() bool {
+	return v.commit != nil || v.log != nil || v.branch != nil || v.search != nil
+}
 
 // diffStates are the diffs the tab shows: its own, or the log's of the
 // commit chosen.
@@ -438,15 +441,13 @@ func (a *App) showGitPeek(g *group, d *doc, st *editor.State, line int) {
 	if st.DiffBase != nil {
 		diff := &editor.DiffState{Old: st.DiffBase, New: d.buf, Layout: editor.DiffUnified, Theme: a.edTheme, FitContent: true}
 		a.applyDiffPrefs(diff)
-		for i, h := range diff.Hunks() {
-			if line >= h.NewStart && line < max(h.NewEnd, h.NewStart+1) || h.NewStart >= d.buf.LineCount() && line == d.buf.LineCount()-1 {
-				a.choices = nil
-				a.peek = nil
-				diff.GoToHunk(i)
-				a.git.peek = &gitPeek{doc: d, group: g, line: line, diff: diff}
-				a.git.peek.scroll.Y = diffHunkOffset(st, diff, i)
-				return
-			}
+		if i := gitHunkAt(diff, line); i >= 0 {
+			a.choices = nil
+			a.peek = nil
+			diff.GoToHunk(i)
+			a.git.peek = &gitPeek{doc: d, group: g, line: line, diff: diff}
+			a.git.peek.scroll.Y = diffHunkOffset(st, diff, i)
+			return
 		}
 	}
 	a.git.peek = nil

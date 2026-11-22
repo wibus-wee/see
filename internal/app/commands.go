@@ -81,6 +81,7 @@ func commandsFor(goos string) []command {
 			a.sidebarOff, a.navigator, a.git.historyClosed = false, navGit, false
 			a.refreshGit()
 		}},
+		{"Edit Search Results", "", "", 0, 0, func(a *App) { a.openSearchEdit() }},
 		{"Git: Show Log", "", "", 0, 0, func(a *App) { a.openGitLog() }},
 		{"Show File History", "", "", 0, 0, func(a *App) { a.showActiveFileHistory() }},
 		{"Show Local History", "", "", 0, 0, func(a *App) { a.showActiveLocalHistory() }},
@@ -94,6 +95,7 @@ func commandsFor(goos string) []command {
 		{"Toggle Inline Diff", "", "", 0, 0, func(a *App) { a.toggleDiffLayout() }},
 		{"Next Change", "", "", 0, 0, func(a *App) { a.goToChange(1) }},
 		{"Previous Change", "", "", 0, 0, func(a *App) { a.goToChange(-1) }},
+		{"Discard Change", "", "", 0, 0, func(a *App) { a.discardChange() }},
 		{"Git: Fetch", "", "", 0, 0, func(a *App) { a.gitFetch() }},
 		{"Git: Pull", "", "", 0, 0, func(a *App) { a.gitPull() }},
 		{"Git: Push", "", "", 0, 0, func(a *App) { a.gitPush() }},

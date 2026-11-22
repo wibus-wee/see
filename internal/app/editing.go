@@ -305,6 +305,11 @@ func (a *App) guardDirty(docs []*doc, proceed func()) bool {
 }
 
 func (a *App) saveActive() {
+	if a.focus != nil && a.focus.diffs[a.focus.active] != nil && a.focus.diffs[a.focus.active].search != nil {
+		v := a.focus.diffs[a.focus.active]
+		a.saveSearchEdit(v.search)
+		return
+	}
 	if a.focus != nil {
 		if d := a.docs[tabPath(a.focus.active)]; d != nil {
 			a.saveDocs([]*doc{d}, nil)
