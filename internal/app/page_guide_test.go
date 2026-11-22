@@ -90,4 +90,19 @@ func TestPageGuideSettings(t *testing.T) {
 	h.a.cfg = config.Load(path)
 	h.tt.Frame()
 	wantGuide(48)
+
+	click("Advanced")
+	click("Reset")
+	click("Editor")
+	wantGuide()
+	click("Show Page Guide")
+	wantGuide(80)
+	r, ok = settings.Find("Page Guide Column")
+	if !ok {
+		t.Fatal("page guide column field not found after reset")
+	}
+	settings.ClickAt(r.X+16, r.Y+r.H/2)
+	settings.Key(0, ui.KeyUp)
+	h.tt.Frame()
+	wantGuide(81)
 }

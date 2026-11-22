@@ -76,7 +76,6 @@ type settingsState struct {
 	fontSize            float64
 	termFontSize        float64
 	lineNumbers         int
-	pageGuideColumn     float64
 	serverInstall       string
 	appearance          int
 	languageChoice      int
@@ -633,9 +632,6 @@ func (a *App) editorPane(c *ui.Context) {
 	s := &a.settings
 	a.initFontValues()
 	s.lineNumbers = a.cfg.LineNumbers
-	if s.pageGuideColumn == 0 {
-		s.pageGuideColumn = float64(a.cfg.PageGuideColumn())
-	}
 	heading(c, locales.EditorDisplay())
 	card(c,
 		func() {
@@ -655,9 +651,10 @@ func (a *App) editorPane(c *ui.Context) {
 		},
 		func() {
 			labeled(c, locales.PageGuide(), locales.PageGuideDescription())
-			if ui.NumberInput(c, &s.pageGuideColumn, 1, config.MaxPageGuideColumn, 1).
+			column := float64(a.cfg.PageGuideColumn())
+			if ui.NumberInput(c, &column, 1, config.MaxPageGuideColumn, 1).
 				Label(locales.PageGuideColumn()).Width(104).Disabled(!a.cfg.EditorShowPageGuide).Changed() {
-				a.cfg.EditorPageGuide = int(s.pageGuideColumn)
+				a.cfg.EditorPageGuide = int(column)
 				a.settingsChanged()
 			}
 			if ui.Switch(c, &a.cfg.EditorShowPageGuide).Label(locales.ShowPageGuide()).Changed() {
