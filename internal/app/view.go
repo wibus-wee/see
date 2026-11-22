@@ -166,6 +166,9 @@ func (a *App) view(c *ui.Context) {
 		a.jumpToDatePanel(c)
 	}
 	a.codeActionMenu(c)
+	if a.git.repositoryView.tag != nil {
+		a.createTagDialog(c)
+	}
 }
 
 // shortcuts handles the app's keys wherever the focus is.

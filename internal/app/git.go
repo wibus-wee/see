@@ -22,6 +22,8 @@ type gitState struct {
 	root, branch, message  string
 	head                   string // HEAD's commit, so committed versions are read again only when it moves
 	refs                   string
+	repository             git.RepositoryRefs
+	repositoryView         repositoryNavigator
 	changes                []git.Change
 	selected               map[string]bool // multi-selected changes, keyed by staged:path
 	selectionAnchor        string
@@ -261,6 +263,7 @@ func (a *App) refreshGit() {
 			}
 			if s.RefsErr == nil {
 				a.git.refs = s.Refs
+				a.git.repository = s.Repository
 			}
 			a.git.root, a.git.branch, a.git.changes, a.git.head = s.Root, s.Branch, s.Changes, s.Head
 			a.git.branchFingerprint = branchFingerprint
@@ -789,6 +792,11 @@ func (a *App) gitNavigator(c *ui.Context) {
 			msg = "No Git repository found, or Git is unavailable."
 		}
 		ui.Text(c, msg).TextColor(colors(c).Muted).FontSize(12).Padding(12, 10).Tooltip(a.git.err)
+		return
+	}
+	a.gitNavigatorTabs(c)
+	if a.git.repositoryView.page == 1 {
+		a.gitRepositories(c)
 		return
 	}
 	staged, unstaged := 0, 0
