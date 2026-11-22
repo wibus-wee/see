@@ -1,6 +1,7 @@
 package lsp
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -52,6 +53,7 @@ type Client struct {
 	documentLinks       bool
 	documentLinkResolve bool
 	callHierarchy       bool
+	typeHierarchy       bool
 	selectionRanges     bool
 	pullDiagnostics     bool
 	foldingRange        bool
@@ -367,6 +369,7 @@ func (c *Client) initialize(ctx context.Context) error {
 				"documentSymbol":    map[string]any{"hierarchicalDocumentSymbolSupport": true, "dynamicRegistration": false},
 				"references":        map[string]any{"dynamicRegistration": false},
 				"callHierarchy":     map[string]any{"dynamicRegistration": false},
+				"typeHierarchy":     map[string]any{"dynamicRegistration": false},
 				"definition":        map[string]any{"linkSupport": true, "dynamicRegistration": false},
 				"documentHighlight": map[string]any{"dynamicRegistration": false},
 				"implementation":    map[string]any{"linkSupport": true, "dynamicRegistration": false},
@@ -423,6 +426,8 @@ func (c *Client) initialize(ctx context.Context) error {
 	c.documentLinkResolve = res.Capabilities.documentLinkResolve()
 	c.signatureHelp = res.Capabilities.hasSignatureHelp()
 	c.callHierarchy = res.Capabilities.hasCallHierarchy()
+	rawType := bytes.TrimSpace(res.Capabilities.TypeHierarchyProvider)
+	c.typeHierarchy = len(rawType) > 0 && string(rawType) != "false" && string(rawType) != "null"
 	c.selectionRanges = res.Capabilities.hasSelectionRanges()
 	c.codeActions, c.hasCodeActions = res.Capabilities.codeActions()
 	c.hasCommands = res.Capabilities.hasExecuteCommand()

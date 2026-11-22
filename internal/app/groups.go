@@ -471,6 +471,12 @@ func (a *App) closeTab(g *group, path string) {
 	if g.colorPreview != nil && (g.colorPreview.path == docPath || g.active == path) {
 		g.dismissColorPreview()
 	}
+	if v := g.diffs[path]; v != nil && v.search != nil && v.search.dirty() {
+		a.activateIn(g, path)
+		v.search.note, v.search.noteErr = searchEditText("searchEditCloseDirty"), true
+		a.note(v.search.note, true)
+		return
+	}
 	if isDiffTab(path) {
 		delete(g.diffs, path)
 	}
@@ -754,6 +760,17 @@ func (a *App) splitActive(s side) {
 			clone := &gitDiffTab{name: v.name, revision: &r}
 			ng.diffs = map[string]*gitDiffTab{path: clone}
 			a.loadRevision(clone, "")
+		} else if v != nil && v.search != nil {
+			ng.diffs = map[string]*gitDiffTab{path: v}
+			delete(g.diffs, path)
+			g.order = slices.DeleteFunc(g.order, func(p string) bool { return p == path })
+			g.mru = slices.DeleteFunc(g.mru, func(p string) bool { return p == path })
+			if g.active == path {
+				g.active = ""
+				if len(g.mru) > 0 {
+					g.active = g.mru[len(g.mru)-1]
+				}
+			}
 		} else if v != nil && v.localHistory != nil {
 			clone := a.cloneLocalHistoryTab(v)
 			ng.diffs = map[string]*gitDiffTab{path: clone}
@@ -763,6 +780,8 @@ func (a *App) splitActive(s side) {
 				keepID = lh.snapshots[lh.selected].ID
 			}
 			a.loadLocalHistory(clone, keepID)
+		} else if v != nil && v.oldBuffer != nil {
+			ng.diffs = map[string]*gitDiffTab{path: a.newCLIBufferDiff(v.oldBuffer, v.newBuffer, v.name)}
 		} else if v != nil && v.change {
 			nv := &gitDiffTab{name: v.name, staged: v.staged, change: true}
 			hunk, _ := v.state.CurrentHunk()
@@ -771,6 +790,7 @@ func (a *App) splitActive(s side) {
 		} else if v != nil {
 			nv := a.newGitDiffTab(v.patch, v.name, v.staged)
 			nv.rev, nv.hash, nv.oldPath, nv.untracked = v.rev, v.hash, v.oldPath, v.untracked
+			nv.cli = v.cli
 			ng.diffs = map[string]*gitDiffTab{path: nv}
 		}
 		a.activateIn(ng, path)

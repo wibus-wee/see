@@ -763,6 +763,14 @@ func (a *App) editorPane(c *ui.Context) {
 			}
 		},
 		func() {
+			labeled(c, locales.RenderDocComments(), locales.RenderDocCommentsDescription())
+			enabled := !a.cfg.HideDocComments
+			if ui.Switch(c, &enabled).Label(locales.RenderDocComments()).Changed() {
+				a.cfg.HideDocComments = !enabled
+				a.settingsChanged()
+			}
+		},
+		func() {
 			labeled(c, locales.HighlightSymbolOccurrences(), locales.HighlightSymbolOccurrencesDescription())
 			enabled := !a.cfg.HideSymbolHighlights
 			ui.Switch(c, &enabled).Label(locales.HighlightSymbolOccurrences()).OnClick(func() {

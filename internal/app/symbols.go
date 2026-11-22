@@ -93,6 +93,8 @@ func symbolName(icon *ui.SVG) string {
 		return "rectangle.split.2x1"
 	case icDiffInline:
 		return "rectangle.grid.1x2"
+	case icDiffWhitespace:
+		return "space"
 	case icChangeUp:
 		return "chevron.up"
 	case icChangeDown:
@@ -141,3 +143,5 @@ var (
 	icChangeDown  = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>`))
 	icCheck       = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5L19 7"/></svg>`))
 )
+
+var icDiffWhitespace = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v6h18v-6"/></svg>`))

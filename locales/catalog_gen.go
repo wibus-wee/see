@@ -84,6 +84,186 @@ func (msgs Messages) CommandCompareRevision() string {
 	return Catalog.Format(msgs.locale, "commandCompareRevision", nil)
 }
 
+// RenderDocComments says "Render Doc Comments"
+// in the language the app shows.
+func RenderDocComments() string { return In(i18n.Locale()).RenderDocComments() }
+
+// RenderDocComments says "Render Doc Comments"
+// in the language of msgs.
+func (msgs Messages) RenderDocComments() string {
+	return Catalog.Format(msgs.locale, "renderDocComments", nil)
+}
+
+// RenderDocCommentsDescription says "Format documentation inline; move the caret into a comment to edit its source."
+// in the language the app shows.
+func RenderDocCommentsDescription() string { return In(i18n.Locale()).RenderDocCommentsDescription() }
+
+// RenderDocCommentsDescription says "Format documentation inline; move the caret into a comment to edit its source."
+// in the language of msgs.
+func (msgs Messages) RenderDocCommentsDescription() string {
+	return Catalog.Format(msgs.locale, "renderDocCommentsDescription", nil)
+}
+
+// CommandToggleReaderMode says "Toggle Reader Mode"
+// in the language the app shows.
+func CommandToggleReaderMode() string { return In(i18n.Locale()).CommandToggleReaderMode() }
+
+// CommandToggleReaderMode says "Toggle Reader Mode"
+// in the language of msgs.
+func (msgs Messages) CommandToggleReaderMode() string {
+	return Catalog.Format(msgs.locale, "commandToggleReaderMode", nil)
+}
+
+// TypeHierarchy says "Type Hierarchy"
+// in the language the app shows.
+func TypeHierarchy() string { return In(i18n.Locale()).TypeHierarchy() }
+
+// TypeHierarchy says "Type Hierarchy"
+// in the language of msgs.
+func (msgs Messages) TypeHierarchy() string {
+	return Catalog.Format(msgs.locale, "typeHierarchy", nil)
+}
+
+// CommandShowTypeHierarchy says "Show Type Hierarchy"
+// in the language the app shows.
+func CommandShowTypeHierarchy() string { return In(i18n.Locale()).CommandShowTypeHierarchy() }
+
+// CommandShowTypeHierarchy says "Show Type Hierarchy"
+// in the language of msgs.
+func (msgs Messages) CommandShowTypeHierarchy() string {
+	return Catalog.Format(msgs.locale, "commandShowTypeHierarchy", nil)
+}
+
+// TypeHierarchyIncoming says "Supertypes"
+// in the language the app shows.
+func TypeHierarchyIncoming() string { return In(i18n.Locale()).TypeHierarchyIncoming() }
+
+// TypeHierarchyIncoming says "Supertypes"
+// in the language of msgs.
+func (msgs Messages) TypeHierarchyIncoming() string {
+	return Catalog.Format(msgs.locale, "typeHierarchyIncoming", nil)
+}
+
+// TypeHierarchyOutgoing says "Subtypes"
+// in the language the app shows.
+func TypeHierarchyOutgoing() string { return In(i18n.Locale()).TypeHierarchyOutgoing() }
+
+// TypeHierarchyOutgoing says "Subtypes"
+// in the language of msgs.
+func (msgs Messages) TypeHierarchyOutgoing() string {
+	return Catalog.Format(msgs.locale, "typeHierarchyOutgoing", nil)
+}
+
+// TypeHierarchyPreparing says "Preparing type hierarchy…"
+// in the language the app shows.
+func TypeHierarchyPreparing() string { return In(i18n.Locale()).TypeHierarchyPreparing() }
+
+// TypeHierarchyPreparing says "Preparing type hierarchy…"
+// in the language of msgs.
+func (msgs Messages) TypeHierarchyPreparing() string {
+	return Catalog.Format(msgs.locale, "typeHierarchyPreparing", nil)
+}
+
+// TypeHierarchyLoading says "Loading types…"
+// in the language the app shows.
+func TypeHierarchyLoading() string { return In(i18n.Locale()).TypeHierarchyLoading() }
+
+// TypeHierarchyLoading says "Loading types…"
+// in the language of msgs.
+func (msgs Messages) TypeHierarchyLoading() string {
+	return Catalog.Format(msgs.locale, "typeHierarchyLoading", nil)
+}
+
+// TypeHierarchyNoCallers says "No supertypes found"
+// in the language the app shows.
+func TypeHierarchyNoCallers() string { return In(i18n.Locale()).TypeHierarchyNoCallers() }
+
+// TypeHierarchyNoCallers says "No supertypes found"
+// in the language of msgs.
+func (msgs Messages) TypeHierarchyNoCallers() string {
+	return Catalog.Format(msgs.locale, "typeHierarchyNoCallers", nil)
+}
+
+// TypeHierarchyNoCallees says "No subtypes found"
+// in the language the app shows.
+func TypeHierarchyNoCallees() string { return In(i18n.Locale()).TypeHierarchyNoCallees() }
+
+// TypeHierarchyNoCallees says "No subtypes found"
+// in the language of msgs.
+func (msgs Messages) TypeHierarchyNoCallees() string {
+	return Catalog.Format(msgs.locale, "typeHierarchyNoCallees", nil)
+}
+
+// TypeHierarchyNoIncoming says "This language server does not report supertypes"
+// in the language the app shows.
+func TypeHierarchyNoIncoming() string { return In(i18n.Locale()).TypeHierarchyNoIncoming() }
+
+// TypeHierarchyNoIncoming says "This language server does not report supertypes"
+// in the language of msgs.
+func (msgs Messages) TypeHierarchyNoIncoming() string {
+	return Catalog.Format(msgs.locale, "typeHierarchyNoIncoming", nil)
+}
+
+// TypeHierarchyNoOutgoing says "This language server does not report subtypes"
+// in the language the app shows.
+func TypeHierarchyNoOutgoing() string { return In(i18n.Locale()).TypeHierarchyNoOutgoing() }
+
+// TypeHierarchyNoOutgoing says "This language server does not report subtypes"
+// in the language of msgs.
+func (msgs Messages) TypeHierarchyNoOutgoing() string {
+	return Catalog.Format(msgs.locale, "typeHierarchyNoOutgoing", nil)
+}
+
+// TypeHierarchyNoItem says "No type hierarchy at this position"
+// in the language the app shows.
+func TypeHierarchyNoItem() string { return In(i18n.Locale()).TypeHierarchyNoItem() }
+
+// TypeHierarchyNoItem says "No type hierarchy at this position"
+// in the language of msgs.
+func (msgs Messages) TypeHierarchyNoItem() string {
+	return Catalog.Format(msgs.locale, "typeHierarchyNoItem", nil)
+}
+
+// TypeHierarchySelectToPreview says "Select a type to preview it"
+// in the language the app shows.
+func TypeHierarchySelectToPreview() string { return In(i18n.Locale()).TypeHierarchySelectToPreview() }
+
+// TypeHierarchySelectToPreview says "Select a type to preview it"
+// in the language of msgs.
+func (msgs Messages) TypeHierarchySelectToPreview() string {
+	return Catalog.Format(msgs.locale, "typeHierarchySelectToPreview", nil)
+}
+
+// TypeHierarchyPreview says "Type code preview"
+// in the language the app shows.
+func TypeHierarchyPreview() string { return In(i18n.Locale()).TypeHierarchyPreview() }
+
+// TypeHierarchyPreview says "Type code preview"
+// in the language of msgs.
+func (msgs Messages) TypeHierarchyPreview() string {
+	return Catalog.Format(msgs.locale, "typeHierarchyPreview", nil)
+}
+
+// TypeHierarchyMakeRoot says "Make Root"
+// in the language the app shows.
+func TypeHierarchyMakeRoot() string { return In(i18n.Locale()).TypeHierarchyMakeRoot() }
+
+// TypeHierarchyMakeRoot says "Make Root"
+// in the language of msgs.
+func (msgs Messages) TypeHierarchyMakeRoot() string {
+	return Catalog.Format(msgs.locale, "typeHierarchyMakeRoot", nil)
+}
+
+// TypeHierarchyCopyLocation says "Copy Location"
+// in the language the app shows.
+func TypeHierarchyCopyLocation() string { return In(i18n.Locale()).TypeHierarchyCopyLocation() }
+
+// TypeHierarchyCopyLocation says "Copy Location"
+// in the language of msgs.
+func (msgs Messages) TypeHierarchyCopyLocation() string {
+	return Catalog.Format(msgs.locale, "typeHierarchyCopyLocation", nil)
+}
+
 // CommandBigger says "Bigger"
 // in the language the app shows.
 func CommandBigger() string { return In(i18n.Locale()).CommandBigger() }
@@ -920,6 +1100,66 @@ func (msgs Messages) LocalHistorySelectChangedLines() string {
 	return Catalog.Format(msgs.locale, "localHistorySelectChangedLines", nil)
 }
 
+// GitStageHunk says "Stage Hunk"
+// in the language the app shows.
+func GitStageHunk() string { return In(i18n.Locale()).GitStageHunk() }
+
+// GitStageHunk says "Stage Hunk"
+// in the language of msgs.
+func (msgs Messages) GitStageHunk() string {
+	return Catalog.Format(msgs.locale, "gitStageHunk", nil)
+}
+
+// GitUnstageHunk says "Unstage Hunk"
+// in the language the app shows.
+func GitUnstageHunk() string { return In(i18n.Locale()).GitUnstageHunk() }
+
+// GitUnstageHunk says "Unstage Hunk"
+// in the language of msgs.
+func (msgs Messages) GitUnstageHunk() string {
+	return Catalog.Format(msgs.locale, "gitUnstageHunk", nil)
+}
+
+// GitStageSelectedLines says "Stage Selected Lines"
+// in the language the app shows.
+func GitStageSelectedLines() string { return In(i18n.Locale()).GitStageSelectedLines() }
+
+// GitStageSelectedLines says "Stage Selected Lines"
+// in the language of msgs.
+func (msgs Messages) GitStageSelectedLines() string {
+	return Catalog.Format(msgs.locale, "gitStageSelectedLines", nil)
+}
+
+// GitUnstageSelectedLines says "Unstage Selected Lines"
+// in the language the app shows.
+func GitUnstageSelectedLines() string { return In(i18n.Locale()).GitUnstageSelectedLines() }
+
+// GitUnstageSelectedLines says "Unstage Selected Lines"
+// in the language of msgs.
+func (msgs Messages) GitUnstageSelectedLines() string {
+	return Catalog.Format(msgs.locale, "gitUnstageSelectedLines", nil)
+}
+
+// GitPartialSelectionHint says "Click line numbers to select · Shift-click for a range"
+// in the language the app shows.
+func GitPartialSelectionHint() string { return In(i18n.Locale()).GitPartialSelectionHint() }
+
+// GitPartialSelectionHint says "Click line numbers to select · Shift-click for a range"
+// in the language of msgs.
+func (msgs Messages) GitPartialSelectionHint() string {
+	return Catalog.Format(msgs.locale, "gitPartialSelectionHint", nil)
+}
+
+// GitPartialDiffChanged says "The diff changed. Review the updated changes and try again."
+// in the language the app shows.
+func GitPartialDiffChanged() string { return In(i18n.Locale()).GitPartialDiffChanged() }
+
+// GitPartialDiffChanged says "The diff changed. Review the updated changes and try again."
+// in the language of msgs.
+func (msgs Messages) GitPartialDiffChanged() string {
+	return Catalog.Format(msgs.locale, "gitPartialDiffChanged", nil)
+}
+
 // LocalHistoryRestoreSelected says "Restore Selected Lines"
 // in the language the app shows.
 func LocalHistoryRestoreSelected() string { return In(i18n.Locale()).LocalHistoryRestoreSelected() }
@@ -1342,6 +1582,336 @@ func GitWorkingTree() string { return In(i18n.Locale()).GitWorkingTree() }
 // in the language of msgs.
 func (msgs Messages) GitWorkingTree() string {
 	return Catalog.Format(msgs.locale, "gitWorkingTree", nil)
+}
+
+// GitConflictedFiles says "Conflicted Files"
+// in the language the app shows.
+func GitConflictedFiles() string { return In(i18n.Locale()).GitConflictedFiles() }
+
+// GitConflictedFiles says "Conflicted Files"
+// in the language of msgs.
+func (msgs Messages) GitConflictedFiles() string {
+	return Catalog.Format(msgs.locale, "gitConflictedFiles", nil)
+}
+
+// GitConflictTab says "Merge Conflict"
+// in the language the app shows.
+func GitConflictTab() string { return In(i18n.Locale()).GitConflictTab() }
+
+// GitConflictTab says "Merge Conflict"
+// in the language of msgs.
+func (msgs Messages) GitConflictTab() string {
+	return Catalog.Format(msgs.locale, "gitConflictTab", nil)
+}
+
+// GitResolveFile says "Resolve conflict in %s"
+// in the language the app shows.
+func GitResolveFile() string { return In(i18n.Locale()).GitResolveFile() }
+
+// GitResolveFile says "Resolve conflict in %s"
+// in the language of msgs.
+func (msgs Messages) GitResolveFile() string {
+	return Catalog.Format(msgs.locale, "gitResolveFile", nil)
+}
+
+// GitResolveBeforeCommit says "Resolve conflicts to commit"
+// in the language the app shows.
+func GitResolveBeforeCommit() string { return In(i18n.Locale()).GitResolveBeforeCommit() }
+
+// GitResolveBeforeCommit says "Resolve conflicts to commit"
+// in the language of msgs.
+func (msgs Messages) GitResolveBeforeCommit() string {
+	return Catalog.Format(msgs.locale, "gitResolveBeforeCommit", nil)
+}
+
+// GitCommitMerge says "Commit Merge"
+// in the language the app shows.
+func GitCommitMerge() string { return In(i18n.Locale()).GitCommitMerge() }
+
+// GitCommitMerge says "Commit Merge"
+// in the language of msgs.
+func (msgs Messages) GitCommitMerge() string {
+	return Catalog.Format(msgs.locale, "gitCommitMerge", nil)
+}
+
+// GitConflictReading says "Reading conflicts…"
+// in the language the app shows.
+func GitConflictReading() string { return In(i18n.Locale()).GitConflictReading() }
+
+// GitConflictReading says "Reading conflicts…"
+// in the language of msgs.
+func (msgs Messages) GitConflictReading() string {
+	return Catalog.Format(msgs.locale, "gitConflictReading", nil)
+}
+
+// GitConflictCurrent says "Current"
+// in the language the app shows.
+func GitConflictCurrent() string { return In(i18n.Locale()).GitConflictCurrent() }
+
+// GitConflictCurrent says "Current"
+// in the language of msgs.
+func (msgs Messages) GitConflictCurrent() string {
+	return Catalog.Format(msgs.locale, "gitConflictCurrent", nil)
+}
+
+// GitConflictIncoming says "Incoming"
+// in the language the app shows.
+func GitConflictIncoming() string { return In(i18n.Locale()).GitConflictIncoming() }
+
+// GitConflictIncoming says "Incoming"
+// in the language of msgs.
+func (msgs Messages) GitConflictIncoming() string {
+	return Catalog.Format(msgs.locale, "gitConflictIncoming", nil)
+}
+
+// GitConflictPreview says "Resolution Preview"
+// in the language the app shows.
+func GitConflictPreview() string { return In(i18n.Locale()).GitConflictPreview() }
+
+// GitConflictPreview says "Resolution Preview"
+// in the language of msgs.
+func (msgs Messages) GitConflictPreview() string {
+	return Catalog.Format(msgs.locale, "gitConflictPreview", nil)
+}
+
+// GitConflictChoose says "Choose what to keep for this conflict."
+// in the language the app shows.
+func GitConflictChoose() string { return In(i18n.Locale()).GitConflictChoose() }
+
+// GitConflictChoose says "Choose what to keep for this conflict."
+// in the language of msgs.
+func (msgs Messages) GitConflictChoose() string {
+	return Catalog.Format(msgs.locale, "gitConflictChoose", nil)
+}
+
+// GitConflictNoLines says "No lines"
+// in the language the app shows.
+func GitConflictNoLines() string { return In(i18n.Locale()).GitConflictNoLines() }
+
+// GitConflictNoLines says "No lines"
+// in the language of msgs.
+func (msgs Messages) GitConflictNoLines() string {
+	return Catalog.Format(msgs.locale, "gitConflictNoLines", nil)
+}
+
+// GitConflictOpenFile says "Open File"
+// in the language the app shows.
+func GitConflictOpenFile() string { return In(i18n.Locale()).GitConflictOpenFile() }
+
+// GitConflictOpenFile says "Open File"
+// in the language of msgs.
+func (msgs Messages) GitConflictOpenFile() string {
+	return Catalog.Format(msgs.locale, "gitConflictOpenFile", nil)
+}
+
+// GitConflictReload says "Reload from Disk"
+// in the language the app shows.
+func GitConflictReload() string { return In(i18n.Locale()).GitConflictReload() }
+
+// GitConflictReload says "Reload from Disk"
+// in the language of msgs.
+func (msgs Messages) GitConflictReload() string {
+	return Catalog.Format(msgs.locale, "gitConflictReload", nil)
+}
+
+// GitConflictSave says "Save & Stage"
+// in the language the app shows.
+func GitConflictSave() string { return In(i18n.Locale()).GitConflictSave() }
+
+// GitConflictSave says "Save & Stage"
+// in the language of msgs.
+func (msgs Messages) GitConflictSave() string {
+	return Catalog.Format(msgs.locale, "gitConflictSave", nil)
+}
+
+// GitConflictSaving says "Saving resolution…"
+// in the language the app shows.
+func GitConflictSaving() string { return In(i18n.Locale()).GitConflictSaving() }
+
+// GitConflictSaving says "Saving resolution…"
+// in the language of msgs.
+func (msgs Messages) GitConflictSaving() string {
+	return Catalog.Format(msgs.locale, "gitConflictSaving", nil)
+}
+
+// GitConflictPrevious says "Previous Conflict"
+// in the language the app shows.
+func GitConflictPrevious() string { return In(i18n.Locale()).GitConflictPrevious() }
+
+// GitConflictPrevious says "Previous Conflict"
+// in the language of msgs.
+func (msgs Messages) GitConflictPrevious() string {
+	return Catalog.Format(msgs.locale, "gitConflictPrevious", nil)
+}
+
+// GitConflictNext says "Next Conflict"
+// in the language the app shows.
+func GitConflictNext() string { return In(i18n.Locale()).GitConflictNext() }
+
+// GitConflictNext says "Next Conflict"
+// in the language of msgs.
+func (msgs Messages) GitConflictNext() string {
+	return Catalog.Format(msgs.locale, "gitConflictNext", nil)
+}
+
+// GitConflictPosition says "Conflict %d of %d"
+// in the language the app shows.
+func GitConflictPosition() string { return In(i18n.Locale()).GitConflictPosition() }
+
+// GitConflictPosition says "Conflict %d of %d"
+// in the language of msgs.
+func (msgs Messages) GitConflictPosition() string {
+	return Catalog.Format(msgs.locale, "gitConflictPosition", nil)
+}
+
+// GitConflictLine says "Line %d"
+// in the language the app shows.
+func GitConflictLine() string { return In(i18n.Locale()).GitConflictLine() }
+
+// GitConflictLine says "Line %d"
+// in the language of msgs.
+func (msgs Messages) GitConflictLine() string {
+	return Catalog.Format(msgs.locale, "gitConflictLine", nil)
+}
+
+// GitConflictProgress says "%d of %d resolved"
+// in the language the app shows.
+func GitConflictProgress() string { return In(i18n.Locale()).GitConflictProgress() }
+
+// GitConflictProgress says "%d of %d resolved"
+// in the language of msgs.
+func (msgs Messages) GitConflictProgress() string {
+	return Catalog.Format(msgs.locale, "gitConflictProgress", nil)
+}
+
+// GitConflictKeepCurrent says "Keep Current"
+// in the language the app shows.
+func GitConflictKeepCurrent() string { return In(i18n.Locale()).GitConflictKeepCurrent() }
+
+// GitConflictKeepCurrent says "Keep Current"
+// in the language of msgs.
+func (msgs Messages) GitConflictKeepCurrent() string {
+	return Catalog.Format(msgs.locale, "gitConflictKeepCurrent", nil)
+}
+
+// GitConflictKeepIncoming says "Keep Incoming"
+// in the language the app shows.
+func GitConflictKeepIncoming() string { return In(i18n.Locale()).GitConflictKeepIncoming() }
+
+// GitConflictKeepIncoming says "Keep Incoming"
+// in the language of msgs.
+func (msgs Messages) GitConflictKeepIncoming() string {
+	return Catalog.Format(msgs.locale, "gitConflictKeepIncoming", nil)
+}
+
+// GitConflictKeepBoth says "Keep Both"
+// in the language the app shows.
+func GitConflictKeepBoth() string { return In(i18n.Locale()).GitConflictKeepBoth() }
+
+// GitConflictKeepBoth says "Keep Both"
+// in the language of msgs.
+func (msgs Messages) GitConflictKeepBoth() string {
+	return Catalog.Format(msgs.locale, "gitConflictKeepBoth", nil)
+}
+
+// GitConflictBothOrder says "Keep current lines, then incoming lines"
+// in the language the app shows.
+func GitConflictBothOrder() string { return In(i18n.Locale()).GitConflictBothOrder() }
+
+// GitConflictBothOrder says "Keep current lines, then incoming lines"
+// in the language of msgs.
+func (msgs Messages) GitConflictBothOrder() string {
+	return Catalog.Format(msgs.locale, "gitConflictBothOrder", nil)
+}
+
+// GitConflictStaged says "Resolution staged"
+// in the language the app shows.
+func GitConflictStaged() string { return In(i18n.Locale()).GitConflictStaged() }
+
+// GitConflictStaged says "Resolution staged"
+// in the language of msgs.
+func (msgs Messages) GitConflictStaged() string {
+	return Catalog.Format(msgs.locale, "gitConflictStaged", nil)
+}
+
+// GitConflictStagedDetail says "Git no longer reports a conflict for this file. No commit was created."
+// in the language the app shows.
+func GitConflictStagedDetail() string { return In(i18n.Locale()).GitConflictStagedDetail() }
+
+// GitConflictStagedDetail says "Git no longer reports a conflict for this file. No commit was created."
+// in the language of msgs.
+func (msgs Messages) GitConflictStagedDetail() string {
+	return Catalog.Format(msgs.locale, "gitConflictStagedDetail", nil)
+}
+
+// GitConflictUnavailable says "Could not resolve this conflict"
+// in the language the app shows.
+func GitConflictUnavailable() string { return In(i18n.Locale()).GitConflictUnavailable() }
+
+// GitConflictUnavailable says "Could not resolve this conflict"
+// in the language of msgs.
+func (msgs Messages) GitConflictUnavailable() string {
+	return Catalog.Format(msgs.locale, "gitConflictUnavailable", nil)
+}
+
+// GitConflictAlreadyResolved says "Git no longer reports this file as conflicted."
+// in the language the app shows.
+func GitConflictAlreadyResolved() string { return In(i18n.Locale()).GitConflictAlreadyResolved() }
+
+// GitConflictAlreadyResolved says "Git no longer reports this file as conflicted."
+// in the language of msgs.
+func (msgs Messages) GitConflictAlreadyResolved() string {
+	return Catalog.Format(msgs.locale, "gitConflictAlreadyResolved", nil)
+}
+
+// GitConflictUnsupported says "This file has no supported text resolution. Resolve the path with Git, then refresh status."
+// in the language the app shows.
+func GitConflictUnsupported() string { return In(i18n.Locale()).GitConflictUnsupported() }
+
+// GitConflictUnsupported says "This file has no supported text resolution. Resolve the path with Git, then refresh status."
+// in the language of msgs.
+func (msgs Messages) GitConflictUnsupported() string {
+	return Catalog.Format(msgs.locale, "gitConflictUnsupported", nil)
+}
+
+// GitConflictMalformed says "Conflict markers are incomplete or nested. Edit the file, then reload it here."
+// in the language the app shows.
+func GitConflictMalformed() string { return In(i18n.Locale()).GitConflictMalformed() }
+
+// GitConflictMalformed says "Conflict markers are incomplete or nested. Edit the file, then reload it here."
+// in the language of msgs.
+func (msgs Messages) GitConflictMalformed() string {
+	return Catalog.Format(msgs.locale, "gitConflictMalformed", nil)
+}
+
+// GitConflictStale says "The working file or Git index changed. Reload before applying a resolution."
+// in the language the app shows.
+func GitConflictStale() string { return In(i18n.Locale()).GitConflictStale() }
+
+// GitConflictStale says "The working file or Git index changed. Reload before applying a resolution."
+// in the language of msgs.
+func (msgs Messages) GitConflictStale() string {
+	return Catalog.Format(msgs.locale, "gitConflictStale", nil)
+}
+
+// GitConflictNoMarkers says "No conflict markers found"
+// in the language the app shows.
+func GitConflictNoMarkers() string { return In(i18n.Locale()).GitConflictNoMarkers() }
+
+// GitConflictNoMarkers says "No conflict markers found"
+// in the language of msgs.
+func (msgs Messages) GitConflictNoMarkers() string {
+	return Catalog.Format(msgs.locale, "gitConflictNoMarkers", nil)
+}
+
+// GitConflictNoMarkersDetail says "Review the working file. If it contains the intended resolution, stage it with Git."
+// in the language the app shows.
+func GitConflictNoMarkersDetail() string { return In(i18n.Locale()).GitConflictNoMarkersDetail() }
+
+// GitConflictNoMarkersDetail says "Review the working file. If it contains the intended resolution, stage it with Git."
+// in the language of msgs.
+func (msgs Messages) GitConflictNoMarkersDetail() string {
+	return Catalog.Format(msgs.locale, "gitConflictNoMarkersDetail", nil)
 }
 
 // GitRefreshComparison says "Refresh Comparison"
@@ -7254,6 +7824,16 @@ func (msgs Messages) CommandGitShowHistory() string {
 	return Catalog.Format(msgs.locale, "commandGitShowHistory", nil)
 }
 
+// CommandEditSearchResults says "Edit Search Results"
+// in the language the app shows.
+func CommandEditSearchResults() string { return In(i18n.Locale()).CommandEditSearchResults() }
+
+// CommandEditSearchResults says "Edit Search Results"
+// in the language of msgs.
+func (msgs Messages) CommandEditSearchResults() string {
+	return Catalog.Format(msgs.locale, "commandEditSearchResults", nil)
+}
+
 // CommandGitShowLog says "Git: Show Log"
 // in the language the app shows.
 func CommandGitShowLog() string { return In(i18n.Locale()).CommandGitShowLog() }
@@ -7352,6 +7932,18 @@ func CommandFilterFiles() string { return In(i18n.Locale()).CommandFilterFiles()
 // in the language of msgs.
 func (msgs Messages) CommandFilterFiles() string {
 	return Catalog.Format(msgs.locale, "commandFilterFiles", nil)
+}
+
+// CommandRevealInProjectNavigator says "Reveal in Project Navigator"
+// in the language the app shows.
+func CommandRevealInProjectNavigator() string {
+	return In(i18n.Locale()).CommandRevealInProjectNavigator()
+}
+
+// CommandRevealInProjectNavigator says "Reveal in Project Navigator"
+// in the language of msgs.
+func (msgs Messages) CommandRevealInProjectNavigator() string {
+	return Catalog.Format(msgs.locale, "commandRevealInProjectNavigator", nil)
 }
 
 // CommandShowOrHideTheNavigator says "Show or Hide the Navigator"
@@ -7926,6 +8518,38 @@ func MsgNoChangesToShow() string { return In(i18n.Locale()).MsgNoChangesToShow()
 // in the language of msgs.
 func (msgs Messages) MsgNoChangesToShow() string {
 	return Catalog.Format(msgs.locale, "msgNoChangesToShow", nil)
+}
+
+// MsgNoChangesWithWhitespaceHidden says "No changes to show with whitespace hidden."
+// in the language the app shows.
+func MsgNoChangesWithWhitespaceHidden() string {
+	return In(i18n.Locale()).MsgNoChangesWithWhitespaceHidden()
+}
+
+// MsgNoChangesWithWhitespaceHidden says "No changes to show with whitespace hidden."
+// in the language of msgs.
+func (msgs Messages) MsgNoChangesWithWhitespaceHidden() string {
+	return Catalog.Format(msgs.locale, "msgNoChangesWithWhitespaceHidden", nil)
+}
+
+// MsgHideWhitespaceChanges says "Hide Whitespace Changes"
+// in the language the app shows.
+func MsgHideWhitespaceChanges() string { return In(i18n.Locale()).MsgHideWhitespaceChanges() }
+
+// MsgHideWhitespaceChanges says "Hide Whitespace Changes"
+// in the language of msgs.
+func (msgs Messages) MsgHideWhitespaceChanges() string {
+	return Catalog.Format(msgs.locale, "msgHideWhitespaceChanges", nil)
+}
+
+// MsgShowWhitespaceChanges says "Show Whitespace Changes"
+// in the language the app shows.
+func MsgShowWhitespaceChanges() string { return In(i18n.Locale()).MsgShowWhitespaceChanges() }
+
+// MsgShowWhitespaceChanges says "Show Whitespace Changes"
+// in the language of msgs.
+func (msgs Messages) MsgShowWhitespaceChanges() string {
+	return Catalog.Format(msgs.locale, "msgShowWhitespaceChanges", nil)
 }
 
 // MsgBinaryFileNotShown says "Binary file not shown"
@@ -8522,21 +9146,21 @@ func (msgs Messages) MinimapDescription() string {
 	return Catalog.Format(msgs.locale, "minimapDescription", nil)
 }
 
-// ReadingPositionPin says "Reading position pin"
+// ReadingPositionPin says "Sticky scope headers"
 // in the language the app shows.
 func ReadingPositionPin() string { return In(i18n.Locale()).ReadingPositionPin() }
 
-// ReadingPositionPin says "Reading position pin"
+// ReadingPositionPin says "Sticky scope headers"
 // in the language of msgs.
 func (msgs Messages) ReadingPositionPin() string {
 	return Catalog.Format(msgs.locale, "readingPositionPin", nil)
 }
 
-// ReadingPositionPinDescription says "Name the declaration the top of the editor is inside, once it scrolls out of view."
+// ReadingPositionPinDescription says "Keep enclosing types and functions at the top of the editor as their declarations scroll out of view."
 // in the language the app shows.
 func ReadingPositionPinDescription() string { return In(i18n.Locale()).ReadingPositionPinDescription() }
 
-// ReadingPositionPinDescription says "Name the declaration the top of the editor is inside, once it scrolls out of view."
+// ReadingPositionPinDescription says "Keep enclosing types and functions at the top of the editor as their declarations scroll out of view."
 // in the language of msgs.
 func (msgs Messages) ReadingPositionPinDescription() string {
 	return Catalog.Format(msgs.locale, "readingPositionPinDescription", nil)
@@ -8550,6 +9174,18 @@ func CommandToggleMinimap() string { return In(i18n.Locale()).CommandToggleMinim
 // in the language of msgs.
 func (msgs Messages) CommandToggleMinimap() string {
 	return Catalog.Format(msgs.locale, "commandToggleMinimap", nil)
+}
+
+// CommandToggleWhitespaceChanges says "Toggle Whitespace Changes"
+// in the language the app shows.
+func CommandToggleWhitespaceChanges() string {
+	return In(i18n.Locale()).CommandToggleWhitespaceChanges()
+}
+
+// CommandToggleWhitespaceChanges says "Toggle Whitespace Changes"
+// in the language of msgs.
+func (msgs Messages) CommandToggleWhitespaceChanges() string {
+	return Catalog.Format(msgs.locale, "commandToggleWhitespaceChanges", nil)
 }
 
 // ShowInvisibles says "Show invisibles"
@@ -9442,6 +10078,166 @@ func GitKindGenerated() string { return In(i18n.Locale()).GitKindGenerated() }
 // in the language of msgs.
 func (msgs Messages) GitKindGenerated() string {
 	return Catalog.Format(msgs.locale, "gitKindGenerated", nil)
+}
+
+// SearchEditTab says "Search Results"
+// in the language the app shows.
+func SearchEditTab() string { return In(i18n.Locale()).SearchEditTab() }
+
+// SearchEditTab says "Search Results"
+// in the language of msgs.
+func (msgs Messages) SearchEditTab() string {
+	return Catalog.Format(msgs.locale, "searchEditTab", nil)
+}
+
+// SearchEditOpen says "Edit Results"
+// in the language the app shows.
+func SearchEditOpen() string { return In(i18n.Locale()).SearchEditOpen() }
+
+// SearchEditOpen says "Edit Results"
+// in the language of msgs.
+func (msgs Messages) SearchEditOpen() string {
+	return Catalog.Format(msgs.locale, "searchEditOpen", nil)
+}
+
+// SearchEditOpenHint says "Edit every match in place, across files, and save the edits back"
+// in the language the app shows.
+func SearchEditOpenHint() string { return In(i18n.Locale()).SearchEditOpenHint() }
+
+// SearchEditOpenHint says "Edit every match in place, across files, and save the edits back"
+// in the language of msgs.
+func (msgs Messages) SearchEditOpenHint() string {
+	return Catalog.Format(msgs.locale, "searchEditOpenHint", nil)
+}
+
+// SearchEditReading says "Reading results…"
+// in the language the app shows.
+func SearchEditReading() string { return In(i18n.Locale()).SearchEditReading() }
+
+// SearchEditReading says "Reading results…"
+// in the language of msgs.
+func (msgs Messages) SearchEditReading() string {
+	return Catalog.Format(msgs.locale, "searchEditReading", nil)
+}
+
+// SearchEditEmpty says "No results to edit"
+// in the language the app shows.
+func SearchEditEmpty() string { return In(i18n.Locale()).SearchEditEmpty() }
+
+// SearchEditEmpty says "No results to edit"
+// in the language of msgs.
+func (msgs Messages) SearchEditEmpty() string {
+	return Catalog.Format(msgs.locale, "searchEditEmpty", nil)
+}
+
+// SearchEditOpenFile says "Open in editor"
+// in the language the app shows.
+func SearchEditOpenFile() string { return In(i18n.Locale()).SearchEditOpenFile() }
+
+// SearchEditOpenFile says "Open in editor"
+// in the language of msgs.
+func (msgs Messages) SearchEditOpenFile() string {
+	return Catalog.Format(msgs.locale, "searchEditOpenFile", nil)
+}
+
+// SearchEditOpenLine says "Open this line in the editor"
+// in the language the app shows.
+func SearchEditOpenLine() string { return In(i18n.Locale()).SearchEditOpenLine() }
+
+// SearchEditOpenLine says "Open this line in the editor"
+// in the language of msgs.
+func (msgs Messages) SearchEditOpenLine() string {
+	return Catalog.Format(msgs.locale, "searchEditOpenLine", nil)
+}
+
+// SearchEditEdited says "Edited"
+// in the language the app shows.
+func SearchEditEdited() string { return In(i18n.Locale()).SearchEditEdited() }
+
+// SearchEditEdited says "Edited"
+// in the language of msgs.
+func (msgs Messages) SearchEditEdited() string {
+	return Catalog.Format(msgs.locale, "searchEditEdited", nil)
+}
+
+// SearchEditEditedFiles says "%d edited files"
+// in the language the app shows.
+func SearchEditEditedFiles() string { return In(i18n.Locale()).SearchEditEditedFiles() }
+
+// SearchEditEditedFiles says "%d edited files"
+// in the language of msgs.
+func (msgs Messages) SearchEditEditedFiles() string {
+	return Catalog.Format(msgs.locale, "searchEditEditedFiles", nil)
+}
+
+// SearchEditHint says "Edit matches in place; save writes each file"
+// in the language the app shows.
+func SearchEditHint() string { return In(i18n.Locale()).SearchEditHint() }
+
+// SearchEditHint says "Edit matches in place; save writes each file"
+// in the language of msgs.
+func (msgs Messages) SearchEditHint() string {
+	return Catalog.Format(msgs.locale, "searchEditHint", nil)
+}
+
+// SearchEditRevert says "Revert"
+// in the language the app shows.
+func SearchEditRevert() string { return In(i18n.Locale()).SearchEditRevert() }
+
+// SearchEditRevert says "Revert"
+// in the language of msgs.
+func (msgs Messages) SearchEditRevert() string {
+	return Catalog.Format(msgs.locale, "searchEditRevert", nil)
+}
+
+// SearchEditSave says "Save All"
+// in the language the app shows.
+func SearchEditSave() string { return In(i18n.Locale()).SearchEditSave() }
+
+// SearchEditSave says "Save All"
+// in the language of msgs.
+func (msgs Messages) SearchEditSave() string {
+	return Catalog.Format(msgs.locale, "searchEditSave", nil)
+}
+
+// SearchEditSaved says "Saved %d files."
+// in the language the app shows.
+func SearchEditSaved() string { return In(i18n.Locale()).SearchEditSaved() }
+
+// SearchEditSaved says "Saved %d files."
+// in the language of msgs.
+func (msgs Messages) SearchEditSaved() string {
+	return Catalog.Format(msgs.locale, "searchEditSaved", nil)
+}
+
+// SearchEditSaveFailed says "could not save"
+// in the language the app shows.
+func SearchEditSaveFailed() string { return In(i18n.Locale()).SearchEditSaveFailed() }
+
+// SearchEditSaveFailed says "could not save"
+// in the language of msgs.
+func (msgs Messages) SearchEditSaveFailed() string {
+	return Catalog.Format(msgs.locale, "searchEditSaveFailed", nil)
+}
+
+// SearchEditSummary says "%d matches in %d files"
+// in the language the app shows.
+func SearchEditSummary() string { return In(i18n.Locale()).SearchEditSummary() }
+
+// SearchEditSummary says "%d matches in %d files"
+// in the language of msgs.
+func (msgs Messages) SearchEditSummary() string {
+	return Catalog.Format(msgs.locale, "searchEditSummary", nil)
+}
+
+// SearchEditCloseDirty says "Save or revert the edited search results before closing them."
+// in the language the app shows.
+func SearchEditCloseDirty() string { return In(i18n.Locale()).SearchEditCloseDirty() }
+
+// SearchEditCloseDirty says "Save or revert the edited search results before closing them."
+// in the language of msgs.
+func (msgs Messages) SearchEditCloseDirty() string {
+	return Catalog.Format(msgs.locale, "searchEditCloseDirty", nil)
 }
 
 // GitRepositoryChanges says "Working Copy"

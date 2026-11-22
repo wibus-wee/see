@@ -283,6 +283,7 @@ func (f *fakeServer) serve() {
 				reply(f.signatureHelp(m.Params))
 			}
 		case "textDocument/implementation", "textDocument/typeDefinition",
+			"textDocument/prepareTypeHierarchy", "typeHierarchy/supertypes", "typeHierarchy/subtypes",
 			"textDocument/prepareCallHierarchy",
 			"callHierarchy/incomingCalls", "callHierarchy/outgoingCalls",
 			"textDocument/formatting", "textDocument/rangeFormatting",

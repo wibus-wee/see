@@ -77,7 +77,7 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 				} else if diff.localHistory != nil {
 					path = diff.localHistory.path
 					d = &doc{name: diff.localHistory.name}
-				} else if diff.branch != nil {
+				} else if diff.branch != nil || diff.search != nil {
 					path = ""
 					d = &doc{name: diff.name}
 				} else {
@@ -130,7 +130,7 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 			case hovered:
 				tab.Background(colors(c).TabHover)
 			}
-			if diff != nil && diff.branch != nil {
+			if diff != nil && (diff.branch != nil || diff.search != nil) {
 				tab.Tooltip(diff.name)
 			} else if d.untitled {
 				tab.Tooltip(d.name)
@@ -155,12 +155,14 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 					}
 				}
 				cl.OnClick(func() { a.closeTab(g, p) })
-				if diff != nil && diff.page() {
+				if diff != nil && diff.search != nil {
+					symbolIcon(c, icSearch, 13, colors(c).Muted)
+				} else if diff != nil && diff.page() {
 					symbolIcon(c, icGit, 13, colors(c).Muted)
 				} else {
 					fileIcon(c, d.name, 13)
 				}
-				if d.buf != nil && d.buf.Modified() {
+				if d.buf != nil && d.buf.Modified() || diff != nil && diff.search != nil && diff.search.dirty() {
 					ui.Text(c, "●").FontSize(10).TextColor(c.Theme().Accent)
 				}
 				name := ui.Text(c, nameLabel).FontSize(12).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(1)
@@ -209,7 +211,12 @@ func (a *App) diffJumpBar(c *ui.Context, g *group) {
 		ui.Text(c, filepath.Base(a.root)).FontSize(12).TextColor(colors(c).Muted).SingleLine()
 		symbolIcon(c, icChevron, 9, colors(c).Dim)
 		label := v.label()
-		if v.branch != nil {
+		if v.search != nil {
+			symbolIcon(c, icSearch, 12, colors(c).Muted)
+			ui.Text(c, "“"+v.search.opts.Query+"”").FontSize(12).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
+			ui.Text(c, v.search.summary()).FontSize(12).TextColor(colors(c).Muted).SingleLine()
+			label = ""
+		} else if v.branch != nil {
 			symbolIcon(c, icGit, 12, colors(c).Muted)
 			ui.Text(c, branchDiffText("gitSince")+" "+v.branch.baseName).FontSize(12).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 			label = ""
@@ -230,6 +237,15 @@ func (a *App) diffJumpBar(c *ui.Context, g *group) {
 			ui.Text(c, label).FontSize(12).TextColor(colors(c).Muted).SingleLine()
 		}
 		ui.Box(c).Grow(1)
+		if v.commit == nil {
+			label := diffWhitespaceText("msgHideWhitespaceChanges")
+			if a.cfg.HideWhitespaceChanges {
+				label = diffWhitespaceText("msgShowWhitespaceChanges")
+			}
+			if glyphButton(c.Key("diff-whitespace"), icDiffWhitespace, label, label, a.cfg.HideWhitespaceChanges, false).Clicked() {
+				a.toggleDiffWhitespace()
+			}
+		}
 		if v.state != nil {
 			hunks := v.state.Hunks()
 			if v.partial != nil && len(hunks) > 0 {
@@ -324,6 +340,10 @@ func (a *App) jumpBar(c *ui.Context, g *group) {
 			if menu.Item(locales.CallHierarchy()).Chosen() {
 				a.focus = g
 				a.showCallHierarchyAt(g)
+			}
+			if a.navigationEnabled(g.active, "typeHierarchy") && menu.Item(navigationText("typeHierarchy", "")).Chosen() {
+				a.focus = g
+				a.showTypeHierarchyAt(g)
 			}
 		}, ui.PopoverMenuButtonOptions{Open: &g.relatedOpen})
 		if !g.relatedOpen {

@@ -30,7 +30,9 @@ type gitState struct {
 	decor                  map[string]byte
 	err                    string
 	loading, pending, busy bool
+	merging                bool
 	diffSeq                uint64
+	resolvingPath          string
 	peek                   *gitPeek
 	picker                 branchPicker
 	branchDiffMode         branchDiffMode
@@ -40,6 +42,7 @@ type gitState struct {
 	// folded away, as VS Code's views; both show by default.
 	changesClosed, historyClosed bool
 	split                        float32 // the changes' share of the height while both show, as a percentage
+	conflictSplit                float32
 	logSplit                     float32 // the commits' share of the log's tab, as a percentage
 	// upstream is the branch HEAD's tracks, and ahead and behind how
 	// far apart they are; remotes are the repository's, origin first.
@@ -70,26 +73,32 @@ type gitState struct {
 }
 
 type gitPeek struct {
-	doc    *doc
-	group  *group
-	line   int
-	diff   *editor.DiffState
-	scroll ui.ScrollState
+	doc             *doc
+	group           *group
+	line            int
+	diff            *editor.DiffState
+	scroll          ui.ScrollState
+	filtered        *editor.DiffState
+	filteredVersion uint64
+	filteredHunk    int
 }
 
 type gitDiffTab struct {
-	state        *editor.DiffState // nil for a commit
-	patch        editor.FilePatch
-	partial      *gitPartialPatch
-	name         string
-	staged       bool
-	cli          bool        // `see --diff`'s: it compares paths, not repository changes
-	rev          string      // the commit's short hash, for a file of a commit
-	commit       *commitView // a commit, which shows in place of a diff
-	log          *gitLogView // the log, which shows in place of a diff
-	branch       *branchDiffView
-	revision     *revisionView
-	localHistory *localHistoryView
+	state                *editor.DiffState // nil for a commit
+	patch                editor.FilePatch
+	partial              *gitPartialPatch
+	search               *searchEditView
+	oldBuffer, newBuffer *editor.Buffer // source buffers for a CLI file comparison
+	name                 string
+	staged               bool
+	cli                  bool        // `see --diff`'s: it compares paths, not repository changes
+	rev                  string      // the commit's short hash, for a file of a commit
+	commit               *commitView // a commit, which shows in place of a diff
+	log                  *gitLogView // the log, which shows in place of a diff
+	branch               *branchDiffView
+	localHistory         *localHistoryView
+	conflict             *gitConflictView
+	revision             *revisionView
 	// What the tab shows, to read it again in the next session: the
 	// commit's full hash, a renamed file's old path, and whether the
 	// change is of a file git does not track.
@@ -104,6 +113,8 @@ type gitDiffTab struct {
 // working tree.
 func (v *gitDiffTab) label() string {
 	switch {
+	case v.conflict != nil:
+		return gitConflictText("gitConflictTab")
 	case v.localHistory != nil:
 		return localHistoryText("localHistoryTab")
 	case v.cli:
@@ -118,7 +129,9 @@ func (v *gitDiffTab) label() string {
 
 // page reports whether the tab shows a commit or the log, not a file's
 // diff.
-func (v *gitDiffTab) page() bool { return v.commit != nil || v.log != nil || v.branch != nil }
+func (v *gitDiffTab) page() bool {
+	return v.commit != nil || v.log != nil || v.branch != nil || v.search != nil
+}
 
 // diffStates are the diffs the tab shows: its own, or the log's of the
 // commit chosen.
@@ -149,7 +162,7 @@ func (v *gitDiffTab) diffStates() []*editor.DiffState {
 func (a *App) newGitDiffTab(p editor.FilePatch, name string, staged bool) *gitDiffTab {
 	d := &editor.DiffState{Theme: a.edTheme}
 	a.applyDiffPrefs(d)
-	setPatch(d, p)
+	a.setDiffPatch(d, p, true)
 	d.GoToHunk(0)
 	return &gitDiffTab{state: d, patch: p, name: name, staged: staged}
 }
@@ -269,6 +282,7 @@ func (a *App) refreshGit() {
 				a.git.repository = s.Repository
 			}
 			a.git.root, a.git.branch, a.git.changes, a.git.head = s.Root, s.Branch, s.Changes, s.Head
+			a.git.merging = s.Merging
 			a.git.branchFingerprint = branchFingerprint
 			a.git.pruneSelection()
 			a.git.upstream, a.git.ahead, a.git.behind = s.Upstream, s.Ahead, s.Behind
@@ -439,15 +453,13 @@ func (a *App) showGitPeek(g *group, d *doc, st *editor.State, line int) {
 	if st.DiffBase != nil {
 		diff := &editor.DiffState{Old: st.DiffBase, New: d.buf, Layout: editor.DiffUnified, Theme: a.edTheme, FitContent: true}
 		a.applyDiffPrefs(diff)
-		for i, h := range diff.Hunks() {
-			if line >= h.NewStart && line < max(h.NewEnd, h.NewStart+1) || h.NewStart >= d.buf.LineCount() && line == d.buf.LineCount()-1 {
-				a.choices = nil
-				a.peek = nil
-				diff.GoToHunk(i)
-				a.git.peek = &gitPeek{doc: d, group: g, line: line, diff: diff}
-				a.git.peek.scroll.Y = diffHunkOffset(st, diff, i)
-				return
-			}
+		if i := gitHunkAt(diff, line); i >= 0 {
+			a.choices = nil
+			a.peek = nil
+			diff.GoToHunk(i)
+			a.git.peek = &gitPeek{doc: d, group: g, line: line, diff: diff}
+			a.git.peek.scroll.Y = diffHunkOffset(st, diff, i)
+			return
 		}
 	}
 	a.git.peek = nil
@@ -457,6 +469,15 @@ func (a *App) showGitPeek(g *group, d *doc, st *editor.State, line int) {
 		end = d.buf.Offset(editor.Pos{Line: line + 1})
 	}
 	st.Select(start, end)
+}
+
+func gitHunkAtLine(diff *editor.DiffState, line int) int {
+	for i, h := range diff.Hunks() {
+		if line >= h.NewStart && line < max(h.NewEnd, h.NewStart+1) || h.NewStart >= diff.New.LineCount() && line == diff.New.LineCount()-1 {
+			return i
+		}
+	}
+	return -1
 }
 
 func (a *App) gitStatusColor(status byte) ui.Color {
@@ -651,12 +672,22 @@ func (g *gitState) changeKeys() []string {
 	var keys []string
 	for _, staged := range []bool{true, false} {
 		for _, ch := range g.changes {
-			if staged && ch.Index != ' ' && ch.Index != '?' || !staged && (ch.Work != ' ' || ch.Index == '?') {
+			if gitChangeInSection(ch, staged) {
 				keys = append(keys, gitChangeKey(staged, ch.Path))
 			}
 		}
 	}
 	return keys
+}
+
+func gitChangeInSection(ch git.Change, staged bool) bool {
+	if ch.Conflicted() {
+		return false
+	}
+	if staged {
+		return ch.Index != ' ' && ch.Index != '?'
+	}
+	return ch.Work != ' ' || ch.Index == '?'
 }
 
 func (g *gitState) pruneSelection() {
@@ -719,6 +750,9 @@ func (g *gitState) selectChange(key string, mods ui.Modifiers) {
 func (a *App) stageGitChanges(staged bool, changes []git.Change) {
 	var paths []string
 	for _, ch := range changes {
+		if ch.Conflicted() {
+			continue
+		}
 		paths = append(paths, ch.Path)
 		if ch.OldPath != "" {
 			paths = append(paths, ch.OldPath)
@@ -737,7 +771,7 @@ func (a *App) stageGitChanges(staged bool, changes []git.Change) {
 func (a *App) stageAllGitChanges(staged bool) {
 	var changes []git.Change
 	for _, ch := range a.git.changes {
-		if staged && ch.Index != ' ' && ch.Index != '?' || !staged && (ch.Work != ' ' || ch.Index == '?') {
+		if gitChangeInSection(ch, staged) {
 			changes = append(changes, ch)
 		}
 	}
@@ -755,6 +789,10 @@ func (a *App) showGitDiffIn(ch git.Change, staged bool, target *group, placement
 	a.term.maximized = false
 	a.git.peek = nil
 	a.git.diffSeq++
+	if ch.Conflicted() {
+		a.openGitConflictIn(ch, target, placement, at)
+		return
+	}
 	seq, gen, root, ctx := a.git.diffSeq, a.gen, a.git.root, a.wsCtx
 	go func() {
 		view, err := readGitChangeView(ctx, root, ch, staged)
@@ -796,17 +834,20 @@ func (a *App) gitNavigator(c *ui.Context) {
 		ui.Text(c, msg).TextColor(colors(c).Muted).FontSize(12).Padding(12, 10).Tooltip(a.git.err)
 		return
 	}
+	staged, unstaged, conflicts := 0, 0, 0
 	a.gitNavigatorTabs(c)
 	if a.git.repositoryView.page == 1 {
 		a.gitRepositories(c)
 		return
 	}
-	staged, unstaged := 0, 0
 	for _, ch := range a.git.changes {
-		if ch.Index != ' ' && ch.Index != '?' {
+		if ch.Conflicted() {
+			conflicts++
+		}
+		if gitChangeInSection(ch, true) {
 			staged++
 		}
-		if ch.Work != ' ' || ch.Index == '?' {
+		if gitChangeInSection(ch, false) {
 			unstaged++
 		}
 	}
@@ -824,6 +865,12 @@ func (a *App) gitNavigator(c *ui.Context) {
 				return
 			}
 			a.branchDiffModePicker(c)
+			if conflicts > 0 {
+				label := fmt.Sprintf("%s (%d)", gitConflictText("gitConflictedFiles"), conflicts)
+				ui.Row(c).Padding(2, sidebarInset).Children(func() {
+					ui.Button(c, label).FontSize(11).OnClick(func() { a.git.branchDiffMode = uncommittedMode })
+				})
+			}
 			a.branchDiffNavigator(c)
 			return
 		}
@@ -832,17 +879,25 @@ func (a *App) gitNavigator(c *ui.Context) {
 			return
 		}
 		a.branchDiffModePicker(c)
-		a.commitBar(c, staged)
+		a.commitBar(c, staged, conflicts > 0)
 		ui.Scroll(c).Grow(1).FillWidth().Children(func() {
 			ui.Column(c).FillWidth().Padding(0, 0, 6, 0).Children(func() {
 				if len(a.git.changes) == 0 {
 					ui.Text(c, locales.MsgNoChanges()).FontSize(12).TextColor(colors(c).Muted).Padding(4, 16, 8, 16)
 				}
+				if conflicts > 0 {
+					a.gitSection(c, gitConflictText("gitConflictedFiles"), conflicts)
+					for _, ch := range a.git.changes {
+						if ch.Conflicted() {
+							a.gitConflictRow(c, ch)
+						}
+					}
+				}
 				if staged > 0 {
 					a.gitSection(c, "Staged Changes", staged)
 				}
 				a.gitRowsByKind(c, true)
-				if unstaged > 0 && staged > 0 {
+				if unstaged > 0 && (staged > 0 || conflicts > 0) {
 					a.gitSection(c, "Changes", unstaged)
 				}
 				a.gitRowsByKind(c, false)
@@ -855,12 +910,22 @@ func (a *App) gitNavigator(c *ui.Context) {
 			a.historyNavigator(c)
 		}
 	}
+	if conflicts == 0 {
+		a.git.conflictSplit = 0
+	}
 	switch {
 	case !a.git.changesClosed && !a.git.historyClosed:
 		if a.git.split <= 0 {
 			a.git.split = 40
 		}
-		ui.SplitVerticalPercent(c, &a.git.split,
+		split := &a.git.split
+		if conflicts > 0 {
+			if a.git.conflictSplit <= 0 {
+				a.git.conflictSplit = max(a.git.split, 62)
+			}
+			split = &a.git.conflictSplit
+		}
+		ui.SplitVerticalPercent(c, split,
 			func() { ui.Column(c).Fill().Children(changes) },
 			func() { ui.Column(c).Fill().Children(history) }).Grow(1).FillWidth()
 	case a.git.historyClosed:
@@ -880,15 +945,9 @@ func (a *App) gitRowsByKind(c *ui.Context, staged bool) {
 	if a.git.kindOpen == nil {
 		a.git.kindOpen = map[filekind.Kind]bool{}
 	}
-	isRow := func(ch git.Change) bool {
-		if staged {
-			return ch.Index != ' ' && ch.Index != '?'
-		}
-		return ch.Work != ' ' || ch.Index == '?'
-	}
 	groups := map[filekind.Kind][]git.Change{}
 	for _, ch := range a.git.changes {
-		if isRow(ch) {
+		if gitChangeInSection(ch, staged) {
 			k := filekind.Of(filepath.ToSlash(ch.Path))
 			groups[k] = append(groups[k], ch)
 		}
@@ -1075,16 +1134,19 @@ func (a *App) lineCounts(c *ui.Context, path string, staged bool) {
 // commitBar is the field over the Git navigator's changes, as the
 // project navigator's filter: a commit message, Return commits what is
 // staged, and its button at the end does the same.
-func (a *App) commitBar(c *ui.Context, staged int) {
-	can := !a.git.busy && staged > 0 && strings.TrimSpace(a.git.message) != ""
+func (a *App) commitBar(c *ui.Context, staged int, conflicted bool) {
+	can := !a.git.busy && !conflicted && (staged > 0 || a.git.merging) && strings.TrimSpace(a.git.message) != ""
 	commit := func() {
 		if can {
 			a.gitAction("commit", "-m", a.git.message)
 		}
 	}
 	placeholder := "Commit Message"
-	if staged == 0 {
+	if staged == 0 && !a.git.merging {
 		placeholder = "Stage changes to commit"
+	}
+	if conflicted {
+		placeholder = gitConflictText("gitResolveBeforeCommit")
 	}
 	ui.Row(c).Shrink(0).FillWidth().Padding(2, sidebarInset, 6, sidebarInset).Children(func() {
 		ui.Row(c).FillWidth().Height(28).Radius(14).Background(colors(c).Pill).Padding(0, 3, 0, 12).Gap(4).AlignItems(ui.Center).Children(func() {
@@ -1094,6 +1156,9 @@ func (a *App) commitBar(c *ui.Context, staged int) {
 				commit()
 			}
 			tip := "Commit " + fmt.Sprint(staged) + " staged change" + plural(staged)
+			if a.git.merging {
+				tip = gitConflictText("gitCommitMerge")
+			}
 			b := ui.ButtonBase(c).Label(locales.MsgCommit()).Tooltip(tip).Size(22, 22).Radius(11).Center().Disabled(!can).KeepFocus()
 			color := colors(c).Dim
 			if can {

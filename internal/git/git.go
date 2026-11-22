@@ -66,6 +66,7 @@ type State struct {
 	// HEAD's short hash detached. Head is HEAD's commit, "" without one.
 	Root, Branch, Head string
 	Changes            []Change
+	Merging            bool
 	// Upstream is the branch HEAD's tracks, and Ahead and Behind how far
 	// apart they are; "" without one.
 	Upstream      string
@@ -121,6 +122,8 @@ func Sync(ctx context.Context, dir string, counts bool) (State, error) {
 		}
 	}
 	s.Upstream, s.Ahead, s.Behind = parseBranchStatus(out)
+	_, mergeErr := Command(ctx, s.Root, "rev-parse", "--verify", "--quiet", "MERGE_HEAD")
+	s.Merging = mergeErr == nil
 	s.Refs, s.RefsErr = Refs(ctx, s.Root)
 	if counts && len(s.Changes) > 0 {
 		s.Staged, s.Unstaged = LineCounts(ctx, s.Root)
@@ -273,13 +276,17 @@ func (ch Change) Status() byte {
 	if ch.Index == '?' {
 		return 'U'
 	}
-	if ch.Index == 'U' || ch.Work == 'U' || (ch.Index == 'A' && ch.Work == 'A') || (ch.Index == 'D' && ch.Work == 'D') {
+	if ch.Conflicted() {
 		return '!'
 	}
 	if ch.Work != ' ' {
 		return ch.Work
 	}
 	return ch.Index
+}
+
+func (ch Change) Conflicted() bool {
+	return ch.Index == 'U' || ch.Work == 'U' || ch.Index == 'A' && ch.Work == 'A' || ch.Index == 'D' && ch.Work == 'D'
 }
 
 // Decorations maps each changed path under root, absolute, to its status,

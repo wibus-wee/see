@@ -12,6 +12,8 @@ import (
 type Config struct {
 	HideInlineDiagnostics bool `json:"hideInlineDiagnostics,omitempty"`
 
+	HideWhitespaceChanges bool `json:"hideWhitespaceChanges,omitempty"`
+
 	LastWorkspace        string               `json:"lastWorkspace,omitempty"`
 	Recent               []string             `json:"recentWorkspaces,omitempty"`    // newest first
 	ReopenLast           bool                 `json:"reopenLastWorkspace,omitempty"` // else the welcome window shows at launch
@@ -53,6 +55,7 @@ type Config struct {
 	FontSize             float64              `json:"editorFontSize,omitempty"`    // 13 when 0
 	LineNumbers          int                  `json:"editorLineNumbers,omitempty"` // 0 on, 1 relative, 2 off
 	SoftWrap             bool                 `json:"editorSoftWrap,omitempty"`
+	HideDocComments      bool                 `json:"hideDocComments,omitempty"`
 	ShowInvisibles       bool                 `json:"editorShowInvisibles,omitempty"`
 	EditorFoldImports    bool                 `json:"editorFoldImports,omitempty"`
 	ParameterHelp        string               `json:"parameterHelp,omitempty"` // "trigger" (default), "always", "off"
