@@ -7244,6 +7244,16 @@ func (msgs Messages) CommandPreviousChange() string {
 	return Catalog.Format(msgs.locale, "commandPreviousChange", nil)
 }
 
+// CommandDiscardChange says "Discard Change"
+// in the language the app shows.
+func CommandDiscardChange() string { return In(i18n.Locale()).CommandDiscardChange() }
+
+// CommandDiscardChange says "Discard Change"
+// in the language of msgs.
+func (msgs Messages) CommandDiscardChange() string {
+	return Catalog.Format(msgs.locale, "commandDiscardChange", nil)
+}
+
 // CommandGitFetch says "Git: Fetch"
 // in the language the app shows.
 func CommandGitFetch() string { return In(i18n.Locale()).CommandGitFetch() }

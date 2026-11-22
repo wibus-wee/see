@@ -130,7 +130,7 @@ type App struct {
 	navCancel           context.CancelFunc
 	finding             bool // a navigation request is on its way
 	findingLabel        string
-	navigationMenuState [4]bool
+	navigationMenuState [5]bool
 	scopeSeq            uint64
 	scopeCancel         context.CancelFunc
 	scopePendingState   *editor.State

@@ -135,6 +135,8 @@ func (a *App) commandEnabled(name string) bool {
 		return g != nil && isMarkdown(tabPath(g.active)) && a.docs[tabPath(g.active)] != nil
 	case "Show Line's Commit in Git Log":
 		return a.canRevealLineCommit()
+	case "Discard Change":
+		return a.canDiscardChange()
 	case "Show File History":
 		return a.canShowFileHistory()
 	case "Git: Reveal HEAD in Log", "Git: Jump to Date…":
@@ -193,7 +195,7 @@ func (a *App) navigationMenuItems(run func(func())) []*mygo.MenuItem {
 }
 
 func (a *App) refreshNavigationMenu() {
-	state := [4]bool{a.activeEditor() != nil, a.commandEnabled("Go to Implementation"), a.commandEnabled("Go to Type Definition"), a.commandEnabled("Peek Definition")}
+	state := [5]bool{a.activeEditor() != nil, a.commandEnabled("Go to Implementation"), a.commandEnabled("Go to Type Definition"), a.commandEnabled("Peek Definition"), a.canDiscardChange()}
 	if state != a.navigationMenuState {
 		a.navigationMenuState = state
 		a.host.RefreshMenu()
