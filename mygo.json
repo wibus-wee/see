@@ -1,7 +1,7 @@
 {
   "name": "See",
   "identifier": "io.github.wibus-wee.see",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "out": "build",
   "updates": {
     "publicKey": "zqudRNfvgRsHbNMYIlH4FywgyKmPrAl4w64zAbhFhFk=",
