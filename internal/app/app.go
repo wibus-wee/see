@@ -182,6 +182,8 @@ type App struct {
 	notice         string // the last message for the user
 	noticeError    bool
 
+	symbolHighlights symbolHighlightState
+
 	hover         hoverState
 	signature     signatureState
 	task          *taskRun

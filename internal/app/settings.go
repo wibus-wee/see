@@ -735,6 +735,14 @@ func (a *App) editorPane(c *ui.Context) {
 			}
 		},
 		func() {
+			labeled(c, locales.HighlightSymbolOccurrences(), locales.HighlightSymbolOccurrencesDescription())
+			enabled := !a.cfg.HideSymbolHighlights
+			ui.Switch(c, &enabled).Label(locales.HighlightSymbolOccurrences()).OnClick(func() {
+				a.cfg.HideSymbolHighlights = !enabled
+				a.settingsChanged()
+			})
+		},
+		func() {
 			labeled(c, locales.MsgQuickHelpInspector(), locales.MsgShowsDeclarationAndDocumentationForTheSymbolUnderTheCaret())
 			if ui.Switch(c, &a.cfg.QuickHelpInspector).Label(locales.MsgQuickHelpInspector()).Changed() {
 				a.settingsChanged()

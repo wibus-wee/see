@@ -46,6 +46,8 @@
   "folding": "Folding",
   "foldImportsOnOpen": "Fold imports when opening a file",
   "foldImportsOnOpenDescription": "Automatically collapse imports in newly opened code files.",
+  "highlightSymbolOccurrences": "Highlight occurrences of the symbol under the caret",
+  "highlightSymbolOccurrencesDescription": "Highlight uses of the same symbol in the current file when the language server supports it.",
   "showInlineBlame": "Show inline Git blame",
   "showInlineDiagnostics": "Show inline diagnostics",
   "inlineDiagnosticsDescription": "Show errors and warnings beside code with a subtle line tint.",

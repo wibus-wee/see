@@ -46,6 +46,8 @@
   "folding": "折叠",
   "foldImportsOnOpen": "打开文件时折叠导入",
   "foldImportsOnOpenDescription": "在新打开的代码文件中自动折叠导入。",
+  "highlightSymbolOccurrences": "高亮光标所在符号的用法",
+  "highlightSymbolOccurrencesDescription": "语言服务器支持时，高亮当前文件中同一符号的用法。",
   "showInlineBlame": "显示行内 Git 追溯信息",
   "showInlineDiagnostics": "显示行内诊断",
   "inlineDiagnosticsDescription": "在代码旁显示错误和警告，并以淡色突出显示所在行。",
