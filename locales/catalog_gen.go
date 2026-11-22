@@ -8915,3 +8915,203 @@ func GitKindGenerated() string { return In(i18n.Locale()).GitKindGenerated() }
 func (msgs Messages) GitKindGenerated() string {
 	return Catalog.Format(msgs.locale, "gitKindGenerated", nil)
 }
+
+// GitRepositoryChanges says "Working Copy"
+// in the language the app shows.
+func GitRepositoryChanges() string { return In(i18n.Locale()).GitRepositoryChanges() }
+
+// GitRepositoryChanges says "Working Copy"
+// in the language of msgs.
+func (msgs Messages) GitRepositoryChanges() string {
+	return Catalog.Format(msgs.locale, "gitRepositoryChanges", nil)
+}
+
+// GitRepositories says "Repositories"
+// in the language the app shows.
+func GitRepositories() string { return In(i18n.Locale()).GitRepositories() }
+
+// GitRepositories says "Repositories"
+// in the language of msgs.
+func (msgs Messages) GitRepositories() string {
+	return Catalog.Format(msgs.locale, "gitRepositories", nil)
+}
+
+// GitRepositoryBranches says "Branches"
+// in the language the app shows.
+func GitRepositoryBranches() string { return In(i18n.Locale()).GitRepositoryBranches() }
+
+// GitRepositoryBranches says "Branches"
+// in the language of msgs.
+func (msgs Messages) GitRepositoryBranches() string {
+	return Catalog.Format(msgs.locale, "gitRepositoryBranches", nil)
+}
+
+// GitRepositoryTags says "Tags"
+// in the language the app shows.
+func GitRepositoryTags() string { return In(i18n.Locale()).GitRepositoryTags() }
+
+// GitRepositoryTags says "Tags"
+// in the language of msgs.
+func (msgs Messages) GitRepositoryTags() string {
+	return Catalog.Format(msgs.locale, "gitRepositoryTags", nil)
+}
+
+// GitRepositoryRemotes says "Remotes"
+// in the language the app shows.
+func GitRepositoryRemotes() string { return In(i18n.Locale()).GitRepositoryRemotes() }
+
+// GitRepositoryRemotes says "Remotes"
+// in the language of msgs.
+func (msgs Messages) GitRepositoryRemotes() string {
+	return Catalog.Format(msgs.locale, "gitRepositoryRemotes", nil)
+}
+
+// GitNoBranches says "No branches"
+// in the language the app shows.
+func GitNoBranches() string { return In(i18n.Locale()).GitNoBranches() }
+
+// GitNoBranches says "No branches"
+// in the language of msgs.
+func (msgs Messages) GitNoBranches() string {
+	return Catalog.Format(msgs.locale, "gitNoBranches", nil)
+}
+
+// GitNoTags says "No tags"
+// in the language the app shows.
+func GitNoTags() string { return In(i18n.Locale()).GitNoTags() }
+
+// GitNoTags says "No tags"
+// in the language of msgs.
+func (msgs Messages) GitNoTags() string {
+	return Catalog.Format(msgs.locale, "gitNoTags", nil)
+}
+
+// GitNoRemotes says "No remotes"
+// in the language the app shows.
+func GitNoRemotes() string { return In(i18n.Locale()).GitNoRemotes() }
+
+// GitNoRemotes says "No remotes"
+// in the language of msgs.
+func (msgs Messages) GitNoRemotes() string {
+	return Catalog.Format(msgs.locale, "gitNoRemotes", nil)
+}
+
+// GitNoRemoteBranches says "No remote branches"
+// in the language the app shows.
+func GitNoRemoteBranches() string { return In(i18n.Locale()).GitNoRemoteBranches() }
+
+// GitNoRemoteBranches says "No remote branches"
+// in the language of msgs.
+func (msgs Messages) GitNoRemoteBranches() string {
+	return Catalog.Format(msgs.locale, "gitNoRemoteBranches", nil)
+}
+
+// GitCurrentBranch says "{branch} (current branch)"
+// in the language the app shows.
+func GitCurrentBranch(branch string) string { return In(i18n.Locale()).GitCurrentBranch(branch) }
+
+// GitCurrentBranch says "{branch} (current branch)"
+// in the language of msgs.
+func (msgs Messages) GitCurrentBranch(branch string) string {
+	return Catalog.Format(msgs.locale, "gitCurrentBranch", map[string]any{"branch": branch})
+}
+
+// GitSwitchToBranch says "Switch to Branch"
+// in the language the app shows.
+func GitSwitchToBranch() string { return In(i18n.Locale()).GitSwitchToBranch() }
+
+// GitSwitchToBranch says "Switch to Branch"
+// in the language of msgs.
+func (msgs Messages) GitSwitchToBranch() string {
+	return Catalog.Format(msgs.locale, "gitSwitchToBranch", nil)
+}
+
+// GitSwitchedToBranch says "Switched to {branch}."
+// in the language the app shows.
+func GitSwitchedToBranch(branch string) string { return In(i18n.Locale()).GitSwitchedToBranch(branch) }
+
+// GitSwitchedToBranch says "Switched to {branch}."
+// in the language of msgs.
+func (msgs Messages) GitSwitchedToBranch(branch string) string {
+	return Catalog.Format(msgs.locale, "gitSwitchedToBranch", map[string]any{"branch": branch})
+}
+
+// GitCreateTagAction says "Create Tag…"
+// in the language the app shows.
+func GitCreateTagAction() string { return In(i18n.Locale()).GitCreateTagAction() }
+
+// GitCreateTagAction says "Create Tag…"
+// in the language of msgs.
+func (msgs Messages) GitCreateTagAction() string {
+	return Catalog.Format(msgs.locale, "gitCreateTagAction", nil)
+}
+
+// GitCreateTag says "Create Tag"
+// in the language the app shows.
+func GitCreateTag() string { return In(i18n.Locale()).GitCreateTag() }
+
+// GitCreateTag says "Create Tag"
+// in the language of msgs.
+func (msgs Messages) GitCreateTag() string {
+	return Catalog.Format(msgs.locale, "gitCreateTag", nil)
+}
+
+// GitTagName says "Tag name"
+// in the language the app shows.
+func GitTagName() string { return In(i18n.Locale()).GitTagName() }
+
+// GitTagName says "Tag name"
+// in the language of msgs.
+func (msgs Messages) GitTagName() string {
+	return Catalog.Format(msgs.locale, "gitTagName", nil)
+}
+
+// GitTagMessage says "Message (optional)"
+// in the language the app shows.
+func GitTagMessage() string { return In(i18n.Locale()).GitTagMessage() }
+
+// GitTagMessage says "Message (optional)"
+// in the language of msgs.
+func (msgs Messages) GitTagMessage() string {
+	return Catalog.Format(msgs.locale, "gitTagMessage", nil)
+}
+
+// GitTagCreated says "Created tag {tag}."
+// in the language the app shows.
+func GitTagCreated(tag string) string { return In(i18n.Locale()).GitTagCreated(tag) }
+
+// GitTagCreated says "Created tag {tag}."
+// in the language of msgs.
+func (msgs Messages) GitTagCreated(tag string) string {
+	return Catalog.Format(msgs.locale, "gitTagCreated", map[string]any{"tag": tag})
+}
+
+// GitCherryPick says "Cherry-pick"
+// in the language the app shows.
+func GitCherryPick() string { return In(i18n.Locale()).GitCherryPick() }
+
+// GitCherryPick says "Cherry-pick"
+// in the language of msgs.
+func (msgs Messages) GitCherryPick() string {
+	return Catalog.Format(msgs.locale, "gitCherryPick", nil)
+}
+
+// GitCherryPicked says "Cherry-picked {commit}."
+// in the language the app shows.
+func GitCherryPicked(commit string) string { return In(i18n.Locale()).GitCherryPicked(commit) }
+
+// GitCherryPicked says "Cherry-picked {commit}."
+// in the language of msgs.
+func (msgs Messages) GitCherryPicked(commit string) string {
+	return Catalog.Format(msgs.locale, "gitCherryPicked", map[string]any{"commit": commit})
+}
+
+// GitCherryPickPaused says "Resolve any conflicts and run git cherry-pick --continue. Use git cherry-pick --skip to skip the commit or git cherry…"
+// in the language the app shows.
+func GitCherryPickPaused() string { return In(i18n.Locale()).GitCherryPickPaused() }
+
+// GitCherryPickPaused says "Resolve any conflicts and run git cherry-pick --continue. Use git cherry-pick --skip to skip the commit or git cherry…"
+// in the language of msgs.
+func (msgs Messages) GitCherryPickPaused() string {
+	return Catalog.Format(msgs.locale, "gitCherryPickPaused", nil)
+}

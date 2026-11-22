@@ -70,8 +70,9 @@ type State struct {
 	// Refs is a fingerprint of every ref and its target, for staleness:
 	// a push, tag or branch switch can change history without moving
 	// HEAD. RefsErr holds for-each-ref's error when it failed.
-	Refs    string
-	RefsErr error
+	Refs       string
+	RefsErr    error
+	Repository RepositoryRefs
 	// Staged and Unstaged are each changed file's added and deleted
 	// lines, read only when asked for.
 	Staged, Unstaged map[string]FileStat
@@ -102,6 +103,7 @@ func Sync(ctx context.Context, dir string, counts bool) (State, error) {
 		return s, err
 	}
 	s.Branch, s.Head, s.Changes = parseStatusV2(out)
+	localBranch := s.Branch
 	if s.Head != "" && s.Branch == "" {
 		// Detached: the branch shows as the commit's short hash, as
 		// rev-parse --short HEAD gave it; its length scales with the
@@ -114,19 +116,15 @@ func Sync(ctx context.Context, dir string, counts bool) (State, error) {
 		}
 	}
 	s.Upstream, s.Ahead, s.Behind = parseBranchStatus(out)
-	s.Refs, s.RefsErr = refs(ctx, s.Root)
+	s.Refs, s.RefsErr = Refs(ctx, s.Root)
 	if counts && len(s.Changes) > 0 {
 		s.Staged, s.Unstaged = LineCounts(ctx, s.Root)
 	}
 	s.Remotes, s.Web = remoteInfo(ctx, s.Root, s.Upstream)
+	if s.RefsErr == nil {
+		s.Repository = parseRepositoryRefs(s.Refs, localBranch, s.Remotes)
+	}
 	return s, nil
-}
-
-// refs includes names as well as targets: a push, tag or branch switch
-// can change history decorations without changing HEAD.
-func refs(ctx context.Context, root string) (string, error) {
-	out, err := Command(ctx, root, "for-each-ref", "--format=%(refname)%00%(objectname)%00%(symref)", "refs/heads", "refs/remotes", "refs/tags")
-	return string(out), err
 }
 
 // parseStatusV2 reads the headers of git status --porcelain=v2 --branch
