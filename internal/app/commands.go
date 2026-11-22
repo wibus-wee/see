@@ -29,6 +29,7 @@ func commandsFor(goos string) []command {
 	docItemsLabel, docItemsKeyName, docItemsMods, docItemsKey, groupFilesLabel, groupFilesKeyName, groupFilesMods, groupFilesKey := jumpBarShortcutsFor(goos)
 	scopeLabel, scopeKeyName, scopeMods, scopeKey := editAllScopeShortcut(goos)
 	counterpartLabel, counterpartMods := counterpartShortcut(goos)
+	maximizeLabel, maximizeMods := maximizeEditorShortcut(goos)
 	cmds := []command{
 		{"New File", "Cmd+", "N", ui.Cmd, ui.KeyN, func(a *App) { a.newFile() }},
 		{"Command Palette", "Cmd+Shift+", "P", ui.Cmd | ui.Shift, ui.KeyP, func(a *App) { a.openPalette() }},
@@ -112,6 +113,7 @@ func commandsFor(goos string) []command {
 		{"Close Saved Tabs", "", "", 0, 0, func(a *App) { a.closeTabs(a.focus, a.focus.active, closeSavedTabs) }},
 		{"Add Editor on Right", "Cmd+", "D", ui.Cmd, ui.KeyD, func(a *App) { a.splitActive(sideRight) }},
 		{"Add Editor Below", "Cmd+Shift+", "D", ui.Cmd | ui.Shift, ui.KeyD, func(a *App) { a.splitActive(sideBottom) }},
+		{"Maximize Editor", maximizeLabel, "Return", maximizeMods, ui.KeyEnter, func(a *App) { a.toggleMaximizeEditor() }},
 		{"Show or Hide the Terminal", "Cmd+Shift+", "Y", ui.Cmd | ui.Shift, ui.KeyY, func(a *App) { a.toggleTerminal() }},
 		{"Go: Build Workspace", "Cmd+Shift+", "B", ui.Cmd | ui.Shift, ui.KeyB, func(a *App) { a.runGoTask(tasks.Build) }},
 		{"Go: Test Workspace", "", "", 0, 0, func(a *App) { a.runGoTask(tasks.Test) }},
@@ -237,6 +239,13 @@ func counterpartShortcut(goos string) (string, ui.Modifiers) {
 		return "Ctrl+Cmd+", ui.Ctrl | ui.Cmd
 	}
 	return "Ctrl+Shift+", ui.Ctrl | ui.Shift
+}
+
+func maximizeEditorShortcut(goos string) (string, ui.Modifiers) {
+	if goos == "darwin" {
+		return "Ctrl+Cmd+Shift+", ui.Ctrl | ui.Cmd | ui.Shift
+	}
+	return "Ctrl+Alt+Shift+", ui.Ctrl | ui.Alt | ui.Shift
 }
 
 func (a *App) openPalette() {

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/egoist/mygo"
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 
 	"see/internal/workspace"
@@ -175,6 +176,16 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 				}
 				ui.Box(c).Size(16, 16).Shrink(0) // balances the close button
 			})
+		}
+		if a.maximized == g {
+			ui.Box(c).Grow(1)
+			label := locales.Catalog.Format(i18n.Locale(), "restoreEditorLayout", nil)
+			button := ui.ButtonBase(c).Size(28, 28).Shrink(0).Radius(4).Center().KeepFocus().Label(label).Tooltip(label)
+			if button.Hovered() {
+				button.Background(colors(c).Pill)
+			}
+			button.Children(func() { symbolIcon(c, icSplitH, 14, colors(c).Muted) })
+			button.OnClick(func() { a.maximized = nil })
 		}
 	})
 	if tabs.List.Changed() && g.tabSel >= 0 && g.tabSel < len(g.order) {
