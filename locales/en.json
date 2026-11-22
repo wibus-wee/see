@@ -149,7 +149,7 @@
   "gitConflictMalformed": "Conflict markers are incomplete or nested. Edit the file, then reload it here.",
   "gitConflictStale": "The working file or Git index changed. Reload before applying a resolution.",
   "gitConflictNoMarkers": "No conflict markers found",
-  "gitConflictNoMarkersDetail": "Review the working file. If it contains the intended resolution, choose Save & Stage.",
+  "gitConflictNoMarkersDetail": "Review the working file. If it contains the intended resolution, stage it with Git.",
   "gitRefreshComparison": "Refresh Comparison",
   "gitReadingBranchDiff": "Reading branch comparison…",
   "gitNoBranchChanges": "No changes since this base.",

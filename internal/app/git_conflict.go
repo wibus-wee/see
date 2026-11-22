@@ -146,7 +146,7 @@ func (a *App) gitConflictEditor(path, label, text string) *editor.State {
 
 func (a *App) saveGitConflict(v *gitDiffTab) {
 	m := v.conflict
-	if a.git.busy || m.file == nil || m.err != nil || m.resolved != len(m.choices) || a.git.root == "" {
+	if a.git.busy || m.file == nil || m.err != nil || len(m.choices) == 0 || m.resolved != len(m.choices) || a.git.root == "" {
 		return
 	}
 	ctx, root, gen := a.wsCtx, a.git.root, a.gen
@@ -273,7 +273,7 @@ func (a *App) gitConflictToolbar(c *ui.Context, v *gitDiffTab, openFile func()) 
 			save = gitConflictText("gitConflictSaving")
 		}
 		ui.PrimaryButton(c.Key("save-resolution"), save).FontSize(11).Height(24).Padding(0, 7).
-			Disabled(a.git.busy || m.resolved != len(m.choices)).OnClick(func() { a.saveGitConflict(v) })
+			Disabled(a.git.busy || len(m.choices) == 0 || m.resolved != len(m.choices)).OnClick(func() { a.saveGitConflict(v) })
 	})
 }
 

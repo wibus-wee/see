@@ -115,6 +115,9 @@ func TestResolveConflictStagesOnlyChosenFile(t *testing.T) {
 	if _, err := LoadConflict(ctx, root, file); !errors.Is(err, ErrConflictResolved) {
 		t.Fatalf("path still unmerged: %v", err)
 	}
+	if err := f.Resolve(ctx, []ConflictChoice{KeepBoth}); !errors.Is(err, ErrConflictResolved) {
+		t.Fatalf("apply stale index snapshot: %v", err)
+	}
 	other, err := LoadConflict(ctx, root, sibling)
 	if err != nil || len(other.Hunks) != 1 {
 		t.Fatalf("sibling changed: %+v, %v", other, err)
@@ -124,8 +127,29 @@ func TestResolveConflictStagesOnlyChosenFile(t *testing.T) {
 	if err != nil || len(other.Hunks) != 0 {
 		t.Fatalf("manual resolution: %+v, %v", other, err)
 	}
-	run("add", "--", sibling)
-	if err := other.Resolve(ctx, nil); !errors.Is(err, ErrConflictResolved) {
-		t.Fatalf("apply stale index snapshot: %v", err)
+	if err := other.Resolve(ctx, nil); err == nil {
+		t.Fatal("resolved a markerless file without a choice")
+	}
+}
+
+func TestConflictDoesNotStageMarkerlessBinaryFile(t *testing.T) {
+	root, run := newRepo(t)
+	const file = "asset.txt"
+	write(t, root, ".gitattributes", "*.txt -merge\n")
+	write(t, root, file, "base\n")
+	run("add", ".")
+	run("commit", "-qm", "base")
+	run("switch", "-qc", "feature")
+	write(t, root, file, "incoming\n")
+	run("commit", "-qam", "incoming")
+	run("switch", "-q", "main")
+	write(t, root, file, "current\n")
+	run("commit", "-qam", "current")
+	ctx := context.Background()
+	if _, err := Command(ctx, root, "merge", "feature"); err == nil {
+		t.Fatal("merge did not conflict")
+	}
+	if f, err := LoadConflict(ctx, root, file); f != nil || !errors.Is(err, ErrConflictUnsupported) {
+		t.Fatalf("load binary conflict = %+v, %v", f, err)
 	}
 }

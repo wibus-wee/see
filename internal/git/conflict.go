@@ -129,12 +129,15 @@ func LoadConflict(ctx context.Context, root, path string) (*ConflictFile, error)
 	}
 
 	width := 7
-	out, err := Command(ctx, root, "check-attr", "-z", "conflict-marker-size", "--", path)
+	out, err := Command(ctx, root, "check-attr", "-z", "merge", "conflict-marker-size", "--", path)
 	if err != nil {
 		return nil, err
 	}
-	if fields := strings.Split(string(out), "\x00"); len(fields) == 4 {
-		if n, err := strconv.Atoi(fields[2]); err == nil && n > 0 {
+	if fields := strings.Split(string(out), "\x00"); len(fields) == 7 {
+		if fields[2] == "unset" || fields[2] == "binary" {
+			return nil, ErrConflictUnsupported
+		}
+		if n, err := strconv.Atoi(fields[5]); err == nil && n > 0 {
 			width = n
 		}
 	}
@@ -215,7 +218,7 @@ func conflictMarker(line string) (kind byte, count int, label string) {
 }
 
 func (f *ConflictFile) result(choices []ConflictChoice) (string, error) {
-	if len(choices) != len(f.Hunks) {
+	if len(choices) == 0 || len(choices) != len(f.Hunks) {
 		return "", ErrConflictMarkers
 	}
 	var out strings.Builder

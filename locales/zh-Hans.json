@@ -149,7 +149,7 @@
   "gitConflictMalformed": "冲突标记不完整或存在嵌套。编辑文件后在此重新加载。",
   "gitConflictStale": "工作树文件或 Git 索引已更改。请重新加载后再解决冲突。",
   "gitConflictNoMarkers": "未找到冲突标记",
-  "gitConflictNoMarkersDetail": "检查工作树文件。如果内容符合预期，请选择「保存并暂存」。",
+  "gitConflictNoMarkersDetail": "检查工作树文件。如果内容符合预期，请使用 Git 暂存。",
   "gitRefreshComparison": "刷新比较",
   "gitReadingBranchDiff": "正在读取分支比较…",
   "gitNoBranchChanges": "自此基准分支以来没有更改。",
