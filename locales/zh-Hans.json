@@ -1,4 +1,7 @@
 {
+  "renderDocComments": "渲染文档注释",
+  "renderDocCommentsDescription": "在编辑器中格式化文档；将光标移入注释即可编辑源文本。",
+  "commandToggleReaderMode": "切换阅读模式",
   "relativeJustNow": "刚刚",
   "relativeMinutesAgo": "%d 分钟前",
   "relativeHoursAgo": "%d 小时前",

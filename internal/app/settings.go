@@ -735,6 +735,14 @@ func (a *App) editorPane(c *ui.Context) {
 			}
 		},
 		func() {
+			labeled(c, locales.RenderDocComments(), locales.RenderDocCommentsDescription())
+			enabled := !a.cfg.HideDocComments
+			if ui.Switch(c, &enabled).Label(locales.RenderDocComments()).Changed() {
+				a.cfg.HideDocComments = !enabled
+				a.settingsChanged()
+			}
+		},
+		func() {
 			labeled(c, locales.MsgQuickHelpInspector(), locales.MsgShowsDeclarationAndDocumentationForTheSymbolUnderTheCaret())
 			if ui.Switch(c, &a.cfg.QuickHelpInspector).Label(locales.MsgQuickHelpInspector()).Changed() {
 				a.settingsChanged()
