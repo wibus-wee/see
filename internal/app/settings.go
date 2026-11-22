@@ -889,8 +889,7 @@ func (a *App) intelligencePane(c *ui.Context) {
 			folderGlyph(c, false, 18)
 			labeled(c, filepath.Base(p), tildePath(p))
 			if ui.Button(c, locales.Remove()).Label(locales.MsgRemoveTrustedFolder() + p).Clicked() {
-				a.cfg.Trusted = slices.DeleteFunc(a.cfg.Trusted, func(t string) bool { return t == p })
-				a.settingsChanged()
+				a.removeTrust(p)
 			}
 		})
 	}

@@ -92,6 +92,8 @@ func commandsFor(goos string) []command {
 		{"Go Back", "Ctrl+", "-", ui.Ctrl, ui.KeyMinus, func(a *App) { a.goBack() }},
 		{"Go Forward", "Ctrl+Shift+", "-", ui.Ctrl | ui.Shift, ui.KeyMinus, func(a *App) { a.goForward() }},
 		{"Focus Next Editor", "", "F6", 0, ui.KeyF6, func(a *App) { a.cycleEditorGroup(1) }},
+		{"Split Editor Right", "", "", 0, 0, func(a *App) { a.splitActive(sideRight) }},
+		{"Split Editor Down", "", "", 0, 0, func(a *App) { a.splitActive(sideBottom) }},
 		{"Focus Previous Editor", "Shift+", "F6", ui.Shift, ui.KeyF6, func(a *App) { a.cycleEditorGroup(-1) }},
 		{"Move Tab to Next Editor", "", "", 0, 0, func(a *App) { a.moveTabToNextEditor() }},
 		{"Next Tab", "Ctrl+", "Tab", ui.Ctrl, ui.KeyTab, func(a *App) { a.cycleTab(1) }},

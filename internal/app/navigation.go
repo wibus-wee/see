@@ -74,6 +74,8 @@ func (a *App) navigateActive(kind string) {
 func (a *App) commandEnabled(name string) bool {
 	g := a.focus
 	switch name {
+	case "Split Editor Right", "Split Editor Down":
+		return g != nil && g.active != ""
 	case "Reopen Closed Tab":
 		return len(a.closed) > 0
 	case "Show Local History":

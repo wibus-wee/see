@@ -8,6 +8,8 @@ import (
 )
 
 var commandMessages = map[string]string{
+	"Split Editor Right":            "commandSplitEditorRight",
+	"Split Editor Down":             "commandSplitEditorDown",
 	"Fold":                          "commandFold",
 	"Unfold":                        "commandUnfold",
 	"Toggle Fold":                   "commandToggleFold",
