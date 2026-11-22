@@ -140,6 +140,7 @@ type App struct {
 	choices             *defChoices        // several definitions to choose from
 	counterpartMiss     counterpartFeedback
 	peek                *peekState // a definition peeked at from an editor
+	regexPlayground     *regexPlayground
 	references          referenceList
 	referencesEmpty     bool         // the last pin found no references
 	codeActions         *codeActions // the code actions a request found, for its menu
@@ -1291,6 +1292,10 @@ func (a *App) newEditor(g *group, d *doc) *editor.State {
 	st.OnDefinition = func(offset int) { a.goToDefinition(g, d, offset) }
 	a.loadGitBase(d)
 	st.ContextMenu = func(menu *ui.Menu) {
+		if menu.Item(commandLabel("Test Regex")).Chosen() {
+			a.openRegexPlaygroundFor(g, d, st)
+		}
+		menu.Separator()
 		if menu.Item(commandLabel("Peek Definition")).Shortcut(ui.Alt, ui.KeyF12).Disabled(!a.navigationEnabled(d.path, "peek")).Chosen() {
 			a.peekDefinition(g, d, st.Buffer.Offset(st.CursorPos()))
 		}

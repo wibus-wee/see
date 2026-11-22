@@ -31,6 +31,7 @@ var commandMessages = map[string]string{
 
 	"Show Problems":               "commandShowProblems",
 	"Show Quick Help":             "commandShowQuickHelp",
+	"Test Regex":                  "commandTestRegex",
 	"Show Signature Help":         "commandShowSignatureHelp",
 	"Toggle Quick Help Inspector": "commandToggleQuickHelpInspector",
 	"Show Outline":                "commandShowOutline",

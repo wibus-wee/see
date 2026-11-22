@@ -50,6 +50,7 @@ type group struct {
 	changeBars     []changeBar
 	changeBarPress bool
 	caretAnchor    ui.Point
+	regexAction    regexActionCache
 	// pin is the reading-position pin of the editor's top line.
 	pin readingPin
 }

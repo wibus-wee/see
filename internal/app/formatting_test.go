@@ -47,8 +47,15 @@ func TestFormatDocumentAppliesEdits(t *testing.T) {
 	h.tt.Frame()
 	h.a.formatDocument()
 	h.settle(func() bool {
-		return d.buf.Snapshot().Line(3) == "	x := 1" &&
-			d.buf.Snapshot().Line(4) == "	_ = x"
+		requested := false
+		for _, s := range h.fc.calls() {
+			if s == "formatting" {
+				requested = true
+				break
+			}
+		}
+		snap := d.buf.Snapshot()
+		return requested && snap.Line(3) == "\tx := 1" && snap.Line(4) == "\t_ = x"
 	})
 	// The request carried the file's FormattingOptions: Go indents with
 	// tabs of 4.
@@ -89,12 +96,14 @@ func TestFormatSelectionSendsRange(t *testing.T) {
 	h.tt.Frame()
 	h.a.formatSelection()
 	h.settle(func() bool {
+		requested := false
 		for _, s := range h.fc.calls() {
 			if s == "rangeFormatting" {
-				return true
+				requested = true
+				break
 			}
 		}
-		return false
+		return requested && d.buf.Snapshot().Line(3) == "\tx := 1"
 	})
 	want := lsp.Range{Start: lsp.Position{Line: 3, Character: 0}, End: lsp.Position{Line: 4, Character: 9}}
 	fc := h.fc.format.rng

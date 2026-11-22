@@ -110,6 +110,12 @@ func (a *App) groupView(c *ui.Context, g *group) {
 			ui.Row(c).FillWidth().Height(24).Padding(0, 10).AlignItems(ui.Center).
 				BorderWidth(1, 0, 0, 0).BorderColor(colors(c).Separator).Background(colors(c).Editor).Children(func() {
 				a.blameStatus(c, a.docs[g.active], st)
+				if d := a.docs[g.active]; d != nil {
+					if _, found := g.regexAtCaret(d, st); found {
+						button := ui.Button(c.Key("regex-context-action"), locales.CommandTestRegex()).FontSize(10).Height(20).Padding(1, 5).Shrink(0).Label(locales.CommandTestRegex())
+						button.OnClick(func() { a.openRegexPlaygroundFor(g, d, st) })
+					}
+				}
 				ui.Box(c).Grow(1)
 				ui.Text(c, fmt.Sprintf(locales.MsgLineDColumnD(), pos.Line+1, column)).FontSize(11).TextColor(colors(c).Muted).SingleLine()
 			})
@@ -447,6 +453,9 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 				a.peekView(c, p)
 			})
 		}
+		if p := a.regexPlayground; p != nil && p.group == g && p.doc == d {
+			a.regexPlaygroundView(c, bounds, st, p)
+		}
 		if ch := a.choices; ch != nil && ch.g == g && ch.from.Path == d.path {
 			closeLabel := "Close References Preview"
 			if ch.title == "definitions" {
@@ -471,6 +480,8 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 		g.caretAnchor = ui.Point{X: min(bounds.X+bounds.W-4, bounds.X+gutter+width), Y: min(bounds.Y+bounds.H-4, max(bounds.Y, bounds.Y+float32(st.LineTop(pos.Line)-st.ScrollY())+fontSize*lineHeight))}
 		a.codeActionLightbulb(c, g, d, st, bounds, gutter, fontSize, lineHeight)
 		switch {
+		case a.regexPlayground != nil && a.regexPlayground.group == g && a.regexPlayground.doc == d:
+			// The sample editor owns focus while its playground is open.
 		case a.focusEditor == st || a.focusGroupTarget == g:
 			// A navigation went here: the keys read on from it.
 			ed.Focus()
@@ -631,6 +642,10 @@ func (a *App) editorPeek(c *ui.Context, bounds ui.Rect, st *editor.State, line i
 // editorPeekAction is editorPeek with a second header action before the
 // close button, or none for a nil action.
 func (a *App) editorPeekAction(c *ui.Context, bounds ui.Rect, st *editor.State, line int, title, closeLabel string, contentHeight float32, act *peekAction, close, content func()) {
+	a.editorPeekSized(c, bounds, st, line, title, closeLabel, contentHeight, 300, act, close, content)
+}
+
+func (a *App) editorPeekSized(c *ui.Context, bounds ui.Rect, st *editor.State, line int, title, closeLabel string, contentHeight, maxHeight float32, act *peekAction, close, content func()) {
 	const inset, gap = 12, 4
 	fontSize := st.Font.Size
 	if fontSize <= 0 {
@@ -641,7 +656,7 @@ func (a *App) editorPeekAction(c *ui.Context, bounds ui.Rect, st *editor.State, 
 		lineHeight = 1.5
 	}
 	const header = 36
-	height := min(header+contentHeight, 300, max(120, bounds.H-2*inset))
+	height := min(header+contentHeight, maxHeight, max(120, bounds.H-2*inset))
 	top := bounds.Y + float32(st.LineTop(line)-st.ScrollY())
 	y := top + fontSize*lineHeight + gap
 	if y+height > bounds.Y+bounds.H-inset && top-gap-height >= bounds.Y+inset {
