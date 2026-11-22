@@ -91,12 +91,15 @@ func StashPush(ctx context.Context, root, message string) error {
 
 // StashApply applies the stash to the working tree, restoring what was
 // staged as staged; drop removes it from the list once applied cleanly.
+//
+// It applies the stash's commit, which a stash the list gains or loses in
+// the meantime cannot change, after checking it is still listed.
 func StashApply(ctx context.Context, root string, s Stash, drop bool) error {
-	ref, err := stashRef(ctx, root, s.Hash)
-	if err != nil {
+	if _, err := stashRef(ctx, root, s); err != nil {
 		return err
 	}
-	if _, err = Command(ctx, root, "stash", "apply", "--index", ref); err != nil {
+	ref := s.Hash
+	if _, err := Command(ctx, root, "stash", "apply", "--index", ref); err != nil {
 		if !strings.Contains(err.Error(), "--index") {
 			return err
 		}
@@ -114,7 +117,7 @@ func StashApply(ctx context.Context, root string, s Stash, drop bool) error {
 
 // StashDrop removes the stash from the list.
 func StashDrop(ctx context.Context, root string, s Stash) error {
-	ref, err := stashRef(ctx, root, s.Hash)
+	ref, err := stashRef(ctx, root, s)
 	if err != nil {
 		return err
 	}
@@ -122,17 +125,40 @@ func StashDrop(ctx context.Context, root string, s Stash) error {
 	return err
 }
 
-// stashRef is the stash@{n} naming hash now, so that an action on a
-// stash read before another was added or dropped acts on it and no other.
-func stashRef(ctx context.Context, root, hash string) (string, error) {
+// stashRef is the stash@{n} naming s now, so that an action on a stash
+// read before another was added or dropped acts on it and no other. Of
+// entries that store the same commit, the one still at s's index wins.
+func stashRef(ctx context.Context, root string, s Stash) (string, error) {
 	stashes, err := Stashes(ctx, root)
 	if err != nil {
 		return "", err
 	}
-	for _, s := range stashes {
-		if s.Hash == hash {
-			return s.Ref(), nil
+	if s.Index < len(stashes) && stashes[s.Index].Hash == s.Hash {
+		return s.Ref(), nil
+	}
+	for _, t := range stashes {
+		if t.Hash == s.Hash {
+			return t.Ref(), nil
 		}
 	}
 	return "", fmt.Errorf("the stash is no longer in the stash list")
+}
+
+// stashUntracked is the commit holding the untracked files a stash saved,
+// its third parent, or "" when hash is no such stash.
+func stashUntracked(ctx context.Context, root, hash string) string {
+	out, err := Command(ctx, root, "rev-parse", "--verify", "--quiet", hash+"^3")
+	if err != nil {
+		return ""
+	}
+	u := strings.TrimSpace(string(out))
+	out, err = Command(ctx, root, "log", "-1", "--format=%P%x00%s", u, "--")
+	if err != nil {
+		return ""
+	}
+	parents, subject, _ := strings.Cut(strings.TrimSpace(string(out)), "\x00")
+	if parents != "" || !strings.HasPrefix(subject, "untracked files on ") {
+		return ""
+	}
+	return u
 }

@@ -61,6 +61,23 @@ func TestStashPushListFilesApplyDrop(t *testing.T) {
 	if work.Ref() != "stash@{1}" || work.Message != "parser work" {
 		t.Fatalf("older %+v", work)
 	}
+	d, err := Show(ctx, root, work.Hash)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var files []string
+	for _, f := range d.Files {
+		files = append(files, f.Path)
+	}
+	if got := strings.Join(files, ","); got != "a.txt,b.txt,new.txt" {
+		t.Fatalf("stash files %s", got)
+	}
+	if out, err := CommitFileDiff(ctx, root, work.Hash, FileStat{Path: "new.txt"}); err != nil || !strings.Contains(string(out), "+new") {
+		t.Fatalf("untracked diff %q %v", out, err)
+	}
+	if out, err := CommitFileDiff(ctx, root, work.Hash, FileStat{Path: "a.txt"}); err != nil || !strings.Contains(string(out), "+changed") {
+		t.Fatalf("tracked diff %q %v", out, err)
+	}
 
 	// Dropping the newest shifts the older to stash@{0}; acting on the
 	// one read before still finds it by hash.
@@ -84,5 +101,34 @@ func TestStashPushListFilesApplyDrop(t *testing.T) {
 	}
 	if err := StashDrop(ctx, root, work); err == nil {
 		t.Fatal("dropped a stash no longer listed")
+	}
+}
+
+// Two entries that store one commit are told apart by their index.
+func TestStashDropDuplicateCommit(t *testing.T) {
+	root, run := newRepo(t)
+	ctx := context.Background()
+	write(t, root, "a.txt", "a\n")
+	run("add", ".")
+	run("commit", "-qm", "first")
+	write(t, root, "a.txt", "a\nchanged\n")
+	if err := StashPush(ctx, root, "older"); err != nil {
+		t.Fatal(err)
+	}
+	hash := strings.TrimSpace(run("rev-parse", "stash@{0}"))
+	write(t, root, "a.txt", "a\nother\n")
+	if err := StashPush(ctx, root, "between"); err != nil {
+		t.Fatal(err)
+	}
+	run("stash", "store", "-m", "newer", hash)
+	stashes, err := Stashes(ctx, root)
+	if err != nil || len(stashes) != 3 || stashes[0].Hash != stashes[2].Hash {
+		t.Fatalf("stashes %+v %v", stashes, err)
+	}
+	if err := StashDrop(ctx, root, stashes[2]); err != nil {
+		t.Fatal(err)
+	}
+	if left, _ := Stashes(ctx, root); len(left) != 2 || left[0].Message != "newer" || left[1].Message != "between" {
+		t.Fatalf("left %+v", left)
 	}
 }

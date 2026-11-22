@@ -362,6 +362,12 @@ func Show(ctx context.Context, root, hash string) (CommitDetails, error) {
 		return d, err
 	}
 	d.Files = ParseNumstat(out)
+	if u := stashUntracked(ctx, root, hash); u != "" {
+		if out, err = Command(ctx, root, "diff", "--numstat", "-z", "--no-color", "--no-ext-diff", emptyTree, u); err != nil {
+			return d, err
+		}
+		d.Files = append(d.Files, ParseNumstat(out)...)
+	}
 	return d, nil
 }
 
@@ -402,9 +408,16 @@ func ParseNumstat(out []byte) []FileStat {
 }
 
 // CommitFileDiff is the patch of one file of a commit against its first
-// parent, whole, for a diff view.
+// parent, whole, for a diff view; of a stash's untracked file, against
+// nothing.
 func CommitFileDiff(ctx context.Context, root, hash string, f FileStat) ([]byte, error) {
-	args := []string{"diff", "--no-ext-diff", "--no-color", "-M", "--unified=2147483647", Parent(ctx, root, hash), hash, "--", f.Path}
+	from := Parent(ctx, root, hash)
+	if u := stashUntracked(ctx, root, hash); u != "" {
+		if _, err := Command(ctx, root, "cat-file", "-e", u+":"+f.Path); err == nil {
+			from, hash = emptyTree, u
+		}
+	}
+	args := []string{"diff", "--no-ext-diff", "--no-color", "-M", "--unified=2147483647", from, hash, "--", f.Path}
 	if f.OldPath != "" {
 		args = append(args, f.OldPath)
 	}
