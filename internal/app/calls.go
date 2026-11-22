@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"strings"
 	"sync/atomic"
 	"time"
 
@@ -417,7 +416,7 @@ func (a *App) callsPanel(c *ui.Context) {
 	cs.tree.Indent = 12
 	split := ui.Row(c).Grow(1).FillWidth().AlignItems(ui.Stretch)
 	split.Children(func() {
-		ui.Column(c).Grow(1).FillHeight().Clip().Children(func() {
+		ui.Column(c).Grow(2).Basis(0).MinWidth(0).FillHeight().Clip().Children(func() {
 			if cs.preview != nil {
 				editor.View(c.Key("call-code"), cs.preview).Grow(1).FillWidth()
 			} else {
@@ -426,7 +425,7 @@ func (a *App) callsPanel(c *ui.Context) {
 				})
 			}
 		})
-		ui.Column(c).Width(280).Shrink(0).FillHeight().BorderWidth(0, 0, 0, 1).BorderColor(colors(c).Separator).Children(func() {
+		ui.Column(c).Grow(3).Basis(0).MinWidth(0).FillHeight().BorderWidth(0, 0, 0, 1).BorderColor(colors(c).Separator).Children(func() {
 			outline := ui.Outline(c, &cs.tree, cs.roots, a.callsChildren, func(k int) { a.callRow(c, k) }).Grow(1).FillWidth().Label(a.hierarchyText(""))
 			if outline.Submitted() && cs.row >= 0 && cs.row < cs.tree.Rows() {
 				a.openCallRow(cs.tree.Item(cs.row))
@@ -461,10 +460,18 @@ func (a *App) callAnchorLabel() string {
 		return ""
 	}
 	base := filepath.Base(cs.anchor.path)
+	name := cs.anchor.name
+	if cs.types && len(cs.items) == 1 {
+		item := cs.items[0]
+		name = hierarchyTypeName(item)
+		if p, err := uri.ToPath(item.URI); err == nil {
+			base = filepath.Base(p)
+		}
+	}
 	if cs.anchor.name == base {
 		return base
 	}
-	return cs.anchor.name + " · " + base
+	return name + " · " + base
 }
 
 // callSelection previews the selected row's call site, as relatedView
@@ -642,13 +649,13 @@ func (a *App) callItemRow(c *ui.Context, n *callNode) {
 	ui.Box(c).Width(16).Height(16).Radius(4).Shrink(0).Background(color.Alpha(0.16)).Center().Children(func() {
 		ui.Text(c, kind).FontSize(10).Bold().TextColor(color).SingleLine()
 	})
-	ui.Text(c, n.item.Name).FontSize(12).SingleLine().Shrink(0)
-	if n.item.Detail != "" && !strings.Contains(n.item.Detail, "\n") {
-		ui.Text(c, n.item.Detail).FontSize(11).TextColor(colors(c).Dim).SingleLine().Shrink(1)
+	name := n.item.Name
+	if a.calls.types {
+		name = hierarchyTypeName(n.item)
 	}
-	ui.Box(c).Grow(1)
+	ui.Text(c, name).FontSize(12).SingleLine().Shrink(0)
 	if label := a.callItemPlace(n); label != "" {
-		ui.Text(c, label).FontSize(11).TextColor(colors(c).Muted).SingleLine().Shrink(0)
+		ui.Text(c, label).FontSize(11).TextColor(colors(c).Muted).SingleLine().Shrink(1)
 	}
 }
 
@@ -663,8 +670,12 @@ func (a *App) callItemPlace(n *callNode) string {
 		return filepath.Base(n.item.URI)
 	}
 	rel := filepath.Base(p)
-	if a.root != "" && workspace.Within(a.root, p) {
-		rel = workspace.RelPath(a.root, p)
+	for _, other := range a.calls.nodes {
+		otherPath, err := uri.ToPath(other.item.URI)
+		if err == nil && otherPath != p && filepath.Base(otherPath) == rel {
+			rel = filepath.Join(filepath.Base(filepath.Dir(p)), rel)
+			break
+		}
 	}
 	return fmt.Sprintf("%s:%d", rel, a.callSiteRange(n).Start.Line+1)
 }

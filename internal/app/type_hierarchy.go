@@ -3,9 +3,12 @@ package app
 import (
 	"context"
 	"errors"
+	"path/filepath"
+	"strings"
 
 	"see/internal/langserver"
 	"see/internal/lsp"
+	"see/internal/uri"
 )
 
 type typeHierarchyClient interface {
@@ -16,6 +19,14 @@ type typeHierarchyClient interface {
 }
 
 type typeHierarchyAdapter struct{ typeHierarchyClient }
+
+func hierarchyTypeName(item lsp.CallItem) string {
+	p, err := uri.ToPath(item.URI)
+	if err != nil || filepath.Ext(p) != ".go" || strings.Contains(item.Name, ".") {
+		return item.Name
+	}
+	return filepath.Base(filepath.Dir(p)) + "." + item.Name
+}
 
 func (c typeHierarchyAdapter) HasCallHierarchy() bool { return c.HasTypeHierarchy() }
 func (c typeHierarchyAdapter) PrepareCallHierarchy(ctx context.Context, uri string, pos lsp.Position) ([]lsp.CallItem, error) {
