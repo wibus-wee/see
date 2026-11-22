@@ -270,13 +270,17 @@ func (ch Change) Status() byte {
 	if ch.Index == '?' {
 		return 'U'
 	}
-	if ch.Index == 'U' || ch.Work == 'U' || (ch.Index == 'A' && ch.Work == 'A') || (ch.Index == 'D' && ch.Work == 'D') {
+	if ch.Conflicted() {
 		return '!'
 	}
 	if ch.Work != ' ' {
 		return ch.Work
 	}
 	return ch.Index
+}
+
+func (ch Change) Conflicted() bool {
+	return ch.Index == 'U' || ch.Work == 'U' || ch.Index == 'A' && ch.Work == 'A' || ch.Index == 'D' && ch.Work == 'D'
 }
 
 // Decorations maps each changed path under root, absolute, to its status,

@@ -464,6 +464,10 @@ func (a *App) saveUntitled(d *doc, done func(bool)) {
 
 // saveDoc checks the last-read disk contents before writing, including the BOM.
 func (a *App) saveDoc(d *doc, overwrite bool) bool {
+	if a.git.resolvingPath != "" && a.git.resolvingPath == d.path {
+		a.note(gitConflictText("gitConflictSaving"), false)
+		return false
+	}
 	if d.buf == nil || d.lossy {
 		return false
 	}
