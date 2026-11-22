@@ -468,6 +468,12 @@ func (a *App) closeTab(g *group, path string) {
 	if g.colorPreview != nil && (g.colorPreview.path == docPath || g.active == path) {
 		g.dismissColorPreview()
 	}
+	if v := g.diffs[path]; v != nil && v.search != nil && v.search.dirty() {
+		a.activateIn(g, path)
+		v.search.note, v.search.noteErr = searchEditText("searchEditCloseDirty"), true
+		a.note(v.search.note, true)
+		return
+	}
 	if isDiffTab(path) {
 		delete(g.diffs, path)
 	}
@@ -746,6 +752,17 @@ func (a *App) splitActive(s side) {
 			cv := *v.commit
 			cv.scroll = ui.ScrollState{}
 			ng.diffs = map[string]*gitDiffTab{path: {name: v.name, rev: v.rev, hash: v.hash, commit: &cv}}
+		} else if v != nil && v.search != nil {
+			ng.diffs = map[string]*gitDiffTab{path: v}
+			delete(g.diffs, path)
+			g.order = slices.DeleteFunc(g.order, func(p string) bool { return p == path })
+			g.mru = slices.DeleteFunc(g.mru, func(p string) bool { return p == path })
+			if g.active == path {
+				g.active = ""
+				if len(g.mru) > 0 {
+					g.active = g.mru[len(g.mru)-1]
+				}
+			}
 		} else if v != nil && v.localHistory != nil {
 			clone := a.cloneLocalHistoryTab(v)
 			ng.diffs = map[string]*gitDiffTab{path: clone}
