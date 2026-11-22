@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"path/filepath"
 	"runtime"
 	"see/locales"
@@ -8,7 +9,9 @@ import (
 	"strings"
 
 	"github.com/egoist/mygo"
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
+	"github.com/egoist/mygo/ui/editor"
 
 	"see/internal/workspace"
 )
@@ -22,8 +25,8 @@ func (a *App) tabFileMenu(c *ui.Context, m *ui.Menu, tab string, d *doc, diff *g
 	}
 	path := tabPath(tab)
 	services := c.Services()
-	if m.Item("Reveal in Navigator").Disabled(!workspace.Within(a.root, path) || path == a.root).Chosen() {
-		a.revealInTree(path)
+	if m.Item(commandLabel("Reveal in Project Navigator")).Disabled(!a.canRevealInProjectNavigator(path)).Chosen() {
+		a.revealInProjectNavigator(path)
 	}
 	if m.Item("Show File History").Disabled(a.git.root == "").Chosen() {
 		a.showFileHistory(path)
@@ -179,6 +182,16 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 				ui.Box(c).Size(16, 16).Shrink(0) // balances the close button
 			})
 		}
+		if a.maximized == g {
+			ui.Box(c).Grow(1)
+			label := locales.Catalog.Format(i18n.Locale(), "restoreEditorLayout", nil)
+			button := ui.ButtonBase(c).Size(28, 28).Shrink(0).Radius(4).Center().KeepFocus().Label(label).Tooltip(label)
+			if button.Hovered() {
+				button.Background(colors(c).Pill)
+			}
+			button.Children(func() { symbolIcon(c, icSplitH, 14, colors(c).Muted) })
+			button.OnClick(func() { a.maximized = nil })
+		}
 	})
 	if tabs.List.Changed() && g.tabSel >= 0 && g.tabSel < len(g.order) {
 		a.userActivateIn(g, g.order[g.tabSel])
@@ -218,13 +231,21 @@ func (a *App) diffJumpBar(c *ui.Context, g *group) {
 		}
 		ui.Box(c).Grow(1)
 		if v.state != nil {
-			if glyphButton(c, icChangeUp, "Previous Change", "Previous Change", false, len(v.state.Hunks()) == 0).Clicked() {
+			hunks := v.state.Hunks()
+			if v.partial != nil && len(hunks) > 0 {
+				i, _ := v.state.CurrentHunk()
+				ui.Text(c, fmt.Sprintf("%d / %d", max(0, i)+1, len(hunks))).FontSize(11).TextColor(colors(c).Muted).SingleLine()
+			}
+			if glyphButton(c, icChangeUp, "Previous Change", "Previous Change", false, len(hunks) == 0).Clicked() {
 				a.focus = g
 				a.goToChange(-1)
 			}
-			if glyphButton(c, icChangeDown, "Next Change", "Next Change", false, len(v.state.Hunks()) == 0).Clicked() {
+			if glyphButton(c, icChangeDown, "Next Change", "Next Change", false, len(hunks) == 0).Clicked() {
 				a.focus = g
 				a.goToChange(1)
+			}
+			if v.partial != nil && len(hunks) > 0 {
+				a.gitDiffPartButton(c, v, hunks)
 			}
 			icon, tip := icDiffInline, "Show Changes Inline"
 			if a.cfg.DiffUnified {
@@ -244,6 +265,29 @@ func (a *App) diffJumpBar(c *ui.Context, g *group) {
 			}
 		}
 	})
+}
+
+func (a *App) gitDiffPartButton(c *ui.Context, v *gitDiffTab, hunks []editor.DiffHunk) {
+	part, canStageLines := gitSelectedPart(v.state, hunks)
+	_, selected := v.state.SelectedLines()
+	label := gitPartialText("gitStageSelectedLines")
+	if v.staged {
+		label = gitPartialText("gitUnstageSelectedLines")
+	}
+	if !selected {
+		i, _ := v.state.CurrentHunk()
+		part.hunk = hunks[max(0, i)]
+		label = gitPartialText("gitStageHunk")
+		if v.staged {
+			label = gitPartialText("gitUnstageHunk")
+		}
+	}
+	button := ui.Button(c.Key("git-diff-part"), label).FontSize(11).Height(20).Padding(0, 7).Shrink(0).KeepFocus().
+		Disabled(a.git.busy || selected && !canStageLines).Tooltip(gitPartialText("gitPartialSelectionHint"))
+	if selected {
+		button.TextColor(c.Theme().Accent)
+	}
+	button.OnClick(func() { a.applyGitDiffPart(v, part) })
 }
 
 // jumpBar is Xcode's jump bar: back and forward, then the path of the

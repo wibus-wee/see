@@ -15,6 +15,9 @@ import (
 func (a *App) filterFileSymbols() {
 	q := &a.quick
 	query := strings.ToLower(strings.TrimSpace(q.query[1:]))
+	if _, symbol, ok := splitQuickFileSymbol(q.query); ok {
+		query = strings.ToLower(strings.TrimSpace(symbol))
+	}
 	q.symbols = nil
 	for _, symbol := range q.fileSymbols {
 		if strings.Contains(strings.ToLower(symbol.name), query) {
@@ -36,6 +39,7 @@ func (a *App) searchFileSymbols() {
 	ctx, cancel := context.WithTimeout(a.wsCtx, 20*time.Second)
 	q.symbolCancel, q.symbolLoading = cancel, true
 	gen, request, query := a.gen, q.gen, q.query
+	_, _, targeted := splitQuickFileSymbol(query)
 	unsupported := locales.Catalog.Format(i18n.Locale(), "fileSymbolsUnsupported", nil)
 	go func() {
 		defer cancel()
@@ -58,7 +62,7 @@ func (a *App) searchFileSymbols() {
 			}
 		}
 		a.post.Post(func() {
-			if a.gen != gen || q.gen != request || !q.open || q.query != query || a.activePath() != path || a.docs[path] != d || d.buf.Version() != snap.Version() || a.serverFor(path) != m {
+			if a.gen != gen || q.gen != request || !q.open || q.query != query || q.filePath != path || !targeted && a.activePath() != path || a.docs[path] != d || d.buf.Version() != snap.Version() || a.serverFor(path) != m {
 				return
 			}
 			q.symbolCancel, q.symbolLoading, q.symbolErr = nil, false, err

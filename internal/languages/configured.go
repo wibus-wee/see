@@ -9,7 +9,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/egoist/mygo/ui/editor"
 	"see/internal/config"
 	"see/internal/langserver"
 	"see/internal/lsp"
@@ -164,7 +163,7 @@ func envList(env map[string]string) []string {
 // NewConfiguredServer returns the manager of one configured server for
 // root, with the same lifecycle and recovery the built-in ones have.
 func NewConfiguredServer(spec config.LSPConfig, root string, onState func(langserver.State, error),
-	onDiagnostics func(*langserver.Server, string, editor.Snapshot, []lsp.Diagnostic, string), logf func(string, ...any)) *langserver.Server {
+	onDiagnostics langserver.DiagnosticsHandler, logf func(string, ...any)) *langserver.Server {
 	notInstalled := func(err error) bool {
 		return err != nil && strings.HasSuffix(err.Error(), "is not installed")
 	}

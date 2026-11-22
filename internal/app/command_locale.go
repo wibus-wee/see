@@ -8,6 +8,9 @@ import (
 )
 
 var commandMessages = map[string]string{
+	"Bigger":                        "commandBigger",
+	"Smaller":                       "commandSmaller",
+	"Reset Editor Font Size":        "commandResetEditorFontSize",
 	"Fold":                          "commandFold",
 	"Unfold":                        "commandUnfold",
 	"Toggle Fold":                   "commandToggleFold",
@@ -30,6 +33,7 @@ var commandMessages = map[string]string{
 	"Toggle Inline Git Blame":       "commandToggleInlineBlame",
 	"Toggle Type Hints":             "commandToggleTypeHints",
 	"Toggle Minimap":                "commandToggleMinimap",
+	"Show Invisibles":               "commandShowInvisibles",
 
 	"Show Problems":               "commandShowProblems",
 	"Show Quick Help":             "commandShowQuickHelp",
@@ -58,6 +62,8 @@ var commandMessages = map[string]string{
 	"Close Saved Tabs":            "commandCloseSavedTabs",
 	"Next Problem":                "commandNextProblem",
 	"Previous Problem":            "commandPreviousProblem",
+	"Next Method":                 "commandNextMethod",
+	"Previous Method":             "commandPreviousMethod",
 	"Go to Line":                  "commandGoToLine",
 	"New File":                    "msgNewFile2",
 	"Command Palette":             "commandCommandPalette",
@@ -79,6 +85,7 @@ var commandMessages = map[string]string{
 	"Git: Push":                   "commandGitPush",
 	"Git: Switch Branch…":         "commandGitSwitchBranch",
 	"Filter Files":                "commandFilterFiles",
+	"Reveal in Project Navigator": "commandRevealInProjectNavigator",
 	"Show or Hide the Navigator":  "commandShowOrHideTheNavigator",
 	"Go Back":                     "commandGoBack",
 	"Go Forward":                  "commandGoForward",
@@ -90,6 +97,7 @@ var commandMessages = map[string]string{
 	"Reopen Closed Tab":           "commandReopenClosedTab",
 	"Add Editor on Right":         "commandAddEditorOnRight",
 	"Add Editor Below":            "commandAddEditorBelow",
+	"Maximize Editor":             "commandMaximizeEditor",
 	"Show or Hide the Terminal":   "commandShowOrHideTheTerminal",
 	"Show Output":                 "commandShowOutput",
 	"New Terminal":                "commandNewTerminal",
