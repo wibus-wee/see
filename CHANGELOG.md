@@ -2,6 +2,12 @@
 
 User-facing changes are grouped by release. Earlier releases are documented on the [Releases page](https://github.com/wibus-wee/see/releases).
 
+## 0.3.6
+
+### Fixed
+
+- Fix editors cached inside popups and panels — code previews in the pinned references list and call hierarchy, Peek Definition, the merge-conflict panes, the regex playground sample, and the workspace search-and-replace editor — keeping the old appearance after the system or chosen theme changes, so they could draw light inside a dark window (or the reverse) until reopened.
+
 ## 0.3.5
 
 ### Added
