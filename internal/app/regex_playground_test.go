@@ -9,8 +9,81 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"see/internal/regexplayground"
 	"see/locales"
 )
+
+func TestRegexDiagramSemanticLabelsAreLocalized(t *testing.T) {
+	cases := []struct {
+		class regexplayground.DiagramClass
+		want  string
+	}{
+		{regexplayground.DiagramClassLetter, locales.RegexDiagramLetter()},
+		{regexplayground.DiagramClassDigit, "0–9"},
+		{regexplayground.DiagramClassWhitespace, locales.RegexDiagramWhitespace()},
+		{regexplayground.DiagramClassWord, locales.RegexDiagramWord()},
+		{regexplayground.DiagramClassNonDigit, locales.RegexDiagramNonDigit()},
+		{regexplayground.DiagramClassNonWhitespace, locales.RegexDiagramNonWhitespace()},
+		{regexplayground.DiagramClassNonWord, locales.RegexDiagramNonWord()},
+	}
+	for _, test := range cases {
+		if got := regexDiagramClassLabel(test.class); got != test.want || got == "" || strings.HasPrefix(got, "[") {
+			t.Errorf("class %v label = %q, want semantic label %q", test.class, got, test.want)
+		}
+	}
+}
+
+func TestRegexDiagramRepeatLabelsPreserveBoundsAndLaziness(t *testing.T) {
+	cases := []struct {
+		node regexplayground.DiagramNode
+		want string
+	}{
+		{regexplayground.DiagramNode{RepeatMin: 1, RepeatMax: -1, Label: "+"}, "1+"},
+		{regexplayground.DiagramNode{RepeatMin: 0, RepeatMax: -1, Label: "*"}, "0+"},
+		{regexplayground.DiagramNode{RepeatMin: 0, RepeatMax: 1, Label: "?"}, locales.RegexDiagramOptional()},
+		{regexplayground.DiagramNode{RepeatMin: 2, RepeatMax: 4, Label: "{2,4}?", Lazy: true}, "{2,4} · " + locales.RegexDiagramLazy()},
+		{regexplayground.DiagramNode{RepeatMin: 1, RepeatMax: -1, Label: "+?", Lazy: true}, "1+ · " + locales.RegexDiagramLazy()},
+	}
+	for _, test := range cases {
+		if got := regexDiagramRepeatLabel(test.node); got != test.want {
+			t.Errorf("repeat label for %+v = %q, want %q", test.node, got, test.want)
+		}
+	}
+}
+
+func TestRegexPlaygroundDiagramClearsAndRecovers(t *testing.T) {
+	const pattern = `(?P<word>\p{L}+)([0-9]+)?`
+	p := &regexPlayground{pattern: pattern}
+	p.refreshDiagram()
+	if !p.diagramValid {
+		t.Fatal("valid pattern did not produce a diagram")
+	}
+	p.activeUnsupportedFeatures = []string{"lookaround"}
+	p.refreshDiagram()
+	if p.diagramValid {
+		t.Fatal("unsupported pattern state left a diagram visible")
+	}
+	p.activeUnsupportedFeatures = nil
+	p.refreshDiagram()
+	if !p.diagramValid {
+		t.Fatal("cached pattern did not recover after unsupported state cleared")
+	}
+	p.result.Error = "sample is too large"
+	p.refreshDiagram()
+	if !p.diagramValid {
+		t.Fatal("sample error invalidated the structurally valid diagram")
+	}
+	p.pattern = "("
+	p.refreshDiagram()
+	if p.diagramValid {
+		t.Fatal("invalid pattern left the previous diagram visible")
+	}
+	p.pattern = pattern
+	p.refreshDiagram()
+	if !p.diagramValid {
+		t.Fatal("valid pattern did not recover after syntax error")
+	}
+}
 
 func TestRegexPlaygroundHighlightsOnFirstSettledPaste(t *testing.T) {
 	source := "package main\nimport \"regexp\"\nvar re = regexp.MustCompile(`(?P<word>\\p{L}+)([0-9]+)?`)\n"
@@ -34,7 +107,7 @@ func TestRegexPlaygroundHighlightsOnFirstSettledPaste(t *testing.T) {
 	p.patternVersion++
 	h.tt.Frame()
 	h.tt.Frame()
-	if p.result.Error == "" {
+	if p.result.Error == "" || p.diagramValid || !h.tt.HasText(locales.RegexDiagramUnavailable()) {
 		t.Fatal("invalid pattern did not clear the sample highlights")
 	}
 	withoutHighlights := regexPlaygroundSamplePixels(t, h)
@@ -124,6 +197,9 @@ func TestRegexPlaygroundPaletteEditAndEscape(t *testing.T) {
 	if len(p.result.Matches) != 2 || len(p.result.Matches[0].Captures) != 3 {
 		t.Fatalf("matches: %+v", p.result)
 	}
+	if !h.tt.HasText(capturePreview("café")) || !h.tt.HasText(capturePreview("42")) {
+		t.Fatalf("selected capture values are not visible: %v", h.tt.Texts())
+	}
 	first, second := p.result.Matches[0], p.result.Matches[1]
 	if first.Start != 0 || first.End != len("café42") || first.Captures[1].Name != "word" || !first.Captures[2].Matched || first.Captures[2].Value != "42" {
 		t.Fatalf("first match: %+v", first)
@@ -134,8 +210,18 @@ func TestRegexPlaygroundPaletteEditAndEscape(t *testing.T) {
 	if !h.tt.HasText(regexCharacterRange("café42 tea", first.Start, first.End)) || !h.tt.HasText(regexCharacterRange("café42 tea", second.Start, second.End)) {
 		t.Fatalf("character ranges missing from match list: %v", h.tt.Texts())
 	}
-	if len(p.sample.TextBackgrounds) != 2 {
+	if len(p.sample.TextBackgrounds) != 4 {
 		t.Fatalf("sample highlights = %d", len(p.sample.TextBackgrounds))
+	}
+	wantHighlights := [][2]int{{0, len("café42")}, {0, len("café")}, {len("café"), len("café42")}, {len("café42 "), len("café42 tea")}}
+	for i, want := range wantHighlights {
+		got := p.sample.TextBackgrounds[i]
+		if got.Start != want[0] || got.End != want[1] {
+			t.Errorf("sample highlight %d = [%d,%d), want [%d,%d)", i, got.Start, got.End, want[0], want[1])
+		}
+	}
+	if p.sample.TextBackgrounds[1].Color == p.sample.TextBackgrounds[2].Color || p.sample.TextBackgrounds[1].Color == p.sample.TextBackgrounds[3].Color {
+		t.Fatal("capture colors are not distinct from each other and neutral matches")
 	}
 	if d.buf.String() != source || len(h.a.dirtyDocs()) != 0 {
 		t.Fatal("opening or editing the playground changed source")
@@ -145,6 +231,13 @@ func TestRegexPlaygroundPaletteEditAndEscape(t *testing.T) {
 		h.tt.SetDark(true)
 		h.tt.Frame()
 		saveRegexPlaygroundScreenshot(t, h, filepath.Join(output, "regex-playground-dark.png"))
+	}
+	if err := h.tt.Click(regexCharacterRange("café42 tea", second.Start, second.End)); err != nil {
+		t.Fatalf("select optional capture's unmatched result: %v", err)
+	}
+	h.tt.Frame()
+	if p.selected != 1 || p.result.Matches[p.selected].Captures[2].Matched || !h.tt.HasText(locales.RegexNoCapture()) {
+		t.Fatalf("selecting tea did not show the optional group as uncaptured: selected=%d texts=%v", p.selected, h.tt.Texts())
 	}
 	if err := h.tt.Click(locales.RegexSample()); err != nil {
 		t.Fatalf("click sample for empty state: %v", err)
@@ -183,6 +276,57 @@ func TestRegexPlaygroundPaletteEditAndEscape(t *testing.T) {
 	h.tt.Key(0, ui.KeyRight)
 	if st.Cursor() == cursor || d.buf.String() != source {
 		t.Fatal("Escape did not restore focus to the unchanged source editor")
+	}
+}
+
+func TestRegexPlaygroundAlternationDiagramScreenshots(t *testing.T) {
+	source := "package main\nimport \"regexp\"\nvar re = regexp.MustCompile(`(?P<word>\\p{L}+)|cat`)\n"
+	h := newHarness(t, writeTree(t, map[string]string{"a.go": source}))
+	d := h.open("a.go")
+	st := h.a.focus.eds[d.path]
+	st.GoTo(st.Buffer.Pos(strings.Index(source, `\p{L}`) + 2))
+	h.a.openRegexPlaygroundFor(h.a.focus, d, st)
+	h.tt.Frame()
+	h.tt.Type("tea cat")
+	h.tt.Frame()
+	p := h.a.regexPlayground
+	if p == nil || !p.diagramValid || p.diagram.Root.Kind != regexplayground.DiagramAlternate || len(p.result.Matches) != 2 {
+		t.Fatalf("alternation diagram or matches unavailable: %+v", p)
+	}
+	if output := os.Getenv("SEE_REGEX_PLAYGROUND_SCREENSHOT_DIR"); output != "" {
+		saveRegexPlaygroundScreenshot(t, h, filepath.Join(output, "regex-playground-alternation-light.png"))
+		h.tt.SetDark(true)
+		h.tt.Frame()
+		saveRegexPlaygroundScreenshot(t, h, filepath.Join(output, "regex-playground-alternation-dark.png"))
+	}
+}
+
+func TestRegexPlaygroundCaptureBackgroundsUseUnicodeRangesAndIgnoreZeroWidth(t *testing.T) {
+	source := "package main\nimport \"regexp\"\nvar re = regexp.MustCompile(`(?P<outer>café(?P<inner>42)(?P<empty>))|(?P<tea>tea)`)\n"
+	h := newHarness(t, writeTree(t, map[string]string{"a.go": source}))
+	d := h.open("a.go")
+	st := h.a.focus.eds[d.path]
+	st.GoTo(st.Buffer.Pos(strings.Index(source, "café") + 1))
+	h.a.openRegexPlaygroundFor(h.a.focus, d, st)
+	h.tt.Frame()
+	h.tt.Type("café42 tea")
+	h.tt.Frame()
+	p := h.a.regexPlayground
+	if p == nil || len(p.sample.TextBackgrounds) != 4 {
+		t.Fatalf("capture backgrounds = %+v", p)
+	}
+	want := [][2]int{{0, len("café42")}, {0, len("café")}, {len("café"), len("café42")}, {len("café42 "), len("café42 tea")}}
+	for i, rangeWant := range want {
+		got := p.sample.TextBackgrounds[i]
+		if got.Start != rangeWant[0] || got.End != rangeWant[1] {
+			t.Fatalf("background %d = [%d,%d), want [%d,%d)", i, got.Start, got.End, rangeWant[0], rangeWant[1])
+		}
+		if got.Start == got.End {
+			t.Fatalf("zero-width capture painted a false range: %+v", got)
+		}
+	}
+	if p.result.Matches[0].Captures[3].Start != p.result.Matches[0].Captures[3].End {
+		t.Fatal("test did not produce its intended zero-width capture")
 	}
 }
 
@@ -277,6 +421,30 @@ func TestRegexPlaygroundCopiesLongCaptureAndUsesSingularHeading(t *testing.T) {
 	h.tt.Frame()
 	if got := h.tt.Clipboard(); got != sample {
 		t.Fatalf("copied capture = %q, want full %q", got, sample)
+	}
+}
+
+func TestRegexPlaygroundCopiesLongWholeMatchWithoutCaptures(t *testing.T) {
+	source := "package main\nimport \"regexp\"\nvar re = regexp.MustCompile(`a+`)\n"
+	h := newHarness(t, writeTree(t, map[string]string{"a.go": source}))
+	d := h.open("a.go")
+	st := h.a.focus.eds[d.path]
+	st.GoTo(st.Buffer.Pos(strings.Index(source, "a+")))
+	h.a.openRegexPlaygroundFor(h.a.focus, d, st)
+	h.tt.Frame()
+	p := h.a.regexPlayground
+	if p == nil {
+		t.Fatal("playground did not open")
+	}
+	sample := strings.Repeat("a", 80)
+	h.tt.Type(sample)
+	h.tt.Frame()
+	if err := h.tt.Click(locales.Copy()); err != nil {
+		t.Fatalf("click whole-match copy: %v; visible=%v", err, h.tt.Texts())
+	}
+	h.tt.Frame()
+	if got := h.tt.Clipboard(); got != sample {
+		t.Fatalf("copied whole match = %q, want full %q", got, sample)
 	}
 }
 

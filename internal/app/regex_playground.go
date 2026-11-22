@@ -31,6 +31,19 @@ type regexPlayground struct {
 	cacheFlags                regexplayground.Flags
 	cached                    bool
 	result                    regexplayground.Result
+	diagramPattern            string
+	diagramFlags              regexplayground.Flags
+	diagramCached             bool
+	diagramParseFailed        bool
+	diagram                   regexplayground.Diagram
+	diagramValid              bool
+	backgroundPattern         string
+	backgroundPatternVersion  uint64
+	backgroundSampleVersion   uint64
+	backgroundFlags           regexplayground.Flags
+	backgroundSelected        int
+	backgroundDark            bool
+	backgroundsCached         bool
 }
 
 type regexActionCache struct {
@@ -134,7 +147,7 @@ func (a *App) regexPlaygroundView(c *ui.Context, bounds ui.Rect, st *editor.Stat
 		return
 	}
 	p.sample.Theme = a.edTheme
-	a.editorPeekSized(c, bounds, st, p.line, locales.RegexPlaygroundTitle(), locales.Close(), 500, 520, nil,
+	a.editorPeekSized(c, bounds, st, p.line, locales.RegexPlaygroundTitle(), locales.Close(), 540, 580, nil,
 		func() { a.closeRegexPlayground(p) }, func() {
 			ui.Column(c).Grow(1).FillWidth().Children(func() {
 				ui.Row(c).FillWidth().Shrink(0).Padding(10, 12, 4).Gap(8).AlignItems(ui.Center).Children(func() {
@@ -154,7 +167,8 @@ func (a *App) regexPlaygroundView(c *ui.Context, bounds ui.Rect, st *editor.Stat
 					ui.Checkbox(c, &p.flags.Multiline, locales.RegexMultiline())
 					ui.Checkbox(c, &p.flags.DotAll, locales.RegexDotAll())
 				})
-				p.refresh(colors(c).Match)
+				p.refresh(c)
+				a.regexPlaygroundDiagram(c, p, max32(200, bounds.W-48))
 				ui.Row(c).Grow(1).FillWidth().Gap(0).BorderWidth(1, 0, 0, 0).BorderColor(colors(c).Separator).Children(func() {
 					ui.Column(c).Grow(11).Fill().Padding(10, 12, 12).Children(func() {
 						ui.Text(c, locales.RegexSample()+":").FontSize(11).TextColor(colors(c).Muted).Padding(0, 0, 6)
@@ -175,7 +189,7 @@ func (a *App) regexPlaygroundView(c *ui.Context, bounds ui.Rect, st *editor.Stat
 		})
 }
 
-func (p *regexPlayground) refresh(matchColor ui.Color) {
+func (p *regexPlayground) refresh(c *ui.Context) {
 	sampleVersion := p.sample.Buffer.Version()
 	if !p.cached || p.patternVersion != p.cachePatternVersion || sampleVersion != p.cacheSampleVersion || p.flags != p.cacheFlags {
 		p.cachePatternVersion, p.cacheSampleVersion, p.cacheFlags, p.cached = p.patternVersion, sampleVersion, p.flags, true
@@ -194,118 +208,227 @@ func (p *regexPlayground) refresh(matchColor ui.Color) {
 			p.selected = 0
 		}
 	}
+	p.refreshDiagram()
+	p.refreshSampleHighlights(c)
+}
+
+func (p *regexPlayground) refreshSampleHighlights(c *ui.Context) {
+	sampleVersion := p.sample.Buffer.Version()
+	dark := c.Theme().Dark
+	if p.backgroundsCached && p.backgroundPattern == p.pattern && p.backgroundPatternVersion == p.patternVersion && p.backgroundSampleVersion == sampleVersion && p.backgroundFlags == p.flags && p.backgroundSelected == p.selected && p.backgroundDark == dark {
+		return
+	}
+	p.backgroundPattern, p.backgroundPatternVersion = p.pattern, p.patternVersion
+	p.backgroundSampleVersion, p.backgroundFlags = sampleVersion, p.flags
+	p.backgroundSelected, p.backgroundDark, p.backgroundsCached = p.selected, dark, true
 	p.sample.TextBackgrounds = nil
 	if p.pattern == "" || p.result.Error != "" || p.result.Limited != "" {
 		return
 	}
-	for _, match := range p.result.Matches {
+	for i, match := range p.result.Matches {
 		if match.Start != match.End {
-			p.sample.TextBackgrounds = append(p.sample.TextBackgrounds, editor.TextBackground{Start: match.Start, End: match.End, Color: matchColor})
+			color := colors(c).Muted.Alpha(0.08)
+			if i == p.selected {
+				color = colors(c).Match.Alpha(0.20)
+			}
+			p.sample.TextBackgrounds = append(p.sample.TextBackgrounds, editor.TextBackground{Start: match.Start, End: match.End, Color: color})
+		}
+		if i == p.selected {
+			for _, span := range regexplayground.CaptureHighlights(match.Captures) {
+				p.sample.TextBackgrounds = append(p.sample.TextBackgrounds, editor.TextBackground{
+					Start: span.Start,
+					End:   span.End,
+					Color: regexCapturePalette(c, span.Number).fill,
+				})
+			}
 		}
 	}
+}
+
+func (p *regexPlayground) refreshDiagram() {
+	if p.pattern == "" || len(p.pattern) > regexplayground.MaxPatternBytes || len(p.unsupportedFlags) > 0 || len(p.activeUnsupportedFeatures) > 0 {
+		p.diagramValid = false
+		return
+	}
+	if p.diagramCached && p.diagramPattern == p.pattern && p.diagramFlags == p.flags {
+		p.diagramValid = !p.diagramParseFailed
+		return
+	}
+	p.diagramPattern, p.diagramFlags, p.diagramCached = p.pattern, p.flags, true
+	diagram, err := regexplayground.ParseDiagram(p.pattern, p.flags)
+	if err != nil {
+		p.diagram = regexplayground.Diagram{}
+		p.diagramValid = false
+		p.diagramParseFailed = true
+		return
+	}
+	p.diagram, p.diagramValid = diagram, true
+	p.diagramParseFailed = false
 }
 
 func (a *App) regexPlaygroundResults(c *ui.Context, p *regexPlayground) {
-	ui.Row(c).FillWidth().Shrink(0).Gap(8).AlignItems(ui.Center).Children(func() {
-		ui.Text(c, locales.RegexMatches()).FontSize(12).FontWeight(600)
-		if len(p.result.Matches) > 0 && p.pattern != "" {
-			ui.Text(c, fmt.Sprintf(locales.RegexMatchCount(), len(p.result.Matches))).FontSize(11).TextColor(colors(c).Muted)
+	ui.Column(c).Grow(1).FillWidth().Gap(4).Children(func() {
+		ui.Row(c).FillWidth().Shrink(0).Gap(8).AlignItems(ui.Center).Children(func() {
+			ui.Text(c, locales.RegexMatches()).FontSize(12).FontWeight(600)
+			if len(p.result.Matches) > 0 && p.pattern != "" {
+				ui.Text(c, fmt.Sprintf(locales.RegexMatchCount(), len(p.result.Matches))).FontSize(10).TextColor(colors(c).Muted)
+			}
+			ui.Box(c).Grow(1)
+		})
+		switch {
+		case len(p.unsupportedFlags) > 0:
+			ui.Text(c, fmt.Sprintf(locales.RegexUnsupportedFlags(), strings.Join(p.unsupportedFlags, ", "))).FontSize(12).TextColor(colors(c).Err)
+		case len(p.activeUnsupportedFeatures) > 0:
+			ui.Text(c, fmt.Sprintf(locales.RegexUnsupportedFeatures(), strings.Join(p.activeUnsupportedFeatures, ", "))).FontSize(12).TextColor(colors(c).Err)
+		case p.pattern == "":
+			ui.Text(c, locales.RegexEnterPattern()).FontSize(12).TextColor(colors(c).Muted).Padding(5, 0)
+		case len(p.pattern) > regexplayground.MaxPatternBytes:
+			ui.Text(c, fmt.Sprintf(locales.RegexPatternTooLarge(), regexplayground.MaxPatternBytes)).FontSize(12).TextColor(colors(c).Err)
+		case len(p.cacheSample) > regexplayground.MaxSampleBytes:
+			ui.Text(c, fmt.Sprintf(locales.RegexSampleTooLarge(), regexplayground.MaxSampleBytes)).FontSize(12).TextColor(colors(c).Err)
+		case p.result.Error != "":
+			ui.Column(c).Gap(4).Padding(5, 0).Children(func() {
+				ui.Text(c, locales.RegexInvalidPattern()).FontSize(12).TextColor(colors(c).Err)
+				ui.Text(c, p.result.Error).FontSize(11).TextColor(colors(c).Muted)
+			})
+		case p.cacheSample == "" && len(p.result.Matches) == 0:
+			ui.Text(c, locales.RegexEmptySample()).FontSize(12).TextColor(colors(c).Muted).Padding(5, 0)
+		case len(p.result.Matches) == 0:
+			ui.Column(c).Gap(4).Padding(5, 0).Children(func() {
+				ui.Text(c, locales.RegexNoMatches()).FontSize(12)
+				ui.Text(c, locales.RegexNoMatchesDetail()).FontSize(11).TextColor(colors(c).Muted)
+			})
+		default:
+			if p.result.Truncated {
+				ui.Text(c, fmt.Sprintf(locales.RegexMatchesLimited(), regexplayground.MaxMatches)).FontSize(10).TextColor(colors(c).Muted)
+			}
+			a.regexMatchDetails(c, p)
 		}
-		ui.Box(c).Grow(1)
+		ui.Column(c).Shrink(0).Gap(1).Padding(4, 0, 0).BorderWidth(1, 0, 0, 0).BorderColor(colors(c).Separator).Children(func() {
+			ui.Text(c, locales.RegexRangeNote()).FontSize(8).TextColor(colors(c).Muted)
+			ui.Text(c, locales.RegexEngineNote()).FontSize(8).TextColor(colors(c).Muted)
+		})
 	})
-	ui.Text(c, locales.RegexRangeNote()).FontSize(10).TextColor(colors(c).Muted).Padding(0, 0, 8)
-	ui.Text(c, locales.RegexEngineNote()).FontSize(9).TextColor(colors(c).Muted).Padding(0, 0, 8)
-	switch {
-	case len(p.unsupportedFlags) > 0:
-		ui.Text(c, fmt.Sprintf(locales.RegexUnsupportedFlags(), strings.Join(p.unsupportedFlags, ", "))).FontSize(12).TextColor(colors(c).Err)
-	case len(p.activeUnsupportedFeatures) > 0:
-		ui.Text(c, fmt.Sprintf(locales.RegexUnsupportedFeatures(), strings.Join(p.activeUnsupportedFeatures, ", "))).FontSize(12).TextColor(colors(c).Err)
-	case p.pattern == "":
-		ui.Text(c, locales.RegexEnterPattern()).FontSize(12).TextColor(colors(c).Muted).Padding(8, 0)
-	case len(p.pattern) > regexplayground.MaxPatternBytes:
-		ui.Text(c, fmt.Sprintf(locales.RegexPatternTooLarge(), regexplayground.MaxPatternBytes)).FontSize(12).TextColor(colors(c).Err)
-	case len(p.cacheSample) > regexplayground.MaxSampleBytes:
-		ui.Text(c, fmt.Sprintf(locales.RegexSampleTooLarge(), regexplayground.MaxSampleBytes)).FontSize(12).TextColor(colors(c).Err)
-	case p.result.Error != "":
-		ui.Column(c).Gap(4).Padding(8, 0).Children(func() {
-			ui.Text(c, locales.RegexInvalidPattern()).FontSize(12).TextColor(colors(c).Err)
-			ui.Text(c, p.result.Error).FontSize(11).TextColor(colors(c).Muted)
-		})
-	case p.cacheSample == "" && len(p.result.Matches) == 0:
-		ui.Text(c, locales.RegexEmptySample()).FontSize(12).TextColor(colors(c).Muted).Padding(8, 0)
-	case len(p.result.Matches) == 0:
-		ui.Column(c).Gap(4).Padding(8, 0).Children(func() {
-			ui.Text(c, locales.RegexNoMatches()).FontSize(12)
-			ui.Text(c, locales.RegexNoMatchesDetail()).FontSize(11).TextColor(colors(c).Muted)
-		})
-	default:
-		if p.result.Truncated {
-			ui.Text(c, fmt.Sprintf(locales.RegexMatchesLimited(), regexplayground.MaxMatches)).FontSize(10).TextColor(colors(c).Muted).Padding(0, 0, 6)
-		}
-		a.regexMatchDetails(c, p)
-	}
 }
 
 func (a *App) regexMatchDetails(c *ui.Context, p *regexPlayground) {
-	ui.Scroll(c).Height(132).FillWidth().Children(func() {
-		ui.Column(c).FillWidth().Gap(3).Children(func() {
+	ui.Scroll(c).MaxHeight(92).FillWidth().Shrink(0).Children(func() {
+		ui.Column(c).FillWidth().Gap(2).Children(func() {
 			for i, match := range p.result.Matches {
 				index := i
-				label := fmt.Sprintf("%d   %s", i+1, regexCharacterRange(p.cacheSample, match.Start, match.End))
-				button := ui.Button(c.Key(struct {
+				label := fmt.Sprintf("Match %d, %s, %s", i+1, regexMatchPreview(match), regexCharacterRange(p.cacheSample, match.Start, match.End))
+				button := ui.ButtonBase(c.Key(struct {
 					Playground *regexPlayground
 					Match      int
-				}{p, i}), label).FillWidth().Label(fmt.Sprintf("Match %d, %s", i+1, regexCharacterRange(p.cacheSample, match.Start, match.End)))
+				}{p, i}),
+				).FillWidth().MinHeight(31).Shrink(0).Padding(3, 5).Radius(6).Label(label).AccessSelected(i == p.selected)
 				if index == p.selected {
-					button.Background(colors(c).SelectedRow).Border(1, c.Theme().Accent).TextColor(c.Theme().Accent)
+					button.Background(colors(c).SelectedRow).Border(1, c.Theme().Accent.Alpha(0.28))
+				} else if button.Hovered() {
+					button.Background(colors(c).Pill)
 				}
+				button.Children(func() {
+					ui.Row(c).FillWidth().Gap(7).AlignItems(ui.Center).Children(func() {
+						bar := colors(c).Separator
+						if index == p.selected {
+							bar = c.Theme().Accent
+						}
+						ui.Box(c).Size(3, 18).Shrink(0).Radius(2).Background(bar)
+						ui.Text(c, fmt.Sprintf("%d", index+1)).FontSize(9).TextColor(colors(c).Muted).Width(14).Shrink(0)
+						ui.Text(c, regexMatchPreview(match)).FontSize(11).Font("monospace").Shrink(1).SingleLine().Ellipsis("…")
+						ui.Box(c).Grow(1)
+						ui.Text(c, regexCharacterRange(p.cacheSample, match.Start, match.End)).FontSize(9).TextColor(colors(c).Muted).SingleLine()
+					})
+				})
 				button.OnClick(func() { p.selected = index })
 			}
 		})
 	})
-	if p.selected >= len(p.result.Matches) {
+	if p.selected < 0 || p.selected >= len(p.result.Matches) {
 		return
 	}
 	match := p.result.Matches[p.selected]
-	ui.Column(c).Grow(1).FillWidth().BorderWidth(1, 0, 0, 0).BorderColor(colors(c).Separator).Padding(8, 0, 0).Children(func() {
+	ui.Column(c).Grow(1).MinHeight(0).FillWidth().BorderWidth(1, 0, 0, 0).BorderColor(colors(c).Separator).Padding(5, 0, 0).Gap(3).Children(func() {
 		ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, fmt.Sprintf("%s %d", locales.RegexMatch(), p.selected+1)).FontSize(11).FontWeight(600)
-			ui.Text(c, regexCharacterRange(p.cacheSample, match.Start, match.End)).FontSize(10).TextColor(colors(c).Muted)
+			ui.Text(c, regexMatchPreview(match)).FontSize(13).FontWeight(600).Font("monospace").Shrink(1).SingleLine().Ellipsis("…")
+			ui.Text(c, fmt.Sprintf("%s %d", locales.RegexMatch(), p.selected+1)).FontSize(9).TextColor(colors(c).Muted).SingleLine()
+			ui.Box(c).Grow(1)
+			wholeMatch := regexWholeMatch(match)
+			if utf8.RuneCountInString(wholeMatch) > maxCapturePreviewRunes {
+				services := c.Services()
+				copy := ui.Button(c.Key(struct {
+					Playground *regexPlayground
+					Match      int
+					Whole      bool
+				}{p, p.selected, true}), locales.Copy()).FontSize(9).Padding(1, 5).Shrink(0)
+				copy.OnClick(func() { services.WriteClipboard(wholeMatch) })
+			}
+			ui.Text(c, regexCharacterRange(p.cacheSample, match.Start, match.End)).FontSize(9).TextColor(colors(c).Muted).SingleLine()
 		})
-		ui.Text(c, locales.RegexCaptures()).FontSize(10).TextColor(colors(c).Muted).Padding(0, 0, 4)
-		ui.Scroll(c).Grow(1).FillWidth().Children(func() {
-			ui.Column(c).FillWidth().Gap(4).Children(func() {
+		ui.Text(c, locales.RegexCaptures()).FontSize(9).TextColor(colors(c).Muted)
+		ui.Scroll(c).Grow(1).MinHeight(0).FillWidth().Children(func() {
+			ui.Column(c).FillWidth().Gap(3).Children(func() {
+				foundCapture := false
 				for _, capture := range match.Captures {
+					if capture.Number == 0 {
+						continue
+					}
+					foundCapture = true
 					capture := capture
-					ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Center).Children(func() {
-						name := fmt.Sprintf("%d", capture.Number)
-						if capture.Name != "" {
-							name += " · " + capture.Name
-						}
-						ui.Text(c, name).FontSize(10).TextColor(colors(c).Muted).Width(96).Shrink(0).SingleLine().Ellipsis("…")
-						if !capture.Matched {
-							ui.Text(c, locales.RegexUnmatched()).FontSize(11).TextColor(colors(c).Muted)
-						} else {
-							value := capturePreview(capture.Value)
-							if capture.Start == capture.End {
-								value = locales.RegexEmptyCapture()
+					palette := regexCapturePalette(c, capture.Number)
+					value := capturePreview(capture.Value)
+					valueColor := colors(c).Text
+					if !capture.Matched {
+						value, valueColor = locales.RegexNoCapture(), colors(c).Muted
+					} else if capture.Start == capture.End {
+						value = locales.RegexEmptyCapture()
+					}
+					ui.Row(c).FillWidth().MinHeight(32).Shrink(0).Gap(7).AlignItems(ui.Center).Padding(3, 6).Radius(6).Background(palette.fill.Alpha(0.09)).Border(1, palette.stroke.Alpha(0.28)).Children(func() {
+						ui.Box(c).Width(3).Height(26).Shrink(0).Radius(2).Background(palette.stroke)
+						ui.Column(c).Grow(1).MinWidth(0).Shrink(0).Gap(2).Children(func() {
+							ui.Text(c, value).FontSize(11).Font("monospace").TextColor(valueColor).Shrink(1).SingleLine().Ellipsis("…")
+							name := fmt.Sprintf("%d", capture.Number)
+							if capture.Name != "" {
+								name += " · " + capture.Name
 							}
-							ui.Text(c, value).FontSize(11).Font("monospace").Shrink(1).SingleLine().Ellipsis("…")
-							ui.Text(c, regexCharacterRange(p.cacheSample, capture.Start, capture.End)).FontSize(10).TextColor(colors(c).Muted).SingleLine()
-							if utf8.RuneCountInString(capture.Value) > maxCapturePreviewRunes {
-								services := c.Services()
-								copy := ui.Button(c.Key(struct {
-									Playground *regexPlayground
-									Capture    int
-								}{p, capture.Number}), locales.Copy()).FontSize(10).Padding(1, 5).Shrink(0).Label(fmt.Sprintf(locales.RegexCopyCapture(), capture.Number))
-								copy.OnClick(func() { services.WriteClipboard(capture.Value) })
+							if capture.Matched {
+								name += " · " + regexCharacterRange(p.cacheSample, capture.Start, capture.End)
 							}
+							ui.Text(c, name).FontSize(10).TextColor(colors(c).Muted).SingleLine().Ellipsis("…")
+						})
+						if capture.Matched && utf8.RuneCountInString(capture.Value) > maxCapturePreviewRunes {
+							services := c.Services()
+							copy := ui.Button(c.Key(struct {
+								Playground *regexPlayground
+								Capture    int
+							}{p, capture.Number}), locales.Copy()).FontSize(9).Padding(1, 5).Shrink(0).Label(fmt.Sprintf(locales.RegexCopyCapture(), capture.Number))
+							copy.OnClick(func() { services.WriteClipboard(capture.Value) })
 						}
 					})
+				}
+				if !foundCapture {
+					ui.Text(c, locales.RegexNoCapture()).FontSize(11).TextColor(colors(c).Muted).Padding(4, 0)
 				}
 			})
 		})
 	})
+}
+
+func regexMatchPreview(match regexplayground.Match) string {
+	value := regexWholeMatch(match)
+	if strings.ContainsAny(value, "\r\n\t") {
+		value = fmt.Sprintf("%q", value)
+	}
+	return regexRailTrim(value, 40)
+}
+
+func regexWholeMatch(match regexplayground.Match) string {
+	for _, capture := range match.Captures {
+		if capture.Number == 0 {
+			return capture.Value
+		}
+	}
+	return ""
 }
 
 func regexCharacterRange(sample string, start, end int) string {

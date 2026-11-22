@@ -8124,6 +8124,176 @@ func (msgs Messages) RegexEmptyCapture() string {
 	return Catalog.Format(msgs.locale, "regexEmptyCapture", nil)
 }
 
+// RegexDiagramTitle says "Matching structure"
+// in the language the app shows.
+func RegexDiagramTitle() string { return In(i18n.Locale()).RegexDiagramTitle() }
+
+// RegexDiagramTitle says "Matching structure"
+// in the language of msgs.
+func (msgs Messages) RegexDiagramTitle() string {
+	return Catalog.Format(msgs.locale, "regexDiagramTitle", nil)
+}
+
+// RegexDiagramStart says "Start"
+// in the language the app shows.
+func RegexDiagramStart() string { return In(i18n.Locale()).RegexDiagramStart() }
+
+// RegexDiagramStart says "Start"
+// in the language of msgs.
+func (msgs Messages) RegexDiagramStart() string {
+	return Catalog.Format(msgs.locale, "regexDiagramStart", nil)
+}
+
+// RegexDiagramEnd says "End"
+// in the language the app shows.
+func RegexDiagramEnd() string { return In(i18n.Locale()).RegexDiagramEnd() }
+
+// RegexDiagramEnd says "End"
+// in the language of msgs.
+func (msgs Messages) RegexDiagramEnd() string {
+	return Catalog.Format(msgs.locale, "regexDiagramEnd", nil)
+}
+
+// RegexDiagramGroup says "Group %d"
+// in the language the app shows.
+func RegexDiagramGroup() string { return In(i18n.Locale()).RegexDiagramGroup() }
+
+// RegexDiagramGroup says "Group %d"
+// in the language of msgs.
+func (msgs Messages) RegexDiagramGroup() string {
+	return Catalog.Format(msgs.locale, "regexDiagramGroup", nil)
+}
+
+// RegexDiagramAbbreviated says "Structure abbreviated for complexity."
+// in the language the app shows.
+func RegexDiagramAbbreviated() string { return In(i18n.Locale()).RegexDiagramAbbreviated() }
+
+// RegexDiagramAbbreviated says "Structure abbreviated for complexity."
+// in the language of msgs.
+func (msgs Messages) RegexDiagramAbbreviated() string {
+	return Catalog.Format(msgs.locale, "regexDiagramAbbreviated", nil)
+}
+
+// RegexDiagramUnavailable says "Structure unavailable for this pattern."
+// in the language the app shows.
+func RegexDiagramUnavailable() string { return In(i18n.Locale()).RegexDiagramUnavailable() }
+
+// RegexDiagramUnavailable says "Structure unavailable for this pattern."
+// in the language of msgs.
+func (msgs Messages) RegexDiagramUnavailable() string {
+	return Catalog.Format(msgs.locale, "regexDiagramUnavailable", nil)
+}
+
+// RegexDiagramNote says "Structure is explanatory, not the path this match took."
+// in the language the app shows.
+func RegexDiagramNote() string { return In(i18n.Locale()).RegexDiagramNote() }
+
+// RegexDiagramNote says "Structure is explanatory, not the path this match took."
+// in the language of msgs.
+func (msgs Messages) RegexDiagramNote() string {
+	return Catalog.Format(msgs.locale, "regexDiagramNote", nil)
+}
+
+// RegexDiagramLetter says "Letter"
+// in the language the app shows.
+func RegexDiagramLetter() string { return In(i18n.Locale()).RegexDiagramLetter() }
+
+// RegexDiagramLetter says "Letter"
+// in the language of msgs.
+func (msgs Messages) RegexDiagramLetter() string {
+	return Catalog.Format(msgs.locale, "regexDiagramLetter", nil)
+}
+
+// RegexDiagramDigit says "0–9"
+// in the language the app shows.
+func RegexDiagramDigit() string { return In(i18n.Locale()).RegexDiagramDigit() }
+
+// RegexDiagramDigit says "0–9"
+// in the language of msgs.
+func (msgs Messages) RegexDiagramDigit() string {
+	return Catalog.Format(msgs.locale, "regexDiagramDigit", nil)
+}
+
+// RegexDiagramWhitespace says "Whitespace"
+// in the language the app shows.
+func RegexDiagramWhitespace() string { return In(i18n.Locale()).RegexDiagramWhitespace() }
+
+// RegexDiagramWhitespace says "Whitespace"
+// in the language of msgs.
+func (msgs Messages) RegexDiagramWhitespace() string {
+	return Catalog.Format(msgs.locale, "regexDiagramWhitespace", nil)
+}
+
+// RegexDiagramWord says "Word"
+// in the language the app shows.
+func RegexDiagramWord() string { return In(i18n.Locale()).RegexDiagramWord() }
+
+// RegexDiagramWord says "Word"
+// in the language of msgs.
+func (msgs Messages) RegexDiagramWord() string {
+	return Catalog.Format(msgs.locale, "regexDiagramWord", nil)
+}
+
+// RegexDiagramNonDigit says "Not 0–9"
+// in the language the app shows.
+func RegexDiagramNonDigit() string { return In(i18n.Locale()).RegexDiagramNonDigit() }
+
+// RegexDiagramNonDigit says "Not 0–9"
+// in the language of msgs.
+func (msgs Messages) RegexDiagramNonDigit() string {
+	return Catalog.Format(msgs.locale, "regexDiagramNonDigit", nil)
+}
+
+// RegexDiagramNonWhitespace says "Not whitespace"
+// in the language the app shows.
+func RegexDiagramNonWhitespace() string { return In(i18n.Locale()).RegexDiagramNonWhitespace() }
+
+// RegexDiagramNonWhitespace says "Not whitespace"
+// in the language of msgs.
+func (msgs Messages) RegexDiagramNonWhitespace() string {
+	return Catalog.Format(msgs.locale, "regexDiagramNonWhitespace", nil)
+}
+
+// RegexDiagramNonWord says "Non-word"
+// in the language the app shows.
+func RegexDiagramNonWord() string { return In(i18n.Locale()).RegexDiagramNonWord() }
+
+// RegexDiagramNonWord says "Non-word"
+// in the language of msgs.
+func (msgs Messages) RegexDiagramNonWord() string {
+	return Catalog.Format(msgs.locale, "regexDiagramNonWord", nil)
+}
+
+// RegexDiagramOptional says "Optional"
+// in the language the app shows.
+func RegexDiagramOptional() string { return In(i18n.Locale()).RegexDiagramOptional() }
+
+// RegexDiagramOptional says "Optional"
+// in the language of msgs.
+func (msgs Messages) RegexDiagramOptional() string {
+	return Catalog.Format(msgs.locale, "regexDiagramOptional", nil)
+}
+
+// RegexDiagramLazy says "lazy"
+// in the language the app shows.
+func RegexDiagramLazy() string { return In(i18n.Locale()).RegexDiagramLazy() }
+
+// RegexDiagramLazy says "lazy"
+// in the language of msgs.
+func (msgs Messages) RegexDiagramLazy() string {
+	return Catalog.Format(msgs.locale, "regexDiagramLazy", nil)
+}
+
+// RegexNoCapture says "No capture"
+// in the language the app shows.
+func RegexNoCapture() string { return In(i18n.Locale()).RegexNoCapture() }
+
+// RegexNoCapture says "No capture"
+// in the language of msgs.
+func (msgs Messages) RegexNoCapture() string {
+	return Catalog.Format(msgs.locale, "regexNoCapture", nil)
+}
+
 // CallHierarchy says "Call Hierarchy"
 // in the language the app shows.
 func CallHierarchy() string { return In(i18n.Locale()).CallHierarchy() }

@@ -49,19 +49,7 @@ func Evaluate(pattern, sample string, flags Flags) Result {
 	if len(sample) > MaxSampleBytes {
 		return Result{Limited: fmt.Sprintf("sample exceeds %d bytes", MaxSampleBytes)}
 	}
-	if flags.IgnoreCase || flags.Multiline || flags.DotAll {
-		prefix := "(?"
-		if flags.IgnoreCase {
-			prefix += "i"
-		}
-		if flags.Multiline {
-			prefix += "m"
-		}
-		if flags.DotAll {
-			prefix += "s"
-		}
-		pattern = prefix + ")" + pattern
-	}
+	pattern = withFlags(pattern, flags)
 	re, err := regexp.Compile(pattern)
 	if err != nil {
 		return Result{Error: err.Error()}
@@ -89,4 +77,21 @@ func Evaluate(pattern, sample string, flags Flags) Result {
 		matches = append(matches, match)
 	}
 	return Result{Matches: matches, Truncated: truncated}
+}
+
+func withFlags(pattern string, flags Flags) string {
+	if !flags.IgnoreCase && !flags.Multiline && !flags.DotAll {
+		return pattern
+	}
+	prefix := "(?"
+	if flags.IgnoreCase {
+		prefix += "i"
+	}
+	if flags.Multiline {
+		prefix += "m"
+	}
+	if flags.DotAll {
+		prefix += "s"
+	}
+	return prefix + ")" + pattern
 }
