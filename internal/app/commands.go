@@ -20,9 +20,9 @@ type command struct {
 	run             func(*App)
 }
 
-func commands() []command {
-	return commandsFor(runtime.GOOS)
-}
+var platformCommands = commandsFor(runtime.GOOS)
+
+func commands() []command { return platformCommands }
 
 func commandsFor(goos string) []command {
 	replaceLabel, replaceKeyName, replaceMods, replaceKey := fileReplaceShortcutFor(goos)
