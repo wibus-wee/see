@@ -111,7 +111,18 @@ func (a *App) loadHistory(reset bool) {
 // gitChangesHeader is the head of the Git navigator's changes: their
 // number, and the actions on the repository at its end.
 func (a *App) gitChangesHeader(c *ui.Context) {
-	a.gitSectionHeader(c, "Changes", len(a.git.changes), &a.git.changesClosed, func() {
+	count := len(a.git.changes)
+	if a.git.branchDiffMode == compareBaseMode {
+		count = 0
+		if a.git.branchPanel != nil {
+			count = len(a.git.branchPanel.files)
+		}
+	}
+	a.gitSectionHeader(c, "Changes", count, &a.git.changesClosed, func() {
+		a.branchDiffModePicker(c)
+		if a.git.changesClosed || a.git.branchDiffMode == compareBaseMode {
+			return
+		}
 		staged, unstaged := false, false
 		for _, ch := range a.git.changes {
 			staged = staged || ch.Index != ' ' && ch.Index != '?'
@@ -149,6 +160,9 @@ func (a *App) gitChangesHeader(c *ui.Context) {
 func (a *App) gitHistoryHeader(c *ui.Context) {
 	h := &a.git.history
 	a.gitSectionHeader(c, "History", -1, &a.git.historyClosed, func() {
+		if a.git.historyClosed {
+			return
+		}
 		if h.loading {
 			ui.Spinner(c).FontSize(10)
 		}
@@ -168,7 +182,7 @@ func (a *App) gitHistoryHeader(c *ui.Context) {
 
 // gitSectionHeader is the head of a section of the Git navigator, as
 // VS Code's views': an arrow and its title, which a click folds and
-// unfolds, a count when not negative, and actions while it is open.
+// unfolds, a count when not negative, and actions at its end.
 func (a *App) gitSectionHeader(c *ui.Context, title string, count int, closed *bool, actions func()) {
 	ui.Row(c.Key(title)).Shrink(0).FillWidth().Height(28).Padding(0, sidebarInset, 0, sidebarInset).Gap(2).AlignItems(ui.Center).Children(func() {
 		tip := "Hide " + title
@@ -199,9 +213,7 @@ func (a *App) gitSectionHeader(c *ui.Context, title string, count int, closed *b
 			}
 		})
 		ui.Box(c).Grow(1)
-		if !*closed {
-			actions()
-		}
+		actions()
 	})
 }
 
@@ -209,9 +221,6 @@ func (a *App) gitSectionHeader(c *ui.Context, title string, count int, closed *b
 func (a *App) historyNavigator(c *ui.Context) {
 	h := &a.git.history
 	a.syncHistory()
-	if n := len(a.git.changes); n > 0 && a.git.changesClosed {
-		a.uncommittedRow(c, n)
-	}
 	switch {
 	case h.err != "":
 		ui.Text(c, h.err).FontSize(12).TextColor(colors(c).Err).Padding(10, 14)
@@ -223,43 +232,8 @@ func (a *App) historyNavigator(c *ui.Context) {
 	case len(h.commits) == 0 && a.git.head == "":
 		ui.Text(c, locales.MsgNoCommits()).FontSize(12).TextColor(colors(c).Muted).Padding(10, 14)
 	default:
-		ui.List(c, &h.list, len(h.commits), func(i int) { a.historyRow(c, i) }).Grow(1).FillWidth().Padding(0, sidebarInset).Label(locales.MsgHistory())
+		ui.List(c.Key("git-history-list"), &h.list, len(h.commits), func(i int) { a.historyRow(c, i) }).Grow(1).FillWidth().Padding(0, sidebarInset).Label(locales.MsgHistory())
 	}
-}
-
-// uncommittedRow stands for the working tree's changes over the history
-// while their section is folded, as Peek's: an orange disc in place of
-// an avatar; it unfolds them.
-func (a *App) uncommittedRow(c *ui.Context, n int) {
-	row := ui.Row(c).FillWidth().Height(historyRowHeight).Margin(0, sidebarInset).Padding(0, 8, 0, 0).Gap(historyGap).AlignItems(ui.Center).Radius(6).
-		Cursor(ui.CursorPointer).Label(locales.MsgUncommittedChanges())
-	if row.Hovered() {
-		row.Background(colors(c).Pill)
-	}
-	row.OnClick(func() { a.git.changesClosed = false })
-	orange := a.gitStatusColor('M')
-	if a.edTheme != nil {
-		orange = ui.RGB(0xff, 0x9f, 0x0a)
-	}
-	row.Children(func() {
-		lanes := min(max(a.git.history.lanesW, 1), graphMaxLanes)
-		ui.Box(c).Size(graphX(lanes-1)+graphLane, historyRowHeight).Shrink(0).Draw(func(p *ui.Painter, r ui.Rect) {
-			x, y := r.X+graphX(0), r.Y+r.H/2
-			var path ui.Path
-			path.MoveTo(x, y+4).LineTo(x, r.Y+r.H).Dash(0, 2, 2)
-			p.StrokePath(&path, 1.5, orange)
-			var dot ui.Path
-			dot.Circle(x, y, 4)
-			p.StrokePath(&dot, 1.5, orange)
-		})
-		ui.Box(c).Size(avatarSize, avatarSize).Shrink(0).Radius(avatarSize / 2).Center().Background(orange.Alpha(0.16)).Children(func() {
-			symbolIcon(c, icPage, 11, orange)
-		})
-		ui.Column(c).Grow(1).Shrink(1).Gap(1).Children(func() {
-			ui.Text(c, locales.MsgUncommittedChanges()).FontSize(12).Bold().SingleLine()
-			ui.Text(c, locales.MsgDFileS(n)).FontSize(11).TextColor(colors(c).Muted).SingleLine()
-		})
-	})
 }
 
 // The graph's geometry: rows of one height, so that the lanes of one row

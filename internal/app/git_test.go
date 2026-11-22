@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/egoist/mygo/ui/editor"
 
 	"see/internal/git"
+	"see/locales"
 )
 
 // gitRepo is a repository of files with one commit on main, and the
@@ -201,8 +203,7 @@ func writeFile(t *testing.T, root, name, text string) {
 }
 
 // The Git navigator shows the changes over the history, not one or the
-// other; each folds away on its own, and the uncommitted changes stand
-// over the history while theirs are folded.
+// other; each folds away on its own without adding a duplicate changes row.
 func TestGitNavigatorShowsChangesOverHistory(t *testing.T) {
 	h := newHarness(t, historyRepo(t)) // a.go is changed
 	h.readGit()
@@ -221,7 +222,7 @@ func TestGitNavigatorShowsChangesOverHistory(t *testing.T) {
 		t.Fatal(err)
 	}
 	h.tt.Frame()
-	if !h.a.git.changesClosed || h.tt.HasText("a.go") || !h.tt.HasText("Uncommitted Changes") || !h.tt.HasText("Add A") {
+	if !h.a.git.changesClosed || h.tt.HasText("a.go") || h.tt.HasText("Uncommitted Changes") || !h.tt.HasText("Add A") {
 		t.Fatalf("folded changes: %q", h.tt.Texts())
 	}
 	if err := h.tt.Click("History"); err != nil {
@@ -233,15 +234,188 @@ func TestGitNavigatorShowsChangesOverHistory(t *testing.T) {
 	}
 }
 
-// The Git navigator's history lists the commits under the uncommitted
-// changes; a commit opens with its files, and a file of it as a diff.
+func TestGitNavigatorStashesCollapseIndependently(t *testing.T) {
+	root := gitRepo(t, map[string]string{"a.go": "package a\n"})
+	writeFile(t, root, "a.go", "package a\n// saved\n")
+	gitRun(t, root, "stash", "push", "-q", "-m", "saved work")
+	writeFile(t, root, "a.go", "package a\n// current\n")
+
+	h := newHarness(t, root)
+	h.readGit()
+	h.a.navigator = navGit
+	h.tt.Frame()
+	h.settle(func() bool { return !h.a.git.history.loading })
+
+	if !h.tt.HasText("Stash: saved work") || !h.tt.HasText("a.go") {
+		t.Fatalf("initial Git sections: %q", h.tt.Texts())
+	}
+	if err := h.tt.Click("Stashed Changes"); err != nil {
+		t.Fatal(err)
+	}
+	h.tt.Frame()
+	if h.tt.HasText("Stash: saved work") || !h.tt.HasText("a.go") {
+		t.Fatalf("folding stashes affected changes: %q", h.tt.Texts())
+	}
+	if err := h.tt.Click("Changes"); err != nil {
+		t.Fatal(err)
+	}
+	h.tt.Frame()
+	if h.tt.HasText("a.go") || !h.tt.HasText("Stashed Changes") || !h.tt.HasText("History") {
+		t.Fatalf("folding changes affected secondary sections: %q", h.tt.Texts())
+	}
+	if err := h.tt.Click("Stashed Changes"); err != nil {
+		t.Fatal(err)
+	}
+	h.tt.Frame()
+	if !h.tt.HasText("Stash: saved work") || h.tt.HasText("a.go") {
+		t.Fatalf("unfolded stashes alongside folded changes: %q", h.tt.Texts())
+	}
+}
+
+func TestGitCommitInputFollowsStagedRows(t *testing.T) {
+	root := gitRepo(t, map[string]string{"a.go": "package a\n"})
+	writeFile(t, root, "a.go", "package a\n// current\n")
+	h := newHarness(t, root)
+	h.readGit()
+	h.a.navigator = navGit
+	h.a.git.historyClosed = true
+	h.tt.Frame()
+
+	hasCommitField := func() bool {
+		for _, access := range h.tt.AccessAll() {
+			if access.Role == ui.RoleTextField && access.Name == locales.MsgCommitMessage() {
+				return true
+			}
+		}
+		return false
+	}
+	if hasCommitField() {
+		t.Fatal("empty commit field shown without staged changes or a draft")
+	}
+	if err := h.tt.Click("Stage All Changes"); err != nil {
+		t.Fatal(err)
+	}
+	h.settle(func() bool { return !h.a.git.busy && !h.a.git.loading })
+	file, fileOK := h.tt.Find("Staged diff: a.go")
+	commit, commitOK := h.tt.Find(locales.MsgCommitMessage())
+	if !fileOK || !commitOK || commit.Y <= file.Y {
+		t.Fatalf("commit field is not after staged rows: file %v (%v), commit %v (%v), texts %q", file, fileOK, commit, commitOK, h.tt.Texts())
+	}
+	if err := h.tt.Click(locales.MsgCommitMessage()); err != nil {
+		t.Fatal(err)
+	}
+	h.tt.Type("draft")
+	h.tt.Frame()
+	if h.a.git.message != "draft" {
+		t.Fatalf("commit draft was not retained: %q", h.a.git.message)
+	}
+	if err := h.tt.Click("Unstage All Changes"); err != nil {
+		t.Fatal(err)
+	}
+	h.settle(func() bool { return !h.a.git.busy && !h.a.git.loading })
+	if !hasCommitField() {
+		t.Fatal("commit draft field disappeared when changes were unstaged")
+	}
+}
+
+func TestGitHistoryBottomRegionScrollsIndependently(t *testing.T) {
+	root := gitRepo(t, map[string]string{"a.go": "package a\n"})
+	for i := 0; i < 24; i++ {
+		n := strconv.Itoa(i)
+		writeFile(t, root, "a.go", "package a\n// "+n+"\n")
+		gitRun(t, root, "add", "a.go")
+		gitRun(t, root, "commit", "-qm", "Commit "+n)
+	}
+	writeFile(t, root, "a.go", "package a\n// saved work\n")
+	gitRun(t, root, "stash", "push", "-q", "-m", "saved work")
+	for i := 0; i < 28; i++ {
+		writeFile(t, root, "work-"+strconv.Itoa(i)+".go", "package a\n")
+	}
+
+	h := newHarness(t, root)
+	h.readGit()
+	h.a.navigator = navGit
+	h.tt.SetSize(harnessWidth, 900)
+	h.tt.Frame()
+	h.settle(func() bool { return !h.a.git.history.loading })
+
+	history, ok := h.tt.Find("History")
+	if !ok || history.Y < 250 || history.Y > 650 {
+		t.Fatalf("expanded History is not in a stable bottom region: %v (%v), texts %q", history, ok, h.tt.Texts())
+	}
+	if h.a.git.split != 40 || !h.tt.HasText("Commit 23") {
+		t.Fatalf("history split/list did not initialize: split %v, texts %q", h.a.git.split, h.tt.Texts())
+	}
+	before := strings.Join(h.tt.Texts(), "\x00")
+	latest, latestOK := h.tt.Find("Commit 23")
+	if !latestOK {
+		t.Fatal("latest history row is not visible")
+	}
+	x, y := latest.X+latest.W/2, latest.Y+latest.H/2
+	for i := 0; i < 12 && !h.tt.HasText("Commit 0"); i++ {
+		h.tt.Wheel(x, y, 0, 120)
+		h.tt.Advance(150 * time.Millisecond)
+	}
+	if !h.tt.HasText("Commit 0") || strings.Join(h.tt.Texts(), "\x00") == before {
+		t.Fatalf("expanded History did not scroll independently: %q", h.tt.Texts())
+	}
+	historyAfterScroll, ok := h.tt.Find("History")
+	if !ok || historyAfterScroll.Y != history.Y {
+		t.Fatalf("scrolling history moved its bottom region: before %v, after %v", history, historyAfterScroll)
+	}
+	if err := h.tt.Click("Changes"); err != nil {
+		t.Fatal(err)
+	}
+	h.tt.Frame()
+	if h.tt.HasText("work-0.go") || !h.tt.HasText("Stashed Changes") || !h.tt.HasText("Stash: saved work") {
+		t.Fatalf("collapsing Changes hid the independent stash group: %q", h.tt.Texts())
+	}
+	historyAfterCollapse, ok := h.tt.Find("History")
+	if !ok || historyAfterCollapse.Y != history.Y {
+		t.Fatalf("collapsing upper changes moved History: before %v, after %v", history, historyAfterCollapse)
+	}
+	if err := h.tt.Click("History"); err != nil {
+		t.Fatal(err)
+	}
+	h.tt.Frame()
+	foldedHistory, ok := h.tt.Find("History")
+	if !h.a.git.historyClosed || !ok || foldedHistory.Y < 720 {
+		t.Fatalf("collapsed History is not docked at the sidebar foot: closed %v, bounds %v, texts %q", h.a.git.historyClosed, foldedHistory, h.tt.Texts())
+	}
+	if err := h.tt.Click("History"); err != nil {
+		t.Fatal(err)
+	}
+	h.settle(func() bool { return !h.a.git.history.loading })
+	reopenedHistory, ok := h.tt.Find("History")
+	if h.a.git.historyClosed || !ok || reopenedHistory.Y != history.Y || !h.tt.HasText("Commit 0") {
+		t.Fatalf("reopened History lost its bottom region or scroll position: closed %v, bounds %v, texts %q", h.a.git.historyClosed, reopenedHistory, h.tt.Texts())
+	}
+}
+
+func TestGitHistorySplitPersists(t *testing.T) {
+	h := newHarness(t, historyRepo(t))
+	h.a.navigator = navGit
+	h.a.git.split = 48
+	h.a.captureSession()
+	if got := h.a.cfg.Workspaces[h.a.root].GitSplit; got != 48 {
+		t.Fatalf("session saved Git split %v, want 48", got)
+	}
+	h.a.git.split = 20
+	h.a.restoreSession()
+	if h.a.git.split != 48 {
+		t.Fatalf("session restored Git split %v, want 48", h.a.git.split)
+	}
+}
+
+// The Git navigator's history lists commits; a commit opens with its
+// files, and a file of it as a diff.
 func TestHistoryOpensACommitAndItsFile(t *testing.T) {
 	h := newHarness(t, historyRepo(t))
 	h.readGit()
 	h.a.navigator, h.a.git.changesClosed = navGit, true
 	h.tt.Frame()
 	h.settle(func() bool { return !h.a.git.history.loading })
-	for _, s := range []string{"Uncommitted Changes", "Merge side", "Add B on the side", "Add A", "first"} {
+	for _, s := range []string{"History", "Merge side", "Add B on the side", "Add A", "first"} {
 		if !h.tt.HasText(s) {
 			t.Fatalf("the history shows no %q: %q", s, h.tt.Texts())
 		}

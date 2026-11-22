@@ -34,11 +34,11 @@ type gitState struct {
 	branchDiffMode         branchDiffMode
 	branchPanel            *branchDiffView
 	branchFingerprint      string
-	// changesClosed and historyClosed are the navigator's sections
-	// folded away, as VS Code's views; both show by default.
-	changesClosed, historyClosed bool
-	split                        float32 // the changes' share of the height while both show, as a percentage
-	logSplit                     float32 // the commits' share of the log's tab, as a percentage
+	// changesClosed, stashesClosed, and historyClosed are the navigator's
+	// sections folded away; all show by default.
+	changesClosed, stashesClosed, historyClosed bool
+	split                                       float32 // the changes' share of the Git navigator, as a percentage
+	logSplit                                    float32 // the commits' share of the log's tab, as a percentage
 	// upstream is the branch HEAD's tracks, and ahead and behind how
 	// far apart they are; remotes are the repository's, origin first.
 	upstream      string
@@ -819,45 +819,33 @@ func (a *App) gitNavigator(c *ui.Context) {
 			unstaged++
 		}
 	}
-	// The changes over the history, each a section that folds, as VS
-	// Code's views; while both show, a divider between them sets how
-	// much of the navigator each takes.
 	changes := func() {
-		if a.git.branchDiffMode == compareBaseMode {
-			count := 0
-			if a.git.branchPanel != nil {
-				count = len(a.git.branchPanel.files)
-			}
-			a.gitSectionHeader(c, "Changes", count, &a.git.changesClosed, func() {})
-			if a.git.changesClosed {
-				return
-			}
-			a.branchDiffModePicker(c)
-			a.branchDiffNavigator(c)
-			return
-		}
-		a.gitChangesHeader(c)
-		if a.git.changesClosed {
-			return
-		}
-		a.branchDiffModePicker(c)
-		a.commitBar(c, staged)
-		if a.git.stashing {
-			a.stashBar(c)
-		}
-		ui.Scroll(c).Grow(1).FillWidth().Children(func() {
+		ui.Scroll(c.Key("git-changes")).Grow(1).FillWidth().Children(func() {
 			ui.Column(c).FillWidth().Padding(0, 0, 6, 0).Children(func() {
-				if len(a.git.changes) == 0 {
-					ui.Text(c, locales.MsgNoChanges()).FontSize(12).TextColor(colors(c).Muted).Padding(4, sidebarInset, 8, gitSidebarTextInset)
+				a.gitChangesHeader(c)
+				if !a.git.changesClosed {
+					if a.git.stashing {
+						a.stashBar(c)
+					}
+					if a.git.branchDiffMode == compareBaseMode {
+						a.branchDiffNavigator(c)
+					} else {
+						if len(a.git.changes) == 0 {
+							ui.Text(c, locales.MsgNoChanges()).FontSize(12).TextColor(colors(c).Muted).Padding(4, sidebarInset, 8, gitSidebarTextInset)
+						}
+						if staged > 0 {
+							a.gitSection(c, "Staged Changes", staged)
+						}
+						a.gitRowsByKind(c, true)
+						if unstaged > 0 && staged > 0 {
+							a.gitSection(c, "Changes", unstaged)
+						}
+						a.gitRowsByKind(c, false)
+						if staged > 0 || a.git.message != "" {
+							a.commitBar(c, staged)
+						}
+					}
 				}
-				if staged > 0 {
-					a.gitSection(c, "Staged Changes", staged)
-				}
-				a.gitRowsByKind(c, true)
-				if unstaged > 0 && staged > 0 {
-					a.gitSection(c, "Changes", unstaged)
-				}
-				a.gitRowsByKind(c, false)
 				a.stashRows(c)
 			})
 		})
@@ -869,20 +857,18 @@ func (a *App) gitNavigator(c *ui.Context) {
 		}
 	}
 	switch {
-	case !a.git.changesClosed && !a.git.historyClosed:
+	case !a.git.historyClosed:
 		if a.git.split <= 0 {
 			a.git.split = 40
 		}
 		ui.SplitVerticalPercent(c, &a.git.split,
 			func() { ui.Column(c).Fill().Children(changes) },
 			func() { ui.Column(c).Fill().Children(history) }).Grow(1).FillWidth()
-	case a.git.historyClosed:
-		// The history's head at the navigator's foot, under the changes.
-		ui.Column(c).Grow(1).FillWidth().Children(changes)
-		history()
 	default:
-		changes()
-		ui.Column(c).Grow(1).FillWidth().Children(history)
+		ui.Column(c).Grow(1).FillWidth().Children(func() {
+			changes()
+			history()
+		})
 	}
 }
 
@@ -1088,9 +1074,9 @@ func (a *App) lineCounts(c *ui.Context, path string, staged bool) {
 	})
 }
 
-// commitBar is the field over the Git navigator's changes, as the
-// project navigator's filter: a commit message, Return commits what is
-// staged, and its button at the end does the same.
+// commitBar follows the Git navigator's changes, as the project
+// navigator's filter: Return commits what is staged, and its button at
+// the end does the same.
 func (a *App) commitBar(c *ui.Context, staged int) {
 	can := !a.git.busy && staged > 0 && strings.TrimSpace(a.git.message) != ""
 	commit := func() {
@@ -1104,7 +1090,7 @@ func (a *App) commitBar(c *ui.Context, staged int) {
 	}
 	ui.Row(c).Shrink(0).FillWidth().Padding(2, sidebarInset, 6, sidebarInset).Children(func() {
 		ui.Row(c).FillWidth().Height(28).Radius(14).Background(colors(c).Pill).Padding(0, 3, 0, gitSidebarTextOffset).Gap(4).AlignItems(ui.Center).Children(func() {
-			in := ui.TextInput(c, &a.git.message).Placeholder(placeholder).Label(locales.MsgCommitMessage()).
+			in := ui.TextInput(c.Key("git-commit-message"), &a.git.message).Placeholder(placeholder).Label(locales.MsgCommitMessage()).
 				FontSize(12).Grow(1).Background(ui.Transparent).BorderWidth(0).Padding(0)
 			if in.Submitted() {
 				commit()

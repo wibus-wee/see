@@ -25,8 +25,8 @@ func (a *App) endStash() {
 	a.git.stashing, a.git.stashMessage = false, ""
 }
 
-// stashBar is the field a stash's message is typed in, with Stash and
-// Cancel at its end.
+// stashBar is the message field directly under Changes while stashing,
+// with Stash and Cancel at its end.
 func (a *App) stashBar(c *ui.Context) {
 	can := !a.git.busy && len(a.git.changes) > 0
 	stash := func() {
@@ -34,11 +34,14 @@ func (a *App) stashBar(c *ui.Context) {
 			return
 		}
 		ctx, root, message := a.wsCtx, a.git.root, a.git.stashMessage
-		a.stashJob("Stashed changes.", func() error { return git.StashPush(ctx, root, message) }, a.endStash)
+		a.stashJob("Stashed changes.", func() error { return git.StashPush(ctx, root, message) }, func() {
+			a.git.stashesClosed = false
+			a.endStash()
+		})
 	}
 	ui.Row(c).Shrink(0).FillWidth().Padding(0, sidebarInset, 6, sidebarInset).Children(func() {
 		ui.Row(c).FillWidth().Height(28).Radius(14).Background(colors(c).Pill).Padding(0, 3, 0, gitSidebarTextOffset).Gap(2).AlignItems(ui.Center).Children(func() {
-			in := ui.TextInput(c, &a.git.stashMessage).Placeholder("Stash Message (Optional)").Label("Stash Message").
+			in := ui.TextInput(c.Key("git-stash-message"), &a.git.stashMessage).Placeholder("Stash Message (Optional)").Label("Stash Message").
 				FontSize(12).Grow(1).Background(ui.Transparent).BorderWidth(0).Padding(0).AutoFocus()
 			switch {
 			case in.Submitted():
@@ -68,7 +71,10 @@ func (a *App) stashRows(c *ui.Context) {
 	if len(a.git.stashes) == 0 {
 		return
 	}
-	a.gitSection(c, "Stashed Changes", len(a.git.stashes))
+	a.gitSectionHeader(c, "Stashed Changes", len(a.git.stashes), &a.git.stashesClosed, func() {})
+	if a.git.stashesClosed {
+		return
+	}
 	now := time.Now()
 	for _, s := range a.git.stashes {
 		a.stashRow(c, s, now)
