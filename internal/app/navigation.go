@@ -24,6 +24,9 @@ type typeDefinitionClient interface {
 
 func supportsNavigation(c langserver.Client, kind string) bool {
 	switch kind {
+	case "typeHierarchy":
+		p, ok := c.(typeHierarchyClient)
+		return ok && p.HasTypeHierarchy()
 	case "implementation":
 		p, ok := c.(implementationClient)
 		return ok && p.HasImplementation()
@@ -74,6 +77,8 @@ func (a *App) navigateActive(kind string) {
 func (a *App) commandEnabled(name string) bool {
 	g := a.focus
 	switch name {
+	case "Show Type Hierarchy":
+		return a.activeEditor() != nil && a.navigationEnabled(a.activePath(), "typeHierarchy")
 	case "Reopen Closed Tab":
 		return len(a.closed) > 0
 	case "Show Local History":
@@ -117,6 +122,8 @@ func (a *App) commandEnabled(name string) bool {
 	case "Find in Workspace", "Replace in Workspace", "Search Workspace Symbols",
 		"Filter Files", "Open Quickly", "Show Outline", "Show Group Files":
 		return a.root != ""
+	case "Edit Search Results":
+		return len(a.find.results) > 0 && !a.find.running
 	case "Reveal in Project Navigator":
 		return a.canRevealInProjectNavigator(a.activeProjectFile())
 	// Commands that only read or act on the repository.
@@ -135,6 +142,8 @@ func (a *App) commandEnabled(name string) bool {
 		return g != nil && isMarkdown(tabPath(g.active)) && a.docs[tabPath(g.active)] != nil
 	case "Show Line's Commit in Git Log":
 		return a.canRevealLineCommit()
+	case "Discard Change":
+		return a.canDiscardChange()
 	case "Show File History":
 		return a.canShowFileHistory()
 	case "Git: Reveal HEAD in Log", "Git: Jump to Date…":
@@ -181,7 +190,7 @@ func (a *App) commandEnabled(name string) bool {
 func (a *App) navigationMenuItems(run func(func())) []*mygo.MenuItem {
 	var items []*mygo.MenuItem
 	for _, cmd := range commands() {
-		if cmd.name != "Go to Definition" && cmd.name != "Peek Definition" && cmd.name != "Go to Implementation" && cmd.name != "Go to Type Definition" && cmd.name != "Show Call Hierarchy" && cmd.name != "Next Method" && cmd.name != "Previous Method" {
+		if cmd.name != "Go to Definition" && cmd.name != "Peek Definition" && cmd.name != "Go to Implementation" && cmd.name != "Go to Type Definition" && cmd.name != "Show Call Hierarchy" && cmd.name != "Show Type Hierarchy" && cmd.name != "Next Method" && cmd.name != "Previous Method" {
 			continue
 		}
 		items = append(items, &mygo.MenuItem{
@@ -193,7 +202,7 @@ func (a *App) navigationMenuItems(run func(func())) []*mygo.MenuItem {
 }
 
 func (a *App) refreshNavigationMenu() {
-	state := [4]bool{a.activeEditor() != nil, a.commandEnabled("Go to Implementation"), a.commandEnabled("Go to Type Definition"), a.commandEnabled("Peek Definition")}
+	state := [6]bool{a.activeEditor() != nil, a.commandEnabled("Go to Implementation"), a.commandEnabled("Go to Type Definition"), a.commandEnabled("Peek Definition"), a.commandEnabled("Show Type Hierarchy"), a.canDiscardChange()}
 	if state != a.navigationMenuState {
 		a.navigationMenuState = state
 		a.host.RefreshMenu()

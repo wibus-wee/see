@@ -81,6 +81,7 @@ func commandsFor(goos string) []command {
 			a.sidebarOff, a.navigator, a.git.historyClosed = false, navGit, false
 			a.refreshGit()
 		}},
+		{"Edit Search Results", "", "", 0, 0, func(a *App) { a.openSearchEdit() }},
 		{"Git: Show Log", "", "", 0, 0, func(a *App) { a.openGitLog() }},
 		{"Show File History", "", "", 0, 0, func(a *App) { a.showActiveFileHistory() }},
 		{"Show Local History", "", "", 0, 0, func(a *App) { a.showActiveLocalHistory() }},
@@ -95,6 +96,7 @@ func commandsFor(goos string) []command {
 		{"Toggle Inline Diff", "", "", 0, 0, func(a *App) { a.toggleDiffLayout() }},
 		{"Next Change", "", "", 0, 0, func(a *App) { a.goToChange(1) }},
 		{"Previous Change", "", "", 0, 0, func(a *App) { a.goToChange(-1) }},
+		{"Discard Change", "", "", 0, 0, func(a *App) { a.discardChange() }},
 		{"Git: Fetch", "", "", 0, 0, func(a *App) { a.gitFetch() }},
 		{"Git: Pull", "", "", 0, 0, func(a *App) { a.gitPull() }},
 		{"Git: Push", "", "", 0, 0, func(a *App) { a.gitPush() }},
@@ -162,6 +164,7 @@ func commandsFor(goos string) []command {
 		command{"Pin References", "", "", 0, 0, func(a *App) { a.pinReferencesCommand() }},
 		command{"Find Callers", "", "", 0, 0, func(a *App) { a.findUsages(true) }},
 		command{"Show Call Hierarchy", "Shift+Alt+", "H", ui.Shift | ui.Alt, ui.KeyH, func(a *App) { a.showCallHierarchy() }},
+		command{"Show Type Hierarchy", "", "", 0, 0, func(a *App) { a.showTypeHierarchyAt(a.focus) }},
 		command{"Next Method", methodLabel, "↓", methodMods, ui.KeyDown, func(a *App) { a.goToMethod(1) }},
 		command{"Previous Method", methodLabel, "↑", methodMods, ui.KeyUp, func(a *App) { a.goToMethod(-1) }},
 		command{"Go to Definition", "", "F12", 0, 0, func(a *App) {

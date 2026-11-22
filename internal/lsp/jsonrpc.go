@@ -268,6 +268,9 @@ func (c *Conn) isClosed() bool {
 // into result when it is not nil. Canceling ctx stops waiting and tells
 // the server with $/cancelRequest.
 func (c *Conn) Call(ctx context.Context, method string, params any, result any) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	c.mu.Lock()
 	if c.closed {
 		c.mu.Unlock()
