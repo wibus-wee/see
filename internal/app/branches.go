@@ -517,14 +517,14 @@ func (a *App) branchPickerPanel(c *ui.Context) {
 				contentHeight := max(0, height-74)
 				listHeight := min(float32(250), contentHeight*0.45)
 				previewHeight := max(0, contentHeight-listHeight-8)
-				a.branchPickerList(c, items, listHeight).MaxHeight(listHeight).MinHeight(0).FillWidth()
+				a.branchPickerList(c, items, listHeight).MaxHeight(listHeight).FillWidth()
 				ui.Box(c).Height(1).FillWidth().Background(colors(c).Separator)
 				a.branchPreviewPane(c).MaxHeight(previewHeight).MinHeight(0).FillWidth()
 			} else {
 				listHeight := min(float32(380), max(0, height-64))
 				previewHeight := max(0, height-64)
 				ui.Row(c).FillWidth().MinHeight(0).Gap(8).AlignItems(ui.Start).Children(func() {
-					a.branchPickerList(c, items, listHeight).Width(280).MaxHeight(listHeight).MinHeight(0)
+					a.branchPickerList(c, items, listHeight).Width(280).MaxHeight(listHeight)
 					ui.Box(c).Width(1).AlignSelf(ui.Stretch).Background(colors(c).Separator)
 					a.branchPreviewPane(c).Grow(1).MinWidth(0).MaxHeight(previewHeight).MinHeight(0)
 				})
@@ -548,12 +548,30 @@ func (a *App) branchPickerList(c *ui.Context, items []branchItem, maxHeight floa
 	default:
 		hoveredBranch := false
 		list := ui.List(c, &p.list, len(items), func(i int) { a.branchRow(c, items, i, &hoveredBranch) }).
-			MaxHeight(maxHeight).Label(locales.MsgBranches())
+			MaxHeight(maxHeight).MinHeight(branchPickerListMinHeight(c, items, maxHeight)).Label(locales.MsgBranches())
 		if !p.compare && !hoveredBranch {
 			a.clearBranchHover()
 		}
 		return list
 	}
+}
+
+func branchPickerListMinHeight(c *ui.Context, items []branchItem, maxHeight float32) float32 {
+	var height float32
+	for _, item := range items {
+		switch {
+		case item.heading != "":
+			height += c.Theme().Space(8)
+		case item.branch != nil:
+			height += c.Theme().Space(14)
+		default:
+			height += c.Theme().Space(9)
+		}
+		if height >= maxHeight {
+			return maxHeight
+		}
+	}
+	return height
 }
 
 func (a *App) branchPreviewPane(c *ui.Context) ui.Element {

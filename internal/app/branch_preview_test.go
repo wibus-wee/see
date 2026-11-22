@@ -291,6 +291,66 @@ func TestBranchPickerWideColumnsAlignAtTopAndFavorPreview(t *testing.T) {
 	}
 }
 
+func TestBranchPickerInitialLoadingShowsAllTwoLineRows(t *testing.T) {
+	root := gitRepo(t, map[string]string{"a.go": "package a\n"}, "feature")
+	h := newHarness(t, root)
+	h.tt = ui.NewTester(h.a.view, 1100, 700)
+	h.readGit()
+	openSwitchBranchPicker(t, h)
+
+	p := &h.a.git.picker
+	if p.previewBranch.Name != "main" || !p.previewLoading || p.preview != nil {
+		t.Fatalf("expected main preview to be loading on first frame: branch %q, loading %v, preview %+v", p.previewBranch.Name, p.previewLoading, p.preview)
+	}
+	if p.loading || p.err != "" || p.query != "" {
+		t.Fatalf("branch list is not settled and unfiltered: loading %v, error %q, query %q", p.loading, p.err, p.query)
+	}
+	list, ok := h.tt.AccessByRole(ui.RoleList, locales.MsgBranches())
+	if !ok {
+		t.Fatal("branch list is not exposed to the UI tester")
+	}
+	if list.SetSize != len(h.a.branchItems()) {
+		t.Fatalf("branch list exposes %d of %d rows", list.SetSize, len(h.a.branchItems()))
+	}
+	visibleText := func(name string, afterY float32) (ui.AccessInfo, bool) {
+		for _, access := range h.tt.AccessAll() {
+			if access.Role == ui.RoleText && access.Name == name &&
+				access.Bounds.X >= list.Bounds.X && access.Bounds.X < list.Bounds.X+list.Bounds.W &&
+				access.Bounds.Y >= max(list.Bounds.Y, afterY) && access.Bounds.Y+access.Bounds.H <= list.Bounds.Y+list.Bounds.H {
+				return access, true
+			}
+		}
+		return ui.AccessInfo{}, false
+	}
+	initialList, initialPanel := list.Bounds, branchPickerPanelAccess(t, h).Bounds
+	featureBefore, featureVisible := visibleText("feature", list.Bounds.Y)
+	var subjectBefore ui.AccessInfo
+	subjectVisible := false
+	if featureVisible {
+		subjectBefore, subjectVisible = visibleText("first", featureBefore.Bounds.Y+featureBefore.Bounds.H)
+	}
+
+	h.settle(func() bool {
+		return !p.previewLoading && p.preview != nil && p.preview.TargetRef == "refs/heads/main"
+	})
+	list, _ = h.tt.AccessByRole(ui.RoleList, locales.MsgBranches())
+	feature, found := visibleText("feature", list.Bounds.Y)
+	if !found {
+		t.Fatalf("feature branch row is missing after main preview loads: list %+v", list.Bounds)
+	}
+	subject, found := visibleText("first", feature.Bounds.Y+feature.Bounds.H)
+	if !found {
+		t.Fatalf("feature branch's second row line is missing after main preview loads: branch %+v, list %+v", feature.Bounds, list.Bounds)
+	}
+	loadedPanel := branchPickerPanelAccess(t, h).Bounds
+	if !featureVisible || !subjectVisible {
+		t.Fatalf("feature's two-line row was not visible while main preview loaded: initial list %+v panel %+v; loaded list %+v panel %+v; feature %+v subject %+v", initialList, initialPanel, list.Bounds, loadedPanel, feature.Bounds, subject.Bounds)
+	}
+	if featureBefore.Bounds != feature.Bounds || subjectBefore.Bounds != subject.Bounds {
+		t.Fatalf("branch row moved as main preview loaded: feature %+v → %+v, subject %+v → %+v", featureBefore.Bounds, feature.Bounds, subjectBefore.Bounds, subject.Bounds)
+	}
+}
+
 func TestBranchPickerHugsShortContent(t *testing.T) {
 	root := gitRepo(t, map[string]string{"a.go": "package a\n\nvar value = 1\n"}, "feature")
 	gitRun(t, root, "switch", "-q", "feature")
