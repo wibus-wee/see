@@ -55,6 +55,8 @@ type Config struct {
 	FontSize             float64              `json:"editorFontSize,omitempty"`    // 13 when 0
 	LineNumbers          int                  `json:"editorLineNumbers,omitempty"` // 0 on, 1 relative, 2 off
 	SoftWrap             bool                 `json:"editorSoftWrap,omitempty"`
+	EditorShowPageGuide  bool                 `json:"editorShowPageGuide,omitempty"`
+	EditorPageGuide      int                  `json:"editorPageGuideColumn,omitempty"`
 	HideDocComments      bool                 `json:"hideDocComments,omitempty"`
 	ShowInvisibles       bool                 `json:"editorShowInvisibles,omitempty"`
 	EditorFoldImports    bool                 `json:"editorFoldImports,omitempty"`
@@ -244,6 +246,15 @@ func (c *Config) EditorFontSize() float64 {
 		return 13
 	}
 	return c.FontSize
+}
+
+const MaxPageGuideColumn = 500
+
+func (c *Config) PageGuideColumn() int {
+	if c.EditorPageGuide < 1 || c.EditorPageGuide > MaxPageGuideColumn {
+		return 80
+	}
+	return c.EditorPageGuide
 }
 
 // EditorPanelPct is the editors' share of the height over the panel.

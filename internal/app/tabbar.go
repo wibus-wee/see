@@ -71,7 +71,10 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 			d := a.docs[path]
 			diff := g.diffs[p]
 			if diff != nil {
-				if diff.localHistory != nil {
+				if diff.revision != nil {
+					path = diff.revision.path
+					d = &doc{name: localHistoryText("revisionTitle") + " · " + filepath.Base(path)}
+				} else if diff.localHistory != nil {
 					path = diff.localHistory.path
 					d = &doc{name: diff.localHistory.name}
 				} else if diff.branch != nil || diff.search != nil {
@@ -141,7 +144,7 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 				if isMarkdownTab(p) {
 					nameLabel += " Preview"
 				}
-				if diff != nil && !diff.page() {
+				if diff != nil && !diff.page() && diff.revision == nil {
 					nameLabel += " (" + diff.label() + ")"
 				}
 				cl := ui.ButtonBase(c).Label(locales.MsgClose()+nameLabel).Size(16, 16).Radius(4).Center().KeepFocus()

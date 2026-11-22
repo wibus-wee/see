@@ -423,6 +423,7 @@ func TestDiscardBeforeQuitStaysOutOfSynchronousSessionSave(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config.json")
 	h := newHarness(t, "")
 	h.a.cfg = config.Load(configPath)
+	h.a.cfg.ConfirmClose = true
 	h.a.newFile()
 	d := h.a.docs[h.a.activePath()]
 	d.buf.Set("discard on quit")

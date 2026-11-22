@@ -8,6 +8,8 @@ import (
 )
 
 var commandMessages = map[string]string{
+	"Split Editor Right":            "commandSplitEditorRight",
+	"Split Editor Down":             "commandSplitEditorDown",
 	"Bigger":                        "commandBigger",
 	"Smaller":                       "commandSmaller",
 	"Reset Editor Font Size":        "commandResetEditorFontSize",
@@ -27,6 +29,7 @@ var commandMessages = map[string]string{
 	"Show Line's Commit in Git Log": "commandShowLineCommit",
 	"Show File History":             "commandShowFileHistory",
 	"Show Local History":            "commandShowLocalHistory",
+	"Compare with Revision…":        "commandCompareRevision",
 	"Git: Reveal HEAD in Log":       "commandGitRevealHeadInLog",
 	"Git: Jump to Date…":            "commandGitJumpToDate",
 	"Toggle Inline Git Blame":       "commandToggleInlineBlame",

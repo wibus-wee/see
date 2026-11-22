@@ -77,6 +77,8 @@ func (a *App) navigateActive(kind string) {
 func (a *App) commandEnabled(name string) bool {
 	g := a.focus
 	switch name {
+	case "Split Editor Right", "Split Editor Down":
+		return g != nil && g.active != ""
 	case "Show Type Hierarchy":
 		return a.activeEditor() != nil && a.navigationEnabled(a.activePath(), "typeHierarchy")
 	case "Reopen Closed Tab":
@@ -84,6 +86,9 @@ func (a *App) commandEnabled(name string) bool {
 	case "Show Local History":
 		d := a.docs[a.activePath()]
 		return a.localHistorySupported(d) && a.activeEditor() != nil
+	case "Compare with Revision…":
+		d := a.docs[a.activePath()]
+		return a.activeEditor() != nil && d != nil && !d.untitled && d.buf != nil
 	case "Edit All in Scope":
 		d, st := a.scopeEditDocument()
 		return d != nil && st != nil && a.serverFor(d.path) != nil

@@ -55,6 +55,7 @@ Use `see` or `see .` for the current folder, `see /path/to/project` to open a fo
 - **Jump** — reach files by fuzzy name, search workspace symbols, and step back and forward through your reading history.
 - **Understand** — definitions, references, callers, diagnostics, and hover help for Go, TypeScript, and JavaScript, through language servers.
 - **Review** — stage, unstage, commit, and discard changes, open a change as a diff tab, and see each file's status and line counts beside it in the navigator.
+- **Resolve merge conflicts** — open a file under **Conflicted Files** in the Git navigator. Compare **Current** and **Incoming**, then keep either side or both (current first) for each conflict. **Save & Stage** stages the resolved file without committing. Resolve binary conflicts and file deletions with Git; to keep a manually edited text file, review it before staging it in See.
 - **Compare branches** — choose a local or remote base in the Git navigator to review files changed since the branches diverged, including current working-tree changes.
 - **History** — browse the branch and its upstream, or every branch, as a graph; open a commit to read its message and files, and a file as a diff. Incoming commits carry ↓ and outgoing commits ↑. **Git: Show Log** opens a table with separate branch/tag and graph columns, aligned commit messages, authors, dates and hashes, plus the chosen commit's diffs below. Narrow editors keep the message and date visible; dense graphs scroll horizontally. Filtering hides graph connections until cleared, and older commits remain available through **Load More Commits**.
 - **Branch and sync** — switch or create branches from the branch name in the toolbar, and fetch, pull and push, with incoming and outgoing commits counted. Local status refreshes every five seconds. See fetches on opening a repository and every two minutes afterward; fetching updates remote references without changing your files. External pushes, fetches and tags also refresh the history on the next local status check.
@@ -74,6 +75,8 @@ Open Quickly matches names and relative paths. Separate terms with spaces to req
 Clicking a file opens it as a preview, and opening another file replaces that preview. Double-click the file, its tab, or its name in the path bar, or use **Keep Preview Tab** in the command palette, to keep it. Tabs appear once more than one file is open.
 
 Use **F6** / **Shift+F6** to cycle editor groups in layout order, keeping each group’s cursor position. **Move Tab to Next Editor** in the command palette moves the active tab to the next group, wrapping at the end.
+
+In **Settings → Editor → Display**, turn on **Page Guide** and choose a column (80 by default). The guide marks a line-length target without changing how lines wrap.
 
 Right-click a tab to keep a preview, close other tabs, close tabs to its right, or close saved tabs in that editor group. The three bulk close actions are also in the command palette. Closing the last view of an unsaved file asks once to save or discard; Cancel keeps the whole selection open. Other editor groups keep their tabs.
 

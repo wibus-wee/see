@@ -104,8 +104,8 @@ func TestRipgrep(t *testing.T) {
 	if !st.Truncated || st.Matches != 2 {
 		t.Errorf("limit: %+v", st)
 	}
-	if _, err := Run(context.Background(), rg, root, Options{Query: "(", Regexp: true}, func(File) {}); err == nil {
-		t.Error("bad regexp accepted")
+	if _, err := Run(context.Background(), rg, root, Options{Query: "[", Regexp: true}, func(File) {}); err == nil || !strings.Contains(err.Error(), "unclosed character class") {
+		t.Errorf("missing regexp error reason: %v", err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()

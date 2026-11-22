@@ -242,7 +242,6 @@ func Run(ctx context.Context, rg, root string, o Options, emit func(File)) (Stat
 			return st, nil // ripgrep's "nothing found"
 		}
 		if msg := strings.TrimSpace(stderr.String()); msg != "" {
-			msg, _, _ = strings.Cut(msg, "\n")
 			return st, errors.New(msg)
 		}
 		return st, werr

@@ -101,7 +101,7 @@ func (a *App) groupView(c *ui.Context, g *group) {
 			}
 		}
 		if g == a.focus {
-			if a.trustAsk {
+			if a.trustAsk && g.eds[g.active] != nil {
 				a.trustBanner(c)
 			}
 		}
@@ -225,8 +225,13 @@ func (a *App) groupContent(c *ui.Context, g *group) {
 	} else if v != nil && v.log != nil {
 		a.gitLogContent(c, g, v.log)
 		return
+	} else if v != nil && v.revision != nil {
+		a.revisionContent(c, g, v)
 	} else if v != nil && v.localHistory != nil {
 		a.localHistoryContent(c, g, v)
+		return
+	} else if v != nil && v.conflict != nil {
+		a.gitConflictContent(c, g, v)
 		return
 	} else if v != nil && v.state == nil {
 		ui.Row(c).Grow(1).FillWidth().Center().Gap(8).Children(func() {
@@ -363,6 +368,10 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 		gutterMarks := st.GutterMarks
 		st.GutterMarks = a.bookmarkGutterMarks(d.path)
 		st.OnGutterClick = func(line int) { a.bookmarks.Toggle(d.path, line); a.saveConfigSoon() }
+		st.WrapGuides = st.WrapGuides[:0]
+		if a.cfg.EditorShowPageGuide {
+			st.WrapGuides = append(st.WrapGuides, a.cfg.PageGuideColumn())
+		}
 		var ed ui.Element
 		minimap := a.showsMinimap(g, d)
 		ui.Row(c).Grow(1).FillWidth().Children(func() {

@@ -137,6 +137,14 @@ func (a *App) inspectorFileDoc() *doc {
 	if g == nil {
 		return nil
 	}
+	if v := g.diffs[g.active]; v != nil {
+		if v.revision != nil {
+			return a.docs[v.revision.path]
+		}
+		if v.localHistory != nil {
+			return a.docs[v.localHistory.path]
+		}
+	}
 	return a.docs[tabPath(g.active)]
 }
 
@@ -358,7 +366,15 @@ func (a *App) inspectorHistoryPage(c *ui.Context) {
 									ui.Text(c, a.commitByline(cm)+" · "+cm.Short).FontSize(11).
 										TextColor(colors(c).Muted).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 								})
-								symbolIcon(c, icChevron, 9, colors(c).Dim)
+								compare := ui.ButtonBase(c).Size(22, 22).Padding(0).Radius(4).Center().KeepFocus().
+									Tooltip(commandLabel("Compare with Revision…"))
+								if compare.Hovered() {
+									compare.Background(colors(c).Pill)
+								}
+								compare.Children(func() { symbolIcon(c, icReplaceMatch, 12, colors(c).Muted) })
+								if compare.Clicked() {
+									a.compareInspectorRevision(cm.Hash)
+								}
 							})
 						})
 						row.OnClick(func() { a.openCommit(cm) })

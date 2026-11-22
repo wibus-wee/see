@@ -407,6 +407,64 @@ func TestGitHistorySplitPersists(t *testing.T) {
 	}
 }
 
+func TestGitConflictSplitDoesNotChangeSavedGitSplit(t *testing.T) {
+	root := gitRepo(t, map[string]string{"settings.go": "base\n"})
+	gitRun(t, root, "switch", "-qc", "feature")
+	writeFile(t, root, "settings.go", "incoming\n")
+	gitRun(t, root, "commit", "-qam", "feature")
+	gitRun(t, root, "switch", "-q", "main")
+	writeFile(t, root, "settings.go", "current\n")
+	gitRun(t, root, "commit", "-qam", "main")
+	if _, err := git.Command(context.Background(), root, "merge", "feature"); err == nil {
+		t.Fatal("expected a merge conflict")
+	}
+
+	h := newHarness(t, root)
+	h.readGit()
+	h.a.navigator = navGit
+	h.a.git.split = 48
+	h.tt.SetSize(harnessWidth, 900)
+	h.tt.Frame()
+	h.settle(func() bool { return !h.a.git.history.loading })
+	if !h.tt.HasText("Conflicted Files") || h.a.git.conflictSplit < 62 || h.a.git.split != 48 {
+		t.Fatalf("conflict split changed the saved ratio: normal %v, temporary %v, texts %q", h.a.git.split, h.a.git.conflictSplit, h.tt.Texts())
+	}
+	history, ok := h.tt.Find("History")
+	if !ok {
+		t.Fatalf("History not found: %q", h.tt.Texts())
+	}
+	before := h.a.git.conflictSplit
+	var divider ui.AccessInfo
+	best := float32(1000)
+	for _, access := range h.tt.AccessAll() {
+		if access.Role != ui.RoleSplitter || access.Bounds.H > 3 {
+			continue
+		}
+		distance := history.Y - (access.Bounds.Y + access.Bounds.H)
+		if distance < 0 {
+			distance = -distance
+		}
+		if distance < best {
+			divider, best = access, distance
+		}
+	}
+	if best > 10 {
+		t.Fatalf("History split divider not found near its header: %v, %q", history, h.tt.Texts())
+	}
+	x, y := divider.Bounds.X+divider.Bounds.W/2, divider.Bounds.Y+divider.Bounds.H/2
+	h.tt.Press(x, y)
+	h.tt.Move(x, y+80)
+	h.tt.Release(x, y+80)
+	h.tt.Frame()
+	if h.a.git.conflictSplit <= before || h.a.git.split != 48 {
+		t.Fatalf("dragging conflict split changed the saved ratio: normal %v, temporary %v (before %v)", h.a.git.split, h.a.git.conflictSplit, before)
+	}
+	h.a.captureSession()
+	if got := h.a.cfg.Workspaces[h.a.root].GitSplit; got != 48 {
+		t.Fatalf("session saved conflict ratio %v instead of normal ratio 48", got)
+	}
+}
+
 // The Git navigator's history lists commits; a commit opens with its
 // files, and a file of it as a diff.
 func TestHistoryOpensACommitAndItsFile(t *testing.T) {

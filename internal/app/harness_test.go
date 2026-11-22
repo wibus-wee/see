@@ -105,7 +105,7 @@ type harness struct {
 func newHarness(t *testing.T, root string) *harness {
 	t.Helper()
 	h := &harness{t: t, q: make(chan func(), 1024), fc: &fakeClient{enc: lsp.UTF16}, host: &fakeHost{}}
-	h.a = newApp(&config.Config{})
+	h.a = newApp(&config.Config{ConfirmClose: true})
 	t.Cleanup(func() { releaseStandalonePaths(h.a) })
 	h.a.hasWelcome = true
 	h.a.host = h.host

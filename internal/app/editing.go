@@ -252,6 +252,10 @@ func (a *App) guardDirty(docs []*doc, proceed func()) bool {
 	if a.allowDirty || len(docs) == 0 {
 		return false
 	}
+	if !a.cfg.ConfirmClose {
+		a.discardDocs(docs)
+		return false
+	}
 	if a.confirm != nil {
 		return true
 	}
@@ -263,17 +267,7 @@ func (a *App) guardDirty(docs []*doc, proceed func()) bool {
 		}},
 		{locales.DiscardChanges(), func() {
 			a.confirm = nil
-			for _, d := range docs {
-				a.discardedSessionDocs[d.path] = struct{}{}
-				if d.untitled {
-					removeDraft(d)
-				} else {
-					a.removeRecovery(d)
-				}
-			}
-			// The destructive action may clear the document map (workspace
-			// transition) or quit immediately. Persist the exclusion now.
-			a.saveConfig()
+			a.discardDocs(docs)
 			a.allowDirty = true
 			defer func() { a.allowDirty = false }()
 			proceed()
@@ -302,6 +296,18 @@ func (a *App) guardDirty(docs []*doc, proceed func()) bool {
 		})
 	}()
 	return true
+}
+
+func (a *App) discardDocs(docs []*doc) {
+	for _, d := range docs {
+		a.discardedSessionDocs[d.path] = struct{}{}
+		if d.untitled {
+			removeDraft(d)
+		} else {
+			a.removeRecovery(d)
+		}
+	}
+	a.saveConfig()
 }
 
 func (a *App) saveActive() {
@@ -468,6 +474,10 @@ func (a *App) saveUntitled(d *doc, done func(bool)) {
 
 // saveDoc checks the last-read disk contents before writing, including the BOM.
 func (a *App) saveDoc(d *doc, overwrite bool) bool {
+	if a.git.resolvingPath != "" && a.git.resolvingPath == d.path {
+		a.note(gitConflictText("gitConflictSaving"), false)
+		return false
+	}
 	if d.buf == nil || d.lossy {
 		return false
 	}
