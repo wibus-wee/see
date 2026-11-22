@@ -68,7 +68,10 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 			d := a.docs[path]
 			diff := g.diffs[p]
 			if diff != nil {
-				if diff.localHistory != nil {
+				if diff.revision != nil {
+					path = diff.revision.path
+					d = &doc{name: localHistoryText("revisionTitle") + " · " + filepath.Base(path)}
+				} else if diff.localHistory != nil {
 					path = diff.localHistory.path
 					d = &doc{name: diff.localHistory.name}
 				} else if diff.branch != nil {

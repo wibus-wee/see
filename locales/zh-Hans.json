@@ -1,4 +1,9 @@
 {
+  "revisionTitle": "代码审查",
+  "revisionChoose": "选择修订",
+  "revisionOlder": "上一个提交",
+  "revisionNewer": "下一个提交",
+  "commandCompareRevision": "与修订比较…",
   "relativeJustNow": "刚刚",
   "relativeMinutesAgo": "%d 分钟前",
   "relativeHoursAgo": "%d 小时前",

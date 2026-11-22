@@ -1353,6 +1353,9 @@ func (a *App) newEditor(g *group, d *doc) *editor.State {
 		if localHistoryItem.Chosen() {
 			a.showLocalHistory(g, d)
 		}
+		if menu.Item(commandLabel("Compare with Revision…")).Chosen() {
+			a.showRevision(g, d, "")
+		}
 		a.linkItems(menu, d, st)
 		menu.Separator()
 		_, _, mods, key := editAllScopeShortcut(runtime.GOOS)

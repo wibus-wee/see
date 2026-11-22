@@ -85,6 +85,7 @@ type gitDiffTab struct {
 	commit       *commitView // a commit, which shows in place of a diff
 	log          *gitLogView // the log, which shows in place of a diff
 	branch       *branchDiffView
+	revision     *revisionView
 	localHistory *localHistoryView
 	// What the tab shows, to read it again in the next session: the
 	// commit's full hash, a renamed file's old path, and whether the

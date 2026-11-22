@@ -79,6 +79,9 @@ func (a *App) commandEnabled(name string) bool {
 	case "Show Local History":
 		d := a.docs[a.activePath()]
 		return a.localHistorySupported(d) && a.activeEditor() != nil
+	case "Compare with Revision…":
+		d := a.docs[a.activePath()]
+		return a.activeEditor() != nil && d != nil && !d.untitled && d.buf != nil
 	case "Edit All in Scope":
 		d, st := a.scopeEditDocument()
 		return d != nil && st != nil && a.serverFor(d.path) != nil

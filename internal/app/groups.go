@@ -94,6 +94,9 @@ func (a *App) tabFile(g *group, tab string) string {
 	if v == nil {
 		return ""
 	}
+	if v.revision != nil {
+		return v.revision.path
+	}
 	if v.localHistory != nil {
 		return v.localHistory.path
 	}
@@ -730,6 +733,11 @@ func (a *App) splitActive(s side) {
 			cv := *v.commit
 			cv.scroll = ui.ScrollState{}
 			ng.diffs = map[string]*gitDiffTab{path: {name: v.name, rev: v.rev, hash: v.hash, commit: &cv}}
+		} else if v != nil && v.revision != nil {
+			r := *v.revision
+			clone := &gitDiffTab{name: v.name, revision: &r}
+			ng.diffs = map[string]*gitDiffTab{path: clone}
+			a.loadRevision(clone, "")
 		} else if v != nil && v.localHistory != nil {
 			clone := a.cloneLocalHistoryTab(v)
 			ng.diffs = map[string]*gitDiffTab{path: clone}

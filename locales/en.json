@@ -1,4 +1,9 @@
 {
+  "revisionTitle": "Code Review",
+  "revisionChoose": "Choose Revision",
+  "revisionOlder": "Older commit",
+  "revisionNewer": "Newer commit",
+  "commandCompareRevision": "Compare with Revision…",
   "relativeJustNow": "Just now",
   "relativeMinutesAgo": "%d min ago",
   "relativeHoursAgo": "%d hr ago",
