@@ -9,6 +9,8 @@ import (
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
+
+	"see/internal/workspace"
 )
 
 // tabFileMenu adds to a file tab's context menu the items the
