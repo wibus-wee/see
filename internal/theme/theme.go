@@ -130,5 +130,6 @@ func New(base *ui.Theme, textScale float32) (*ui.Theme, *editor.Theme) {
 	}
 	ed := editor.DefaultTheme(&t)
 	ed.Background = p.Editor
+	ed.WrapGuide = p.Editor.Mix(p.Text, 0.48)
 	return &t, ed
 }

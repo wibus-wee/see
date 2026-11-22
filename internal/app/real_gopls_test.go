@@ -177,6 +177,46 @@ func TestRealGoplsQuickHelpHover(t *testing.T) {
 // TestRealGoplsCallHierarchy asks a real gopls for the calls of a Go
 // function, through the same prepare + incomingCalls pair the panel
 // runs. It runs when SEE_GOPLS names gopls.
+func TestRealGoplsTypeHierarchy(t *testing.T) {
+	if os.Getenv("SEE_GOPLS") == "" {
+		t.Skip("set SEE_GOPLS to the path of gopls")
+	}
+	root := writeTree(t, map[string]string{
+		"go.mod":  "module example.com/types\n\ngo 1.21\n",
+		"main.go": "package main\n\ntype Reader interface { Read() }\ntype Concrete struct{}\nfunc (Concrete) Read() {}\nfunc main() {}\n",
+	})
+	h := newHarness(t, root)
+	h.a.startLSP = languages.StartGopls
+	h.a.lsp = langserver.New(langserver.Options{Name: "gopls", Root: h.a.root, Start: h.a.startLSP(testLogf(t))})
+	defer h.a.lsp.StopWait(5 * time.Second)
+	d := h.open("main.go")
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	c, err := h.a.lsp.Get(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := h.a.lsp.Sync(ctx, c, d.uri, d.buf.Snapshot()); err != nil {
+		t.Fatal(err)
+	}
+	th, ok := c.(typeHierarchyClient)
+	if !ok || !th.HasTypeHierarchy() {
+		t.Fatal("gopls has no type hierarchy")
+	}
+	items, err := th.PrepareTypeHierarchy(ctx, d.uri, lsp.Position{Line: 2, Character: 6})
+	if err != nil || len(items) != 1 || items[0].Name != "Reader" {
+		t.Fatalf("prepare: %+v %v", items, err)
+	}
+	subs, err := th.Subtypes(ctx, items[0])
+	if err != nil || len(subs) != 1 || subs[0].Name != "Concrete" {
+		t.Fatalf("subtypes: %+v %v", subs, err)
+	}
+	supers, err := th.Supertypes(ctx, subs[0])
+	if err != nil || len(supers) != 1 || supers[0].Name != "Reader" {
+		t.Fatalf("supertypes: %+v %v", supers, err)
+	}
+}
+
 func TestRealGoplsCallHierarchy(t *testing.T) {
 	if os.Getenv("SEE_GOPLS") == "" {
 		t.Skip("set SEE_GOPLS to the path of gopls")

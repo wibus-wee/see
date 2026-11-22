@@ -46,7 +46,7 @@ type settingsPane struct {
 
 var settingsPanes = []settingsPane{
 	{"general", "General", icGear, ui.RGB(0x8e, 0x8e, 0x93), 0, "appearance light dark system theme reopen launch recent folders shell command install uninstall path cli"},
-	{"editor", "Editor", icLines, ui.RGB(0x0a, 0x84, 0xff), 0, "font size line numbers relative soft wrap minimap"},
+	{"editor", "Editor", icLines, ui.RGB(0x0a, 0x84, 0xff), 0, "font size line numbers relative soft wrap minimap page guide column 页面参考线"},
 	{"terminal", "Terminal", icPrompt, ui.RGB(0x2c, 0x2c, 0x2e), 0, "shell font size copy on select panel external ghostty rex seedmux"},
 	{"notifications", "Notifications", icPrompt, ui.RGB(0xff, 0x95, 0x00), 1, "notify waiting done failed sound dock badge bounce"},
 	{"intelligence", "Code Intelligence", icSparkle, ui.RGB(0xaf, 0x52, 0xde), 1, "gopls tsrs typescript javascript language server go to definition hover trusted folders trust"},
@@ -94,6 +94,20 @@ func (a *App) settingsGo(pane string) {
 	s.pane = pane
 }
 
+func (a *App) changeEditorFontSize(delta float64) {
+	a.setEditorFontSize(a.cfg.EditorFontSize() + delta)
+}
+
+func (a *App) setEditorFontSize(size float64) {
+	size = min(max(size, 9), 28)
+	if size == a.cfg.EditorFontSize() {
+		return
+	}
+	a.cfg.FontSize = size
+	a.applyEditorPrefsAll()
+	a.settingsChanged()
+}
+
 // changed tells the main window that a setting changed what it shows.
 func (a *App) settingsChanged() {
 	a.saveConfig()
@@ -113,6 +127,10 @@ func (a *App) applyEditorPrefs(st *editor.State) {
 		st.Font.LineHeight = float32(a.cfg.EditorLineHeight)
 	}
 	st.SoftWrap = a.cfg.SoftWrap
+	st.Whitespace = editor.WhitespaceSelection
+	if a.cfg.ShowInvisibles {
+		st.Whitespace = editor.WhitespaceAll
+	}
 	st.LineNumbers = editor.LineNumbers(min(max(a.cfg.LineNumbers, 0), 2))
 	if a.cfg.EditorNoLigatures {
 		if st.Font.Features == "" {
@@ -155,7 +173,7 @@ func (a *App) applyDiffPrefs(diff *editor.DiffState) {
 		}
 	}
 	diff.Wrap = a.cfg.SoftWrap
-	diff.NoLineNumbers = a.cfg.LineNumbers == int(editor.LineNumbersOff)
+	diff.NoLineNumbers = !diff.LineSelection && a.cfg.LineNumbers == int(editor.LineNumbersOff)
 	diff.Layout = editor.DiffSplit
 	if a.cfg.DiffUnified {
 		diff.Layout = editor.DiffUnified
@@ -198,6 +216,9 @@ func (a *App) goToChange(dir int) {
 		}
 		// i is the hunk the caret is in, else the last one before it.
 		i, inside := v.state.CurrentHunk()
+		if v.partial != nil {
+			v.state.SetSelectedLines(editor.DiffLineRange{}, false)
+		}
 		v.state.GoToHunk(nextHunk(i, inside, n, dir))
 		return
 	}
@@ -632,6 +653,43 @@ func (a *App) editorPane(c *ui.Context) {
 	s := &a.settings
 	a.initFontValues()
 	s.lineNumbers = a.cfg.LineNumbers
+	heading(c, locales.EditorDisplay())
+	card(c,
+		func() {
+			labeled(c, locales.MsgLineNumbers(), locales.MsgRelativeNumbersCountFromTheCaretSLine())
+			if ui.Segmented(c, &s.lineNumbers, "On", locales.MsgRelative(), locales.MsgOff()).Label(locales.MsgLineNumbers()).Changed() {
+				a.cfg.LineNumbers = s.lineNumbers
+				a.applyEditorPrefsAll()
+				a.settingsChanged()
+			}
+		},
+		func() {
+			labeled(c, locales.MsgWrapLines(), locales.MsgLongLinesWrapAtTheEditorSWidth())
+			if ui.Switch(c, &a.cfg.SoftWrap).Label(locales.MsgWrapLines()).Changed() {
+				a.applyEditorPrefsAll()
+				a.settingsChanged()
+			}
+		},
+		func() {
+			labeled(c, locales.ShowInvisibles(), locales.ShowInvisiblesDescription())
+			if ui.Switch(c, &a.cfg.ShowInvisibles).Label(locales.ShowInvisibles()).Changed() {
+				a.applyEditorPrefsAll()
+				a.settingsChanged()
+			}
+		},
+		func() {
+			labeled(c, locales.PageGuide(), locales.PageGuideDescription())
+			column := float64(a.cfg.PageGuideColumn())
+			if ui.NumberInput(c, &column, 1, config.MaxPageGuideColumn, 1).
+				Label(locales.PageGuideColumn()).Width(104).Disabled(!a.cfg.EditorShowPageGuide).Changed() {
+				a.cfg.EditorPageGuide = int(column)
+				a.settingsChanged()
+			}
+			if ui.Switch(c, &a.cfg.EditorShowPageGuide).Label(locales.ShowPageGuide()).Changed() {
+				a.settingsChanged()
+			}
+		},
+	)
 	heading(c, locales.MsgTypography())
 	a.fontPreview(c, false)
 	card(c,
@@ -702,21 +760,6 @@ func (a *App) editorPane(c *ui.Context) {
 			}
 		},
 		func() {
-			labeled(c, locales.MsgLineNumbers(), locales.MsgRelativeNumbersCountFromTheCaretSLine())
-			if ui.Segmented(c, &s.lineNumbers, "On", locales.MsgRelative(), locales.MsgOff()).Label(locales.MsgLineNumbers()).Changed() {
-				a.cfg.LineNumbers = s.lineNumbers
-				a.applyEditorPrefsAll()
-				a.settingsChanged()
-			}
-		},
-		func() {
-			labeled(c, locales.MsgWrapLines(), locales.MsgLongLinesWrapAtTheEditorSWidth())
-			if ui.Switch(c, &a.cfg.SoftWrap).Label(locales.MsgWrapLines()).Changed() {
-				a.applyEditorPrefsAll()
-				a.settingsChanged()
-			}
-		},
-		func() {
 			labeled(c, locales.MsgParameterHelp(), locales.MsgParameterHelpDescription())
 			mode := a.cfg.ParameterHelp
 			if mode == "" {
@@ -733,6 +776,22 @@ func (a *App) editorPane(c *ui.Context) {
 			if ui.Switch(c, &a.cfg.EditorFoldImports).Label(locales.FoldImportsOnOpen()).Changed() {
 				a.settingsChanged()
 			}
+		},
+		func() {
+			labeled(c, locales.RenderDocComments(), locales.RenderDocCommentsDescription())
+			enabled := !a.cfg.HideDocComments
+			if ui.Switch(c, &enabled).Label(locales.RenderDocComments()).Changed() {
+				a.cfg.HideDocComments = !enabled
+				a.settingsChanged()
+			}
+		},
+		func() {
+			labeled(c, locales.HighlightSymbolOccurrences(), locales.HighlightSymbolOccurrencesDescription())
+			enabled := !a.cfg.HideSymbolHighlights
+			ui.Switch(c, &enabled).Label(locales.HighlightSymbolOccurrences()).OnClick(func() {
+				a.cfg.HideSymbolHighlights = !enabled
+				a.settingsChanged()
+			})
 		},
 		func() {
 			labeled(c, locales.MsgQuickHelpInspector(), locales.MsgShowsDeclarationAndDocumentationForTheSymbolUnderTheCaret())
@@ -1097,6 +1156,7 @@ func (a *App) advancedPane(c *ui.Context) {
 				// reset fields
 				def := config.Load("")
 				def.SetPath(a.cfg.Path())
+				def.SavedFindQueries = a.cfg.SavedFindQueries
 				*a.cfg = *def
 				a.settingsChanged()
 			}

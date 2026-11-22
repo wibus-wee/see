@@ -134,9 +134,10 @@ func (a *App) selectLocalHistorySnapshot(v *gitDiffTab, index int) {
 	lang := languageFor(lh.name, snapshot.Text)
 	old.SetLanguage(lang)
 	current.SetLanguage(lang)
-	state := &editor.DiffState{Old: old, New: current, Theme: a.edTheme, LineSelection: true}
+	state := &editor.DiffState{Theme: a.edTheme, LineSelection: true}
 	a.applyDiffPrefs(state)
-	state.LineSelection = true
+	setBufferDiffWhitespace(state, old, current, a.cfg.HideWhitespaceChanges)
+	state.LineSelection = !a.cfg.HideWhitespaceChanges
 	state.GoToHunk(0)
 	lh.state, v.state = state, state
 }
@@ -402,7 +403,9 @@ func (a *App) localHistoryContent(c *ui.Context, g *group, v *gitDiffTab) {
 				ui.Text(c, localHistoryText("localHistoryNoSnapshotsDetail")).FontSize(12).TextColor(colors(c).Dim)
 			})
 		default:
-			if lh.state != nil {
+			if lh.state != nil && a.diffChangesHidden(lh.state) {
+				a.hiddenWhitespaceDiff(c)
+			} else if lh.state != nil {
 				view := editor.DiffView(c, lh.state).Grow(1).FillWidth()
 				if a.focusGroupTarget == g {
 					view.Focus()
@@ -465,7 +468,7 @@ func (a *App) localHistoryStatusBar(c *ui.Context, g *group, v *gitDiffTab) {
 				message = localHistoryText("localHistoryStale")
 			}
 			ui.Text(c, message).FontSize(11).TextColor(palette.Err).SingleLine().Ellipsis("…")
-		} else if len(edits) == 0 && lh.state != nil {
+		} else if len(edits) == 0 && lh.state != nil && !a.diffChangesHidden(lh.state) {
 			ui.Text(c, localHistoryText("localHistorySelectChangedLines")).FontSize(11).TextColor(palette.Muted).SingleLine()
 		}
 		if ui.Button(c, localHistoryText("localHistoryRefresh")).Disabled(lh.loading).Clicked() {

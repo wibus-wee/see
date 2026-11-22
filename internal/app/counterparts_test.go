@@ -69,7 +69,8 @@ func TestCounterpartShortcutsAndPalette(t *testing.T) {
 	if got := h.a.activeEditor().CursorPos().Col; got == 0 {
 		t.Fatal("newly opened counterpart did not get editor focus")
 	}
-	h.tt.Key(ui.Ctrl, ui.KeyMinus)
+	back := jumpShortcut(t, "Go Back")
+	h.tt.Key(back.shortcutMods, back.shortcutKey)
 	wantFile("internal/format.go")
 	if got := st.CursorPos(); got != pos {
 		t.Fatalf("Go Back restored %v, want %v", got, pos)
@@ -138,7 +139,7 @@ func TestCounterpartsJumpBar(t *testing.T) {
 		result := h.a.focus.counterpartMenu
 		return result != nil && len(result.paths) == 2
 	})
-	if got := h.tt.Menu(); !slices.Equal(got, []string{"Counterparts", "-", "Callers", "References", "Call Hierarchy"}) {
+	if got := h.tt.Menu(); !slices.Equal(got, []string{"Counterparts", "-", "Callers", "References", "Call Hierarchy", "Type Hierarchy"}) {
 		t.Fatalf("related items = %v", got)
 	}
 	h.tt.Key(0, ui.KeyDown)

@@ -55,6 +55,7 @@ Use `see` or `see .` for the current folder, `see /path/to/project` to open a fo
 - **Jump** — reach files by fuzzy name, search workspace symbols, and step back and forward through your reading history.
 - **Understand** — definitions, references, callers, diagnostics, and hover help for Go, TypeScript, and JavaScript, through language servers.
 - **Review** — stage, unstage, commit, and discard changes, open a change as a diff tab, and see each file's status and line counts beside it in the navigator.
+- **Resolve merge conflicts** — open a file under **Conflicted Files** in the Git navigator. Compare **Current** and **Incoming**, then keep either side or both (current first) for each conflict. **Save & Stage** stages the resolved file without committing. Resolve binary conflicts and file deletions with Git; to keep a manually edited text file, review it before staging it in See.
 - **Compare branches** — choose a local or remote base in the Git navigator to review files changed since the branches diverged, including current working-tree changes.
 - **History** — browse the branch and its upstream, or every branch, as a graph; open a commit to read its message and files, and a file as a diff. Incoming commits carry ↓ and outgoing commits ↑. **Git: Show Log** opens a table with separate branch/tag and graph columns, aligned commit messages, authors, dates and hashes, plus the chosen commit's diffs below. Narrow editors keep the message and date visible; dense graphs scroll horizontally. Filtering hides graph connections until cleared, and older commits remain available through **Load More Commits**.
 - **Branch and sync** — switch or create branches from the branch name in the toolbar, and fetch, pull and push, with incoming and outgoing commits counted. Local status refreshes every five seconds. See fetches on opening a repository and every two minutes afterward; fetching updates remote references without changing your files. External pushes, fetches and tags also refresh the history on the next local status check.
@@ -75,6 +76,8 @@ Clicking a file opens it as a preview, and opening another file replaces that pr
 
 Use **F6** / **Shift+F6** to cycle editor groups in layout order, keeping each group’s cursor position. **Move Tab to Next Editor** in the command palette moves the active tab to the next group, wrapping at the end.
 
+In **Settings → Editor → Display**, turn on **Page Guide** and choose a column (80 by default). The guide marks a line-length target without changing how lines wrap.
+
 Right-click a tab to keep a preview, close other tabs, close tabs to its right, or close saved tabs in that editor group. The three bulk close actions are also in the command palette. Closing the last view of an unsaved file asks once to save or discard; Cancel keeps the whole selection open. Other editor groups keep their tabs.
 
 Rename a file or folder from its context menu. On macOS, select an item in the file navigator and press Return to rename it; press Escape to cancel.
@@ -84,6 +87,8 @@ Rename a file or folder from its context menu. On macOS, select an item in the f
 Edit and save UTF-8 text in the source view. Unsaved changes are marked on tabs, and See asks before closing them. If a file changes on disk, See preserves your edits and asks before overwriting it. Files shown with replacement characters remain read-only.
 
 Use **Replace in File** in the command palette to replace one match or all matches in the editor; these edits can be undone. In the Find navigator, turn on **Replace** to preview the replacement next to each match. Replace individual matches from their rows or choose **Replace All** and confirm. Workspace replacement writes to disk, skips files with unsaved edits or stale matches, and cannot be undone from the editor. Replacement text is literal, including when the search uses a regular expression; leave it empty to delete the matches.
+
+In the Find navigator, open the bookmark button next to the search field and choose **Save Current Query**. Saved queries remember the match options and file filters for this workspace. Select one from the same menu to rerun it, or choose **Remove Current Query** when it is active to forget it.
 
 See caches unsaved text for open files so it can restore edits after an unexpected exit. If the disk version changed in the meantime, it preserves the recovered edits and asks before overwriting.
 
@@ -129,9 +134,11 @@ tsrs is a TypeScript 7 implementation under active development, so expect it to 
 
 The app asks you to trust a folder when you open a supported source file: a server can invoke project tools and download dependencies or toolchains. Reading files does not require trust, and server executables inside the open workspace are not used. Use **Show Output** in the command palette, or **Output** in the bottom panel, to inspect server activity and errors; output is kept in memory for the current session.
 
-Use **Cmd+Shift+M** or **Show Problems** to open the Problems navigator. It lists diagnostics from open files with their severity, location, and source. Filter by file path, message, or source, then click a problem to jump to it. Results disappear after edits until the language server publishes diagnostics for the new buffer version.
+Use **Cmd+Shift+M** or **Show Problems** to open the Problems navigator. In a trusted project, it starts the applicable language servers and lists the diagnostics they publish, including for files you have never opened. Servers that only diagnose open documents still report only those documents. Filter by file path, message, or source, then click a problem to jump to it. Unsaved edits hide old diagnostics for that file until its server reports against the new buffer version.
 
 Use **F8** / **Shift+F8** or **Next Problem** / **Previous Problem** in the command palette to move through current-file diagnostics in source order, wrapping at either end. Navigation waits for fresh diagnostics after edits.
+
+Use **Next Method** / **Previous Method** to move the caret to the name of the next or previous function, method or constructor in the current file, as JetBrains IDEs do. The shortcuts are **Ctrl+Option+↓/↑** on macOS and **Alt+↓/↑** on Windows and Linux, which replace the editor's move-line keys there. Navigation uses the language server's document symbols, stops at the first and last declaration, and waits for fresh symbols after edits.
 
 Use **Search File Symbols** or type `@` in Open Quickly to list declarations in the current text file. Type after `@` to filter names, then select a result to jump to it. This uses the file’s language server and requires workspace trust. Results refresh when the active file or buffer changes.
 
@@ -157,9 +164,11 @@ These are the macOS shortcuts; on other platforms, use Ctrl in place of Cmd. The
 | Replace in workspace | Cmd+Shift+H |
 | Go to line / column | Ctrl+G |
 | Toggle navigator | Cmd+B or Cmd+0 |
+| Reveal in Project Navigator | Cmd+Shift+J |
 | Open Markdown preview | Cmd+Shift+V |
 | Go to definition | F12 |
 | Next / previous problem in current file | F8 / Shift+F8 |
+| Next / previous method in current file | Ctrl+Option+↓/↑ (macOS), Alt+↓/↑ (Windows/Linux) |
 | Show Problems | Cmd+Shift+M |
 | Find references | Shift+F12 |
 | Navigate back / forward | Ctrl+- / Ctrl+Shift+- |

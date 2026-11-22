@@ -114,8 +114,8 @@ func (a *App) gitChangesHeader(c *ui.Context) {
 	a.gitSectionHeader(c, "Changes", len(a.git.changes), &a.git.changesClosed, func() {
 		staged, unstaged := false, false
 		for _, ch := range a.git.changes {
-			staged = staged || ch.Index != ' ' && ch.Index != '?'
-			unstaged = unstaged || ch.Work != ' ' || ch.Index == '?'
+			staged = staged || gitChangeInSection(ch, true)
+			unstaged = unstaged || gitChangeInSection(ch, false)
 		}
 		if staged && glyphButton(c, icMinus, "Unstage All Changes", "Unstage All Changes", false, a.git.busy).Clicked() {
 			a.stageAllGitChanges(true)

@@ -1,6 +1,7 @@
 package lsp
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -52,6 +53,7 @@ type Client struct {
 	documentLinks       bool
 	documentLinkResolve bool
 	callHierarchy       bool
+	typeHierarchy       bool
 	selectionRanges     bool
 	pullDiagnostics     bool
 	foldingRange        bool
@@ -68,6 +70,7 @@ type Client struct {
 	documentRangeFormat bool
 	diagMu              sync.Mutex
 	onDiagnostics       func(string, *int, []Diagnostic)
+	earlyDiagnostics    map[string]publishedDiagnostics
 	applyEdit           func(*WorkspaceEdit) error
 
 	cmd    *exec.Cmd
@@ -366,6 +369,7 @@ func (c *Client) initialize(ctx context.Context) error {
 				"documentSymbol":    map[string]any{"hierarchicalDocumentSymbolSupport": true, "dynamicRegistration": false},
 				"references":        map[string]any{"dynamicRegistration": false},
 				"callHierarchy":     map[string]any{"dynamicRegistration": false},
+				"typeHierarchy":     map[string]any{"dynamicRegistration": false},
 				"definition":        map[string]any{"linkSupport": true, "dynamicRegistration": false},
 				"documentHighlight": map[string]any{"dynamicRegistration": false},
 				"implementation":    map[string]any{"linkSupport": true, "dynamicRegistration": false},
@@ -422,6 +426,8 @@ func (c *Client) initialize(ctx context.Context) error {
 	c.documentLinkResolve = res.Capabilities.documentLinkResolve()
 	c.signatureHelp = res.Capabilities.hasSignatureHelp()
 	c.callHierarchy = res.Capabilities.hasCallHierarchy()
+	rawType := bytes.TrimSpace(res.Capabilities.TypeHierarchyProvider)
+	c.typeHierarchy = len(rawType) > 0 && string(rawType) != "false" && string(rawType) != "null"
 	c.selectionRanges = res.Capabilities.hasSelectionRanges()
 	c.codeActions, c.hasCodeActions = res.Capabilities.codeActions()
 	c.hasCommands = res.Capabilities.hasExecuteCommand()
@@ -632,6 +638,22 @@ func (c *Client) SetDiagnosticsHandler(fn func(string, *int, []Diagnostic)) {
 	c.diagMu.Lock()
 	defer c.diagMu.Unlock()
 	c.onDiagnostics = fn
+	if fn != nil {
+		for _, p := range c.earlyDiagnostics {
+			fn(p.URI, p.Version, p.Diagnostics)
+		}
+	}
+	c.earlyDiagnostics = nil
+}
+
+type publishedDiagnostics struct {
+	URI         string       `json:"uri"`
+	Version     *int         `json:"version"`
+	Diagnostics []Diagnostic `json:"diagnostics"`
+}
+
+func (c *Client) DidChangeWatchedFiles(changes []FileChange) error {
+	return c.conn.Notify("workspace/didChangeWatchedFiles", map[string]any{"changes": changes})
 }
 
 // Diagnostics requests a full diagnostic report when the server supports it.
@@ -944,14 +966,16 @@ func (h *handler) Handle(ctx context.Context, method string, params json.RawMess
 func (h *handler) Notify(method string, params json.RawMessage) {
 	switch method {
 	case "textDocument/publishDiagnostics":
-		var p struct {
-			URI         string       `json:"uri"`
-			Version     *int         `json:"version"`
-			Diagnostics []Diagnostic `json:"diagnostics"`
-		}
+		var p publishedDiagnostics
 		if json.Unmarshal(params, &p) == nil {
 			h.diagMu.Lock()
 			fn := h.onDiagnostics
+			if fn == nil {
+				if h.earlyDiagnostics == nil {
+					h.earlyDiagnostics = make(map[string]publishedDiagnostics)
+				}
+				h.earlyDiagnostics[p.URI] = p
+			}
 			h.diagMu.Unlock()
 			if fn != nil {
 				fn(p.URI, p.Version, p.Diagnostics)

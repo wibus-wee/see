@@ -424,8 +424,11 @@ func splitPath(p string) (dir, name string) {
 
 // unflip maps the matched indexes of "name dir/" back into the path.
 func unflip(p string, idx []int) []int {
+	return appendUnflipped(make([]int, 0, len(idx)), p, idx)
+}
+
+func appendUnflipped(out []int, p string, idx []int) []int {
 	dir, name := splitPath(p)
-	out := make([]int, 0, len(idx))
 	for _, i := range idx {
 		switch {
 		case i < len(name):
