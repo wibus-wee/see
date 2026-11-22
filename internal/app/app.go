@@ -107,7 +107,6 @@ type App struct {
 	docs              map[string]*doc
 	localHistoryStore *localhistory.Store
 	localHistoryErr   error
-	localHistoryPanel *localHistoryPanel
 	layout            *layout
 	recents           []string // the files activated lately, across groups, most recent last
 	focus             *group

@@ -107,9 +107,6 @@ func (a *App) view(c *ui.Context) {
 	if !a.hover.cmd {
 		a.hideLink()
 	}
-	if a.localHistoryPanel != nil {
-		c.OnShortcut(0, ui.KeyEscape, func() { a.closeLocalHistory() })
-	}
 	if a.root == "" && a.hasWelcome && len(a.docs) == 0 && !a.hasTabs() {
 		// The primary main window hides without a folder; its welcome
 		// window and folderless project windows show these actions.
@@ -123,12 +120,9 @@ func (a *App) view(c *ui.Context) {
 			a.host.CloseWindow()
 		}
 		a.welcomeWindow(c)
-		a.localHistoryPanelView(c)
 		return
 	}
-	if a.localHistoryPanel == nil {
-		a.shortcuts(c)
-	}
+	a.shortcuts(c)
 	if a.inspectorOpen() {
 		a.followInspector()
 	}
@@ -172,7 +166,6 @@ func (a *App) view(c *ui.Context) {
 		a.jumpToDatePanel(c)
 	}
 	a.codeActionMenu(c)
-	a.localHistoryPanelView(c)
 }
 
 // shortcuts handles the app's keys wherever the focus is.
