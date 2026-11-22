@@ -108,6 +108,7 @@ func readerBlocks(text, language string) []readerBlock {
 		}
 		if strings.HasPrefix(s, "/**") && !strings.HasPrefix(s, "/**/") {
 			first := i
+			indent := len(lines[i]) - len(strings.TrimLeft(lines[i], " \t"))
 			var rendered []readerLine
 			closed := false
 			for ; i < len(lines); i++ {
@@ -127,7 +128,9 @@ func readerBlocks(text, language string) []readerBlock {
 					body = ""
 					closed = true
 				}
-				rendered = append(rendered, readerSourceLine(lines, offsets, i, strings.TrimSpace(body)))
+				line := readerSourceLine(lines, offsets, i, strings.TrimSpace(body))
+				line.start = min(line.start, offsets[i]+indent)
+				rendered = append(rendered, line)
 				if closed {
 					i++
 					break

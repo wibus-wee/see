@@ -72,6 +72,27 @@ func TestReaderSourceRanges(t *testing.T) {
 	}
 }
 
+func TestReaderBlockCommentAlignment(t *testing.T) {
+	for _, indent := range []string{"", "\t", "    "} {
+		t.Run(indent, func(t *testing.T) {
+			text := indent + "/**\n" + indent + " * Description.\n" + indent + " *\n" + indent + " */\n" + indent + "function f() {}"
+			blocks := readerBlocks(text, "TypeScript")
+			if len(blocks) != 1 || len(blocks[0].lines) != 4 {
+				t.Fatalf("unexpected blocks: %+v", blocks)
+			}
+			offsets := readerOffsets(strings.Split(text, "\n"))
+			for i, line := range blocks[0].lines {
+				if line.start != offsets[i]+len(indent) {
+					t.Errorf("line %d starts at column %d, want %d", i, line.start-offsets[i], len(indent))
+				}
+			}
+			if got := text[blocks[0].lines[1].start:blocks[0].lines[1].end]; got != " * Description." {
+				t.Fatalf("replacement must cover the space before the star: %q", got)
+			}
+		})
+	}
+}
+
 func TestReaderInlineFormatting(t *testing.T) {
 	for _, test := range []struct {
 		input string
