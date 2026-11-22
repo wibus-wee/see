@@ -54,9 +54,9 @@ func TestColorPreviewPopoverAndTabSwitch(t *testing.T) {
 	if err := h.tt.Click(label); err != nil {
 		t.Fatal(err)
 	}
-	for _, text := range []string{"#0000", "#00000000", locales.ColorPreviewLight(), locales.ColorPreviewDark()} {
-		if !h.tt.HasText(text) {
-			t.Errorf("preview does not show %q: %q", text, h.tt.Texts())
+	for _, name := range []string{fmt.Sprintf(locales.ColorPreviewButton(), "#0000"), locales.ColorPreviewLight(), locales.ColorPreviewDark()} {
+		if _, ok := h.tt.Access(name); !ok {
+			t.Errorf("preview does not expose accessible name %q", name)
 		}
 	}
 	if g.colorPreview == nil || !g.colorPreview.open {
@@ -64,23 +64,22 @@ func TestColorPreviewPopoverAndTabSwitch(t *testing.T) {
 	}
 	h.tt.Key(0, ui.KeyEscape)
 	h.tt.Frame()
-	if g.colorPreview != nil || h.tt.HasText(locales.ColorPreviewLight()) {
+	if g.colorPreview != nil {
 		t.Fatal("Escape did not dismiss the color preview")
 	}
 	if err := h.tt.Click(label); err != nil {
 		t.Fatal(err)
 	}
-	if err := h.tt.Click(locales.ColorPreviewClose()); err != nil {
-		t.Fatal(err)
-	}
+	h.tt.ClickAt(1000, 650)
+	h.tt.Frame()
 	if g.colorPreview != nil {
-		t.Fatal("the close button left the color preview open")
+		t.Fatal("an outside click left the color preview open")
 	}
 	if err := h.tt.Click(label); err != nil {
 		t.Fatal(err)
 	}
 	h.open("other.css")
-	if g.colorPreview != nil || h.tt.HasText(locales.ColorPreviewLight()) {
+	if g.colorPreview != nil {
 		t.Fatal("switching tabs left a stale color preview")
 	}
 }
@@ -191,7 +190,7 @@ func TestColorPreviewScreenshots(t *testing.T) {
 	for _, appearance := range []struct {
 		dark bool
 		name string
-	}{{false, "color-preview-light.png"}, {true, "color-preview-dark.png"}} {
+	}{{false, "revised-light.png"}, {true, "revised-dark.png"}} {
 		h, _, _ := colorPreviewHarness(t, map[string]string{"colors.css": ":root {\n  --accent: #8b5cf6;\n  --accent-soft: rgba(139,92,246,.5);\n  --clear: #0000;\n  --surface: #1f2937;\n}\n"})
 		h.tt.SetDark(appearance.dark)
 		h.tt.Frame()

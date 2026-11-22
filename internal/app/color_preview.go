@@ -118,7 +118,7 @@ func (a *App) colorReplacements(g *group, d *doc, st *editor.State) []editor.Rep
 				}
 				preview.seen = true
 				popover := ui.Popover(c, dot, &preview.open, func() {
-					colorPreviewPanel(c, g, preview)
+					colorPreviewPanel(c, preview)
 				})
 				if popover.Dismissed() {
 					g.dismissColorPreview()
@@ -129,67 +129,23 @@ func (a *App) colorReplacements(g *group, d *doc, st *editor.State) []editor.Rep
 	return replacements
 }
 
-func colorPreviewPanel(c *ui.Context, g *group, preview *colorPreviewState) {
-	ui.Column(c.Key("color-preview-card")).Width(280).Padding(10).Gap(8).Children(func() {
-		ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, preview.literal.Raw).Font("monospace").FontSize(12).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1).Tooltip(preview.literal.Raw)
-			ui.Box(c).Grow(1).MinWidth(0)
-			close := ui.ButtonBase(c.Key("color-preview-close")).Size(22, 22).Radius(5).KeepFocus().
-				Label(locales.ColorPreviewClose()).Tooltip(locales.ColorPreviewClose())
-			close.Children(func() { symbolIcon(c, icClose, 10, colors(c).Muted) })
-			if close.Clicked() {
-				preview.open = false
-				if g.colorPreview == preview {
-					g.colorPreview = nil
-				}
-			}
-		})
-		ui.Text(c, colorPreviewHex(preview.literal.Color)).Font("monospace").FontSize(11).TextColor(colors(c).Muted).SingleLine()
-		ui.Row(c).FillWidth().Gap(8).Children(func() {
-			for _, sample := range []struct {
-				label      string
-				background ui.Color
-				text       ui.Color
-				border     ui.Color
-				rgb        [3]uint8
-			}{
-				{locales.ColorPreviewLight(), ui.RGBA(255, 255, 255, 1), ui.RGBA(32, 32, 32, 1), ui.RGBA(0, 0, 0, 0.16), [3]uint8{255, 255, 255}},
-				{locales.ColorPreviewDark(), ui.RGBA(24, 24, 27, 1), ui.RGBA(245, 245, 245, 1), ui.RGBA(255, 255, 255, 0.18), [3]uint8{24, 24, 27}},
-			} {
-				sample := sample
-				ui.Column(c.Key(sample.label)).Grow(1).Padding(8).Gap(6).Radius(8).
-					Background(sample.background).BorderWidth(1).BorderColor(sample.border).Children(func() {
-					ui.Text(c, sample.label).FontSize(11).TextColor(sample.text)
-					ui.Box(c).FillWidth().Height(46).Radius(6).Background(colorliteralColor(preview.literal.Color)).
-						BorderWidth(1).BorderColor(sample.border).Center().Children(func() {
-						ui.Text(c, "Aa").Font("system-ui").FontSize(20).
-							TextColor(colorPreviewSampleText(preview.literal.Color, sample.rgb))
-					})
-				})
-			}
+func colorPreviewPanel(c *ui.Context, preview *colorPreviewState) {
+	label := fmt.Sprintf(locales.ColorPreviewButton(), preview.literal.Raw)
+	ui.Box(c.Key("color-preview-panel")).Width(240).Height(92).Center().Children(func() {
+		ui.Box(c.Key("color-preview-canvas")).Width(224).Height(76).
+			Role(ui.RoleGroup).Label(label).Children(func() {
+			ui.Row(c).Fill().Children(func() {
+				ui.Box(c.Key("color-preview-light")).Grow(1).FillHeight().
+					Background(ui.RGB(255, 255, 255)).Role(ui.RoleGroup).Label(locales.ColorPreviewLight())
+				ui.Box(c.Key("color-preview-dark")).Grow(1).FillHeight().
+					Background(ui.RGB(24, 24, 27)).Role(ui.RoleGroup).Label(locales.ColorPreviewDark())
+			})
+			ui.Box(c.Key("color-preview-band")).Absolute().Left(12).Right(12).Top(20).Height(36).
+				Radius(5).Background(colorliteralColor(preview.literal.Color))
 		})
 	})
 }
 
 func colorliteralColor(color colorliteral.Color) ui.Color {
 	return ui.RGBA(color.R, color.G, color.B, float32(color.A)/255)
-}
-
-func colorPreviewHex(color colorliteral.Color) string {
-	if color.A == 255 {
-		return fmt.Sprintf("#%02X%02X%02X", color.R, color.G, color.B)
-	}
-	return fmt.Sprintf("#%02X%02X%02X%02X", color.R, color.G, color.B, color.A)
-}
-
-func colorPreviewSampleText(color colorliteral.Color, background [3]uint8) ui.Color {
-	alpha := float64(color.A) / 255
-	channel := func(foreground, behind uint8) float64 {
-		return float64(foreground)*alpha + float64(behind)*(1-alpha)
-	}
-	luminance := 0.2126*channel(color.R, background[0]) + 0.7152*channel(color.G, background[1]) + 0.0722*channel(color.B, background[2])
-	if luminance > 140 {
-		return ui.RGBA(30, 30, 30, 1)
-	}
-	return ui.RGBA(250, 250, 250, 1)
 }

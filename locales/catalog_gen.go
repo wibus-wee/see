@@ -574,16 +574,6 @@ func (msgs Messages) ColorPreviewButton() string {
 	return Catalog.Format(msgs.locale, "colorPreviewButton", nil)
 }
 
-// ColorPreviewClose says "Close color preview"
-// in the language the app shows.
-func ColorPreviewClose() string { return In(i18n.Locale()).ColorPreviewClose() }
-
-// ColorPreviewClose says "Close color preview"
-// in the language of msgs.
-func (msgs Messages) ColorPreviewClose() string {
-	return Catalog.Format(msgs.locale, "colorPreviewClose", nil)
-}
-
 // ColorPreviewDark says "Dark"
 // in the language the app shows.
 func ColorPreviewDark() string { return In(i18n.Locale()).ColorPreviewDark() }

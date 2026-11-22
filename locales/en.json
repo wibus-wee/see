@@ -53,7 +53,6 @@
   "showTypeHints": "Show type hints",
   "typeHintsDescription": "Show inferred types and parameter names inside code, as the language server reports them.",
   "colorPreviewButton": "Preview color %s",
-  "colorPreviewClose": "Close color preview",
   "colorPreviewDark": "Dark",
   "colorPreviewLight": "Light",
   "blameUncommitted": "You • Uncommitted changes",

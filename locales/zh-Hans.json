@@ -53,7 +53,6 @@
   "showTypeHints": "显示类型提示",
   "typeHintsDescription": "在代码中显示语言服务推断的类型和参数名。",
   "colorPreviewButton": "预览颜色 %s",
-  "colorPreviewClose": "关闭颜色预览",
   "colorPreviewDark": "深色",
   "colorPreviewLight": "浅色",
   "blameUncommitted": "你 • 尚未提交的更改",
