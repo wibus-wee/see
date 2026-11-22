@@ -45,6 +45,13 @@ func TestCloseWithoutConfirmationDiscards(t *testing.T) {
 			if h.a.confirm != nil || h.a.docs[d.path] != nil {
 				t.Fatal("dirty document was not closed")
 			}
+			if untitled {
+				h.settleFrames(func() bool {
+					d.cache.mu.Lock()
+					defer d.cache.mu.Unlock()
+					return d.cache.removed
+				})
+			}
 			content, err := os.ReadFile(d.path)
 			if untitled {
 				if !os.IsNotExist(err) {
