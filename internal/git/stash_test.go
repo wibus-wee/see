@@ -79,7 +79,7 @@ func TestStashPushListFilesApplyDrop(t *testing.T) {
 			t.Errorf("status %q lacks %q", status, want)
 		}
 	}
-	if b, _ := os.ReadFile(filepath.Join(root, "a.txt")); string(b) != "a\nchanged\n" {
+	if b, _ := os.ReadFile(filepath.Join(root, "a.txt")); strings.ReplaceAll(string(b), "\r\n", "\n") != "a\nchanged\n" {
 		t.Errorf("a.txt %q", b)
 	}
 	if err := StashDrop(ctx, root, work); err == nil {
