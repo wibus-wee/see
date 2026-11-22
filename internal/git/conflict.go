@@ -23,6 +23,8 @@ var (
 
 type ConflictChoice uint8
 
+const utf8BOM = "\xef\xbb\xbf"
+
 const (
 	KeepCurrent ConflictChoice = iota + 1
 	KeepIncoming
@@ -43,6 +45,9 @@ func (h ConflictHunk) Result(choice ConflictChoice) string {
 	case KeepIncoming:
 		return h.Incoming
 	case KeepBoth:
+		if h.start == 0 && strings.HasPrefix(h.Current, utf8BOM) {
+			return h.Current + strings.TrimPrefix(h.Incoming, utf8BOM)
+		}
 		return h.Current + h.Incoming
 	default:
 		return ""
@@ -144,8 +149,8 @@ func parseConflictHunks(text string, width int) ([]ConflictHunk, error) {
 	var hunks []ConflictHunk
 	var h ConflictHunk
 	pos, lineNo := 0, 0
-	if strings.HasPrefix(text, "\xef\xbb\xbf") {
-		pos = 3
+	if strings.HasPrefix(text, utf8BOM) {
+		pos = len(utf8BOM)
 	}
 	size, currentStart, incomingStart, section := 0, 0, 0, byte(0)
 	for raw := range strings.SplitAfterSeq(text[pos:], "\n") {

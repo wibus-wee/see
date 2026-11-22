@@ -50,6 +50,18 @@ func TestConflictHunksRejectPartialAndNestedMarkers(t *testing.T) {
 	}
 }
 
+func TestConflictKeepBothPreservesOneFileBOM(t *testing.T) {
+	const bom = "\xef\xbb\xbf"
+	text := "<<<<<<< HEAD\n" + bom + "current\n=======\n" + bom + "incoming\n>>>>>>> feature\n"
+	hunks, err := parseConflictHunks(text, 7)
+	if err != nil || len(hunks) != 1 {
+		t.Fatalf("hunks = %+v, %v", hunks, err)
+	}
+	if got, want := hunks[0].Result(KeepBoth), bom+"current\nincoming\n"; got != want {
+		t.Fatalf("Keep Both = %q; want %q", got, want)
+	}
+}
+
 func TestResolveConflictStagesOnlyChosenFile(t *testing.T) {
 	root, run := newRepo(t)
 	run("config", "core.autocrlf", "false")
