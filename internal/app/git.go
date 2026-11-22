@@ -22,6 +22,8 @@ type gitState struct {
 	root, branch, message  string
 	head                   string // HEAD's commit, so committed versions are read again only when it moves
 	refs                   string
+	repository             git.RepositoryRefs
+	repositoryView         repositoryNavigator
 	changes                []git.Change
 	selected               map[string]bool // multi-selected changes, keyed by staged:path
 	selectionAnchor        string
@@ -72,24 +74,30 @@ type gitState struct {
 }
 
 type gitPeek struct {
-	doc    *doc
-	group  *group
-	line   int
-	diff   *editor.DiffState
-	scroll ui.ScrollState
+	doc             *doc
+	group           *group
+	line            int
+	diff            *editor.DiffState
+	scroll          ui.ScrollState
+	filtered        *editor.DiffState
+	filteredVersion uint64
+	filteredHunk    int
 }
 
 type gitDiffTab struct {
-	state        *editor.DiffState // nil for a commit
-	patch        editor.FilePatch
-	name         string
-	staged       bool
-	cli          bool        // `see --diff`'s: it compares paths, not repository changes
-	rev          string      // the commit's short hash, for a file of a commit
-	commit       *commitView // a commit, which shows in place of a diff
-	log          *gitLogView // the log, which shows in place of a diff
-	branch       *branchDiffView
-	localHistory *localHistoryView
+	state                *editor.DiffState // nil for a commit
+	patch                editor.FilePatch
+	partial              *gitPartialPatch
+	search               *searchEditView
+	oldBuffer, newBuffer *editor.Buffer // source buffers for a CLI file comparison
+	name                 string
+	staged               bool
+	cli                  bool        // `see --diff`'s: it compares paths, not repository changes
+	rev                  string      // the commit's short hash, for a file of a commit
+	commit               *commitView // a commit, which shows in place of a diff
+	log                  *gitLogView // the log, which shows in place of a diff
+	branch               *branchDiffView
+	localHistory         *localHistoryView
 	// What the tab shows, to read it again in the next session: the
 	// commit's full hash, a renamed file's old path, and whether the
 	// change is of a file git does not track.
@@ -97,6 +105,7 @@ type gitDiffTab struct {
 	oldPath   string
 	untracked bool
 	pending   bool // restored, and waiting to be read
+	change    bool // compares a repository's working tree or index
 }
 
 // label tells what a diff compares: the commit, the index or the
@@ -117,7 +126,9 @@ func (v *gitDiffTab) label() string {
 
 // page reports whether the tab shows a commit or the log, not a file's
 // diff.
-func (v *gitDiffTab) page() bool { return v.commit != nil || v.log != nil || v.branch != nil }
+func (v *gitDiffTab) page() bool {
+	return v.commit != nil || v.log != nil || v.branch != nil || v.search != nil
+}
 
 // diffStates are the diffs the tab shows: its own, or the log's of the
 // commit chosen.
@@ -148,7 +159,7 @@ func (v *gitDiffTab) diffStates() []*editor.DiffState {
 func (a *App) newGitDiffTab(p editor.FilePatch, name string, staged bool) *gitDiffTab {
 	d := &editor.DiffState{Theme: a.edTheme}
 	a.applyDiffPrefs(d)
-	setPatch(d, p)
+	a.setDiffPatch(d, p, true)
 	d.GoToHunk(0)
 	return &gitDiffTab{state: d, patch: p, name: name, staged: staged}
 }
@@ -269,6 +280,7 @@ func (a *App) refreshGit() {
 			}
 			if s.RefsErr == nil {
 				a.git.refs = s.Refs
+				a.git.repository = s.Repository
 			}
 			a.git.root, a.git.branch, a.git.changes, a.git.head = s.Root, s.Branch, s.Changes, s.Head
 			a.git.branchFingerprint = branchFingerprint
@@ -445,15 +457,13 @@ func (a *App) showGitPeek(g *group, d *doc, st *editor.State, line int) {
 	if st.DiffBase != nil {
 		diff := &editor.DiffState{Old: st.DiffBase, New: d.buf, Layout: editor.DiffUnified, Theme: a.edTheme, FitContent: true}
 		a.applyDiffPrefs(diff)
-		for i, h := range diff.Hunks() {
-			if line >= h.NewStart && line < max(h.NewEnd, h.NewStart+1) || h.NewStart >= d.buf.LineCount() && line == d.buf.LineCount()-1 {
-				a.choices = nil
-				a.peek = nil
-				diff.GoToHunk(i)
-				a.git.peek = &gitPeek{doc: d, group: g, line: line, diff: diff}
-				a.git.peek.scroll.Y = diffHunkOffset(st, diff, i)
-				return
-			}
+		if i := gitHunkAt(diff, line); i >= 0 {
+			a.choices = nil
+			a.peek = nil
+			diff.GoToHunk(i)
+			a.git.peek = &gitPeek{doc: d, group: g, line: line, diff: diff}
+			a.git.peek.scroll.Y = diffHunkOffset(st, diff, i)
+			return
 		}
 	}
 	a.git.peek = nil
@@ -463,6 +473,15 @@ func (a *App) showGitPeek(g *group, d *doc, st *editor.State, line int) {
 		end = d.buf.Offset(editor.Pos{Line: line + 1})
 	}
 	st.Select(start, end)
+}
+
+func gitHunkAtLine(diff *editor.DiffState, line int) int {
+	for i, h := range diff.Hunks() {
+		if line >= h.NewStart && line < max(h.NewEnd, h.NewStart+1) || h.NewStart >= diff.New.LineCount() && line == diff.New.LineCount()-1 {
+			return i
+		}
+	}
+	return -1
 }
 
 func (a *App) gitStatusColor(status byte) ui.Color {
@@ -763,8 +782,7 @@ func (a *App) showGitDiffIn(ch git.Change, staged bool, target *group, placement
 	a.git.diffSeq++
 	seq, gen, root, ctx := a.git.diffSeq, a.gen, a.git.root, a.wsCtx
 	go func() {
-		out, err := changeDiff(ctx, root, ch.Path, staged, ch.Index == '?')
-		patches, parseErr := editor.ParsePatch(string(out))
+		view, err := readGitChangeView(ctx, root, ch, staged)
 		a.post.Post(func() {
 			if a.gen != gen || a.git.diffSeq != seq || a.layout.find(target) == nil {
 				return
@@ -773,12 +791,12 @@ func (a *App) showGitDiffIn(ch git.Change, staged bool, target *group, placement
 				a.note(locales.MsgGitDiff()+err.Error(), true)
 				return
 			}
-			if parseErr != nil || len(patches) == 0 || patches[0].Binary {
+			if view.file.OldName == "" && view.file.NewName == "" {
 				a.note(locales.MsgNoTextDiffAvailableFor()+ch.Path, true)
 				return
 			}
-			v := a.newGitDiffTab(patches[0], ch.Path, staged)
-			v.untracked = ch.Index == '?'
+			v := &gitDiffTab{name: ch.Path, staged: staged, change: true}
+			a.setGitChangeView(v, view, 0)
 			key := diffTab(ch.Path, staged)
 			if placement != sideNone {
 				target = a.splitBeside(target, placement)
@@ -808,6 +826,11 @@ func (a *App) gitNavigator(c *ui.Context) {
 			msg = "No Git repository found, or Git is unavailable."
 		}
 		ui.Text(c, msg).TextColor(colors(c).Muted).FontSize(12).Padding(12, 10).Tooltip(a.git.err)
+		return
+	}
+	a.gitNavigatorTabs(c)
+	if a.git.repositoryView.page == 1 {
+		a.gitRepositories(c)
 		return
 	}
 	staged, unstaged := 0, 0
@@ -1106,21 +1129,4 @@ func (a *App) commitBar(c *ui.Context, staged int) {
 			b.OnClick(commit)
 		})
 	})
-}
-
-// changeDiff is the whole patch of a change of the working tree, or of
-// the index with staged; an untracked file's is against nothing.
-func changeDiff(ctx context.Context, root, path string, staged, untracked bool) ([]byte, error) {
-	if untracked {
-		out, err := git.Command(ctx, root, "diff", "--no-index", "--no-ext-diff", "--no-color", "--unified=2147483647", "--", "/dev/null", filepath.Join(root, path))
-		if len(out) > 0 {
-			err = nil // --no-index fails when there is a difference
-		}
-		return out, err
-	}
-	args := []string{"diff", "--no-ext-diff", "--no-color", "--unified=2147483647"}
-	if staged {
-		args = append(args, "--cached")
-	}
-	return git.Command(ctx, root, append(args, "--", path)...)
 }

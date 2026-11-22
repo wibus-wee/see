@@ -15,6 +15,7 @@ import (
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 
+	"see/internal/config"
 	"see/internal/lsp"
 	"see/internal/nav"
 	"see/internal/search"
@@ -74,6 +75,54 @@ func (f *findState) reset() {
 	opts := f.opts
 	*f = findState{opts: opts}
 	f.init()
+}
+
+func (f *findState) currentQuery() config.SavedFindQuery {
+	opts := f.opts
+	return config.SavedFindQuery{
+		Query: opts.Query, CaseSensitive: opts.CaseSensitive, WholeWord: opts.WholeWord,
+		Regexp: opts.Regexp, Include: opts.Include, Exclude: opts.Exclude,
+	}
+}
+
+func (a *App) setSavedFindQuery(query config.SavedFindQuery, save bool) {
+	if a.root == "" || strings.TrimSpace(query.Query) == "" {
+		return
+	}
+	byWorkspace := a.cfg.SavedFindQueries
+	queries := byWorkspace[a.root]
+	i := slices.Index(queries, query)
+	if save == (i >= 0) {
+		return
+	}
+	if save {
+		if byWorkspace == nil {
+			byWorkspace = make(map[string][]config.SavedFindQuery)
+			a.cfg.SavedFindQueries = byWorkspace
+		}
+		byWorkspace[a.root] = slices.Insert(queries, 0, query)
+	} else if len(queries) == 1 {
+		delete(byWorkspace, a.root)
+	} else {
+		byWorkspace[a.root] = slices.Delete(queries, i, i+1)
+	}
+	a.saveConfigSoon()
+}
+
+func (a *App) rerunSavedFindQuery(query config.SavedFindQuery) {
+	f := &a.find
+	if f.replacing {
+		return
+	}
+	f.opts = search.Options{
+		Query: query.Query, CaseSensitive: query.CaseSensitive, WholeWord: query.WholeWord,
+		Regexp: query.Regexp, Include: query.Include, Exclude: query.Exclude,
+		MaxMatches: f.opts.MaxMatches,
+	}
+	f.showFilters = query.Include != "" || query.Exclude != ""
+	f.showReplace = false
+	f.replacement, f.replaceNote, f.replaceErr = "", "", false
+	a.runFind()
 }
 
 // findSoon searches once typing stops for a moment.
@@ -236,6 +285,10 @@ type quickOpen struct {
 	fileVersion   uint64
 	fileSymbols   []quickSymbol
 	fileLoaded    bool
+	targetQuery   string
+	targetFiles   []string
+	targetPath    string
+	targetLoading bool
 }
 
 type quickSymbol struct {
@@ -301,6 +354,39 @@ func (a *App) ensureFiles() {
 // rankQuick ranks the files for the query when it changed.
 func (a *App) rankQuick() {
 	q := &a.quick
+	fileQuery, _, targeted := splitQuickFileSymbol(q.query)
+	if targeted {
+		a.ensureFiles()
+		if fileQuery != q.targetQuery || len(q.files) != len(q.targetFiles) || len(q.files) > 0 && &q.files[0] != &q.targetFiles[0] {
+			q.targetQuery, q.targetFiles, q.targetPath = fileQuery, q.files, ""
+			if files := search.Files(q.files, fileQuery, 60); len(files) > 0 {
+				q.targetPath = workspace.DocPath(a.root, a.realRoot, joinRoot(a.root, files[0].Path))
+			}
+		}
+		path, version, loading := q.targetPath, uint64(0), false
+		if path != "" {
+			if a.cfg.IsTrusted(a.root) {
+				d := a.docs[path]
+				if d == nil {
+					d = &doc{path: path, uri: uriOf(path), name: filepath.Base(path)}
+					a.docs[path] = d
+					a.loadDoc(d)
+				}
+				if d.buf != nil {
+					version = d.buf.Version()
+				}
+				loading = d.loading
+			}
+		}
+		if q.targetLoading != loading {
+			q.targetLoading = loading
+			q.ranked = "\x00"
+		}
+		if path != q.filePath || version != q.fileVersion {
+			q.filePath, q.fileVersion, q.fileLoaded, q.fileSymbols = path, version, false, nil
+			q.ranked = "\x00"
+		}
+	}
 	if strings.HasPrefix(q.query, "@") {
 		path, version := "", uint64(0)
 		if st := a.activeEditor(); st != nil {
@@ -354,10 +440,14 @@ func (a *App) rankQuick() {
 			names = append(names, commandLabel(cmd.name))
 		}
 		q.results = search.Fuzzy(names, strings.TrimSpace(q.query[1:]), len(names))
-	} else if strings.HasPrefix(q.query, "@") {
+	} else if strings.HasPrefix(q.query, "@") || targeted {
 		q.results = nil
 		if q.filePath != "" && a.cfg.IsTrusted(a.root) {
-			if q.fileLoaded {
+			if d := a.docs[q.filePath]; targeted && d != nil && d.loading {
+				q.symbolLoading = true
+			} else if targeted && a.docs[q.filePath] != nil && a.docs[q.filePath].err != nil {
+				q.symbolErr = a.docs[q.filePath].err
+			} else if q.fileLoaded {
 				a.filterFileSymbols()
 			} else {
 				a.searchFileSymbols()
@@ -492,7 +582,8 @@ func (a *App) chooseQuick(i int) {
 	}
 	p := q.results[i].Path
 	q.open = false
-	if strings.HasPrefix(q.query, "#") || strings.HasPrefix(q.query, "@") {
+	_, _, targeted := splitQuickFileSymbol(q.query)
+	if strings.HasPrefix(q.query, "#") || strings.HasPrefix(q.query, "@") || targeted {
 		s := q.symbols[i]
 		if a.focus != nil {
 			if st := a.activeEditor(); st != nil {
@@ -529,6 +620,17 @@ func (a *App) chooseQuick(i int) {
 }
 
 func joinRoot(root, rel string) string { return filepath.Join(root, filepath.FromSlash(rel)) }
+
+func splitQuickFileSymbol(query string) (string, string, bool) {
+	if query == "" || strings.ContainsAny(query[:1], ">#@:") {
+		return "", "", false
+	}
+	i := strings.LastIndex(query, "@")
+	if i <= 0 || query[i-1] == '/' || strings.Contains(query[i+1:], "/") {
+		return "", "", false
+	}
+	return query[:i], query[i+1:], true
+}
 
 // maxQuickRecents bounds the files an empty Open Quickly lists.
 const maxQuickRecents = 15

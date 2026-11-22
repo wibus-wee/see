@@ -12,6 +12,22 @@ import (
 	"time"
 )
 
+func TestDiagnosticsPublishedBeforeHandlerAreDelivered(t *testing.T) {
+	c := &Client{}
+	h := (*handler)(c)
+	const method = "textDocument/publishDiagnostics"
+	h.Notify(method, json.RawMessage(`{"uri":"file:///workspace/main.go","diagnostics":[{"message":"obsolete"}]}`))
+	h.Notify(method, json.RawMessage(`{"uri":"file:///workspace/main.go","diagnostics":[{"message":"latest"}]}`))
+	var got []string
+	c.SetDiagnosticsHandler(func(_ string, _ *int, items []Diagnostic) {
+		got = append(got, items[0].Message)
+	})
+	h.Notify(method, json.RawMessage(`{"uri":"file:///workspace/main.go","diagnostics":[{"message":"live"}]}`))
+	if strings.Join(got, ",") != "latest,live" {
+		t.Fatalf("diagnostics delivered out of order: %v", got)
+	}
+}
+
 func TestColumns(t *testing.T) {
 	// a=1 byte, 中=3 bytes/1 UTF-16 unit, 🎉=4 bytes/2 units, é as e+U+0301
 	// (a combining mark, its own code point).
@@ -267,6 +283,7 @@ func (f *fakeServer) serve() {
 				reply(f.signatureHelp(m.Params))
 			}
 		case "textDocument/implementation", "textDocument/typeDefinition",
+			"textDocument/prepareTypeHierarchy", "typeHierarchy/supertypes", "typeHierarchy/subtypes",
 			"textDocument/prepareCallHierarchy",
 			"callHierarchy/incomingCalls", "callHierarchy/outgoingCalls",
 			"textDocument/formatting", "textDocument/rangeFormatting",

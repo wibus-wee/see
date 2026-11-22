@@ -6,6 +6,28 @@ import (
 	"testing"
 )
 
+func TestReaderModeDefaultAndPersistence(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "reader.json")
+	c := Load(p)
+	if c.HideDocComments {
+		t.Fatal("reader mode should default on")
+	}
+	c.HideDocComments = true
+	if err := c.Save(); err != nil {
+		t.Fatal(err)
+	}
+	if !Load(p).HideDocComments {
+		t.Fatal("disabled reader mode was not persisted")
+	}
+	c.HideDocComments = false
+	if err := c.Save(); err != nil {
+		t.Fatal(err)
+	}
+	if Load(p).HideDocComments {
+		t.Fatal("enabled reader mode was not persisted")
+	}
+}
+
 func TestLSPConfigParses(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "config.json")
 	json := `{
@@ -58,6 +80,7 @@ func TestRoundTrip(t *testing.T) {
 	c := Load(p)
 	c.LastWorkspace = "/w"
 	c.EditorFoldImports = true
+	c.HideWhitespaceChanges = true
 	c.Workspaces = map[string]Workspace{"/w": {Layout: &Layout{Tabs: []Tab{{Path: "/w/main.go", Folds: []int{2, 7}}, {Path: "/w/empty.go", Folds: []int{}}}}}}
 	c.Trust("/w")
 	c.AddRecent("/w")
@@ -65,7 +88,7 @@ func TestRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	c2 := Load(p)
-	if !c2.EditorFoldImports || len(c2.Workspaces["/w"].Layout.Tabs[0].Folds) != 2 || c2.Workspaces["/w"].Layout.Tabs[1].Folds == nil {
+	if !c2.EditorFoldImports || !c2.HideWhitespaceChanges || len(c2.Workspaces["/w"].Layout.Tabs[0].Folds) != 2 || c2.Workspaces["/w"].Layout.Tabs[1].Folds == nil {
 		t.Fatalf("folding preferences or session lost: %+v", c2)
 	}
 	if c2.LastWorkspace != "/w" || !c2.IsTrusted("/w") || len(c2.Recent) != 1 {

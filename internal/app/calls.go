@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"strings"
 	"sync/atomic"
 	"time"
 
@@ -31,6 +30,7 @@ const (
 // calls is the call hierarchy panel's state: the tree of items, which
 // direction it grows, and the requests whose answers fill it.
 type calls struct {
+	types      bool
 	tree       ui.OutlineState[int]
 	row        int
 	sel        int // direction the segmented control shows
@@ -104,6 +104,10 @@ func (a *App) showCallHierarchy() {
 // where its editor's caret is, from the command; where the pointer
 // last was, from the Related Items menu.
 func (a *App) showCallHierarchyAt(g *group) {
+	a.showHierarchyAt(g, false)
+}
+
+func (a *App) showHierarchyAt(g *group, types bool) {
 	if g == nil {
 		return
 	}
@@ -119,11 +123,12 @@ func (a *App) showCallHierarchyAt(g *group) {
 	}
 	if !a.cfg.IsTrusted(a.root) {
 		a.trustAsk = true
-		a.afterTrust = func() { a.showCallHierarchyAt(g) }
+		a.afterTrust = func() { a.showHierarchyAt(g, types) }
 		return
 	}
 	cs := &a.calls
 	a.cancelCalls()
+	cs.types = types
 	a.hideLink()
 	a.term.maximized = false
 	a.term.open = true
@@ -146,7 +151,7 @@ func (a *App) showCallHierarchyAt(g *group) {
 	cs.docVersion = 0
 	cs.dir = callDir(cs.sel)
 	a.finding = true
-	a.findingLabel = locales.CallHierarchyPreparing()
+	a.findingLabel = a.hierarchyText("Preparing")
 	seq, gen := cs.seq, a.gen
 	go func() {
 		defer cancel()
@@ -158,7 +163,7 @@ func (a *App) showCallHierarchyAt(g *group) {
 		if err == nil {
 			anchor.enc = c.Encoding()
 			anchor.pos = lsp.Position{Line: pos.Line, Character: lsp.ColumnToLSP(snap.Line(pos.Line), pos.Col, anchor.enc)}
-			cc, ok := c.(callClient)
+			cc, ok := hierarchyClient(c, types)
 			if !ok || !cc.HasCallHierarchy() {
 				err = errCallsUnsupported
 			} else {
@@ -239,6 +244,7 @@ func (a *App) expandCall(k int) {
 	ctx, cancel := context.WithTimeout(a.wsCtx, 20*time.Second)
 	seq, gen := cs.seq, a.gen
 	dir := cs.dir
+	types := cs.types
 	item := n.item
 	items := cs.items
 	go func() {
@@ -246,7 +252,7 @@ func (a *App) expandCall(k int) {
 		var err error
 		c, err := m.Get(ctx)
 		if err == nil {
-			cc, ok := c.(callClient)
+			cc, ok := hierarchyClient(c, types)
 			switch {
 			case !ok || !cc.HasCallHierarchy():
 				err = errCallsUnsupported
@@ -325,6 +331,9 @@ func (a *App) callsChildren(k int) []int {
 		return nil
 	}
 	n := &cs.nodes[k]
+	if cs.types && !n.fetched && !n.pending && !n.leaf && n.err == nil && !n.empty {
+		return []int{a.callStatus(k)}
+	}
 	if n.pending || n.err != nil || n.empty {
 		return []int{a.callStatus(k)}
 	}
@@ -386,8 +395,8 @@ func (a *App) callsPanel(c *ui.Context) {
 	ui.Row(c).FillWidth().Padding(6, 10, 4, 10).Gap(8).AlignItems(ui.Center).Children(func() {
 		seg := ui.SegmentedBase(c, &cs.sel, 2)
 		seg.Track.Children(func() {
-			a.callSegment(c, seg.Segment(0), locales.CallHierarchyIncoming(), cs.sel == 0)
-			a.callSegment(c, seg.Segment(1), locales.CallHierarchyOutgoing(), cs.sel == 1)
+			a.callSegment(c, seg.Segment(0), a.hierarchyText("Incoming"), cs.sel == 0)
+			a.callSegment(c, seg.Segment(1), a.hierarchyText("Outgoing"), cs.sel == 1)
 		})
 		if cs.sel != int(cs.dir) {
 			a.switchCallDir(callDir(cs.sel))
@@ -407,19 +416,26 @@ func (a *App) callsPanel(c *ui.Context) {
 	cs.tree.Indent = 12
 	split := ui.Row(c).Grow(1).FillWidth().AlignItems(ui.Stretch)
 	split.Children(func() {
-		ui.Column(c).Grow(1).FillHeight().Clip().Children(func() {
+		ui.Column(c).Grow(2).Basis(0).MinWidth(0).FillHeight().Clip().Children(func() {
 			if cs.preview != nil {
 				editor.View(c.Key("call-code"), cs.preview).Grow(1).FillWidth()
 			} else {
 				ui.Column(c).Grow(1).FillWidth().Center().Children(func() {
-					ui.Text(c, locales.CallHierarchySelectToPreview()).FontSize(12).TextColor(colors(c).Muted)
+					ui.Text(c, a.hierarchyText("SelectToPreview")).FontSize(12).TextColor(colors(c).Muted)
 				})
 			}
 		})
-		ui.Column(c).Width(280).Shrink(0).FillHeight().BorderWidth(0, 0, 0, 1).BorderColor(colors(c).Separator).Children(func() {
-			outline := ui.Outline(c, &cs.tree, cs.roots, a.callsChildren, func(k int) { a.callRow(c, k) }).Grow(1).FillWidth().Label(locales.CallHierarchy())
+		ui.Column(c).Grow(3).Basis(0).MinWidth(0).FillHeight().BorderWidth(0, 0, 0, 1).BorderColor(colors(c).Separator).Children(func() {
+			outline := ui.Outline(c, &cs.tree, cs.roots, a.callsChildren, func(k int) { a.callRow(c, k) }).Grow(1).FillWidth().Label(a.hierarchyText(""))
 			if outline.Submitted() && cs.row >= 0 && cs.row < cs.tree.Rows() {
 				a.openCallRow(cs.tree.Item(cs.row))
+			}
+			if cs.types {
+				for k := 0; k < len(cs.nodes); k++ {
+					if cs.tree.Open.Has(k) {
+						a.expandCall(k)
+					}
+				}
 			}
 		})
 	})
@@ -444,10 +460,18 @@ func (a *App) callAnchorLabel() string {
 		return ""
 	}
 	base := filepath.Base(cs.anchor.path)
+	name := cs.anchor.name
+	if cs.types && len(cs.items) == 1 {
+		item := cs.items[0]
+		name = hierarchyTypeName(item)
+		if p, err := uri.ToPath(item.URI); err == nil {
+			base = filepath.Base(p)
+		}
+	}
 	if cs.anchor.name == base {
 		return base
 	}
-	return cs.anchor.name + " · " + base
+	return name + " · " + base
 }
 
 // callSelection previews the selected row's call site, as relatedView
@@ -479,7 +503,7 @@ func (a *App) callSelection() {
 		return
 	}
 	if cs.preview == nil || cs.preview.Buffer != buf {
-		cs.preview = &editor.State{Buffer: buf, ReadOnly: true, Label: locales.CallHierarchyPreview(), Theme: a.edTheme}
+		cs.preview = &editor.State{Buffer: buf, ReadOnly: true, Label: a.hierarchyText("Preview"), Theme: a.edTheme}
 		a.applyEditorPrefs(cs.preview)
 	}
 	rng := a.callSiteRange(n)
@@ -548,14 +572,25 @@ func (a *App) callRow(c *ui.Context, k int) {
 	row.Children(func() {
 		a.callItemRow(c, n)
 	})
+	if cs.types {
+		row.OnClick(func() {
+			for i := 0; i < cs.tree.Rows(); i++ {
+				if cs.tree.Item(i) == k {
+					cs.row = i
+					break
+				}
+			}
+			a.openCallRow(k)
+		})
+	}
 	if row.DoubleClicked() {
 		a.openCallRow(k)
 	}
 	row.ContextMenu(func(m *ui.Menu) {
-		if m.Item(locales.CallHierarchyMakeRoot()).Chosen() {
+		if m.Item(a.hierarchyText("MakeRoot")).Chosen() {
 			a.makeCallRoot(k)
 		}
-		if m.Item(locales.CallHierarchyCopyLocation()).Chosen() {
+		if m.Item(a.hierarchyText("CopyLocation")).Chosen() {
 			a.copyCallLocation(k)
 		}
 	})
@@ -571,7 +606,7 @@ func (a *App) callStatusRow(c *ui.Context, k int) {
 		switch {
 		case parent.pending:
 			ui.Spinner(c)
-			ui.Text(c, locales.CallHierarchyLoading()).FontSize(12).TextColor(colors(c).Muted).SingleLine().Shrink(1)
+			ui.Text(c, a.hierarchyText("Loading")).FontSize(12).TextColor(colors(c).Muted).SingleLine().Shrink(1)
 		case parent.err != nil:
 			ui.Text(c, a.callErrorText(parent)).FontSize(12).TextColor(colors(c).Err).SingleLine().Shrink(1)
 			if ui.Button(c, locales.Retry()).Padding(0, 6).Clicked() {
@@ -589,12 +624,12 @@ func (a *App) callStatusRow(c *ui.Context, k int) {
 func (a *App) callErrorText(n *callNode) string {
 	if n.unsupported {
 		if a.calls.dir == callsOutgoing {
-			return locales.CallHierarchyNoOutgoing()
+			return a.hierarchyText("NoOutgoing")
 		}
-		return locales.CallHierarchyNoIncoming()
+		return a.hierarchyText("NoIncoming")
 	}
 	if errors.Is(n.err, lsp.ErrNoCallItem) {
-		return locales.CallHierarchyNoItem()
+		return a.hierarchyText("NoItem")
 	}
 	return n.err.Error()
 }
@@ -602,9 +637,9 @@ func (a *App) callErrorText(n *callNode) string {
 // callEmptyText is the no-calls line of the tree's direction.
 func (a *App) callEmptyText(dir callDir) string {
 	if dir == callsOutgoing {
-		return locales.CallHierarchyNoCallees()
+		return a.hierarchyText("NoCallees")
 	}
-	return locales.CallHierarchyNoCallers()
+	return a.hierarchyText("NoCallers")
 }
 
 // callItemRow is a row's kind glyph, name and muted file:line; the
@@ -614,13 +649,13 @@ func (a *App) callItemRow(c *ui.Context, n *callNode) {
 	ui.Box(c).Width(16).Height(16).Radius(4).Shrink(0).Background(color.Alpha(0.16)).Center().Children(func() {
 		ui.Text(c, kind).FontSize(10).Bold().TextColor(color).SingleLine()
 	})
-	ui.Text(c, n.item.Name).FontSize(12).SingleLine().Shrink(0)
-	if n.item.Detail != "" && !strings.Contains(n.item.Detail, "\n") {
-		ui.Text(c, n.item.Detail).FontSize(11).TextColor(colors(c).Dim).SingleLine().Shrink(1)
+	name := n.item.Name
+	if a.calls.types {
+		name = hierarchyTypeName(n.item)
 	}
-	ui.Box(c).Grow(1)
+	ui.Text(c, name).FontSize(12).SingleLine().Shrink(0)
 	if label := a.callItemPlace(n); label != "" {
-		ui.Text(c, label).FontSize(11).TextColor(colors(c).Muted).SingleLine().Shrink(0)
+		ui.Text(c, label).FontSize(11).TextColor(colors(c).Muted).SingleLine().Shrink(1)
 	}
 }
 
@@ -635,8 +670,12 @@ func (a *App) callItemPlace(n *callNode) string {
 		return filepath.Base(n.item.URI)
 	}
 	rel := filepath.Base(p)
-	if a.root != "" && workspace.Within(a.root, p) {
-		rel = workspace.RelPath(a.root, p)
+	for _, other := range a.calls.nodes {
+		otherPath, err := uri.ToPath(other.item.URI)
+		if err == nil && otherPath != p && filepath.Base(otherPath) == rel {
+			rel = filepath.Join(filepath.Base(filepath.Dir(p)), rel)
+			break
+		}
 	}
 	return fmt.Sprintf("%s:%d", rel, a.callSiteRange(n).Start.Line+1)
 }

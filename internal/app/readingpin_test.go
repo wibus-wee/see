@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"slices"
 	"testing"
 	"time"
 
@@ -17,90 +18,44 @@ func pinSymbol(name string, kind, depth, start, end int) lsp.DocumentSymbol {
 	}
 }
 
-func TestPinScopes(t *testing.T) {
+func TestStickyScopes(t *testing.T) {
+	// Intentionally unordered and flat, as a server's SymbolInformation can be.
 	symbols := []lsp.DocumentSymbol{
-		pinSymbol("Pkg", 4, 0, 0, 400),         // 0
-		pinSymbol("Server", 23, 1, 10, 300),    // 1
-		pinSymbol("Name", 8, 2, 12, 12),        // 2, a field: too short
-		pinSymbol("Start", 6, 2, 30, 120),      // 3
-		pinSymbol("middleware", 12, 3, 32, 33), // 4, short: not a scope
-		pinSymbol("handler", 12, 4, 50, 100),   // 5
-		pinSymbol("inner", 12, 5, 60, 90),      // 6, one more level
-		pinSymbol("Stop", 6, 2, 140, 160),      // 7
-		pinSymbol("Helper", 12, 1, 320, 340),   // 8
-	}
-	indexes := func(path []pinScope) []int {
-		out := make([]int, len(path))
-		for i, s := range path {
-			out[i] = s.index
-		}
-		return out
-	}
-	hops := func(path []pinScope) []int {
-		out := make([]int, len(path))
-		for i, s := range path {
-			out[i] = s.hops
-		}
-		return out
+		pinSymbol("Inner", 12, 0, 60, 90),
+		pinSymbol("Start", 6, 0, 30, 120),
+		pinSymbol("Package", 4, 0, 0, 400),
+		pinSymbol("Stop", 6, 0, 140, 160),
+		pinSymbol("Server", 23, 0, 10, 300),
+		pinSymbol("Property", 7, 0, 11, 22),
+		pinSymbol("Handler", 12, 0, 50, 100),
+		pinSymbol("Short", 12, 0, 320, 323),
 	}
 	cases := []struct {
 		name string
 		line int
-		want []int // symbol indexes outer first, nil for no row
-		hops []int
+		want []string
 	}{
-		{"between symbols at top level", 310, []int{0}, []int{0}},
-		{"inside Server only", 15, []int{0, 1}, []int{0, 0}},
-		{"inside handler names it", 55, []int{3, 5}, []int{3, 0}},
-		{"inside inner keeps one level", 70, []int{5, 6}, []int{4, 0}},
-		{"inside handler below inner", 95, []int{3, 5}, []int{3, 0}},
-		{"inside Stop", 150, []int{1, 7}, []int{1, 0}},
-		{"inside Helper", 330, []int{0, 8}, []int{0, 0}},
-		{"a scope too short names its parent", 13, []int{0, 1}, []int{0, 0}},
-		{"the last line of a scope stays inside its parent", 120, []int{0, 1}, []int{0, 0}},
-		{"on the declaration line is inside it", 30, []int{1, 3}, []int{1, 0}},
+		{"at the type declaration", 10, nil},
+		{"inside a non-scope property", 15, []string{"Server"}},
+		{"method declaration still visible under the type", 29, []string{"Server"}},
+		{"method declaration reached the type's pinned row", 30, []string{"Server", "Start"}},
+		{"inside nested functions", 55, []string{"Server", "Start", "Handler"}},
+		{"cap keeps the innermost scope", 70, []string{"Server", "Start", "Inner"}},
+		{"method ends at the bottom of its slot", 118, []string{"Server"}},
+		{"inside the next method", 150, []string{"Server", "Stop"}},
+		{"between declarations", 310, nil},
+		{"inside a short function", 321, []string{"Short"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := pinScopes(nil, symbols, tc.line)
-			if len(got) == 0 {
-				if tc.want != nil {
-					t.Fatalf("no path, want %v", tc.want)
-				}
-				return
+			var got []string
+			for _, s := range stickyScopes(symbols, []int{tc.line, tc.line + 1, tc.line + 2, tc.line + 3}) {
+				got = append(got, s.Name)
 			}
-			if tc.want == nil {
-				t.Fatalf("path %v, want none", indexes(got))
-			}
-			if len(indexes(got)) != len(tc.want) {
-				t.Fatalf("path %v, want symbols %v", indexes(got), tc.want)
-			}
-			for i, idx := range indexes(got) {
-				if idx != tc.want[i] {
-					t.Fatalf("path %v, want symbols %v", indexes(got), tc.want)
-				}
-			}
-			for i, h := range hops(got) {
-				if h != tc.hops[i] {
-					t.Fatalf("hops %v, want %v", hops(got), tc.hops)
-				}
+			if !slices.Equal(got, tc.want) {
+				t.Fatalf("headers %v, want %v", got, tc.want)
 			}
 		})
-	}
-	// Sibling scopes at one depth: the longest containing one is the
-	// answer, and a parent keeps a depth walk from crossing scopes.
-	deep := []lsp.DocumentSymbol{
-		pinSymbol("A", 6, 0, 0, 50),
-		pinSymbol("B", 6, 1, 10, 20),
-		pinSymbol("C", 6, 1, 30, 48),
-	}
-	if got := pinScopes(nil, deep, 40); len(got) != 2 || got[1].index != 2 {
-		t.Fatalf("path %v, want [A C]", indexes(got))
-	}
-	// Flat SymbolInformation carries no nesting and answers one scope.
-	flat := []lsp.DocumentSymbol{pinSymbol("Only", 6, 0, 10, 100)}
-	if got := pinScopes(nil, flat, 50); len(got) != 1 || got[0].index != 0 {
-		t.Fatalf("path %v, want [Only]", indexes(got))
 	}
 }
 
@@ -157,7 +112,7 @@ func pinSymbols() []lsp.DocumentSymbol {
 	return []lsp.DocumentSymbol{
 		pinSymbol("Server", 23, 0, 3, 5),
 		pinSymbol("Name", 8, 1, 4, 4),
-		pinSymbol("(*Server).Start", 6, 0, 8, 36),
+		pinSymbol("(*Server).Start", 6, 0, 7, 32),
 		pinSymbol("Helper", 12, 0, 38, 52),
 	}
 }
@@ -174,9 +129,6 @@ func pinHarness(t *testing.T) (*harness, *fileSymbolClient) {
 	return h, client
 }
 
-// scrollTo moves the viewport and lets it paint: VisibleLines answers
-// for the last frame the editor drew, so the row is checked a frame
-// after the one that scrolled.
 func (h *harness) scrollTo(st *editor.State, line int) {
 	h.t.Helper()
 	st.ScrollTo(line)
@@ -184,7 +136,9 @@ func (h *harness) scrollTo(st *editor.State, line int) {
 	h.tt.Frame()
 }
 
-func TestReadingPinShowsEnclosingScope(t *testing.T) {
+const startDeclaration = "func (s *Server) Start() {"
+
+func TestStickyHeaderFollowsViewport(t *testing.T) {
 	h, _ := pinHarness(t)
 	st := h.a.activeEditor()
 	// At the top of the file there is no answer and no row.
@@ -193,91 +147,91 @@ func TestReadingPinShowsEnclosingScope(t *testing.T) {
 	if first != 0 {
 		t.Fatalf("top line %d", first)
 	}
-	if h.tt.HasText("(*Server).Start") {
+	if h.tt.HasText(startDeclaration) {
 		t.Fatal("the pin shows at the top of the file")
 	}
+	height := st.ViewportHeight()
 	// Scroll the declaration above the viewport: the row names it.
 	h.scrollTo(st, 20)
-	if !h.tt.HasText("(*Server).Start") {
-		t.Fatalf("the pin does not name Start: %q", h.tt.Texts())
+	if !h.tt.HasText(startDeclaration) {
+		t.Fatalf("the pin does not show the Start declaration: %q", h.tt.Texts())
+	}
+	if st.ViewportHeight() != height || st.CursorPos().Line != 0 {
+		t.Fatal("showing the pin changed the viewport height or moved the caret")
 	}
 	// A scroll within the same declaration keeps one answer.
 	h.scrollTo(st, 30)
-	if !h.tt.HasText("(*Server).Start") || h.tt.HasText("Helper") {
+	if !h.tt.HasText(startDeclaration) {
 		t.Fatalf("the pin changed inside one declaration: %q", h.tt.Texts())
 	}
 	// Back at the top of the scope the row disappears.
-	h.scrollTo(st, 0)
-	if h.tt.HasText("(*Server).Start") {
+	h.scrollTo(st, 7)
+	if h.tt.HasText(startDeclaration) {
 		t.Fatal("the pin stayed at the top of the scope")
 	}
 }
 
-func TestReadingPinNestedSegmentsAndClick(t *testing.T) {
-	h := newHarness(t, writeTree(t, map[string]string{"b.go": `package b
+func TestStickyHeadersStackScrollAndNavigate(t *testing.T) {
+	h := newHarness(t, writeTree(t, map[string]string{"indexer.ts": `export const version = 1;
 
-func Outer() {
-	one := 1
-	two := 2
-	three := 3
-	four := 4
-	five := 5
-	six := 6
-	seven := 7
-	eight := 8
-	nine := 9
-	ten := 10
-	eleven := 11
-	twelve := 12
-	thirteen := 13
-	fourteen := 14
-	fifteen := 15
-	sixteen := 16
-	seventeen := 17
-	eighteen := 18
-	nineteen := 19
-	twenty := 20
+export class ProjectIndexer {
+	name = "project";
+	entries: string[] = [];
+
+	rebuild(root: string) {
+		this.entries.push(root + "/config");
+		this.entries.push(root + "/docs");
+		this.entries.push(root + "/examples");
+		this.entries.push(root + "/index");
+		this.entries.push(root + "/locale");
+		this.entries.push(root + "/manifest");
+		this.entries.push(root + "/modules");
+		this.entries.push(root + "/packages");
+		this.entries.push(root + "/scripts");
+		this.entries.push(root + "/src");
+		this.entries.push(root + "/tests");
+		this.entries.push(root + "/tools");
+		this.entries.push(root + "/vendor");
+		this.entries.push(root + "/web");
+		return this.entries;
+	}
 }
 `}))
 	h.a.cfg.Trust(h.a.root)
 	client := &fileSymbolClient{fakeClient: h.fc, symbols: func(context.Context, string) ([]lsp.DocumentSymbol, error) {
 		return []lsp.DocumentSymbol{
-			pinSymbol("Pkg", 4, 0, 0, 30),
-			pinSymbol("Outer", 12, 1, 2, 24),
-			pinSymbol("deep", 12, 2, 6, 22),
+			pinSymbol("ProjectIndexer", 5, 0, 2, 24),
+			pinSymbol("rebuild", 6, 1, 6, 23),
 		}, nil
 	}}
-	h.a.lsp = serverOf(h.a.root, client)
-	defer h.a.lsp.StopWait(time.Second)
-	h.open("b.go")
-	h.settle(func() bool { return !h.a.focus.pin.loading && len(h.a.focus.pin.symbols) == 3 })
+	h.a.tsLSP = serverOf(h.a.root, client)
+	defer h.a.tsLSP.StopWait(time.Second)
+	h.open("indexer.ts")
+	h.settle(func() bool { return !h.a.focus.pin.loading && len(h.a.focus.pin.symbols) == 2 })
 	st := h.a.activeEditor()
 	h.scrollTo(st, 15)
-	// The skipped middle level collapses to an ellipsis before the row.
-	if !h.tt.HasText("…") || !h.tt.HasText("Outer") || !h.tt.HasText("deep") {
-		t.Fatalf("nested path missing: %q", h.tt.Texts())
-	}
-	// Clicking a segment goes to its declaration. The jump bar names the
-	// same symbols, so the clicks go to the pin row's own bounds.
-	clickPin := func(name string) {
+	pin := func(name string) (float32, float32) {
 		t.Helper()
-		row, ok := h.tt.Access("Reading position pin")
+		row, ok := h.tt.Access(name)
 		if !ok {
-			t.Fatal("no pin row")
+			t.Fatalf("no %q sticky header: %q", name, h.tt.Texts())
 		}
-		for _, info := range h.tt.AccessAll() {
-			if info.Name != name {
-				continue
-			}
-			b := info.Bounds
-			if b.Y >= row.Bounds.Y && b.Y+b.H <= row.Bounds.Y+row.Bounds.H {
-				h.tt.ClickAt(b.X+b.W/2, b.Y+b.H/2)
-				return
-			}
-		}
-		t.Fatalf("no %s in the pin row", name)
+		b := row.Bounds
+		return b.X + b.W/2, b.Y + b.H/2
 	}
-	clickPin("Outer")
+	const outer, inner = "export class ProjectIndexer {", "rebuild(root: string) {"
+	x, y := pin(outer)
+	_, innerY := pin(inner)
+	if innerY <= y {
+		t.Fatal("the function is not stacked under the type")
+	}
+	before := st.ScrollY()
+	h.tt.Wheel(x, y, 0, 20)
+	h.tt.Frame()
+	if st.ScrollY() <= before {
+		t.Fatal("wheel scrolling stopped over the sticky header")
+	}
+	h.tt.ClickAt(x, y)
 	h.tt.Frame()
 	if pos := st.CursorPos(); pos.Line != 2 {
 		t.Fatalf("click went to line %d, want 2", pos.Line)
@@ -285,29 +239,30 @@ func Outer() {
 	// The navigation brought the declaration back in view, so the row
 	// hides; scroll it away for the inner segment's click.
 	h.scrollTo(st, 15)
-	clickPin("deep")
+	x, y = pin(inner)
+	h.tt.ClickAt(x, y)
 	h.tt.Frame()
 	if pos := st.CursorPos(); pos.Line != 6 {
 		t.Fatalf("click went to line %d, want 6", pos.Line)
 	}
 }
 
-func TestReadingPinOffAndNoServer(t *testing.T) {
+func TestStickyHeadersOffAndNoServer(t *testing.T) {
 	h, _ := pinHarness(t)
 	st := h.a.activeEditor()
 	h.scrollTo(st, 20)
-	if !h.tt.HasText("(*Server).Start") {
+	if !h.tt.HasText(startDeclaration) {
 		t.Fatal("the pin needs symbols to show")
 	}
 	// The setting turns the row off and back on.
 	h.a.cfg.HideReadingPin = true
 	h.tt.Frame()
-	if h.tt.HasText("(*Server).Start") {
+	if h.tt.HasText(startDeclaration) {
 		t.Fatal("the pin stayed with the setting off")
 	}
 	h.a.cfg.HideReadingPin = false
 	h.tt.Frame()
-	if !h.tt.HasText("(*Server).Start") {
+	if !h.tt.HasText(startDeclaration) {
 		t.Fatal("the pin did not come back with the setting on")
 	}
 
@@ -317,7 +272,7 @@ func TestReadingPinOffAndNoServer(t *testing.T) {
 	h2.open("a.go")
 	st2 := h2.a.activeEditor()
 	h2.scrollTo(st2, 20)
-	if h2.tt.HasText("(*Server).Start") {
+	if h2.tt.HasText(startDeclaration) {
 		t.Fatal("the pin showed without a server")
 	}
 }

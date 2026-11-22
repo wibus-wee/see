@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	"path/filepath"
 	"runtime"
 	"see/locales"
@@ -8,7 +9,9 @@ import (
 	"strings"
 
 	"github.com/egoist/mygo"
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
+	"github.com/egoist/mygo/ui/editor"
 
 	"see/internal/workspace"
 )
@@ -22,8 +25,8 @@ func (a *App) tabFileMenu(c *ui.Context, m *ui.Menu, tab string, d *doc, diff *g
 	}
 	path := tabPath(tab)
 	services := c.Services()
-	if m.Item("Reveal in Navigator").Disabled(!workspace.Within(a.root, path) || path == a.root).Chosen() {
-		a.revealInTree(path)
+	if m.Item(commandLabel("Reveal in Project Navigator")).Disabled(!a.canRevealInProjectNavigator(path)).Chosen() {
+		a.revealInProjectNavigator(path)
 	}
 	if m.Item("Show File History").Disabled(a.git.root == "").Chosen() {
 		a.showFileHistory(path)
@@ -71,7 +74,7 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 				if diff.localHistory != nil {
 					path = diff.localHistory.path
 					d = &doc{name: diff.localHistory.name}
-				} else if diff.branch != nil {
+				} else if diff.branch != nil || diff.search != nil {
 					path = ""
 					d = &doc{name: diff.name}
 				} else {
@@ -124,7 +127,7 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 			case hovered:
 				tab.Background(colors(c).TabHover)
 			}
-			if diff != nil && diff.branch != nil {
+			if diff != nil && (diff.branch != nil || diff.search != nil) {
 				tab.Tooltip(diff.name)
 			} else if d.untitled {
 				tab.Tooltip(d.name)
@@ -149,12 +152,14 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 					}
 				}
 				cl.OnClick(func() { a.closeTab(g, p) })
-				if diff != nil && diff.page() {
+				if diff != nil && diff.search != nil {
+					symbolIcon(c, icSearch, 13, colors(c).Muted)
+				} else if diff != nil && diff.page() {
 					symbolIcon(c, icGit, 13, colors(c).Muted)
 				} else {
 					fileIcon(c, d.name, 13)
 				}
-				if d.buf != nil && d.buf.Modified() {
+				if d.buf != nil && d.buf.Modified() || diff != nil && diff.search != nil && diff.search.dirty() {
 					ui.Text(c, "●").FontSize(10).TextColor(c.Theme().Accent)
 				}
 				name := ui.Text(c, nameLabel).FontSize(12).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(1)
@@ -176,6 +181,16 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 				ui.Box(c).Size(16, 16).Shrink(0) // balances the close button
 			})
 		}
+		if a.maximized == g {
+			ui.Box(c).Grow(1)
+			label := locales.Catalog.Format(i18n.Locale(), "restoreEditorLayout", nil)
+			button := ui.ButtonBase(c).Size(28, 28).Shrink(0).Radius(4).Center().KeepFocus().Label(label).Tooltip(label)
+			if button.Hovered() {
+				button.Background(colors(c).Pill)
+			}
+			button.Children(func() { symbolIcon(c, icSplitH, 14, colors(c).Muted) })
+			button.OnClick(func() { a.maximized = nil })
+		}
 	})
 	if tabs.List.Changed() && g.tabSel >= 0 && g.tabSel < len(g.order) {
 		a.userActivateIn(g, g.order[g.tabSel])
@@ -193,7 +208,12 @@ func (a *App) diffJumpBar(c *ui.Context, g *group) {
 		ui.Text(c, filepath.Base(a.root)).FontSize(12).TextColor(colors(c).Muted).SingleLine()
 		symbolIcon(c, icChevron, 9, colors(c).Dim)
 		label := v.label()
-		if v.branch != nil {
+		if v.search != nil {
+			symbolIcon(c, icSearch, 12, colors(c).Muted)
+			ui.Text(c, "“"+v.search.opts.Query+"”").FontSize(12).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
+			ui.Text(c, v.search.summary()).FontSize(12).TextColor(colors(c).Muted).SingleLine()
+			label = ""
+		} else if v.branch != nil {
 			symbolIcon(c, icGit, 12, colors(c).Muted)
 			ui.Text(c, branchDiffText("gitSince")+" "+v.branch.baseName).FontSize(12).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 			label = ""
@@ -214,14 +234,31 @@ func (a *App) diffJumpBar(c *ui.Context, g *group) {
 			ui.Text(c, label).FontSize(12).TextColor(colors(c).Muted).SingleLine()
 		}
 		ui.Box(c).Grow(1)
+		if v.commit == nil {
+			label := diffWhitespaceText("msgHideWhitespaceChanges")
+			if a.cfg.HideWhitespaceChanges {
+				label = diffWhitespaceText("msgShowWhitespaceChanges")
+			}
+			if glyphButton(c.Key("diff-whitespace"), icDiffWhitespace, label, label, a.cfg.HideWhitespaceChanges, false).Clicked() {
+				a.toggleDiffWhitespace()
+			}
+		}
 		if v.state != nil {
-			if glyphButton(c, icChangeUp, "Previous Change", "Previous Change", false, len(v.state.Hunks()) == 0).Clicked() {
+			hunks := v.state.Hunks()
+			if v.partial != nil && len(hunks) > 0 {
+				i, _ := v.state.CurrentHunk()
+				ui.Text(c, fmt.Sprintf("%d / %d", max(0, i)+1, len(hunks))).FontSize(11).TextColor(colors(c).Muted).SingleLine()
+			}
+			if glyphButton(c, icChangeUp, "Previous Change", "Previous Change", false, len(hunks) == 0).Clicked() {
 				a.focus = g
 				a.goToChange(-1)
 			}
-			if glyphButton(c, icChangeDown, "Next Change", "Next Change", false, len(v.state.Hunks()) == 0).Clicked() {
+			if glyphButton(c, icChangeDown, "Next Change", "Next Change", false, len(hunks) == 0).Clicked() {
 				a.focus = g
 				a.goToChange(1)
+			}
+			if v.partial != nil && len(hunks) > 0 {
+				a.gitDiffPartButton(c, v, hunks)
 			}
 			icon, tip := icDiffInline, "Show Changes Inline"
 			if a.cfg.DiffUnified {
@@ -241,6 +278,29 @@ func (a *App) diffJumpBar(c *ui.Context, g *group) {
 			}
 		}
 	})
+}
+
+func (a *App) gitDiffPartButton(c *ui.Context, v *gitDiffTab, hunks []editor.DiffHunk) {
+	part, canStageLines := gitSelectedPart(v.state, hunks)
+	_, selected := v.state.SelectedLines()
+	label := gitPartialText("gitStageSelectedLines")
+	if v.staged {
+		label = gitPartialText("gitUnstageSelectedLines")
+	}
+	if !selected {
+		i, _ := v.state.CurrentHunk()
+		part.hunk = hunks[max(0, i)]
+		label = gitPartialText("gitStageHunk")
+		if v.staged {
+			label = gitPartialText("gitUnstageHunk")
+		}
+	}
+	button := ui.Button(c.Key("git-diff-part"), label).FontSize(11).Height(20).Padding(0, 7).Shrink(0).KeepFocus().
+		Disabled(a.git.busy || selected && !canStageLines).Tooltip(gitPartialText("gitPartialSelectionHint"))
+	if selected {
+		button.TextColor(c.Theme().Accent)
+	}
+	button.OnClick(func() { a.applyGitDiffPart(v, part) })
 }
 
 // jumpBar is Xcode's jump bar: back and forward, then the path of the
@@ -277,6 +337,10 @@ func (a *App) jumpBar(c *ui.Context, g *group) {
 			if menu.Item(locales.CallHierarchy()).Chosen() {
 				a.focus = g
 				a.showCallHierarchyAt(g)
+			}
+			if a.navigationEnabled(g.active, "typeHierarchy") && menu.Item(navigationText("typeHierarchy", "")).Chosen() {
+				a.focus = g
+				a.showTypeHierarchyAt(g)
 			}
 		}, ui.PopoverMenuButtonOptions{Open: &g.relatedOpen})
 		if !g.relatedOpen {

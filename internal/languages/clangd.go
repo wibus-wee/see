@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/egoist/mygo/ui/editor"
 	"see/internal/langserver"
 	"see/internal/lsp"
 	"see/internal/shellpath"
@@ -70,7 +69,7 @@ func StartClangd(logf func(string, ...any)) langserver.Starter {
 	}
 }
 
-func NewClangdServer(root string, onState func(langserver.State, error), onDiagnostics func(*langserver.Server, string, editor.Snapshot, []lsp.Diagnostic, string), logf func(string, ...any)) *langserver.Server {
+func NewClangdServer(root string, onState func(langserver.State, error), onDiagnostics langserver.DiagnosticsHandler, logf func(string, ...any)) *langserver.Server {
 	return langserver.New(langserver.Options{Name: "clangd", Root: root, Start: StartClangd(logf), Language: ClangLanguage, OnState: onState, OnDiagnostics: onDiagnostics, Logf: logf, Recover: func(err error) bool {
 		if !errors.Is(err, ErrNoClangd) {
 			return false
@@ -114,7 +113,7 @@ func FindCMakeServer(root string) (string, error) {
 	return p, nil
 }
 
-func NewCMakeServer(root string, onState func(langserver.State, error), onDiagnostics func(*langserver.Server, string, editor.Snapshot, []lsp.Diagnostic, string), logf func(string, ...any)) *langserver.Server {
+func NewCMakeServer(root string, onState func(langserver.State, error), onDiagnostics langserver.DiagnosticsHandler, logf func(string, ...any)) *langserver.Server {
 	start := func(ctx context.Context, root string, onExit func(error)) (langserver.Client, error) {
 		if err := shellpath.Wait(ctx); err != nil {
 			return nil, err
