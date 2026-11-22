@@ -137,6 +137,14 @@ func (a *App) inspectorFileDoc() *doc {
 	if g == nil {
 		return nil
 	}
+	if v := g.diffs[g.active]; v != nil {
+		if v.revision != nil {
+			return a.docs[v.revision.path]
+		}
+		if v.localHistory != nil {
+			return a.docs[v.localHistory.path]
+		}
+	}
 	return a.docs[tabPath(g.active)]
 }
 

@@ -37,6 +37,16 @@ func TestRevisionComparison(t *testing.T) {
 	if got := h.a.focus.diffs[revisionPrefix+d.path]; got == nil || got.revision.selected != 1 {
 		t.Fatal("inspector compare action did not select the requested revision")
 	}
+	if got := h.a.inspectorFileDoc(); got != d {
+		t.Fatal("inspector did not resolve the focused revision tab to its source document")
+	}
+	localKey := localHistoryTab(d.path)
+	h.a.focus.diffs[localKey] = &gitDiffTab{localHistory: &localHistoryView{path: d.path}}
+	h.a.focus.active = localKey
+	if got := h.a.inspectorFileDoc(); got != d {
+		t.Fatal("inspector did not resolve the focused local history tab to its source document")
+	}
+	h.a.activateIn(h.a.focus, revisionPrefix+d.path)
 	d.buf.Edit(editor.Edit{Start: 0, End: 0, Text: "refresh\n"})
 	h.a.refreshRevision(v)
 	h.settle(func() bool { return !v.revision.loading })
