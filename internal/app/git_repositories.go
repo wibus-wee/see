@@ -37,9 +37,6 @@ func (a *App) gitNavigatorTabs(c *ui.Context) {
 				tab := tabs.Tab(i).Grow(1).Basis(0).MinWidth(0).Shrink(1).FillHeight().Padding(0, 6).Label(label)
 				active := i == *page
 				tab.TextColor(colors(c).Muted)
-				if active {
-					tab.BorderWidth(0, 0, 2, 0).BorderColor(c.Theme().Text)
-				}
 				tab.Children(func() {
 					text := ui.Text(c, label).FontSize(gitSidebarGroupLabelSize).TextColor(colors(c).Muted)
 					if active {
