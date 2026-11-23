@@ -141,7 +141,26 @@ func TestCompletionTrustGateAndStaleCaret(t *testing.T) {
 }
 
 func TestCompletionEscapeAndDocumentSwitchInvalidateReplies(t *testing.T) {
-	h, d := newTSCompletionHarness(t, "const cfg = { ab, next: 1 }\n", true)
+	h, d := newTSCompletionHarness(t, "const cfg = { , next: 1 }\n", true)
+	st := h.a.activeEditor()
+	at := strings.Index(d.buf.String(), ", next")
+	st.GoTo(d.buf.Pos(at))
+	h.fc.completion = func(context.Context, string, lsp.Position) (*lsp.CompletionResult, error) {
+		return &lsp.CompletionResult{Items: []lsp.CompletionItem{{Label: "abi"}}}, nil
+	}
+	h.tt.Frame()
+	h.tt.Type("ab")
+	waitForCompletion(t, h, "abi")
+	cs := h.a.completionFor(h.a.focus)
+	if !cs.visible {
+		t.Fatal("completion popup was not visible before Escape")
+	}
+	h.tt.Key(0, ui.KeyEscape)
+	h.tt.Frame()
+	if h.tt.HasText("abi") || cs.visible {
+		t.Fatal("Escape did not dismiss the visible completion popup")
+	}
+
 	firstRelease := make(chan struct{})
 	firstCalled := make(chan struct{}, 1)
 	firstReturned := make(chan struct{}, 1)
@@ -151,23 +170,17 @@ func TestCompletionEscapeAndDocumentSwitchInvalidateReplies(t *testing.T) {
 		<-firstRelease
 		return &lsp.CompletionResult{Items: []lsp.CompletionItem{{Label: "abi"}}}, nil
 	}
-	st := h.a.activeEditor()
-	at := strings.Index(d.buf.String(), "ab") + 2
-	st.GoTo(d.buf.Pos(at))
-	h.tt.Frame()
-	st.OnCompletion(editor.CompletionRequest{Offset: at, Prefix: "ab", Version: d.buf.Version()})
+	st.GoTo(d.buf.Pos(at + 2))
+	st.OnCompletion(editor.CompletionRequest{Offset: at + 2, Prefix: "ab", Version: d.buf.Version()})
 	select {
 	case <-firstCalled:
 	case <-time.After(5 * time.Second):
 		t.Fatal("completion request did not reach the server")
 	}
-	cs := h.a.completionFor(h.a.focus)
 	seq := cs.seq
-	if st.OnInput == nil || st.OnInput(ui.InputEvent{Kind: ui.InputKeyDown, Key: ui.KeyEscape}) {
-		t.Fatal("Escape was consumed before the editor could handle it")
-	}
+	h.tt.Key(0, ui.KeyEscape)
 	h.tt.Frame()
-	if cs.cancel != nil || cs.seq == seq {
+	if cs.cancel != nil || cs.seq == seq || cs.visible {
 		t.Fatal("Escape did not invalidate the pending completion request")
 	}
 	close(firstRelease)
@@ -188,8 +201,8 @@ func TestCompletionEscapeAndDocumentSwitchInvalidateReplies(t *testing.T) {
 		<-secondRelease
 		return &lsp.CompletionResult{Items: []lsp.CompletionItem{{Label: "abi"}}}, nil
 	}
-	st.GoTo(d.buf.Pos(at))
-	st.OnCompletion(editor.CompletionRequest{Offset: at, Prefix: "ab", Version: d.buf.Version()})
+	st.GoTo(d.buf.Pos(at + 2))
+	st.OnCompletion(editor.CompletionRequest{Offset: at + 2, Prefix: "ab", Version: d.buf.Version()})
 	select {
 	case <-secondCalled:
 	case <-time.After(5 * time.Second):

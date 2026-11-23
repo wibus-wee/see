@@ -496,7 +496,7 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 			if ev.Kind == ui.InputKeyDown && ev.Key == ui.KeyEscape {
 				cs := a.completionFor(g)
 				if cs.visible || cs.cancel != nil {
-					a.cancelCompletionRequest(g)
+					a.cancelCompletions(g, st)
 				}
 			}
 			if a.signatureInput(g, st, ev) {
