@@ -32,17 +32,19 @@ func (a *App) gitNavigatorTabs(c *ui.Context) {
 	page := &a.git.repositoryView.page
 	ui.Row(c).FillWidth().Shrink(0).Padding(0, sidebarInset, 4, sidebarInset).Children(func() {
 		tabs := ui.TabsBase(c, page, 2)
-		tabs.List.FillWidth().Height(gitSidebarTabsHeight).AlignItems(ui.Stretch).Children(func() {
+		tabs.List.FillWidth().Height(gitSidebarTabsHeight).AlignItems(ui.Center).Justify(ui.Center).Children(func() {
 			for i, label := range []string{locales.GitRepositoryChanges(), locales.GitRepositories()} {
-				tab := tabs.Tab(i).Grow(1).Basis(0).MinWidth(0).Shrink(1).FillHeight().Padding(0, 6).Label(label)
+				tab := tabs.Tab(i).Height(18).Padding(0, 5).Radius(3).Label(label)
 				active := i == *page
-				tab.TextColor(colors(c).Muted)
+				textColor := c.Theme().Text
+				if active {
+					textColor = ui.RGB(255, 255, 255)
+					tab.Background(c.Theme().Accent)
+				}
+				tab.TextColor(textColor)
 				tab.Children(func() {
-					text := ui.Text(c, label).FontSize(gitSidebarGroupLabelSize).TextColor(colors(c).Muted)
-					if active {
-						text.TextColor(c.Theme().Text).FontWeight(600)
-					}
-					text.SingleLine().Ellipsis("…").MinWidth(0)
+					ui.Text(c, label).FontSize(gitSidebarGroupLabelSize).FontWeight(400).TextColor(textColor).
+						SingleLine().Ellipsis("…").MinWidth(0)
 				})
 			}
 		})
