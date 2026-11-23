@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 
 	"see/internal/langserver"
@@ -17,12 +18,13 @@ type completionClient interface {
 }
 
 type completionState struct {
-	seq     uint64
-	cancel  context.CancelFunc
-	visible bool
-	editor  *editor.State
-	doc     *doc
-	path    string
+	seq        uint64
+	cancel     context.CancelFunc
+	visible    bool
+	incomplete bool
+	editor     *editor.State
+	doc        *doc
+	path       string
 }
 
 func (a *App) completionFor(g *group) *completionState {
@@ -51,10 +53,31 @@ func (a *App) cancelCompletionRequest(g *group) {
 func (a *App) cancelCompletions(g *group, st *editor.State) {
 	a.cancelCompletionRequest(g)
 	cs := a.completionFor(g)
-	cs.visible = false
+	cs.visible, cs.incomplete = false, false
 	cs.editor, cs.doc, cs.path = nil, nil, ""
 	if st != nil {
 		st.ShowCompletions(-1, nil)
+	}
+}
+
+func (a *App) releaseCompletionGroup(g *group) {
+	if cs := a.completions[g.id]; cs != nil {
+		a.cancelCompletions(g, cs.editor)
+		delete(a.completions, g.id)
+	}
+}
+
+func completionInputEdits(ev ui.InputEvent) bool {
+	switch ev.Kind {
+	case ui.InputText, ui.InputCompose:
+		return ev.Text != ""
+	case ui.InputCommand:
+		return ev.Text == "paste" || ev.Text == "pasteAndMatchStyle" || ev.Text == "cut" ||
+			ev.Text == "delete" || ev.Text == "undo" || ev.Text == "redo"
+	case ui.InputKeyDown:
+		return ev.Key == ui.KeyBackspace || ev.Key == ui.KeyDelete
+	default:
+		return false
 	}
 }
 
@@ -91,6 +114,7 @@ func (a *App) requestCompletions(g *group, d *doc, st *editor.State, req editor.
 	line := snap.Line(pos.Line)
 	uri, path, groupID := d.uri, d.path, g.id
 	version, generation := snap.Version(), a.gen
+	cs.incomplete = false
 	cs.seq++
 	seq := cs.seq
 	cs.editor, cs.doc, cs.path = st, d, path
@@ -142,20 +166,21 @@ func (a *App) finishCompletions(groupID int, path string, d *doc, req editor.Com
 		if st != nil {
 			st.ShowCompletions(-1, nil)
 		}
-		cs.visible = false
+		cs.visible, cs.incomplete = false, false
 		cs.editor, cs.doc, cs.path = nil, nil, ""
 		return
 	}
 	if err != nil || result == nil {
 		st.ShowCompletions(start, nil)
-		cs.visible = false
+		cs.visible, cs.incomplete = false, false
 		cs.editor, cs.doc, cs.path = nil, nil, ""
 		return
 	}
 	items := completionItems(result.Items, d.buf, req, encoding)
 	st.ShowCompletions(start, items)
+	cs.incomplete = result.IsIncomplete && len(items) > 0
 	if len(items) == 0 {
-		cs.visible = false
+		cs.visible, cs.incomplete = false, false
 		cs.editor, cs.doc, cs.path = nil, nil, ""
 	}
 }

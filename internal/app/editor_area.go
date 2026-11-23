@@ -493,6 +493,9 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 			if a.changeBarInput(g, d, st, origin, ev) {
 				return true
 			}
+			if cs := a.completionFor(g); cs.incomplete && completionInputEdits(ev) {
+				a.cancelCompletions(g, st)
+			}
 			if ev.Kind == ui.InputKeyDown && ev.Key == ui.KeyEscape {
 				cs := a.completionFor(g)
 				if cs.visible || cs.cancel != nil {

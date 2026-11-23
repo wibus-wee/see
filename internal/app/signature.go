@@ -36,6 +36,7 @@ type signatureState struct {
 	dismissed bool   // Escape closed it here until the caret leaves the call
 	triggered bool   // Control-Shift+Space asked for it now
 	manual    bool   // explicitly opened; follows the caret within this call
+	visible   bool   // the strip fit in the focused editor at the last draw
 }
 
 // signatureClients answer textDocument/signatureHelp.
@@ -310,14 +311,16 @@ func (a *App) dismissSignature() {
 // editor's own keys and reports whether it took the event.
 func (a *App) signatureInput(g *group, st *editor.State, ev ui.InputEvent) bool {
 	s := &a.signature
-	if g != a.focus || a.completionFor(g).visible || s.group != g || s.doc == nil || s.dismissed {
+	if ev.Kind == ui.InputKeyDown && ev.Key == ui.KeyEscape {
+		if g == a.focus && !a.completionFor(g).visible && s.group == g && s.doc != nil &&
+			(s.help != nil || s.cancel != nil || s.timer != nil) {
+			a.dismissSignature()
+			return true
+		}
 		return false
 	}
-	if ev.Kind == ui.InputKeyDown && ev.Key == ui.KeyEscape && (s.help != nil || s.cancel != nil || s.timer != nil) {
-		a.dismissSignature()
-		return true
-	}
-	if s.help == nil || len(s.help.Signatures) < 2 {
+	if g != a.focus || a.completionFor(g).visible || s.group != g || s.doc == nil || s.dismissed ||
+		!s.visible || s.help == nil || len(s.help.Signatures) < 2 {
 		return false
 	}
 	if ev.Kind == ui.InputKeyDown {
@@ -354,6 +357,9 @@ func (a *App) signatureHelp(g *group, d *doc) *lsp.SignatureHelp {
 // documentation below when the server sends it. It borrows the peek's
 // material — a footnote to the code, not a window.
 func (a *App) signatureStrip(c *ui.Context, bounds ui.Rect, st *editor.State, g *group, d *doc, gutter float32) {
+	if g == a.focus {
+		a.signature.visible = false
+	}
 	help := a.signatureHelp(g, d)
 	if help == nil {
 		return
@@ -431,6 +437,7 @@ func (a *App) signatureStrip(c *ui.Context, bounds ui.Rect, st *editor.State, g 
 	if !visible {
 		return
 	}
+	s.visible = true
 	ui.Overlay(c, func() {
 		col := ui.Column(c).Absolute().Left(strip.X).Top(strip.Y).Width(strip.W).Height(strip.H).
 			Padding(0, 10).Radius(6).Clip().Background(pal.Popover).Border(1, pal.PopoverEdge).
