@@ -153,21 +153,22 @@ type fakeServer struct {
 	mu  sync.Mutex
 	got []string // methods received, in order
 
-	documentSymbols     func(params json.RawMessage) string
-	documentHighlights  func(params json.RawMessage) string
-	signatureHelp       func(params json.RawMessage) string
-	completion          func(params json.RawMessage) string
-	definition          func(params json.RawMessage) string // raw result
-	inlayHints          func(params json.RawMessage) string
-	semanticTokens      func(method string, params json.RawMessage) string
-	documentLinks       func(params json.RawMessage) string
-	documentLinkResolve func(params json.RawMessage) string
-	selectionRanges     func(params json.RawMessage) string
-	navigation          func(method string, params json.RawMessage) string
-	initializeParams    json.RawMessage
-	caps                string
-	configWant          string               // what the test expects for workspace/configuration; "" is [null,null]
-	replies             chan json.RawMessage // results of our requests to the client
+	documentSymbols       func(params json.RawMessage) string
+	documentHighlights    func(params json.RawMessage) string
+	signatureHelp         func(params json.RawMessage) string
+	completion            func(params json.RawMessage) string
+	completionItemResolve func(params json.RawMessage) string
+	definition            func(params json.RawMessage) string // raw result
+	inlayHints            func(params json.RawMessage) string
+	semanticTokens        func(method string, params json.RawMessage) string
+	documentLinks         func(params json.RawMessage) string
+	documentLinkResolve   func(params json.RawMessage) string
+	selectionRanges       func(params json.RawMessage) string
+	navigation            func(method string, params json.RawMessage) string
+	initializeParams      json.RawMessage
+	caps                  string
+	configWant            string               // what the test expects for workspace/configuration; "" is [null,null]
+	replies               chan json.RawMessage // results of our requests to the client
 }
 
 func newFake(t *testing.T) (*fakeServer, io.Reader, io.WriteCloser) {
@@ -288,6 +289,12 @@ func (f *fakeServer) serve() {
 				reply("null")
 			} else {
 				reply(f.completion(m.Params))
+			}
+		case "completionItem/resolve":
+			if f.completionItemResolve == nil {
+				reply("null")
+			} else {
+				reply(f.completionItemResolve(m.Params))
 			}
 		case "textDocument/implementation", "textDocument/typeDefinition",
 			"textDocument/prepareTypeHierarchy", "typeHierarchy/supertypes", "typeHierarchy/subtypes",

@@ -378,18 +378,23 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 		var ed ui.Element
 		minimap := a.showsMinimap(g, d)
 		ui.Row(c).Grow(1).FillWidth().Children(func() {
-			if g != a.focus && (a.completionFor(g).visible || a.completionFor(g).cancel != nil) {
+			cs := a.completionFor(g)
+			if g != a.focus && (cs.visible || cs.cancel != nil || cs.resolvePending) {
 				a.cancelCompletions(g, st)
 			}
-			a.completionFor(g).visible = false
+			wasVisible := cs.visible
+			cs.visible = false
 			st.RenderCompletions = func(c *ui.Context, panel ui.Element, menu *editor.CompletionMenu) {
-				a.completionFor(g).visible = g == a.focus
-				editor.DefaultCompletions(c, panel, menu)
+				cs.visible = g == a.focus
+				a.renderCompletions(c, panel, menu, g, st)
 			}
 			if !minimap {
 				st.RenderFindBar = nil
 			}
 			ed = editor.View(c.Key(d.path), st).Grow(1).FillHeight()
+			if wasVisible && !cs.visible {
+				a.cancelCompletions(g, st)
+			}
 			ed.Children(func() { a.stickyScopeHeaders(c, g, d, st) })
 			if minimap {
 				a.minimap(c, g, d, st)
@@ -493,8 +498,17 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 			if a.changeBarInput(g, d, st, origin, ev) {
 				return true
 			}
-			if cs := a.completionFor(g); cs.incomplete && completionInputEdits(ev) {
+			if cs := a.completionFor(g); completionInputEdits(ev) &&
+				(cs.incomplete || (cs.visible && len(cs.originals) > 0)) {
 				a.cancelCompletions(g, st)
+			}
+			if cs := a.completionFor(g); cs.visible && completionNavigationInput(ev) {
+				a.cancelCompletionResolve(cs)
+				cs.hasResolveSelected = false
+			}
+			if cs := a.completionFor(g); cs.visible && completionAcceptInput(ev) {
+				a.cancelCompletionResolve(cs)
+				cs.hasResolveSelected = false
 			}
 			if ev.Kind == ui.InputKeyDown && ev.Key == ui.KeyEscape {
 				cs := a.completionFor(g)

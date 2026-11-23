@@ -410,6 +410,22 @@ func (s serverCapabilities) hasSignatureHelp() bool {
 	return len(raw) > 0 && !bytes.Equal(raw, []byte("false")) && !bytes.Equal(raw, []byte("null"))
 }
 
+func (s serverCapabilities) hasCompletion() bool {
+	raw := bytes.TrimSpace(s.CompletionProvider)
+	return len(raw) > 0 && !bytes.Equal(raw, []byte("false")) && !bytes.Equal(raw, []byte("null"))
+}
+
+func (s serverCapabilities) completionItemResolve() bool {
+	raw := bytes.TrimSpace(s.CompletionProvider)
+	if !s.hasCompletion() || len(raw) == 0 || raw[0] != '{' {
+		return false
+	}
+	var opts struct {
+		ResolveProvider bool `json:"resolveProvider"`
+	}
+	return json.Unmarshal(raw, &opts) == nil && opts.ResolveProvider
+}
+
 func (s serverCapabilities) hasCallHierarchy() bool {
 	raw := bytes.TrimSpace(s.CallHierarchyProvider)
 	return len(raw) > 0 && !bytes.Equal(raw, []byte("false")) && !bytes.Equal(raw, []byte("null"))

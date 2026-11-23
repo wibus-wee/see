@@ -185,34 +185,35 @@ func (h *harness) open(rel string) *doc {
 }
 
 type fakeClient struct {
-	mu             sync.Mutex
-	enc            string
-	startErr       error
-	def            func(ctx context.Context, uri string, pos lsp.Position) ([]lsp.Location, error)
-	implementation func(context.Context, string, lsp.Position) ([]lsp.Location, error)
-	typeDefinition func(context.Context, string, lsp.Position) ([]lsp.Location, error)
-	references     func(context.Context, string, lsp.Position) ([]lsp.Location, error)
-	noNavigation   bool
-	hover          func(ctx context.Context, uri string, pos lsp.Position) (string, *lsp.Range, error)
-	inlayHints     func(ctx context.Context, uri string, r lsp.Range) ([]lsp.InlayHint, error)
-	documentLinks  func(ctx context.Context, uri string) ([]lsp.DocumentLink, error)
-	foldingRanges  func(ctx context.Context, uri string) ([]lsp.FoldingRange, error)
-	signature      func(ctx context.Context, uri string, pos lsp.Position) (*lsp.SignatureHelp, error) // nil: no signature help
-	completion     func(ctx context.Context, uri string, pos lsp.Position) (*lsp.CompletionResult, error)
-	semanticTokens func(ctx context.Context, uri string, first, last int) (*lsp.SemanticTokensData, error)
-	semanticTypes  []string // the legend fake answers, when semanticTokens is set
-	callHier       callFake
-	noCalls        bool
-	codeActions    []lsp.CodeAction
-	codeActionsErr error
-	noCommands     bool
-	lastCommand    lsp.Command
-	rename         func(ctx context.Context, uri string, pos lsp.Position, newName string) (*lsp.WorkspaceEdit, error)
-	prepareRename  func(ctx context.Context, uri string, pos lsp.Position) (*lsp.PrepareRenameResult, error)
-	noRename       bool // server without renameProvider
-	format         formatFake
-	log            []string
-	shutdown       bool
+	mu                sync.Mutex
+	enc               string
+	startErr          error
+	def               func(ctx context.Context, uri string, pos lsp.Position) ([]lsp.Location, error)
+	implementation    func(context.Context, string, lsp.Position) ([]lsp.Location, error)
+	typeDefinition    func(context.Context, string, lsp.Position) ([]lsp.Location, error)
+	references        func(context.Context, string, lsp.Position) ([]lsp.Location, error)
+	noNavigation      bool
+	hover             func(ctx context.Context, uri string, pos lsp.Position) (string, *lsp.Range, error)
+	inlayHints        func(ctx context.Context, uri string, r lsp.Range) ([]lsp.InlayHint, error)
+	documentLinks     func(ctx context.Context, uri string) ([]lsp.DocumentLink, error)
+	foldingRanges     func(ctx context.Context, uri string) ([]lsp.FoldingRange, error)
+	signature         func(ctx context.Context, uri string, pos lsp.Position) (*lsp.SignatureHelp, error) // nil: no signature help
+	completion        func(ctx context.Context, uri string, pos lsp.Position) (*lsp.CompletionResult, error)
+	completionResolve func(context.Context, lsp.CompletionItem) (*lsp.CompletionItem, error)
+	semanticTokens    func(ctx context.Context, uri string, first, last int) (*lsp.SemanticTokensData, error)
+	semanticTypes     []string // the legend fake answers, when semanticTokens is set
+	callHier          callFake
+	noCalls           bool
+	codeActions       []lsp.CodeAction
+	codeActionsErr    error
+	noCommands        bool
+	lastCommand       lsp.Command
+	rename            func(ctx context.Context, uri string, pos lsp.Position, newName string) (*lsp.WorkspaceEdit, error)
+	prepareRename     func(ctx context.Context, uri string, pos lsp.Position) (*lsp.PrepareRenameResult, error)
+	noRename          bool // server without renameProvider
+	format            formatFake
+	log               []string
+	shutdown          bool
 }
 
 // formatFake answers the formatting requests tests give it: a nil
@@ -365,6 +366,14 @@ func (f *fakeClient) HasCompletion() bool { return f.completion != nil }
 func (f *fakeClient) Completion(ctx context.Context, uri string, pos lsp.Position) (*lsp.CompletionResult, error) {
 	f.record("completion")
 	return f.completion(ctx, uri, pos)
+}
+func (f *fakeClient) HasCompletionItemResolve() bool { return f.completionResolve != nil }
+func (f *fakeClient) CompletionItemResolve(ctx context.Context, item lsp.CompletionItem) (*lsp.CompletionItem, error) {
+	f.record("completionItem/resolve")
+	if f.completionResolve == nil {
+		return nil, nil
+	}
+	return f.completionResolve(ctx, item)
 }
 func (f *fakeClient) Shutdown(time.Duration) {
 	f.mu.Lock()
