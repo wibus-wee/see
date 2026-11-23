@@ -335,13 +335,47 @@ func (a *App) renderCompletions(c *ui.Context, panel ui.Element, menu *editor.Co
 	if lh <= 0 {
 		lh = font.Size * 1.5
 	}
+	rows := min(len(items), 200)
+	details := make([]string, rows)
+	labelWidths := make([]float32, rows)
+	detailWidths := make([]float32, rows)
+	badgeSize, rowGap := max(font.Size, 1), t.Space(2)
+	rowPadding := 2 * t.Space(1.5)
+	panelPadding := 2*t.Space(1) + 2
+	contentWidth := float32(0)
+	for i := 0; i < rows; i++ {
+		item := items[i]
+		details[i] = item.Detail
+		if i == selected && canResolve {
+			if resolved, ok := cs.resolved[item]; ok && details[i] == "" {
+				details[i] = resolved.detail
+			}
+		}
+		labelWidths[i], _ = c.MeasureText(0, ui.Span{Text: item.Label, Font: font.Family, Size: font.Size})
+		gaps := rowGap
+		if details[i] != "" {
+			detailWidths[i], _ = c.MeasureText(0, ui.Span{Text: details[i], Font: t.Font, Size: max(font.Size-1, 1)})
+			detailWidths[i] += t.Space(0.5)
+			gaps += rowGap
+		}
+		contentWidth = max(contentWidth, rowPadding+badgeSize+gaps+labelWidths[i]+detailWidths[i])
+	}
+	windowWidth, _ := c.Size()
+	_, safeRight, _, safeLeft := c.SafeArea()
+	maxPopupWidth := min(float32(600), max(float32(1), windowWidth-safeLeft-safeRight-t.Space(4)))
+	minPopupWidth := min(t.Space(60), maxPopupWidth)
+	popupWidth := min(max(minPopupWidth, contentWidth+panelPadding), maxPopupWidth)
+	for i := range detailWidths {
+		maxDetailWidth := popupWidth - panelPadding - rowPadding - badgeSize - 2*rowGap - min(labelWidths[i], t.Space(20))
+		detailWidths[i] = min(detailWidths[i], max(float32(0), maxDetailWidth))
+	}
 	panel.Background(t.Surface).Border(1, t.Border).Radius(t.Radius).
 		Shadow(0, 4, 16, 0, ui.RGBA(0, 0, 0, 0.2)).Padding(t.Space(1)).
-		MinWidth(t.Space(60)).MaxWidth(t.Space(150)).MaxHeight(lh*13 + t.Space(4))
+		Width(popupWidth).MinWidth(minPopupWidth).MaxWidth(maxPopupWidth).MaxHeight(lh*13 + t.Space(4))
 	panel.Children(func() {
 		ui.Scroll(c).Key("rows").MaxHeight(lh * 9).Children(func() {
 			for i, item := range items {
-				if i >= 200 {
+				if i >= rows {
 					break
 				}
 				row := menu.Item(i).Row().FillWidth().Justify(ui.Start).Gap(t.Space(2)).
@@ -351,19 +385,14 @@ func (a *App) renderCompletions(c *ui.Context, panel ui.Element, menu *editor.Co
 					row.Background(t.Accent.Alpha(0.18))
 				}
 				row.Children(func() {
-					completionBadgeView(c, font.Size, item.Kind)
+					completionBadgeView(c, badgeSize, item.Kind)
 					ui.Text(c, item.Label).Font(font.Family).FontSize(font.Size).
-						TextColor(ct.Text).SingleLine().Shrink(1).Grow(1)
-					detail := item.Detail
-					if i == selected && canResolve {
-						if resolved, ok := cs.resolved[item]; ok && detail == "" {
-							detail = resolved.detail
-						}
-					}
+						TextColor(ct.Text).SingleLine().Ellipsis("…").Shrink(1).MinWidth(0).Grow(1)
+					detail := details[i]
 					if detail != "" {
-						ui.Text(c, detail).FontSize(max(font.Size-1, 1)).
-							TextColor(t.TextMuted).SingleLine().Shrink(1).
-							MaxWidth(t.Space(44)).Grow(1).TextAlign(ui.End)
+						ui.Text(c, detail).Font(t.Font).FontSize(max(font.Size-1, 1)).
+							TextColor(t.TextMuted).SingleLine().Ellipsis("…").
+							Width(detailWidths[i]).Shrink(0).TextAlign(ui.End)
 					}
 				})
 			}

@@ -58,6 +58,41 @@ func TestCompletionRendererShowsLabelDetailAndSelectedDocumentation(t *testing.T
 	}
 }
 
+func TestCompletionPropertyDetailsFitMeasuredBounds(t *testing.T) {
+	h, d := newTSCompletionHarness(t, "const cfg = { , next: 1 }\n", true)
+	details := []string{"(property) abi: number", "(property) abiVersion?: string"}
+	h.fc.completion = func(context.Context, string, lsp.Position) (*lsp.CompletionResult, error) {
+		return &lsp.CompletionResult{Items: []lsp.CompletionItem{
+			{Label: "abi", Kind: 10, Detail: details[0]},
+			{Label: "abiVersion?", Kind: 10, Detail: details[1]},
+		}}, nil
+	}
+	st := h.a.activeEditor()
+	st.GoTo(d.buf.Pos(strings.Index(d.buf.String(), ", next")))
+	h.tt.Frame()
+	h.tt.Type("ab")
+	waitForCompletion(t, h, "abiVersion?")
+
+	fontSize := max(st.Font.Size-1, 1)
+	var measured [2]float32
+	measure := ui.NewTester(func(c *ui.Context) {
+		font := c.Theme().Font
+		for i, detail := range details {
+			measured[i], _ = c.MeasureText(0, ui.Span{Text: detail, Font: font, Size: fontSize})
+		}
+	}, 1100, 300)
+	measure.Frame()
+	for i, detail := range details {
+		bounds, ok := h.tt.Find(detail)
+		if !ok || bounds.W+0.5 < measured[i] {
+			t.Fatalf("completion detail %q bounds=%+v measured=%0.1f texts=%q", detail, bounds, measured[i], h.tt.Texts())
+		}
+	}
+	if popup, ok := h.tt.Find("Completions"); !ok || popup.W > 600 {
+		t.Fatalf("completion popup bounds exceed the 600 DIPs cap: %+v, found=%v", popup, ok)
+	}
+}
+
 func TestCompletionResolveSelectionChangesDoNotResetMenu(t *testing.T) {
 	h, d := newTSCompletionHarness(t, "const cfg = { , next: 1 }\n", true)
 	started := make(chan string, 2)
