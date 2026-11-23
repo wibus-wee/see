@@ -23,6 +23,8 @@ type signatureState struct {
 	seq       uint64
 	cancel    context.CancelFunc
 	timer     *time.Timer
+	group     *group
+	editor    *editor.State
 	doc       *doc // the document callStart is of
 	callStart int  // byte offset of the open paren of the call, -1 outside one
 	offset    int  // the caret byte offset the request was last made or scheduled for
@@ -33,6 +35,7 @@ type signatureState struct {
 	active    int    // the signature shown of help.Signatures
 	dismissed bool   // Escape closed it here until the caret leaves the call
 	triggered bool   // Control-Shift+Space asked for it now
+	manual    bool   // explicitly opened; follows the caret within this call
 }
 
 // signatureClients answer textDocument/signatureHelp.
@@ -55,13 +58,28 @@ const signatureOff = -1
 // and costs a bracket scan over the text above the caret.
 func (a *App) syncSignature(g *group, d *doc, st *editor.State) {
 	s := &a.signature
-	if s.doc != nil && s.doc != d {
+	if g != a.focus {
+		if s.group == g {
+			a.cancelSignature()
+			s.help = nil
+		}
+		return
+	}
+	if a.completionFor(g).visible {
+		if s.group == g && (s.timer != nil || s.cancel != nil || s.asked || s.help != nil) {
+			a.cancelSignature()
+			s.help = nil
+			s.offset = signatureOff
+		}
+		return
+	}
+	if s.doc != nil && (s.doc != d || s.group != g) {
+		triggered := s.triggered
 		a.clearSignature()
+		s.triggered = triggered
 	}
 	if !a.signatureEnabled() || d.buf == nil {
-		if s.doc != nil {
-			a.clearSignature()
-		}
+		a.clearSignature()
 		return
 	}
 	offset := st.Cursor()
@@ -70,61 +88,85 @@ func (a *App) syncSignature(g *group, d *doc, st *editor.State) {
 		a.clearSignature()
 		return
 	}
-	s.caretLine = d.buf.Pos(offset).Line
+	line := d.buf.Pos(offset).Line
 	version := d.buf.Version()
-	if s.doc == d && s.callStart == start && s.version == version {
+	sameCall := s.group == g && s.doc == d && s.callStart == start
+	if sameCall {
+		s.editor = st
+		moved := s.offset != offset || s.version != version
+		s.caretLine = line
+		if moved {
+			a.cancelSignature()
+			s.offset, s.version = offset, version
+			s.help = nil
+		}
 		if s.triggered {
 			s.triggered = false
-			if s.dismissed {
-				s.dismissed = false
-			} else if !s.asked && s.timer == nil && s.cancel == nil {
-				a.askSignature(d, st)
-			}
+			s.dismissed = false
+			s.manual = true
+			a.cancelSignature()
+			s.offset, s.version = offset, version
+			a.askSignature(g, d)
+			return
 		}
-		return // same call and version: the answer stands
+		if s.dismissed {
+			return
+		}
+		if moved && (s.manual || a.cfg.ParameterHelp == "always") {
+			a.deferSignature(g, d)
+		}
+		return
 	}
 	a.cancelSignature()
-	s.doc = d
+	s.group, s.doc = g, d
+	s.editor = st
 	s.callStart, s.offset, s.version = start, offset, version
+	s.caretLine = line
 	s.help = nil
 	s.active = 0
 	s.dismissed = false
 	s.asked = false
+	s.manual = false
 	if s.triggered {
 		s.triggered = false
-		a.askSignature(d, st)
+		s.manual = true
+		a.askSignature(g, d)
 		return
 	}
-	// Always asks once the caret rests; On Trigger — the
+	// Always asks once the caret rests; On Trigger —
 	// default — waits for Control-Shift+Space, so a new call
 	// here does nothing yet.
 	if a.cfg.ParameterHelp != "always" {
 		return
 	}
-	a.deferSignature(d, st)
+	a.deferSignature(g, d)
 }
 
-// deferSignature asks for signature help after the caret rests
-// signatureDelay: typing through a file should not pay a request per
-// stop. A flight is not cancelled — the server folds an outdated
-// position into its own answer — but a new one does not start while it
-// runs.
-func (a *App) deferSignature(d *doc, st *editor.State) {
+// deferSignature asks for signature help after the caret rests for
+// signatureDelay; moving again cancels the timer or invalidates its reply.
+func (a *App) deferSignature(g *group, d *doc) {
 	s := &a.signature
 	if s.timer != nil {
 		s.timer.Stop()
+		s.timer = nil
 	}
 	if s.cancel != nil || s.asked {
 		return
 	}
 	s.seq++
-	seq, gen := s.seq, a.gen
+	seq, gen, start, offset, version := s.seq, a.gen, s.callStart, s.offset, s.version
+	post := a.post.Post
 	s.timer = time.AfterFunc(signatureDelay, func() {
-		a.post.Post(func() {
-			if a.gen != gen || s.seq != seq || s.doc != d {
+		post(func() {
+			if s.seq != seq {
 				return
 			}
-			a.askSignature(d, st)
+			s.timer = nil
+			if a.gen != gen || s.group != g || s.doc != d || s.callStart != start ||
+				s.offset != offset || s.version != version || s.dismissed || g != a.focus || a.completionFor(g).visible {
+				return
+			}
+			a.askSignature(g, d)
 		})
 	})
 }
@@ -132,18 +174,21 @@ func (a *App) deferSignature(d *doc, st *editor.State) {
 // askSignature requests the signature of the call at s.callStart of d.
 // The server marks the active signature and parameter; See shows
 // whichever it names.
-func (a *App) askSignature(d *doc, st *editor.State) {
+func (a *App) askSignature(g *group, d *doc) {
 	s := &a.signature
 	m := a.serverFor(d.path)
 	if m == nil || d.buf == nil || !a.cfg.IsTrusted(a.root) {
+		s.asked = false
 		return
 	}
 	if state, _ := m.Status(); state == langserver.Failed {
+		s.asked = false
 		return
 	}
 	if c := m.Current(); c != nil {
 		p, ok := c.(signatureClient)
 		if !ok || !p.HasSignatureHelp() {
+			s.asked = false
 			return
 		}
 	}
@@ -152,31 +197,39 @@ func (a *App) askSignature(d *doc, st *editor.State) {
 	pos := snap.Pos(min(s.offset, snap.Len()))
 	line := snap.Line(pos.Line)
 	s.seq++
-	seq, gen, version := s.seq, a.gen, snap.Version()
+	seq, gen, start, offset, version := s.seq, a.gen, s.callStart, s.offset, snap.Version()
 	ctx, cancel := context.WithTimeout(a.wsCtx, 10*time.Second)
 	s.cancel = cancel
+	post := a.post.Post
 	go func() {
 		defer cancel()
 		c, err := m.Get(ctx)
-		if err != nil {
-			return
+		var help *lsp.SignatureHelp
+		if err == nil {
+			p, ok := c.(signatureClient)
+			if !ok || !p.HasSignatureHelp() {
+				err = fmt.Errorf("signature help is not supported")
+			} else if err = m.Sync(ctx, c, d.uri, snap); err == nil {
+				at := lsp.Position{Line: pos.Line, Character: lsp.ColumnToLSP(line, pos.Col, c.Encoding())}
+				help, err = p.SignatureHelp(ctx, d.uri, at)
+			}
 		}
-		p, ok := c.(signatureClient)
-		if !ok || !p.HasSignatureHelp() {
-			return
-		}
-		if m.Sync(ctx, c, d.uri, snap) != nil {
-			return
-		}
-		at := lsp.Position{Line: pos.Line, Character: lsp.ColumnToLSP(line, pos.Col, c.Encoding())}
-		help, err := p.SignatureHelp(ctx, d.uri, at)
-		a.post.Post(func() {
-			if a.gen != gen || s.seq != seq || s.doc != d || d.buf == nil || d.buf.Version() != version {
-				return // the caret moved on or the text changed
+		post(func() {
+			if s.seq != seq {
+				return
 			}
 			s.cancel = nil
+			s.timer = nil
+			if a.gen != gen || s.group != g || s.doc != d || s.callStart != start ||
+				s.offset != offset || s.version != version || d.buf == nil || d.buf.Version() != version ||
+				s.dismissed || g != a.focus || a.completionFor(g).visible || s.editor == nil ||
+				a.activeEditor() != s.editor || s.editor.Cursor() != offset {
+				s.asked = false
+				return
+			}
 			if err != nil || help == nil || len(help.Signatures) == 0 {
 				s.help = nil
+				s.asked = false
 				return
 			}
 			s.help = help
@@ -202,6 +255,7 @@ func (a *App) cancelSignature() {
 		s.timer.Stop()
 		s.timer = nil
 	}
+	s.asked = false
 }
 
 // clearSignature hides the strip and forgets the call: the caret left
@@ -209,6 +263,8 @@ func (a *App) cancelSignature() {
 func (a *App) clearSignature() {
 	a.cancelSignature()
 	s := &a.signature
+	s.group = nil
+	s.editor = nil
 	s.doc = nil
 	s.callStart = signatureOff
 	s.offset = 0
@@ -216,6 +272,8 @@ func (a *App) clearSignature() {
 	s.help = nil
 	s.active = 0
 	s.dismissed = false
+	s.triggered = false
+	s.manual = false
 }
 
 // showSignatureAtCaret is Control-Shift+Space: signature help at the
@@ -250,9 +308,9 @@ func (a *App) dismissSignature() {
 // signatureInput is the editor's view of signature-help keys: Escape
 // dismisses, and Up and Down walk overloads. It runs before the
 // editor's own keys and reports whether it took the event.
-func (a *App) signatureInput(st *editor.State, ev ui.InputEvent) bool {
+func (a *App) signatureInput(g *group, st *editor.State, ev ui.InputEvent) bool {
 	s := &a.signature
-	if s.doc == nil || s.dismissed {
+	if g != a.focus || a.completionFor(g).visible || s.group != g || s.doc == nil || s.dismissed {
 		return false
 	}
 	if ev.Kind == ui.InputKeyDown && ev.Key == ui.KeyEscape && (s.help != nil || s.cancel != nil || s.timer != nil) {
@@ -278,10 +336,13 @@ func (a *App) signatureInput(st *editor.State, ev ui.InputEvent) bool {
 // signatureHelp returns the help to draw for d, or nil: dismissed at
 // this call, no answer yet, a different document, or text the answer
 // no longer matches.
-func (a *App) signatureHelp(d *doc) *lsp.SignatureHelp {
+func (a *App) signatureHelp(g *group, d *doc) *lsp.SignatureHelp {
 	s := &a.signature
-	if s.doc != d || s.dismissed || s.help == nil || len(s.help.Signatures) == 0 ||
+	if g != a.focus || a.completionFor(g).visible || s.group != g || s.doc != d || s.dismissed || s.help == nil || len(s.help.Signatures) == 0 ||
 		d.buf == nil || d.buf.Version() != s.version {
+		return nil
+	}
+	if s.editor == nil || s.editor.Cursor() != s.offset || a.activeEditor() != s.editor {
 		return nil
 	}
 	return s.help
@@ -292,8 +353,8 @@ func (a *App) signatureHelp(d *doc) *lsp.SignatureHelp {
 // emphasised, a "1/2" of overloads, and the parameter's one line of
 // documentation below when the server sends it. It borrows the peek's
 // material — a footnote to the code, not a window.
-func (a *App) signatureStrip(c *ui.Context, bounds ui.Rect, st *editor.State, d *doc, gutter float32) {
-	help := a.signatureHelp(d)
+func (a *App) signatureStrip(c *ui.Context, bounds ui.Rect, st *editor.State, g *group, d *doc, gutter float32) {
+	help := a.signatureHelp(g, d)
 	if help == nil {
 		return
 	}
@@ -341,7 +402,8 @@ func (a *App) signatureStrip(c *ui.Context, bounds ui.Rect, st *editor.State, d 
 	} else {
 		spans = append(spans, mk(label, 0, plain, false))
 	}
-	top := bounds.Y + float32(st.LineTop(s.caretLine)-st.ScrollY()) + float32(fontSize*lineHeight)
+	lineTop := bounds.Y + float32(st.LineTop(s.caretLine)-st.ScrollY())
+	caretY := lineTop + float32(fontSize*lineHeight)
 	const stripH, docH, gap = 22, 15, 4
 	height := float32(stripH)
 	doc := ""
@@ -354,16 +416,23 @@ func (a *App) signatureStrip(c *ui.Context, bounds ui.Rect, st *editor.State, d 
 	if doc != "" {
 		height += docH
 	}
-	if top+height > bounds.Y+bounds.H-gap {
-		above := bounds.Y + float32(st.LineTop(s.caretLine)-st.ScrollY()) - gap - height
-		if above >= bounds.Y+gap {
-			top = above
-		}
+	labelWidth, _ := c.MeasureText(0, spans...)
+	contentWidth := labelWidth
+	if len(help.Signatures) > 1 {
+		counterWidth, _ := c.MeasureText(0, ui.Span{Text: fmt.Sprintf("%d/%d", s.active+1, len(help.Signatures)), Size: 11})
+		contentWidth += counterWidth + 8
 	}
-	left := bounds.X + gutter + 4
-	width := bounds.W - gutter - 8
+	if doc != "" {
+		docWidth, _ := c.MeasureText(0, ui.Span{Text: doc, Size: 11})
+		contentWidth = max(contentWidth, docWidth)
+	}
+	caretX := max(bounds.X+gutter, min(bounds.X+bounds.W-4, g.caretAnchor.X))
+	strip, visible := signatureStripBounds(bounds, ui.Point{X: caretX, Y: caretY}, lineTop, float32(fontSize*lineHeight), contentWidth+22, height)
+	if !visible {
+		return
+	}
 	ui.Overlay(c, func() {
-		col := ui.Column(c).Absolute().Left(left).Top(top).Width(width).Height(height).
+		col := ui.Column(c).Absolute().Left(strip.X).Top(strip.Y).Width(strip.W).Height(strip.H).
 			Padding(0, 10).Radius(6).Clip().Background(pal.Popover).Border(1, pal.PopoverEdge).
 			Shadow(0, 1, 3, 0, ui.RGBA(0, 0, 0, 0.08)).Label(locales.SignatureHelp())
 		near, far := ui.RGBA(0, 0, 0, 0.08), ui.RGBA(0, 0, 0, 0.16)
@@ -385,6 +454,30 @@ func (a *App) signatureStrip(c *ui.Context, bounds ui.Rect, st *editor.State, d 
 	})
 }
 
+func signatureStripBounds(bounds ui.Rect, caret ui.Point, lineTop, lineHeight, width, height float32) (ui.Rect, bool) {
+	const pad = float32(4)
+	if bounds.W <= 2*pad || bounds.H <= 2*pad || lineTop+lineHeight <= bounds.Y || lineTop >= bounds.Y+bounds.H {
+		return ui.Rect{}, false
+	}
+	width = min(width, float32(600), bounds.W-2*pad)
+	if width <= 0 || height > bounds.H-2*pad {
+		return ui.Rect{}, false
+	}
+	left := caret.X + 8
+	if left+width > bounds.X+bounds.W-pad {
+		left = caret.X - width - 8
+	}
+	left = max(bounds.X+pad, min(left, bounds.X+bounds.W-pad-width))
+	top := lineTop + lineHeight
+	if top+height > bounds.Y+bounds.H-pad {
+		top = lineTop - pad - height
+	}
+	if top < bounds.Y+pad || top+height > bounds.Y+bounds.H-pad {
+		return ui.Rect{}, false
+	}
+	return ui.Rect{X: left, Y: top, W: width, H: height}, true
+}
+
 // oneLine is the first non-empty line of documentation: the strip has
 // one row for it.
 func oneLine(s string) string {
@@ -401,9 +494,11 @@ func (a *App) signatureEnabled() bool {
 	return a.cfg.ParameterHelp != "off"
 }
 
-// callStartAt finds the argument list offset is inside: the byte of
-// the nearest unmatched '(', '[' or '{' before it, skipping strings and
-// comments. It returns signatureOff outside one. The scan runs over the
+// callStartAt finds the innermost unmatched '(' before offset, skipping
+// strings and comments. An unmatched '{' or '[' takes precedence, so an
+// enclosing call is not shown while editing an object, array, or block.
+// A nested call in one of those constructs still wins. It returns
+// signatureOff outside a call. The scan runs over the
 // text up to the caret with just enough state to skip // comments,
 // /* */ comments and quoted runs of ", ' and `.
 func callStartAt(buf *editor.Buffer, offset int) int {
@@ -456,20 +551,18 @@ func callStartAt(buf *editor.Buffer, offset int) int {
 					depth++
 				}
 			case ')', ']', '}':
-				if depth > 0 {
+				if depth > 0 && matchingBracket(stack[depth-1], b) {
 					depth--
 				}
 			}
 		}
 	}
-	// The innermost unmatched '(': '[', and '{' match their closers
-	// without being calls — an index or a literal inside an argument
-	// list still belongs to the '()' enclosing it, and a function body
-	// alone is no call.
-	for i := depth - 1; i >= 0; i-- {
-		if stack[i] == '(' {
-			return at[i]
-		}
+	if depth > 0 && stack[depth-1] == '(' {
+		return at[depth-1]
 	}
 	return signatureOff
+}
+
+func matchingBracket(open, close byte) bool {
+	return open == '(' && close == ')' || open == '[' && close == ']' || open == '{' && close == '}'
 }

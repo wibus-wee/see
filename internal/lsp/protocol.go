@@ -188,6 +188,7 @@ type serverCapabilities struct {
 	InlayHintProvider         json.RawMessage `json:"inlayHintProvider"`
 	DocumentLinkProvider      json.RawMessage `json:"documentLinkProvider"`
 	SignatureHelpProvider     json.RawMessage `json:"signatureHelpProvider"`
+	CompletionProvider        json.RawMessage `json:"completionProvider"`
 	SemanticTokensProvider    json.RawMessage `json:"semanticTokensProvider"`
 	FoldingRangeProvider      json.RawMessage `json:"foldingRangeProvider"`
 	CodeActionProvider        json.RawMessage `json:"codeActionProvider"`

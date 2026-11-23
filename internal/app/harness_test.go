@@ -198,6 +198,7 @@ type fakeClient struct {
 	documentLinks  func(ctx context.Context, uri string) ([]lsp.DocumentLink, error)
 	foldingRanges  func(ctx context.Context, uri string) ([]lsp.FoldingRange, error)
 	signature      func(ctx context.Context, uri string, pos lsp.Position) (*lsp.SignatureHelp, error) // nil: no signature help
+	completion     func(ctx context.Context, uri string, pos lsp.Position) (*lsp.CompletionResult, error)
 	semanticTokens func(ctx context.Context, uri string, first, last int) (*lsp.SemanticTokensData, error)
 	semanticTypes  []string // the legend fake answers, when semanticTokens is set
 	callHier       callFake
@@ -359,6 +360,11 @@ func (f *fakeClient) HasSignatureHelp() bool { return f.signature != nil }
 func (f *fakeClient) SignatureHelp(ctx context.Context, uri string, pos lsp.Position) (*lsp.SignatureHelp, error) {
 	f.record("signatureHelp")
 	return f.signature(ctx, uri, pos)
+}
+func (f *fakeClient) HasCompletion() bool { return f.completion != nil }
+func (f *fakeClient) Completion(ctx context.Context, uri string, pos lsp.Position) (*lsp.CompletionResult, error) {
+	f.record("completion")
+	return f.completion(ctx, uri, pos)
 }
 func (f *fakeClient) Shutdown(time.Duration) {
 	f.mu.Lock()

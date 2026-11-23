@@ -192,6 +192,7 @@ type App struct {
 
 	hover         hoverState
 	signature     signatureState
+	completions   map[int]*completionState
 	task          *taskRun
 	taskList      ui.ListState
 	term          termPanel
@@ -228,7 +229,7 @@ type App struct {
 	standaloneSessionDocs map[string]struct{} // recovery entries this window owns in the shared empty-root session
 	discardedSessionDocs  map[string]struct{} // documents approved for discard until their workspace is gone
 	theme                 *ui.Theme
-	modifiers             ui.Modifiers // keyboard modifiers held this frame
+	modifiers             ui.Modifiers  // keyboard modifiers held this frame
 	edTheme               *editor.Theme // a stable object: applyAppearance replaces its contents
 	themeDark             bool
 	themeAccent           ui.Color
@@ -1296,6 +1297,7 @@ func (a *App) newEditor(g *group, d *doc) *editor.State {
 		st.SetDiagnostics(d.diagnosticVersion, d.diagnostics)
 	}
 	st.OnDefinition = func(offset int) { a.goToDefinition(g, d, offset) }
+	st.OnCompletion = func(req editor.CompletionRequest) { a.requestCompletions(g, d, st, req) }
 	st.NoDefinitionLink = true // hover.go draws the Cmd link once the server confirms a definition
 	a.loadGitBase(d)
 	st.ContextMenu = func(menu *ui.Menu) {

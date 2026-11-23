@@ -156,6 +156,7 @@ type fakeServer struct {
 	documentSymbols     func(params json.RawMessage) string
 	documentHighlights  func(params json.RawMessage) string
 	signatureHelp       func(params json.RawMessage) string
+	completion          func(params json.RawMessage) string
 	definition          func(params json.RawMessage) string // raw result
 	inlayHints          func(params json.RawMessage) string
 	semanticTokens      func(method string, params json.RawMessage) string
@@ -281,6 +282,12 @@ func (f *fakeServer) serve() {
 				reply("null")
 			} else {
 				reply(f.signatureHelp(m.Params))
+			}
+		case "textDocument/completion":
+			if f.completion == nil {
+				reply("null")
+			} else {
+				reply(f.completion(m.Params))
 			}
 		case "textDocument/implementation", "textDocument/typeDefinition",
 			"textDocument/prepareTypeHierarchy", "typeHierarchy/supertypes", "typeHierarchy/subtypes",

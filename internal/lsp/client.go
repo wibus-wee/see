@@ -58,6 +58,7 @@ type Client struct {
 	pullDiagnostics     bool
 	foldingRange        bool
 	signatureHelp       bool
+	completion          bool
 	semanticFull        bool
 	semanticRange       bool
 	semanticLegend      semanticTokensLegend
@@ -232,6 +233,7 @@ func (c *Client) DocumentLinkResolveSupport() bool { return c.documentLinkResolv
 
 // HasSignatureHelp reports whether the server answers signature help.
 func (c *Client) HasSignatureHelp() bool { return c.signatureHelp }
+func (c *Client) HasCompletion() bool    { return c.completion }
 
 // HasFoldingRange reports whether the server answers folding range
 // requests.
@@ -380,6 +382,7 @@ func (c *Client) initialize(ctx context.Context) error {
 				"selectionRange":    map[string]any{"dynamicRegistration": false},
 				"hover":             map[string]any{"contentFormat": []string{"markdown", "plaintext"}, "dynamicRegistration": false},
 				"signatureHelp":     map[string]any{"signatureInformation": map[string]any{"documentationFormat": []string{"markdown", "plaintext"}, "parameterInformation": map[string]any{"labelOffsetSupport": true}}, "dynamicRegistration": false},
+				"completion":        map[string]any{"completionItem": map[string]any{"documentationFormat": []string{"markdown", "plaintext"}}, "dynamicRegistration": false},
 				"semanticTokens": map[string]any{
 					"dynamicRegistration":     false,
 					"requests":                map[string]any{"range": true, "full": map[string]any{"delta": false}},
@@ -425,6 +428,8 @@ func (c *Client) initialize(ctx context.Context) error {
 	c.documentLinks = res.Capabilities.hasDocumentLinks()
 	c.documentLinkResolve = res.Capabilities.documentLinkResolve()
 	c.signatureHelp = res.Capabilities.hasSignatureHelp()
+	rawCompletion := bytes.TrimSpace(res.Capabilities.CompletionProvider)
+	c.completion = len(rawCompletion) > 0 && !bytes.Equal(rawCompletion, []byte("false")) && !bytes.Equal(rawCompletion, []byte("null"))
 	c.callHierarchy = res.Capabilities.hasCallHierarchy()
 	rawType := bytes.TrimSpace(res.Capabilities.TypeHierarchyProvider)
 	c.typeHierarchy = len(rawType) > 0 && string(rawType) != "false" && string(rawType) != "null"
@@ -631,6 +636,18 @@ func (c *Client) SignatureHelp(ctx context.Context, uri string, pos Position) (*
 		return nil, err
 	}
 	return ParseSignatureHelp(raw)
+}
+
+func (c *Client) Completion(ctx context.Context, uri string, pos Position) (*CompletionResult, error) {
+	var raw json.RawMessage
+	err := c.conn.Call(ctx, "textDocument/completion", map[string]any{
+		"textDocument": map[string]any{"uri": uri},
+		"position":     pos,
+	}, &raw)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCompletion(raw)
 }
 
 // SetDiagnosticsHandler receives published diagnostics from the server.
