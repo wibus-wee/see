@@ -158,6 +158,8 @@ func (a *App) documentLanguageMenu(c *ui.Context, d *doc) {
 				a.selectDocumentLanguage(d, lang)
 			}
 		}
+	}, ui.PopoverMenuButtonOptions{
+		Panel: func(panel ui.Element) { panel.MaxHeightPercent(70) },
 	})
 }
 

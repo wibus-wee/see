@@ -141,6 +141,50 @@ func TestDocumentLanguageMenuSwitchesUntitledDocument(t *testing.T) {
 	}
 }
 
+func TestDocumentLanguageMenuTopRowIsClickableWhenAnchoredAtBottom(t *testing.T) {
+	a := &App{cfg: &config.Config{SoftWrap: true}}
+	d := &doc{name: "Untitled", untitled: true, buf: editor.NewBuffer("")}
+	st := &editor.State{Buffer: d.buf}
+	a.layout = &layout{g: &group{eds: map[string]*editor.State{d.name: st}}}
+	a.selectDocumentLanguage(d, editor.LanguageNamed("Markdown"))
+
+	tt := ui.NewTester(func(c *ui.Context) {
+		ui.Column(c).Fill().Children(func() {
+			ui.Box(c).Grow(1)
+			ui.Row(c).FillWidth().Height(24).Children(func() {
+				a.documentLanguageMenu(c, d)
+			})
+		})
+	}, 500, 928)
+	tt.SetScale(2)
+	if err := tt.Click(locales.Language() + ": Markdown"); err != nil {
+		t.Fatal(err)
+	}
+	plainText, ok := tt.Find(locales.InspectorTypeText())
+	if !ok {
+		t.Fatal("Plain Text menu item is not visible")
+	}
+	if plainText.Y < 32 {
+		t.Fatalf("Plain Text menu item starts too close to the window edge: y=%v", plainText.Y)
+	}
+	if err := tt.Click(locales.InspectorTypeText()); err != nil {
+		t.Fatalf("clicking Plain Text: %v", err)
+	}
+	if lang := d.buf.Language(); lang != nil {
+		t.Fatalf("selected language = %q, want Plain Text", lang.Name)
+	}
+
+	if err := tt.Click(locales.Language() + ": " + locales.InspectorTypeText()); err != nil {
+		t.Fatal(err)
+	}
+	tt.Key(0, ui.KeyEnd)
+	tt.Key(0, ui.KeyEnter)
+	want := documentLanguages()[len(documentLanguages())-1]
+	if lang := d.buf.Language(); lang != want {
+		t.Fatalf("keyboard selection = %v, want %v", lang, want)
+	}
+}
+
 func TestReloadScriptLanguage(t *testing.T) {
 	a := &App{}
 	d := &doc{path: "bin/tool", name: "tool", buf: editor.NewBuffer("#!/bin/bash\necho hello\n")}
