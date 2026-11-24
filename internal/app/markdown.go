@@ -135,9 +135,28 @@ func (a *App) openMarkdownTab(g *group) {
 	a.showLoaded(g, a.docs[path])
 }
 
+// openMarkdownLink answers a click on a link in d's preview. As every
+// link reaches OnLink once it is set, #a-heading must be answered here
+// too: the view scrolls to o.Anchor itself in the same pass OnLink
+// returned from, which AnchorVersion asks again for a heading already
+// there. Everything else opens as a document link's target does.
+func (a *App) openMarkdownLink(d *doc, o *markdown.Options, dest string) {
+	if strings.HasPrefix(dest, "#") {
+		o.Anchor = dest
+		o.AnchorVersion++
+		return
+	}
+	a.followDocLink(d, dest)
+}
+
 func (a *App) markdownView(c *ui.Context, g *group, d *doc) {
 	if d.markdownOptions == nil {
 		d.markdownOptions = markdownOptions(filepath.Dir(d.path))
+	}
+	// OnLink is wired here, not in markdownOptions, as it needs the app
+	// and the document; it runs inside the build pass, as an OnClick.
+	d.markdownOptions.OnLink = func(dest string) {
+		a.openMarkdownLink(d, d.markdownOptions, dest)
 	}
 	if v := d.buf.Version(); !d.markdownCached || v != d.markdownVersion {
 		d.markdownText, d.markdownVersion, d.markdownCached = d.buf.String(), v, true
