@@ -632,7 +632,7 @@ func (a *App) savedFindMenu(c *ui.Context) {
 				a.rerunSavedFindQuery(query)
 			}
 		}
-	}, ui.PopoverMenuButtonOptions{At: ui.AnchorBottomEnd, Self: ui.AnchorTopEnd})
+	}, ui.PopoverMenuButtonOptions{At: ui.AnchorBottomEnd, Self: ui.AnchorTopEnd, Panel: popoverMenuPanel})
 }
 
 func (a *App) findSummary(c *ui.Context) {

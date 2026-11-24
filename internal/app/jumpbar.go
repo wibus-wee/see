@@ -59,9 +59,9 @@ func jumpCrumb(c *ui.Context, key any, label string, open *bool, children func()
 		ui.Row(c).Gap(4).AlignItems(ui.Center).Children(children)
 	})
 	if open == nil {
-		return b.PopoverMenuButton(build)
+		return b.PopoverMenuButton(build, ui.PopoverMenuButtonOptions{Panel: popoverMenuPanel})
 	}
-	return b.PopoverMenuButton(build, ui.PopoverMenuButtonOptions{Open: open})
+	return b.PopoverMenuButton(build, ui.PopoverMenuButtonOptions{Open: open, Panel: popoverMenuPanel})
 }
 
 // jumpFilesMenu lists the entries of dir, current checked and folders as

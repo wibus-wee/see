@@ -1522,7 +1522,7 @@ func (a *App) externalTerminalPicker(c *ui.Context) {
 	})
 	sel.Trigger.OnChange(a.settingsChanged)
 	sel.Popup(func(panel ui.Element) {
-		panel.Padding(4).Radius(10).Background(t.Background).Border(1, t.Border).Shadow(0, 8, 24, 0, ui.RGBA(0, 0, 0, 0.15))
+		panel.Padding(4).Radius(10).Material(popoverGlass()).Border(1, t.Border).Shadow(0, 8, 24, 0, ui.RGBA(0, 0, 0, 0.15))
 		for _, name := range externalTerminalNames {
 			item := sel.Item(name).Gap(8).Padding(6, 10).Radius(6).AlignItems(ui.Center)
 			if item.Highlighted() {

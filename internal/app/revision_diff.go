@@ -195,7 +195,7 @@ func (a *App) revisionContent(c *ui.Context, g *group, v *gitDiffTab) {
 						a.selectRevision(v, i)
 					}
 				}
-			}, ui.PopoverMenuButtonOptions{Open: &r.pickerOpen})
+			}, ui.PopoverMenuButtonOptions{Open: &r.pickerOpen, Panel: popoverMenuPanel})
 			target := localHistoryText("localHistoryWorkingTree")
 			if d := a.docs[r.path]; d != nil && d.buf != nil && d.buf.Modified() {
 				target = localHistoryText("localHistoryCurrentUnsaved")

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"github.com/egoist/mygo/plugins/glass"
 	"github.com/egoist/mygo/ui"
 
 	"see/internal/theme"
@@ -9,6 +10,14 @@ import (
 // colors returns the palette of the appearance the window of c shows. The
 // accent is the theme's: c.Theme().Accent.
 func colors(c *ui.Context) *theme.Palette { return theme.Of(c) }
+
+// popoverGlass is the material of the app's floating popovers: large
+// enough for the glass's Clarity, their content reads through them.
+func popoverGlass() glass.Glass { return glass.Glass{Clarity: 0.5} }
+
+// popoverMenuPanel styles the panel of a drawn menu — and of each of its
+// submenus — as the app's popovers (PopoverMenuButtonOptions.Panel).
+func popoverMenuPanel(panel ui.Element) { panel.Material(popoverGlass()) }
 
 // colors returns the palette of the appearance the app last drew in, for
 // what is not drawn in a frame of its own.

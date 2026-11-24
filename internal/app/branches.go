@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/i18n"
-	"github.com/egoist/mygo/plugins/glass"
 	"github.com/egoist/mygo/ui"
 
 	"see/internal/git"
@@ -472,7 +471,7 @@ func (a *App) branchPickerPanel(c *ui.Context) {
 		} else {
 			panel.Top(top)
 		}
-		panel.Radius(12).Padding(6).Gap(4).Material(glass.Glass{}).Border(1, colors(c).PopoverEdge)
+		panel.Radius(12).Padding(6).Gap(4).Material(popoverGlass()).Border(1, colors(c).PopoverEdge)
 		if !p.compare {
 			panel.Role(ui.RoleGroup).Label(locales.MsgBranches())
 		}

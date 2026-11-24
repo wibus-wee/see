@@ -345,7 +345,7 @@ func (a *App) jumpBar(c *ui.Context, g *group) {
 				a.focus = g
 				a.showTypeHierarchyAt(g)
 			}
-		}, ui.PopoverMenuButtonOptions{Open: &g.relatedOpen})
+		}, ui.PopoverMenuButtonOptions{Open: &g.relatedOpen, Panel: popoverMenuPanel})
 		if !g.relatedOpen {
 			g.counterpartMenu = nil
 		}
