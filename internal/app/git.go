@@ -948,6 +948,22 @@ func (a *App) gitRows(c *ui.Context, staged bool) {
 	}
 }
 
+func gitFileNameAndPath(c *ui.Context, path, oldPath string, fontSize float32) {
+	ui.Row(c).Grow(1).Shrink(1).MinWidth(0).Children(func() {
+		if oldPath != "" {
+			ui.Text(c, filepath.Base(oldPath)).FontSize(fontSize).TextColor(colors(c).Muted).SingleLine().Ellipsis("…").
+				TruncateMiddle().MinWidth(0).Shrink(1)
+			ui.Text(c, " → ").FontSize(fontSize).TextColor(colors(c).Muted).SingleLine().MinWidth(0).Shrink(1)
+		}
+		ui.Text(c, filepath.Base(path)).FontSize(fontSize).SingleLine().Ellipsis("…").TruncateMiddle().
+			MinWidth(0).MaxWidthPercent(100).Shrink(0)
+		if dir := filepath.Dir(path); dir != "." {
+			ui.Text(c, "\u00a0"+filepath.ToSlash(dir)).FontSize(10).TextColor(colors(c).Dim).SingleLine().Ellipsis("…").
+				TruncateMiddle().MinWidth(0).Shrink(1)
+		}
+	})
+}
+
 func (a *App) gitSection(c *ui.Context, name string, count int) {
 	ui.Row(c).FillWidth().Height(gitSidebarGroupHeaderHeight).Padding(0, sidebarInset+gitSidebarTreeIndent).
 		Gap(gitSidebarColumnGap).AlignItems(ui.Center).Children(func() {
@@ -978,11 +994,7 @@ func (a *App) gitRow(c *ui.Context, ch git.Change, staged bool) {
 		row.Children(func() {
 			ui.Row(c).FillWidth().Gap(6).AlignItems(ui.Center).Children(func() {
 				fileIcon(c, filepath.Base(ch.Path), 15)
-				ui.Text(c, filepath.Base(ch.Path)).FontSize(gitSidebarRowLabelSize).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(1)
-				dir := filepath.Dir(ch.Path)
-				if dir != "." {
-					ui.Text(c, filepath.ToSlash(dir)).FontSize(10).TextColor(colors(c).Dim).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(1)
-				}
+				gitFileNameAndPath(c, ch.Path, "", gitSidebarRowLabelSize)
 			})
 		})
 		mods := row.ClickModifiers()
@@ -1102,24 +1114,23 @@ func (a *App) commitBar(c *ui.Context, staged int, conflicted bool) {
 	}
 	ui.Column(c).Shrink(0).FillWidth().Children(func() {
 		ui.Box(c).FillWidth().Height(1).Background(colors(c).Separator)
-		ui.Row(c).FillWidth().Height(34).Padding(0, sidebarInset).Gap(6).AlignItems(ui.Center).Children(func() {
-			in := ui.TextInput(c.Key("git-commit-message"), &a.git.message).Placeholder(placeholder).Label(locales.MsgCommitMessage()).
-				FontSize(gitSidebarRowLabelSize).Grow(1).Shrink(1).MinWidth(0).Height(gitSidebarComposerHeight).
-				Radius(14).Background(colors(c).Pill).Border(1, colors(c).Separator).Padding(0, 8)
-			if in.Submitted() {
-				commit()
-			}
-			b := ui.ButtonBase(c).Label(locales.MsgCommit()).Tooltip(tip).Height(gitSidebarComposerHeight).
-				Padding(0, 10).Radius(4).Shrink(0).Disabled(!can).KeepFocus()
-			color := colors(c).Dim
-			if can {
-				b.Background(c.Theme().Accent)
-				color = ui.RGB(0xff, 0xff, 0xff)
-			}
-			b.Children(func() {
-				ui.Text(c, locales.MsgCommit()).FontSize(gitSidebarRowLabelSize).FontWeight(500).TextColor(color).SingleLine()
+		ui.Row(c).FillWidth().Height(34).Padding(0, sidebarInset).AlignItems(ui.Center).Children(func() {
+			ui.Row(c).FillWidth().Height(28).Radius(14).Background(colors(c).Pill).
+				Padding(0, 3, 0, 12).Gap(4).AlignItems(ui.Center).Children(func() {
+				in := ui.TextInput(c.Key("git-commit-message"), &a.git.message).Placeholder(placeholder).Label(locales.MsgCommitMessage()).
+					FontSize(12).Grow(1).Background(ui.Transparent).BorderWidth(0).Padding(0)
+				if in.Submitted() {
+					commit()
+				}
+				b := ui.ButtonBase(c).Label(locales.MsgCommit()).Tooltip(tip).Size(22, 22).Radius(11).Center().Disabled(!can).KeepFocus()
+				color := colors(c).Dim
+				if can {
+					b.Background(c.Theme().Accent)
+					color = ui.RGB(0xff, 0xff, 0xff)
+				}
+				b.Children(func() { symbolIcon(c, icCommitArrow, 12, color) })
+				b.OnClick(commit)
 			})
-			b.OnClick(commit)
 		})
 	})
 }

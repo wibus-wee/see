@@ -136,6 +136,107 @@ func TestGitChangeRowsAreFlatAcrossFileKinds(t *testing.T) {
 	}
 }
 
+func filenameBounds(t *testing.T, tt *ui.Tester, path string) ui.Rect {
+	t.Helper()
+	nameBounds, ok := tt.Find(filepath.Base(path))
+	if !ok || nameBounds.W <= 0 {
+		t.Fatalf("filename %q is not visible: %q", filepath.Base(path), tt.Texts())
+	}
+	return nameBounds
+}
+
+func assertBasenameUsesAvailableWidth(t *testing.T, tt *ui.Tester, path, rowLabel string, naturalWidth, availableWidth float32) {
+	t.Helper()
+	nameBounds := filenameBounds(t, tt, path)
+	if naturalWidth <= availableWidth+1 {
+		if nameBounds.W < naturalWidth-1 || nameBounds.W > naturalWidth+1 {
+			t.Fatalf("basename %q shrank despite fitting in its text area: width %.1f, natural %.1f, available %.1f", filepath.Base(path), nameBounds.W, naturalWidth, availableWidth)
+		}
+	} else if nameBounds.W < availableWidth-1 || nameBounds.W > availableWidth+1 {
+		t.Fatalf("overlong basename %q did not use only its bounded text area: width %.1f, available %.1f", filepath.Base(path), nameBounds.W, availableWidth)
+	}
+	accessible := false
+	for _, access := range tt.AccessAll() {
+		if strings.Contains(access.Name, path) {
+			accessible = true
+			break
+		}
+	}
+	if !accessible {
+		t.Fatalf("full path %q is missing from accessible names: %+v", path, tt.AccessAll())
+	}
+	if rowLabel != "" {
+		rowBounds, ok := tt.Find(rowLabel)
+		if !ok || nameBounds.X+nameBounds.W > rowBounds.X+rowBounds.W+1 {
+			t.Fatalf("basename %q exceeds its row bounds: name %v, row %v", filepath.Base(path), nameBounds, rowBounds)
+		}
+	}
+}
+
+func directoryBounds(t *testing.T, tt *ui.Tester, path string) ui.Rect {
+	t.Helper()
+	dir := filepath.ToSlash(filepath.Dir(path))
+	if dir == "." {
+		t.Fatalf("%q has no directory", path)
+	}
+	pathBounds, ok := tt.Find("\u00a0" + dir)
+	if !ok {
+		t.Fatalf("directory %q is not visible: %q", dir, tt.Texts())
+	}
+	return pathBounds
+}
+
+func gitTextAreaWidth(t *testing.T, tt *ui.Tester, path string) float32 {
+	t.Helper()
+	rowBounds, ok := tt.Find("Unstaged diff: " + path)
+	if !ok {
+		t.Fatalf("Git row for %q is not visible: %q", path, tt.Texts())
+	}
+	nameBounds := filenameBounds(t, tt, path)
+	return rowBounds.X + rowBounds.W - nameBounds.X
+}
+
+func branchDiffTextAreaWidth(t *testing.T, tt *ui.Tester, path, firstStatus string) float32 {
+	t.Helper()
+	nameBounds := filenameBounds(t, tt, path)
+	statusBounds, ok := tt.Find(firstStatus)
+	if !ok {
+		t.Fatalf("comparison status %q is not visible: %q", firstStatus, tt.Texts())
+	}
+	return statusBounds.X - nameBounds.X - gitSidebarColumnGap
+}
+
+func TestGitChangeRowsPrioritizeBasenamesOverPaths(t *testing.T) {
+	const nestedPath = "packages/web/src/features/conversations/components/MessageHistoryPanel.tsx"
+	const longBasename = "ExtremelyLongGeneratedStateMachineSidebarAvailabilityControllerConfiguration.tsx"
+	paths := []string{nestedPath, longBasename}
+	root := gitRepo(t, map[string]string{nestedPath: "base\n", longBasename: "base\n"})
+	for _, path := range paths {
+		writeFile(t, root, path, "changed\n")
+	}
+	h := newHarness(t, root)
+	h.readGit()
+	h.a.navigator, h.a.git.historyClosed = navGit, true
+	h.a.sidebarW = 800
+	h.tt.Advance(300 * time.Millisecond)
+	h.tt.Frame()
+	naturalWidths := map[string]float32{}
+	for _, path := range paths {
+		naturalWidths[path] = filenameBounds(t, h.tt, path).W
+	}
+	naturalPathWidth := directoryBounds(t, h.tt, nestedPath).W
+	for _, width := range []float32{420, gitSidebarMinimumWidth} {
+		h.a.sidebarW = width
+		h.tt.Frame()
+		for _, path := range paths {
+			assertBasenameUsesAvailableWidth(t, h.tt, path, "Unstaged diff: "+path, naturalWidths[path], gitTextAreaWidth(t, h.tt, path))
+		}
+		if width == 420 && directoryBounds(t, h.tt, nestedPath).W >= naturalPathWidth-1 {
+			t.Fatalf("directory path did not give space back to the basename at normal width: natural %.1f, current %.1f", naturalPathWidth, directoryBounds(t, h.tt, nestedPath).W)
+		}
+	}
+}
+
 // The branch in the toolbar opens the branch picker; choosing a branch
 // switches to it, and typing a new name makes one.
 func TestBranchPickerSwitchesAndCreates(t *testing.T) {
@@ -341,8 +442,12 @@ func TestGitCommitFooterStaysOutsideTreeScrollAndRetainsDraft(t *testing.T) {
 	h.settle(func() bool { return !h.a.git.busy && !h.a.git.loading })
 	file, fileOK := h.tt.Find("Staged diff: change-0.go")
 	commit, commitOK := commitField()
-	if !fileOK || !commitOK || commit.Bounds.Y <= file.Y {
-		t.Fatalf("commit footer is not visible after staging: file %v (%v), commit %v (%v), texts %q", file, fileOK, commit, commitOK, h.tt.Texts())
+	commitAction, actionOK := h.tt.AccessByRole(ui.RoleButton, locales.MsgCommit())
+	fieldCenter := commit.Bounds.Y + commit.Bounds.H/2
+	actionCenter := commitAction.Bounds.Y + commitAction.Bounds.H/2
+	if !fileOK || !commitOK || commit.Bounds.Y <= file.Y || !actionOK || commitAction.Bounds.W != 22 || commitAction.Bounds.H != 22 ||
+		actionCenter < fieldCenter-1 || actionCenter > fieldCenter+1 {
+		t.Fatalf("commit footer or inline action is not visible after staging: file %v (%v), commit %v (%v), action %v (%v), texts %q", file, fileOK, commit, commitOK, commitAction, actionOK, h.tt.Texts())
 	}
 	if err := h.tt.Click(locales.MsgCommitMessage()); err != nil {
 		t.Fatal(err)
@@ -526,7 +631,7 @@ func TestGitSidebarMinimumDuringDrag(t *testing.T) {
 	divider = gitSidebarDivider(t, h)
 	field, fieldOK = h.tt.AccessByRole(ui.RoleTextField, locales.MsgCommitMessage())
 	button, buttonOK = h.tt.AccessByRole(ui.RoleButton, locales.MsgCommit())
-	if divider.Bounds.X < minWidth-1 || h.a.sidebarW < minWidth || !fieldOK || field.Bounds.W < 100 || field.Offscreen || !buttonOK || button.Disabled || button.Bounds.W < 40 || button.Offscreen {
+	if divider.Bounds.X < minWidth-1 || h.a.sidebarW < minWidth || !fieldOK || field.Bounds.W < 100 || field.Offscreen || !buttonOK || button.Disabled || button.Bounds.W != 22 || button.Bounds.H != 22 || button.Offscreen {
 		t.Fatalf("Git sidebar became unusable during an active left drag: divider %v, saved width %v, field %+v (%v), Commit %+v (%v)", divider.Bounds, h.a.sidebarW, field, fieldOK, button, buttonOK)
 	}
 	h.tt.Release(targetX, y)

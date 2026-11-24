@@ -138,12 +138,7 @@ func (a *App) branchDiffNavigator(c *ui.Context) {
 				row.OnClick(func() { a.openBranchDiff(a.focus, v.baseRef, v.baseName, f.Path) })
 				row.Children(func() {
 					fileIcon(c, filepath.Base(f.Path), gitSidebarIconColumn)
-					name := filepath.ToSlash(f.Path)
-					if f.OldPath != "" {
-						name = filepath.ToSlash(f.OldPath) + " → " + name
-					}
-					ui.Text(c, name).FontSize(gitSidebarRowLabelSize).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(1)
-					ui.Box(c).Grow(1)
+					gitFileNameAndPath(c, f.Path, f.OldPath, gitSidebarRowLabelSize)
 					if f.Added < 0 {
 						ui.Text(c, branchDiffText("gitBinary")).FontSize(10).TextColor(colors(c).Muted).SingleLine().Shrink(0)
 					} else {
