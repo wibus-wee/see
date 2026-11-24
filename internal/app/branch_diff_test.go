@@ -60,7 +60,10 @@ func TestBranchDiffPickerAndTabs(t *testing.T) {
 		}
 		return b.String()
 	}
-	baseFiles := map[string]string{"a.txt": lines("base-a"), "b.txt": lines("base-b"), "c.txt": lines("base-c")}
+	baseFiles := map[string]string{
+		"a.txt": lines("base-a"), "b.txt": lines("base-b"), "c.txt": lines("base-c"),
+		"main.go": lines("base-main"), "main_test.go": lines("base-test"), "README.md": lines("base-readme"),
+	}
 	for i := range 18 {
 		baseFiles[fmt.Sprintf("z-%02d.txt", i)] = lines(fmt.Sprintf("base-z-%02d", i))
 	}
@@ -115,9 +118,15 @@ func TestBranchDiffPickerAndTabs(t *testing.T) {
 	if h.tt.HasText("Stage All Changes") || h.tt.HasText("Unstage All Changes") {
 		t.Fatalf("comparison mode exposes staging controls: %v", h.tt.Texts())
 	}
-
-	if err := h.tt.Click(logText("gitKindDocs")); err != nil {
-		t.Fatal(err)
+	for _, name := range []string{"main.go", "main_test.go", "README.md"} {
+		if !h.tt.HasText(name) {
+			t.Fatalf("flat comparison list is missing %s: %q", name, h.tt.Texts())
+		}
+	}
+	for _, group := range []string{logText("gitKindTests"), logText("gitKindDocs"), logText("gitKindGenerated")} {
+		if h.tt.HasText(group) {
+			t.Fatalf("semantic file group %q remains in %q", group, h.tt.Texts())
+		}
 	}
 	if err := h.tt.Click("zz-target.txt"); err != nil {
 		t.Fatal(err)

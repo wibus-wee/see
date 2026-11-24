@@ -13,7 +13,6 @@ import (
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 
-	"see/internal/filekind"
 	"see/internal/git"
 	"see/internal/workspace"
 )
@@ -64,13 +63,8 @@ type gitState struct {
 	counts [2]map[string]git.FileStat
 	// pendingTabs are the Git tabs of the last session, read once the
 	// repository is known.
-	pendingTabs []pendingTab
-	history     gitHistory
-	// kindOpen are the change groups opened in the navigator; tests,
-	// docs and generated files start folded, as Peek's, and a click on
-	// the group's name opens it.
-	kindOpen map[filekind.Kind]bool
-
+	pendingTabs  []pendingTab
+	history      gitHistory
 	stashes      []git.Stash
 	stashing     bool // the stash message field shows under the commit field
 	stashMessage string
@@ -897,11 +891,11 @@ func (a *App) gitNavigator(c *ui.Context) {
 							if staged > 0 {
 								a.gitSection(c, "Staged Changes", staged)
 							}
-							a.gitRowsByKind(c, true)
+							a.gitRows(c, true)
 							if unstaged > 0 && (staged > 0 || conflicts > 0) {
 								a.gitSection(c, "Changes", unstaged)
 							}
-							a.gitRowsByKind(c, false)
+							a.gitRows(c, false)
 						}
 					}
 					a.stashRows(c)
@@ -945,70 +939,13 @@ func (a *App) gitNavigator(c *ui.Context) {
 	}
 }
 
-// gitRowsByKind lists the staged or unstaged changes grouped by what
-// they hold: code rows flat, then tests, docs and generated files under
-// headers that fold, opened by a click.
-func (a *App) gitRowsByKind(c *ui.Context, staged bool) {
-	if a.git.kindOpen == nil {
-		a.git.kindOpen = map[filekind.Kind]bool{}
-	}
-	groups := map[filekind.Kind][]git.Change{}
+// gitRows lists the staged or unstaged changes in their original order.
+func (a *App) gitRows(c *ui.Context, staged bool) {
 	for _, ch := range a.git.changes {
 		if gitChangeInSection(ch, staged) {
-			k := filekind.Of(filepath.ToSlash(ch.Path))
-			groups[k] = append(groups[k], ch)
-		}
-	}
-	for _, ch := range groups[filekind.Code] {
-		a.gitRow(c, ch, staged)
-	}
-	for _, k := range []filekind.Kind{filekind.Test, filekind.Docs, filekind.Generated} {
-		rows := groups[k]
-		if len(rows) == 0 {
-			continue
-		}
-		open := a.git.kindOpen[k]
-		a.gitKindHeader(c, k, len(rows), open, func() { a.git.kindOpen[k] = !open })
-		if !open {
-			continue
-		}
-		for _, ch := range rows {
 			a.gitRow(c, ch, staged)
 		}
 	}
-}
-
-// kindName is the change group's name in the window's language.
-func kindName(k filekind.Kind) string {
-	switch k {
-	case filekind.Test:
-		return logText("gitKindTests")
-	case filekind.Docs:
-		return logText("gitKindDocs")
-	case filekind.Generated:
-		return logText("gitKindGenerated")
-	}
-	return filekind.Names[k]
-}
-
-// gitKindHeader is a change group's name: an arrow, the name and the
-// count, which a click folds or unfolds.
-func (a *App) gitKindHeader(c *ui.Context, k filekind.Kind, count int, open bool, toggle func()) {
-	row := ui.Row(c.Key("kind:"+fmt.Sprint(int(k)))).FillWidth().Height(gitSidebarGroupHeaderHeight).
-		Padding(0, sidebarInset+gitSidebarTreeIndent).Gap(gitSidebarColumnGap).AlignItems(ui.Center).
-		Cursor(ui.CursorPointer).Label(kindName(k))
-	row.OnClick(toggle)
-	row.Children(func() {
-		turn := float32(90)
-		if !open {
-			turn = 0
-		}
-		ui.Box(c).Size(gitSidebarIconColumn, 12).Shrink(0).Center().Children(func() {
-			symbolIcon(c, icChevron, 9, colors(c).Dim).Rotate(turn)
-		})
-		gitSidebarGroupLabel(c, kindName(k))
-		gitSidebarCount(c, count)
-	})
 }
 
 func (a *App) gitSection(c *ui.Context, name string, count int) {

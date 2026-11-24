@@ -59,9 +59,6 @@ func TestGitRangeSelectionAndStageAll(t *testing.T) {
 	h.a.navigator = navGit
 	h.a.git.historyClosed = true
 	h.tt.Frame()
-	if err := h.tt.Click(logText("gitKindDocs")); err != nil {
-		t.Fatal(err)
-	}
 	if err := h.tt.Click("Unstaged diff: a.txt"); err != nil {
 		t.Fatal(err)
 	}
@@ -94,6 +91,47 @@ func TestGitRangeSelectionAndStageAll(t *testing.T) {
 	for _, ch := range h.a.git.changes {
 		if ch.Index != ' ' || ch.Work == ' ' {
 			t.Fatalf("not unstaged: %+v", ch)
+		}
+	}
+}
+
+func TestGitChangeRowsAreFlatAcrossFileKinds(t *testing.T) {
+	names := []string{"main.go", "main_test.go", "README.md"}
+	root := gitRepo(t, map[string]string{"main.go": "package main\n", "main_test.go": "package main\n", "README.md": "docs\n"})
+	for _, name := range names {
+		writeFile(t, root, name, "changed\n")
+	}
+	gitRun(t, root, "add", "main.go")
+	h := newHarness(t, root)
+	h.readGit()
+	h.a.navigator = navGit
+	h.a.git.historyClosed = true
+	h.tt.Frame()
+	if !h.tt.HasText("Staged Changes") || !h.tt.HasText("Changes") {
+		t.Fatalf("status sections are missing: %q", h.tt.Texts())
+	}
+	for _, name := range names {
+		label := "Unstaged diff: " + name
+		if name == "main.go" {
+			label = "Staged diff: " + name
+		}
+		if !h.tt.HasText(label) {
+			t.Fatalf("flat status list is missing %s: %q", label, h.tt.Texts())
+		}
+	}
+	for _, group := range []string{logText("gitKindTests"), logText("gitKindDocs"), logText("gitKindGenerated")} {
+		if h.tt.HasText(group) {
+			t.Fatalf("semantic file group %q remains in %q", group, h.tt.Texts())
+		}
+	}
+	if err := h.tt.Click("Stage All Changes"); err != nil {
+		t.Fatal(err)
+	}
+	h.settle(func() bool { return !h.a.git.busy && !h.a.git.loading })
+	h.tt.Frame()
+	for _, name := range names {
+		if !h.tt.HasText("Staged diff: " + name) {
+			t.Fatalf("flat staged list is missing %s: %q", name, h.tt.Texts())
 		}
 	}
 }

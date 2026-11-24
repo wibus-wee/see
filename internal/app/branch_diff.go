@@ -10,7 +10,6 @@ import (
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 
-	"see/internal/filekind"
 	"see/internal/git"
 	"see/locales"
 )
@@ -126,14 +125,6 @@ func (a *App) branchDiffNavigator(c *ui.Context) {
 		ui.Text(c, branchDiffText("gitNoBranchChanges")).FontSize(gitSidebarRowLabelSize).TextColor(colors(c).Muted).
 			Padding(gitSidebarStatusInset, sidebarInset+gitSidebarTreeIndent).SingleLine().Ellipsis("…").MinWidth(0)
 	default:
-		if a.git.kindOpen == nil {
-			a.git.kindOpen = map[filekind.Kind]bool{}
-		}
-		groups := map[filekind.Kind][]branchDiffFile{}
-		for _, f := range v.files {
-			k := filekind.Of(f.Path)
-			groups[k] = append(groups[k], f)
-		}
 		list := func(files []branchDiffFile) {
 			for _, f := range files {
 				row := ui.Row(c.Key(f.Path)).FillWidth().Height(gitSidebarRowHeight).
@@ -167,18 +158,7 @@ func (a *App) branchDiffNavigator(c *ui.Context) {
 			}
 		}
 		ui.Column(c.Key("branch-diff-files")).FillWidth().Padding(0, 0, gitSidebarEmptyInset).Children(func() {
-			list(groups[filekind.Code])
-			for _, k := range []filekind.Kind{filekind.Test, filekind.Docs, filekind.Generated} {
-				files := groups[k]
-				if len(files) == 0 {
-					continue
-				}
-				open := a.git.kindOpen[k]
-				a.gitKindHeader(c, k, len(files), open, func() { a.git.kindOpen[k] = !open })
-				if open {
-					list(files)
-				}
-			}
+			list(v.files)
 		})
 	}
 }
