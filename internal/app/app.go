@@ -325,6 +325,11 @@ type doc struct {
 	baseLang          *editor.Language
 	wrappedLang       *editor.Language
 	wrappedFold       bool // wrappedLang folds by the server's ranges
+	manualLanguage    *editor.Language
+	languageManual    bool
+	detectedVersion   uint64
+	detectedName      string
+	languageChecked   bool
 	localHistoryTimer *time.Timer
 	localHistoryVer   uint64
 	localHistorySaved time.Time
@@ -1217,9 +1222,6 @@ func (a *App) loaded(d *doc, f workspace.File, buf *editor.Buffer, same bool, er
 			}
 		}
 		d.buf.Reset(f.Text)
-		if !f.Plain {
-			d.buf.SetLanguage(languageFor(d.name, f.Text))
-		}
 		for st, p := range places {
 			st.GoTo(clampPos(d.buf, p.pos))
 			st.SetScrollY(p.y)
@@ -1228,6 +1230,7 @@ func (a *App) loaded(d *doc, f workspace.File, buf *editor.Buffer, same bool, er
 			m.Changed(d.uri, d.buf.Snapshot())
 		}
 	}
+	a.setDocumentLanguage(d)
 	a.captureLoadedLocalHistory(d, f.Text)
 	for _, g := range a.groups() {
 		a.showLoaded(g, d)

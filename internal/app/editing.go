@@ -420,7 +420,7 @@ func (a *App) saveUntitled(d *doc, done func(bool)) {
 					} else {
 						a.cacheRecovery(d)
 					}
-					d.buf.SetLanguage(languageFor(d.name, d.buf.Snapshot().Line(0)))
+					a.setDocumentLanguage(d)
 					if fi, e := os.Stat(path); e == nil {
 						d.stamp = fileStamp{fi.Size(), fi.ModTime()}
 					}
