@@ -147,6 +147,7 @@ func (a *App) setDiffPatch(d *editor.DiffState, p editor.FilePatch, full bool) {
 		setPatch(d, p)
 	} else {
 		d.SetPatch(p)
+		setPatchLanguage(d, p)
 	}
 }
 
@@ -225,8 +226,8 @@ func (a *App) gitPeekDiff(peek *gitPeek, st *editor.State) (*editor.DiffState, b
 	version := peek.doc.buf.Version()
 	if peek.filtered == nil || peek.filteredVersion != version {
 		d := &editor.DiffState{Theme: a.edTheme, FitContent: true}
-		a.applyDiffPrefs(d)
 		setBufferDiffWhitespace(d, peek.diff.Old, peek.doc.buf, true)
+		a.applyDiffPrefs(d)
 		peek.filtered, peek.filteredVersion = d, version
 		peek.filteredHunk = -1
 		if i := gitHunkAtLine(peek.diff, peek.line); i >= 0 {

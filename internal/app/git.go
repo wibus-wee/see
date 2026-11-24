@@ -159,8 +159,8 @@ func (v *gitDiffTab) diffStates() []*editor.DiffState {
 
 func (a *App) newGitDiffTab(p editor.FilePatch, name string, staged bool) *gitDiffTab {
 	d := &editor.DiffState{Theme: a.edTheme}
-	a.applyDiffPrefs(d)
 	a.setDiffPatch(d, p, true)
+	a.applyDiffPrefs(d)
 	d.GoToHunk(0)
 	return &gitDiffTab{state: d, patch: p, name: name, staged: staged}
 }
@@ -170,9 +170,27 @@ func (a *App) newGitDiffTab(p editor.FilePatch, name string, staged bool) *gitDi
 // unchanged stretches collapse; any other is shown hunk by hunk.
 func setPatch(d *editor.DiffState, p editor.FilePatch) {
 	if old, nw, ok := patchFiles(p); ok && d.SetPatchFiles(p, old, nw) == nil {
+		setPatchLanguage(d, p)
 		return
 	}
 	d.SetPatch(p)
+	setPatchLanguage(d, p)
+}
+
+func setPatchLanguage(d *editor.DiffState, p editor.FilePatch) {
+	if d.New == nil {
+		return
+	}
+	name := p.NewName
+	if name == "" {
+		name = p.OldName
+	}
+	if language := languageFor(name, d.New.Snapshot().Line(0)); language != nil {
+		if d.Old != nil {
+			d.Old.SetLanguage(language)
+		}
+		d.New.SetLanguage(language)
+	}
 }
 
 // patchFiles rebuilds the texts of a patch holding one hunk starting

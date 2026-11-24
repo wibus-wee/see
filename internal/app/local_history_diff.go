@@ -135,8 +135,8 @@ func (a *App) selectLocalHistorySnapshot(v *gitDiffTab, index int) {
 	old.SetLanguage(lang)
 	current.SetLanguage(lang)
 	state := &editor.DiffState{Theme: a.edTheme, LineSelection: true}
-	a.applyDiffPrefs(state)
 	setBufferDiffWhitespace(state, old, current, a.cfg.HideWhitespaceChanges)
+	a.applyDiffPrefs(state)
 	state.LineSelection = !a.cfg.HideWhitespaceChanges
 	state.GoToHunk(0)
 	lh.state, v.state = state, state

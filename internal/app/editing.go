@@ -449,6 +449,7 @@ func (a *App) saveUntitled(d *doc, done func(bool)) {
 							delete(g.minimaps, old)
 							g.eds[path] = st
 							st.Label = d.name
+							a.applyEditorPrefs(st)
 						}
 						if p, ok := g.pending[old]; ok {
 							delete(g.pending, old)

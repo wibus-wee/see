@@ -181,8 +181,8 @@ func (a *App) logFiles(stats []git.FileStat, patches []editor.FilePatch) []logFi
 		lf := logFile{path: f.Path, oldPath: f.OldPath, added: f.Added, deleted: f.Deleted}
 		if p, ok := byName[f.Path]; ok && !p.Binary && len(p.Hunks) > 0 {
 			d := &editor.DiffState{Theme: a.edTheme, FitContent: true}
-			a.applyDiffPrefs(d)
 			a.setDiffPatch(d, p, false)
+			a.applyDiffPrefs(d)
 			lf.diff = d
 			lf.patch = p
 		}

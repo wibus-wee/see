@@ -354,8 +354,8 @@ func (a *App) acceptBranchDiff(v *branchDiffView, seq uint64, gen int, baseRef, 
 			bf.binary = p.Binary
 			if !p.Binary && len(p.Hunks) > 0 {
 				d := &editor.DiffState{Theme: a.edTheme, FitContent: true}
-				a.applyDiffPrefs(d)
 				a.setDiffPatch(d, p, true)
+				a.applyDiffPrefs(d)
 				bf.diff = d
 				bf.patch = p
 			}
