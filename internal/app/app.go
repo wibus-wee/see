@@ -228,7 +228,7 @@ type App struct {
 	standaloneSessionDocs map[string]struct{} // recovery entries this window owns in the shared empty-root session
 	discardedSessionDocs  map[string]struct{} // documents approved for discard until their workspace is gone
 	theme                 *ui.Theme
-	modifiers             ui.Modifiers // keyboard modifiers held this frame
+	modifiers             ui.Modifiers  // keyboard modifiers held this frame
 	edTheme               *editor.Theme // a stable object: applyAppearance replaces its contents
 	themeDark             bool
 	themeAccent           ui.Color
@@ -324,6 +324,11 @@ type doc struct {
 	baseLang          *editor.Language
 	wrappedLang       *editor.Language
 	wrappedFold       bool // wrappedLang folds by the server's ranges
+	manualLanguage    *editor.Language
+	languageManual    bool
+	detectedVersion   uint64
+	detectedName      string
+	languageChecked   bool
 	localHistoryTimer *time.Timer
 	localHistoryVer   uint64
 	localHistorySaved time.Time
@@ -1216,9 +1221,6 @@ func (a *App) loaded(d *doc, f workspace.File, buf *editor.Buffer, same bool, er
 			}
 		}
 		d.buf.Reset(f.Text)
-		if !f.Plain {
-			d.buf.SetLanguage(languageFor(d.name, f.Text))
-		}
 		for st, p := range places {
 			st.GoTo(clampPos(d.buf, p.pos))
 			st.SetScrollY(p.y)
@@ -1227,6 +1229,7 @@ func (a *App) loaded(d *doc, f workspace.File, buf *editor.Buffer, same bool, er
 			m.Changed(d.uri, d.buf.Snapshot())
 		}
 	}
+	a.setDocumentLanguage(d)
 	a.captureLoadedLocalHistory(d, f.Text)
 	for _, g := range a.groups() {
 		a.showLoaded(g, d)

@@ -112,6 +112,10 @@ func (a *App) groupView(c *ui.Context, g *group) {
 			a.searchEditStatusBar(c, g, v.search)
 		}
 		if st := g.eds[g.active]; st != nil {
+			d := a.docs[g.active]
+			if d != nil {
+				a.detectDocumentLanguage(d)
+			}
 			pos := st.CursorPos()
 			line := st.Buffer.Line(pos.Line)
 			column := utf8.RuneCountInString(line[:min(pos.Col, len(line))]) + 1
@@ -125,8 +129,34 @@ func (a *App) groupView(c *ui.Context, g *group) {
 					}
 				}
 				ui.Box(c).Grow(1)
+				if d != nil && d.buf != nil {
+					a.documentLanguageMenu(c, d)
+				}
 				ui.Text(c, fmt.Sprintf(locales.MsgLineDColumnD(), pos.Line+1, column)).FontSize(11).TextColor(colors(c).Muted).SingleLine()
 			})
+		}
+	})
+}
+
+func (a *App) documentLanguageMenu(c *ui.Context, d *doc) {
+	current := documentLanguage(d)
+	name := locales.InspectorTypeText()
+	if current != nil {
+		name = current.Name
+	}
+	label := locales.Language() + ": " + name
+	button := ui.ButtonBase(c.Key("document-language")).Label(label).Height(20).Padding(0, 5).Shrink(0).KeepFocus().Disabled(d.plain)
+	button.Children(func() {
+		ui.Text(c, label).FontSize(11).TextColor(colors(c).Muted).SingleLine()
+	})
+	button.PopoverMenuButton(func(m *ui.Menu) {
+		if m.Item(locales.InspectorTypeText()).Radio(current == nil).Chosen() {
+			a.selectDocumentLanguage(d, nil)
+		}
+		for _, lang := range documentLanguages() {
+			if m.Item(lang.Name).Radio(current == lang).Chosen() {
+				a.selectDocumentLanguage(d, lang)
+			}
 		}
 	})
 }
