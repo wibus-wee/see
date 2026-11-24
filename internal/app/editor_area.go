@@ -270,6 +270,9 @@ func (a *App) groupContent(c *ui.Context, g *group) {
 }
 
 func (a *App) document(c *ui.Context, g *group, d *doc) {
+	if cs := a.completionFor(g); cs.path != "" && cs.path != d.path {
+		a.cancelCompletions(g, g.eds[cs.path])
+	}
 	st := g.eds[d.path]
 	switch {
 	case d.err != nil:
@@ -375,10 +378,23 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 		var ed ui.Element
 		minimap := a.showsMinimap(g, d)
 		ui.Row(c).Grow(1).FillWidth().Children(func() {
+			cs := a.completionFor(g)
+			if g != a.focus && (cs.visible || cs.cancel != nil || cs.resolvePending) {
+				a.cancelCompletions(g, st)
+			}
+			wasVisible := cs.visible
+			cs.visible = false
+			st.RenderCompletions = func(c *ui.Context, panel ui.Element, menu *editor.CompletionMenu) {
+				cs.visible = g == a.focus
+				a.renderCompletions(c, panel, menu, g, st)
+			}
 			if !minimap {
 				st.RenderFindBar = nil
 			}
 			ed = editor.View(c.Key(d.path), st).Grow(1).FillHeight()
+			if wasVisible && !cs.visible {
+				a.cancelCompletions(g, st)
+			}
 			ed.Children(func() { a.stickyScopeHeaders(c, g, d, st) })
 			if minimap {
 				a.minimap(c, g, d, st)
@@ -482,7 +498,25 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 			if a.changeBarInput(g, d, st, origin, ev) {
 				return true
 			}
-			if a.signatureInput(st, ev) {
+			if cs := a.completionFor(g); completionInputEdits(ev) &&
+				(cs.incomplete || (cs.visible && len(cs.originals) > 0)) {
+				a.cancelCompletions(g, st)
+			}
+			if cs := a.completionFor(g); cs.visible && completionNavigationInput(ev) {
+				a.cancelCompletionResolve(cs)
+				cs.hasResolveSelected = false
+			}
+			if cs := a.completionFor(g); cs.visible && completionAcceptInput(ev) {
+				a.cancelCompletionResolve(cs)
+				cs.hasResolveSelected = false
+			}
+			if ev.Kind == ui.InputKeyDown && ev.Key == ui.KeyEscape {
+				cs := a.completionFor(g)
+				if cs.visible || cs.cancel != nil {
+					a.cancelCompletions(g, st)
+				}
+			}
+			if a.signatureInput(g, st, ev) {
 				return true
 			}
 			return a.quickHelpEditorInput(g, d, st, ev)
@@ -527,13 +561,14 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 			a.editorPeekAction(c, bounds, st, ch.from.Line, fmt.Sprintf("%d %s", len(ch.locs), ch.title), closeLabel, 264, false,
 				pin, func() { a.choices = nil }, func() { a.relatedView(c, ch) })
 		}
-		a.syncSignature(g, d, st)
-		a.signatureStrip(c, bounds, st, d, gutter)
-		a.renameStrip(c, bounds, st, d, gutter)
 		line := d.buf.Line(pos.Line)
 		prefix := strings.ReplaceAll(line[:min(pos.Col, len(line))], "\t", "    ")
 		width, _ := c.MeasureText(0, ui.Span{Text: prefix, Font: st.Font.Family, Size: fontSize})
-		g.caretAnchor = ui.Point{X: min(bounds.X+bounds.W-4, bounds.X+gutter+width), Y: min(bounds.Y+bounds.H-4, max(bounds.Y, bounds.Y+float32(st.LineTop(pos.Line)-st.ScrollY())+fontSize*lineHeight))}
+		caretX := min(bounds.X+bounds.W-4, max(bounds.X+gutter, bounds.X+gutter+width))
+		g.caretAnchor = ui.Point{X: caretX, Y: min(bounds.Y+bounds.H-4, max(bounds.Y, bounds.Y+float32(st.LineTop(pos.Line)-st.ScrollY())+fontSize*lineHeight))}
+		a.syncSignature(g, d, st)
+		a.signatureStrip(c, bounds, st, g, d, gutter)
+		a.renameStrip(c, bounds, st, d, gutter)
 		a.codeActionLightbulb(c, g, d, st, bounds, gutter, fontSize, lineHeight)
 		switch {
 		case a.regexPlayground != nil && a.regexPlayground.group == g && a.regexPlayground.doc == d:

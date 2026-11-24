@@ -262,6 +262,13 @@ func (a *App) shortcuts(c *ui.Context) {
 	if st := a.quickHelp; st != nil {
 		c.OnShortcut(0, ui.KeyEscape, func() { a.dismissQuickHelp(st) })
 	} else if c.Shortcut(0, ui.KeyEscape) {
+		if g := a.focus; g != nil {
+			cs := a.completionFor(g)
+			if cs.visible || cs.cancel != nil {
+				a.cancelCompletions(g, g.eds[g.active])
+				return
+			}
+		}
 		pendingScopeRequest := a.scopeCancel != nil
 		hasChoices := a.choices != nil
 		hasPeek := a.git.peek != nil

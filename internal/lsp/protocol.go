@@ -188,6 +188,7 @@ type serverCapabilities struct {
 	InlayHintProvider         json.RawMessage `json:"inlayHintProvider"`
 	DocumentLinkProvider      json.RawMessage `json:"documentLinkProvider"`
 	SignatureHelpProvider     json.RawMessage `json:"signatureHelpProvider"`
+	CompletionProvider        json.RawMessage `json:"completionProvider"`
 	SemanticTokensProvider    json.RawMessage `json:"semanticTokensProvider"`
 	FoldingRangeProvider      json.RawMessage `json:"foldingRangeProvider"`
 	CodeActionProvider        json.RawMessage `json:"codeActionProvider"`
@@ -407,6 +408,22 @@ func (s serverCapabilities) hasFoldingRange() bool {
 func (s serverCapabilities) hasSignatureHelp() bool {
 	raw := bytes.TrimSpace(s.SignatureHelpProvider)
 	return len(raw) > 0 && !bytes.Equal(raw, []byte("false")) && !bytes.Equal(raw, []byte("null"))
+}
+
+func (s serverCapabilities) hasCompletion() bool {
+	raw := bytes.TrimSpace(s.CompletionProvider)
+	return len(raw) > 0 && !bytes.Equal(raw, []byte("false")) && !bytes.Equal(raw, []byte("null"))
+}
+
+func (s serverCapabilities) completionItemResolve() bool {
+	raw := bytes.TrimSpace(s.CompletionProvider)
+	if !s.hasCompletion() || len(raw) == 0 || raw[0] != '{' {
+		return false
+	}
+	var opts struct {
+		ResolveProvider bool `json:"resolveProvider"`
+	}
+	return json.Unmarshal(raw, &opts) == nil && opts.ResolveProvider
 }
 
 func (s serverCapabilities) hasCallHierarchy() bool {
