@@ -45,6 +45,119 @@ func TestCompletionIncompleteResultsRefreshAfterTyping(t *testing.T) {
 	}
 }
 
+func TestCompletionBackspaceRefreshesShorterPrefix(t *testing.T) {
+	h, d := newTSCompletionHarness(t, "const cfg = { , next: 1 }\n", true)
+	var calls atomic.Int32
+	h.fc.completion = func(context.Context, string, lsp.Position) (*lsp.CompletionResult, error) {
+		switch calls.Add(1) {
+		case 1:
+			return &lsp.CompletionResult{Items: []lsp.CompletionItem{{Label: "aInitialCandidate"}}}, nil
+		case 2:
+			return &lsp.CompletionResult{Items: []lsp.CompletionItem{{Label: "abOnlyCandidate"}}}, nil
+		default:
+			return &lsp.CompletionResult{Items: []lsp.CompletionItem{{Label: "aAfterBackspaceCandidate"}}}, nil
+		}
+	}
+	st := h.a.activeEditor()
+	st.GoTo(d.buf.Pos(strings.Index(d.buf.String(), ", next")))
+	prefixes := make(chan string, 4)
+	original := st.OnCompletion
+	st.OnCompletion = func(req editor.CompletionRequest) {
+		prefixes <- req.Prefix
+		original(req)
+	}
+	h.tt.Frame()
+	h.tt.Type("a")
+	waitForCompletion(t, h, "aInitialCandidate")
+	h.tt.Type("b")
+	waitForCompletion(t, h, "abOnlyCandidate")
+	h.tt.Key(0, ui.KeyBackspace)
+	waitForCompletion(t, h, "aAfterBackspaceCandidate")
+	if h.tt.HasText("abOnlyCandidate") {
+		t.Fatalf("backspace left suggestions from the longer prefix visible: %q", h.tt.Texts())
+	}
+
+	var got []string
+	for {
+		select {
+		case prefix := <-prefixes:
+			got = append(got, prefix)
+		default:
+			if strings.Join(got, ",") != "a,ab,a" || calls.Load() != 3 {
+				t.Fatalf("completion refresh prefixes=%v calls=%d", got, calls.Load())
+			}
+			return
+		}
+	}
+}
+
+func TestCompletionIMECommitRefreshesCurrentPrefix(t *testing.T) {
+	h, d := newTSCompletionHarness(t, "const cfg = { , next: 1 }\n", true)
+	var calls atomic.Int32
+	h.fc.completion = func(context.Context, string, lsp.Position) (*lsp.CompletionResult, error) {
+		if calls.Add(1) == 1 {
+			return &lsp.CompletionResult{Items: []lsp.CompletionItem{{Label: "aCandidate"}}}, nil
+		}
+		return &lsp.CompletionResult{Items: []lsp.CompletionItem{{Label: "abFreshCandidate"}}}, nil
+	}
+	st := h.a.activeEditor()
+	at := strings.Index(d.buf.String(), ", next")
+	st.GoTo(d.buf.Pos(at))
+	requests := make(chan editor.CompletionRequest, 4)
+	original := st.OnCompletion
+	st.OnCompletion = func(req editor.CompletionRequest) {
+		requests <- req
+		original(req)
+	}
+	h.tt.Frame()
+	h.tt.Type("a")
+	waitForCompletion(t, h, "aCandidate")
+
+	h.tt.Compose("b", 1)
+	h.tt.Frame()
+	if !strings.Contains(d.buf.String(), "ab") {
+		t.Fatalf("composition did not place marked text in the buffer: %q", d.buf.String())
+	}
+	if !h.a.completionFor(h.a.focus).visible || !h.tt.HasText("aCandidate") {
+		t.Fatalf("composition did not leave the original completion menu open: %q", h.tt.Texts())
+	}
+	h.tt.Type("b")
+	deadline := time.Now().Add(5 * time.Second)
+	for !h.tt.HasText("abFreshCandidate") {
+		h.tt.Frame()
+		drainHarnessPosts(h)
+		if time.Now().After(deadline) {
+			cs := h.a.completionFor(h.a.focus)
+			var gotRequests []editor.CompletionRequest
+			for {
+				select {
+				case req := <-requests:
+					gotRequests = append(gotRequests, req)
+				default:
+					t.Fatalf("IME suggestions did not refresh: clientCalls=%d requests=%+v calls=%v buffer=%q cursor=%d version=%d resultSeq=%d resultVersion=%d resultOffset=%d visible=%v items=%v texts=%q",
+						calls.Load(), gotRequests, h.fc.calls(), d.buf.String(), st.Cursor(), d.buf.Version(), cs.resultSeq,
+						cs.resultVersion, cs.resultOffset, cs.visible, cs.originals, h.tt.Texts())
+				}
+			}
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if calls.Load() != 2 || !h.a.completionFor(h.a.focus).visible {
+		t.Fatalf("IME commit did not leave fresh suggestions visible: calls=%d texts=%q", calls.Load(), h.tt.Texts())
+	}
+	if got := <-requests; got.Prefix != "a" {
+		t.Fatalf("initial request = %+v", got)
+	}
+	if got := <-requests; got.Prefix != "ab" {
+		t.Fatalf("committed composition request = %+v", got)
+	}
+	select {
+	case extra := <-requests:
+		t.Fatalf("composition requested an unexpected extra prefix %+v", extra)
+	default:
+	}
+}
+
 func TestCompletionMoveRebindsAndReleasesGroupState(t *testing.T) {
 	h, d := newTSCompletionHarness(t, "const cfg = { ab, next: 1 }\n", true)
 	from, st := h.a.focus, h.a.activeEditor()
