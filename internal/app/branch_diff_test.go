@@ -558,4 +558,24 @@ func TestBranchDiffRowsPrioritizeBasenamesOverPaths(t *testing.T) {
 			t.Fatalf("directory path did not give space back to the basename at normal width: natural %.1f, current %.1f", naturalPathWidth, directoryBounds(t, h.tt, nestedPath).W)
 		}
 	}
+	h.a.sidebarW = 420
+	h.tt.Frame()
+	row, ok := h.tt.Find(nestedPath)
+	if !ok {
+		t.Fatalf("comparison row %q is not visible: %q", nestedPath, h.tt.Texts())
+	}
+	h.tt.Move(row.X+row.W/2, row.Y+row.H/2)
+	h.tt.Advance(time.Second)
+	if !h.tt.HasText(branchDiffRowTooltip(nestedPath, "")) {
+		t.Fatalf("comparison row tooltip does not include its full path and Read-only text: %q", h.tt.Texts())
+	}
+}
+
+func TestBranchDiffRowTooltipIncludesRenamePaths(t *testing.T) {
+	const oldPath = "packages/web/src/features/conversations/OldMessageHistoryPanel.tsx"
+	const newPath = "packages/web/src/features/conversations/MessageHistoryPanel.tsx"
+	want := branchDiffText("gitReadOnly") + ": " + oldPath + " → " + newPath
+	if got := branchDiffRowTooltip(newPath, oldPath); got != want {
+		t.Fatalf("rename tooltip = %q, want %q", got, want)
+	}
 }

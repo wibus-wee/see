@@ -129,7 +129,7 @@ func (a *App) branchDiffNavigator(c *ui.Context) {
 			for _, f := range files {
 				row := ui.Row(c.Key(f.Path)).FillWidth().Height(gitSidebarRowHeight).
 					Padding(0, sidebarInset+gitSidebarTreeIndent).Gap(gitSidebarColumnGap).AlignItems(ui.Center).
-					Cursor(ui.CursorPointer).Label(f.Path).Tooltip(branchDiffText("gitReadOnly"))
+					Cursor(ui.CursorPointer).Label(f.Path).Tooltip(branchDiffRowTooltip(f.Path, f.OldPath))
 				if v.selectedPath == f.Path {
 					row.Background(colors(c).SelectedRow)
 				} else if row.Hovered() {
@@ -156,6 +156,14 @@ func (a *App) branchDiffNavigator(c *ui.Context) {
 			list(v.files)
 		})
 	}
+}
+
+func branchDiffRowTooltip(path, oldPath string) string {
+	path = filepath.ToSlash(path)
+	if oldPath != "" {
+		path = filepath.ToSlash(oldPath) + " → " + path
+	}
+	return branchDiffText("gitReadOnly") + ": " + path
 }
 
 func (a *App) branchDiffTotals(files []branchDiffFile) (added, deleted int) {
