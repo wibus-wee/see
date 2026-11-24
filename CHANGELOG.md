@@ -2,6 +2,24 @@
 
 User-facing changes are grouped by release. Earlier releases are documented on the [Releases page](https://github.com/wibus-wee/see/releases).
 
+## 0.3.7
+
+### Added
+
+- Get language-server completions as you type or request them with Ctrl+Space, including property suggestions and candidate details. Prefix edits refresh suggestions; unsupported snippets, commands, additional edits, and incompatible replacement ranges are omitted rather than partially applied.
+- Detect document languages from filenames and content and choose a language from the editor status bar; manual selections remain in effect through edits, reloads, saves, and renames.
+- Configure soft wrapping by language in Editor settings. Default follows the global Wrap Lines setting, while Wrap and Don't Wrap override it.
+
+### Changed
+
+- Streamline the Git sidebar with compact Working Copy/Repositories selectors, flat Git-ordered change lists, and single-line stashes. Keep the commit composer in one pill with its inline action, prioritize filenames before directory paths, and show full paths—including both sides of renames—in comparison tooltips.
+
+### Fixed
+
+- Show signature help in a content-sized popup, keep the active parameter current, and suppress it in nested object or array literals and callback bodies.
+- Refresh completion suggestions after Backspace and IME composition commits. Resolve completion details even when documentation and label details are already present, preferring the resolved main detail while retaining the label-detail fallback when no main detail is returned.
+- Refresh wrapping preferences after a document's first save, apply them to CMake patch diffs, and update cached inline Git previews when language-specific preferences change.
+
 ## 0.3.6
 
 ### Fixed
