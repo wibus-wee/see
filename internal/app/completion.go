@@ -33,8 +33,10 @@ type completionState struct {
 	manager            *langserver.Server
 	resultVersion      uint64
 	resultOffset       int
+	resultStart        int
 	resultGeneration   int
 	resultSeq          uint64
+	displayedSeq       uint64
 	originals          map[editor.Completion]lsp.CompletionItem
 	ambiguous          map[editor.Completion]bool
 	resolved           map[editor.Completion]completionMetadata
@@ -44,11 +46,18 @@ type completionState struct {
 	resolvePending     bool
 	resolveSelected    editor.Completion
 	hasResolveSelected bool
+	refreshAfterEdit   *completionEditRefresh
 }
 
 type completionMetadata struct {
-	detail        string
-	documentation string
+	detail         string
+	fallbackDetail string
+	documentation  string
+}
+
+type completionEditRefresh struct {
+	start   int
+	version uint64
 }
 
 func (a *App) completionFor(g *group) *completionState {
@@ -81,6 +90,7 @@ func (a *App) cancelCompletions(g *group, st *editor.State) {
 	cs.visible, cs.incomplete = false, false
 	cs.editor, cs.doc, cs.path, cs.manager = nil, nil, "", nil
 	cs.resultVersion, cs.resultOffset, cs.resultGeneration, cs.resultSeq = 0, 0, 0, 0
+	cs.resultStart, cs.refreshAfterEdit = 0, nil
 	a.resetCompletionMetadata(cs)
 	if st != nil {
 		st.ShowCompletions(-1, nil)
@@ -127,6 +137,33 @@ func completionInputEdits(ev ui.InputEvent) bool {
 	}
 }
 
+func completionInputBackspace(ev ui.InputEvent) bool {
+	return ev.Kind == ui.InputKeyDown && ev.Key == ui.KeyBackspace ||
+		ev.Kind == ui.InputCommand && ev.Text == "delete"
+}
+
+func refreshCompletionsAfterDeletion(st *editor.State, cs *completionState) {
+	refresh := cs.refreshAfterEdit
+	cs.refreshAfterEdit = nil
+	if refresh == nil || st == nil || st.Buffer == nil || st.OnCompletion == nil ||
+		st.Buffer.Version() == refresh.version {
+		return
+	}
+	snap := st.Buffer.Snapshot()
+	offset := st.Cursor()
+	if refresh.start < 0 || refresh.start >= offset || offset > snap.Len() ||
+		snap.Pos(refresh.start).Line != snap.Pos(offset).Line {
+		return
+	}
+	if sels := st.Selections(); len(sels) != 1 || !sels[0].Empty() {
+		return
+	}
+	prefix := snap.Slice(refresh.start, offset)
+	if prefix != "" {
+		st.OnCompletion(editor.CompletionRequest{Offset: offset, Prefix: prefix, Version: snap.Version()})
+	}
+}
+
 func completionNavigationInput(ev ui.InputEvent) bool {
 	if ev.Kind != ui.InputKeyDown {
 		return false
@@ -146,6 +183,8 @@ func completionAcceptInput(ev ui.InputEvent) bool {
 func (a *App) requestCompletions(g *group, d *doc, st *editor.State, req editor.CompletionRequest) {
 	a.cancelCompletionRequest(g)
 	cs := a.completionFor(g)
+	cs.resultStart = 0
+	cs.refreshAfterEdit = nil
 	a.resetCompletionMetadata(cs)
 	if g != a.focus || g.active != d.path || a.docs[d.path] != d || d.buf == nil ||
 		st == nil || st.Buffer != d.buf || st.ReadOnly || !a.cfg.IsTrusted(a.root) {
@@ -183,6 +222,7 @@ func (a *App) requestCompletions(g *group, d *doc, st *editor.State, req editor.
 	cs.editor, cs.doc, cs.path = st, d, path
 	cs.manager = m
 	cs.resultVersion, cs.resultOffset, cs.resultGeneration, cs.resultSeq = version, req.Offset, generation, seq
+	cs.resultStart = start
 	ctx, cancel := context.WithTimeout(a.wsCtx, 10*time.Second)
 	cs.cancel = cancel
 	post := a.post.Post
@@ -234,6 +274,7 @@ func (a *App) finishCompletions(groupID int, path string, d *doc, req editor.Com
 		cs.visible, cs.incomplete = false, false
 		cs.editor, cs.doc, cs.path, cs.manager = nil, nil, "", nil
 		cs.resultVersion, cs.resultOffset, cs.resultGeneration, cs.resultSeq = 0, 0, 0, 0
+		cs.resultStart = 0
 		a.resetCompletionMetadata(cs)
 		return
 	}
@@ -241,6 +282,7 @@ func (a *App) finishCompletions(groupID int, path string, d *doc, req editor.Com
 		st.ShowCompletions(start, nil)
 		cs.visible, cs.incomplete = false, false
 		cs.editor, cs.doc, cs.path, cs.manager = nil, nil, "", nil
+		cs.resultStart = 0
 		a.resetCompletionMetadata(cs)
 		return
 	}
@@ -255,6 +297,7 @@ func (a *App) finishCompletions(groupID int, path string, d *doc, req editor.Com
 	if len(items) == 0 {
 		cs.visible, cs.incomplete = false, false
 		cs.editor, cs.doc, cs.path, cs.manager = nil, nil, "", nil
+		cs.resultStart = 0
 		a.resetCompletionMetadata(cs)
 	}
 }
@@ -347,8 +390,14 @@ func (a *App) renderCompletions(c *ui.Context, panel ui.Element, menu *editor.Co
 		item := items[i]
 		details[i] = item.Detail
 		if i == selected && canResolve {
-			if resolved, ok := cs.resolved[item]; ok && details[i] == "" {
-				details[i] = resolved.detail
+			if original, exists := cs.originals[item]; exists && original.Detail == "" {
+				if resolved, ok := cs.resolved[item]; ok {
+					if resolved.detail != "" {
+						details[i] = resolved.detail
+					} else if details[i] == "" {
+						details[i] = resolved.fallbackDetail
+					}
+				}
 			}
 		}
 		labelWidths[i], _ = c.MeasureText(0, ui.Span{Text: item.Label, Font: font.Family, Size: font.Size})
@@ -441,7 +490,7 @@ func (a *App) startCompletionResolve(g *group, cs *completionState, selected edi
 		return
 	}
 	item, ok := cs.originals[selected]
-	if !ok || len(item.Raw) == 0 || (selected.Detail != "" && selected.Documentation != "") {
+	if !ok || len(item.Raw) == 0 || (item.Detail != "" && item.Documentation != "") {
 		return
 	}
 	m := cs.manager
@@ -491,7 +540,8 @@ func (a *App) finishCompletionResolve(groupID int, path string, generation int, 
 			cs.resolved = make(map[editor.Completion]completionMetadata)
 		}
 		cs.resolved[selected] = completionMetadata{
-			detail: resolved.DisplayDetail(), documentation: resolved.Documentation,
+			detail: resolved.Detail, fallbackDetail: resolved.DisplayDetail(),
+			documentation: resolved.Documentation,
 		}
 	}
 }

@@ -386,13 +386,17 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 			cs.visible = false
 			st.RenderCompletions = func(c *ui.Context, panel ui.Element, menu *editor.CompletionMenu) {
 				cs.visible = g == a.focus
+				if cs.visible {
+					cs.displayedSeq = cs.resultSeq
+				}
 				a.renderCompletions(c, panel, menu, g, st)
 			}
 			if !minimap {
 				st.RenderFindBar = nil
 			}
 			ed = editor.View(c.Key(d.path), st).Grow(1).FillHeight()
-			if wasVisible && !cs.visible {
+			refreshCompletionsAfterDeletion(st, cs)
+			if wasVisible && !cs.visible && cs.seq == cs.displayedSeq {
 				a.cancelCompletions(g, st)
 			}
 			ed.Children(func() { a.stickyScopeHeaders(c, g, d, st) })
@@ -498,9 +502,17 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 			if a.changeBarInput(g, d, st, origin, ev) {
 				return true
 			}
-			if cs := a.completionFor(g); completionInputEdits(ev) &&
-				(cs.incomplete || (cs.visible && len(cs.originals) > 0)) {
-				a.cancelCompletions(g, st)
+			if cs := a.completionFor(g); completionInputEdits(ev) {
+				hasSourceResults := cs.incomplete || (cs.visible && len(cs.originals) > 0)
+				backspace := completionInputBackspace(ev)
+				if hasSourceResults || (backspace && cs.cancel != nil) {
+					var refresh *completionEditRefresh
+					if backspace && cs.resultSeq != 0 && st.Buffer != nil {
+						refresh = &completionEditRefresh{start: cs.resultStart, version: st.Buffer.Version()}
+					}
+					a.cancelCompletions(g, st)
+					cs.refreshAfterEdit = refresh
+				}
 			}
 			if cs := a.completionFor(g); cs.visible && completionNavigationInput(ev) {
 				a.cancelCompletionResolve(cs)

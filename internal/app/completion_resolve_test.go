@@ -152,6 +152,59 @@ func TestCompletionResolveSelectionChangesDoNotResetMenu(t *testing.T) {
 	}
 }
 
+func TestCompletionResolvePrefersMainDetailOverLabelDetails(t *testing.T) {
+	for _, test := range []struct {
+		name         string
+		resolved     *lsp.CompletionItem
+		wantMainType bool
+		wantFallback bool
+	}{
+		{
+			name: "resolved field type with existing docs",
+			resolved: &lsp.CompletionItem{
+				Detail: "(property) abi: number", Documentation: "resolved docs",
+			},
+			wantMainType: true,
+		},
+		{
+			name:         "label details fallback when resolve has no main detail",
+			resolved:     &lsp.CompletionItem{Documentation: "resolved docs"},
+			wantFallback: true,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			h, d := newTSCompletionHarness(t, "const cfg = { , next: 1 }\n", true)
+			var resolves atomic.Int32
+			h.fc.completion = func(context.Context, string, lsp.Position) (*lsp.CompletionResult, error) {
+				return &lsp.CompletionResult{Items: []lsp.CompletionItem{{
+					Label: "abi", Kind: 10, LabelDetails: lsp.CompletionItemLabelDetails{Detail: "boolean"},
+					Documentation: "existing docs",
+					Raw:           json.RawMessage("{\"label\":\"abi\",\"kind\":10,\"labelDetails\":{\"detail\":\"boolean\"},\"documentation\":\"existing docs\",\"data\":{\"id\":\"abi\"}}"),
+				}}}, nil
+			}
+			h.fc.completionResolve = func(context.Context, lsp.CompletionItem) (*lsp.CompletionItem, error) {
+				resolves.Add(1)
+				return test.resolved, nil
+			}
+			st := h.a.activeEditor()
+			st.GoTo(d.buf.Pos(strings.Index(d.buf.String(), ", next")))
+			h.tt.Frame()
+			h.tt.Type("a")
+			waitForCompletion(t, h, "abi")
+			cs := h.a.completionFor(h.a.focus)
+			key := completionKeyForLabel(cs, "abi")
+			waitForAppCondition(t, h, func() bool { return cs.resolveAttempted[key] })
+
+			gotMainType := h.tt.HasText("(property) abi: number")
+			gotFallback := h.tt.HasText("boolean")
+			if resolves.Load() != 1 || gotMainType != test.wantMainType || gotFallback != test.wantFallback ||
+				!h.tt.HasText("existing docs") || h.tt.HasText("resolved docs") {
+				t.Fatalf("resolve=%d mainType=%v fallback=%v texts=%q", resolves.Load(), gotMainType, gotFallback, h.tt.Texts())
+			}
+		})
+	}
+}
+
 func TestCompletionResolveEscapeRejectsLateReply(t *testing.T) {
 	h, d := newTSCompletionHarness(t, "const cfg = { , next: 1 }\n", true)
 	started := make(chan struct{}, 1)
