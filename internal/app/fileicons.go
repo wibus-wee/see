@@ -4,7 +4,9 @@ import (
 	"embed"
 	"strings"
 
+	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
+	"github.com/egoist/mygo/ui/editor"
 )
 
 // A file's icon is as VS Code shows it with an icon theme, as kero's:
@@ -72,4 +74,45 @@ func fileIconSVG(icon string, dark bool) *ui.SVG {
 // fileIcon draws a file's icon by its name.
 func fileIcon(c *ui.Context, name string, size float32) {
 	ui.Image(c, fileIconSVG(fileIconTheme.fileIconOf(name), c.Theme().Dark)).Size(size, size).Shrink(0)
+}
+
+// languageIconName is the file icon the language menu shows by a
+// language: that of a file of one of its extensions, else of one of
+// the filenames it is known by, else the theme's file.
+func languageIconName(lang *editor.Language) string {
+	for _, ext := range lang.Extensions {
+		if icon := fileIconTheme.fileIconOf("file" + ext); icon != fileIconTheme.file {
+			return icon
+		}
+	}
+	for _, name := range lang.Filenames {
+		if icon, ok := fileIconTheme.names[strings.ToLower(name)]; ok {
+			return icon
+		}
+	}
+	return fileIconTheme.file
+}
+
+// menuIcons are the menu icons made of the theme's SVGs, by icon and
+// appearance; only the UI thread reads and writes it, as fileIcons.
+// mygo.NewMenuIconSVG rasterizes, so each is made once, not as menus
+// build.
+var menuIcons = map[string]*mygo.MenuIcon{}
+
+// fileMenuIcon is a menu icon of the theme's icon, in its own colors,
+// for the dark appearance or the light one.
+func fileMenuIcon(icon string, dark bool) ui.MenuIcon {
+	key := icon
+	if !dark {
+		key += "_light"
+	}
+	if i := menuIcons[key]; i != nil {
+		return i
+	}
+	i, err := mygo.NewMenuIconSVG(fileIconSVG(icon, dark), false)
+	if err != nil {
+		return nil
+	}
+	menuIcons[key] = i
+	return i
 }

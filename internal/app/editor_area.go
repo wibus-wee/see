@@ -149,12 +149,13 @@ func (a *App) documentLanguageMenu(c *ui.Context, d *doc) {
 	button.Children(func() {
 		ui.Text(c, label).FontSize(11).TextColor(colors(c).Muted).SingleLine()
 	})
+	dark := c.Theme().Dark
 	button.PopoverMenuButton(func(m *ui.Menu) {
-		if m.Item(locales.InspectorTypeText()).Radio(current == nil).Chosen() {
+		if m.Item(locales.InspectorTypeText()).Icon(fileMenuIcon("file-text-duo", dark)).Radio(current == nil).Chosen() {
 			a.selectDocumentLanguage(d, nil)
 		}
 		for _, lang := range documentLanguages() {
-			if m.Item(lang.Name).Radio(current == lang).Chosen() {
+			if m.Item(lang.Name).Icon(fileMenuIcon(languageIconName(lang), dark)).Radio(current == lang).Chosen() {
 				a.selectDocumentLanguage(d, lang)
 			}
 		}
