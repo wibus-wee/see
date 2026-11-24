@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/egoist/mygo/i18n"
-	"github.com/egoist/mygo/plugins/glass"
 	"github.com/egoist/mygo/ui"
 
 	"see/internal/workspace"
@@ -27,7 +26,7 @@ func (a *App) quickOpenPanel(c *ui.Context) {
 		backdrop.OnClick(func() { q.open = false })
 		backdrop.Children(func() {
 			panel := ui.Column(c).Margin(90, 0, 0, 0).Width(640).MaxHeight(460).Radius(14).Padding(8).Gap(6).
-				Material(glass.Glass{}).Border(1, colors(c).PopoverEdge).Shadow(0, 18, 48, 0, ui.RGBA(0, 0, 0, 0.5))
+				Material(popoverGlass()).Border(1, colors(c).PopoverEdge).Shadow(0, 18, 48, 0, ui.RGBA(0, 0, 0, 0.5))
 			panel.OnClick(func() {}) // clicks on the panel stay on it
 			panel.Children(func() {
 				ui.Row(c).Padding(4, 8).Gap(8).AlignItems(ui.Center).Children(func() {
