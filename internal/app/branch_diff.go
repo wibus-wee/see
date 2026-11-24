@@ -77,7 +77,7 @@ func (a *App) branchDiffModePicker(c *ui.Context) {
 		})
 	})
 	selectMode.Popup(func(panel ui.Element) {
-		panel.Padding(4).Radius(8).Background(colors(c).Popover).Border(1, colors(c).PopoverEdge)
+		panel.Padding(4).Radius(8).Material(popoverGlass()).Border(1, colors(c).PopoverEdge)
 		for _, option := range []struct {
 			value branchDiffMode
 			label string

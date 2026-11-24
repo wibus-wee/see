@@ -281,7 +281,7 @@ func (a *App) codeActionMenu(c *ui.Context) {
 	m := ui.MenuBase(c, &cs.open)
 	m.Trigger.Absolute().Left(cs.anchor.X).Top(cs.anchor.Y).Size(0, 0)
 	m.Popup(func(panel ui.Element) {
-		panel.Padding(4).Radius(8).Background(colors(c).Popover).Border(1, colors(c).PopoverEdge)
+		panel.Padding(4).Radius(8).Material(popoverGlass()).Border(1, colors(c).PopoverEdge)
 		groups := codeActionGroups(cs.list)
 		for gi, group := range groups {
 			if gi > 0 {

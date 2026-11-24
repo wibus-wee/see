@@ -448,7 +448,7 @@ func (a *App) localHistoryStatusBar(c *ui.Context, g *group, v *gitDiffTab) {
 					a.selectLocalHistorySnapshot(v, i)
 				}
 			}
-		}, ui.PopoverMenuButtonOptions{Open: &lh.pickerOpen})
+		}, ui.PopoverMenuButtonOptions{Open: &lh.pickerOpen, Panel: popoverMenuPanel})
 		ui.Text(c, "→").FontSize(11).TextColor(palette.Dim).SingleLine()
 		target := localHistoryText("localHistoryWorkingTree")
 		if lh.doc != nil && lh.buffer != nil && lh.buffer.Modified() {

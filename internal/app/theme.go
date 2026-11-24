@@ -15,6 +15,10 @@ func colors(c *ui.Context) *theme.Palette { return theme.Of(c) }
 // enough for the glass's Clarity, their content reads through them.
 func popoverGlass() glass.Glass { return glass.Glass{Clarity: 0.5} }
 
+// popoverMenuPanel styles the panel of a drawn menu — and of each of its
+// submenus — as the app's popovers (PopoverMenuButtonOptions.Panel).
+func popoverMenuPanel(panel ui.Element) { panel.Material(popoverGlass()) }
+
 // colors returns the palette of the appearance the app last drew in, for
 // what is not drawn in a frame of its own.
 func (a *App) colors() *theme.Palette {
