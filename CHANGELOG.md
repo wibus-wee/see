@@ -2,6 +2,20 @@
 
 User-facing changes are grouped by release. Earlier releases are documented on the [Releases page](https://github.com/wibus-wee/see/releases).
 
+## 0.3.7
+
+### Added
+
+- Get language-server completions automatically while typing or with Control-Space, including property suggestions and candidate details. Prefix edits refresh suggestions; unsupported snippets, commands, additional edits, and incompatible replacement ranges are omitted rather than partially applied.
+
+### Fixed
+
+- Show signature help in a content-sized popup, keep the active parameter current, and suppress it in nested object or array literals and callback bodies.
+
+### Known limitations
+
+- Completion still has unfixed edge cases involving Backspace, IME commits, and certain field types; the follow-up fix is pending verification.
+
 ## 0.3.6
 
 ### Fixed
