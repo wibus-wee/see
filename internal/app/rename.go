@@ -127,7 +127,7 @@ func (a *App) renamed(old, dst string) {
 		d.markdownOptions = nil
 		d.hex = nil
 		if d.buf != nil {
-			d.buf.SetLanguage(languageFor(d.name, d.buf.Snapshot().Line(0)))
+			a.setDocumentLanguage(d)
 		}
 		a.docs[next] = d
 		if mediaChanged && (d.buf == nil || !d.buf.Modified()) {

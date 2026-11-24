@@ -14,6 +14,7 @@ import (
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 
+	"see/internal/config"
 	"see/internal/git"
 	"see/locales"
 )
@@ -58,9 +59,6 @@ func TestGitRangeSelectionAndStageAll(t *testing.T) {
 	h.a.navigator = navGit
 	h.a.git.historyClosed = true
 	h.tt.Frame()
-	if err := h.tt.Click(logText("gitKindDocs")); err != nil {
-		t.Fatal(err)
-	}
 	if err := h.tt.Click("Unstaged diff: a.txt"); err != nil {
 		t.Fatal(err)
 	}
@@ -93,6 +91,148 @@ func TestGitRangeSelectionAndStageAll(t *testing.T) {
 	for _, ch := range h.a.git.changes {
 		if ch.Index != ' ' || ch.Work == ' ' {
 			t.Fatalf("not unstaged: %+v", ch)
+		}
+	}
+}
+
+func TestGitChangeRowsAreFlatAcrossFileKinds(t *testing.T) {
+	names := []string{"main.go", "main_test.go", "README.md"}
+	root := gitRepo(t, map[string]string{"main.go": "package main\n", "main_test.go": "package main\n", "README.md": "docs\n"})
+	for _, name := range names {
+		writeFile(t, root, name, "changed\n")
+	}
+	gitRun(t, root, "add", "main.go")
+	h := newHarness(t, root)
+	h.readGit()
+	h.a.navigator = navGit
+	h.a.git.historyClosed = true
+	h.tt.Frame()
+	if !h.tt.HasText("Staged Changes") || !h.tt.HasText("Changes") {
+		t.Fatalf("status sections are missing: %q", h.tt.Texts())
+	}
+	for _, name := range names {
+		label := "Unstaged diff: " + name
+		if name == "main.go" {
+			label = "Staged diff: " + name
+		}
+		if !h.tt.HasText(label) {
+			t.Fatalf("flat status list is missing %s: %q", label, h.tt.Texts())
+		}
+	}
+	for _, group := range []string{logText("gitKindTests"), logText("gitKindDocs"), logText("gitKindGenerated")} {
+		if h.tt.HasText(group) {
+			t.Fatalf("semantic file group %q remains in %q", group, h.tt.Texts())
+		}
+	}
+	if err := h.tt.Click("Stage All Changes"); err != nil {
+		t.Fatal(err)
+	}
+	h.settle(func() bool { return !h.a.git.busy && !h.a.git.loading })
+	h.tt.Frame()
+	for _, name := range names {
+		if !h.tt.HasText("Staged diff: " + name) {
+			t.Fatalf("flat staged list is missing %s: %q", name, h.tt.Texts())
+		}
+	}
+}
+
+func filenameBounds(t *testing.T, tt *ui.Tester, path string) ui.Rect {
+	t.Helper()
+	nameBounds, ok := tt.Find(filepath.Base(path))
+	if !ok || nameBounds.W <= 0 {
+		t.Fatalf("filename %q is not visible: %q", filepath.Base(path), tt.Texts())
+	}
+	return nameBounds
+}
+
+func assertBasenameUsesAvailableWidth(t *testing.T, tt *ui.Tester, path, rowLabel string, naturalWidth, availableWidth float32) {
+	t.Helper()
+	nameBounds := filenameBounds(t, tt, path)
+	if naturalWidth <= availableWidth+1 {
+		if nameBounds.W < naturalWidth-1 || nameBounds.W > naturalWidth+1 {
+			t.Fatalf("basename %q shrank despite fitting in its text area: width %.1f, natural %.1f, available %.1f", filepath.Base(path), nameBounds.W, naturalWidth, availableWidth)
+		}
+	} else if nameBounds.W < availableWidth-1 || nameBounds.W > availableWidth+1 {
+		t.Fatalf("overlong basename %q did not use only its bounded text area: width %.1f, available %.1f", filepath.Base(path), nameBounds.W, availableWidth)
+	}
+	accessible := false
+	for _, access := range tt.AccessAll() {
+		if strings.Contains(access.Name, path) {
+			accessible = true
+			break
+		}
+	}
+	if !accessible {
+		t.Fatalf("full path %q is missing from accessible names: %+v", path, tt.AccessAll())
+	}
+	if rowLabel != "" {
+		rowBounds, ok := tt.Find(rowLabel)
+		if !ok || nameBounds.X+nameBounds.W > rowBounds.X+rowBounds.W+1 {
+			t.Fatalf("basename %q exceeds its row bounds: name %v, row %v", filepath.Base(path), nameBounds, rowBounds)
+		}
+	}
+}
+
+func directoryBounds(t *testing.T, tt *ui.Tester, path string) ui.Rect {
+	t.Helper()
+	dir := filepath.ToSlash(filepath.Dir(path))
+	if dir == "." {
+		t.Fatalf("%q has no directory", path)
+	}
+	pathBounds, ok := tt.Find("\u00a0" + dir)
+	if !ok {
+		t.Fatalf("directory %q is not visible: %q", dir, tt.Texts())
+	}
+	return pathBounds
+}
+
+func gitTextAreaWidth(t *testing.T, tt *ui.Tester, path string) float32 {
+	t.Helper()
+	rowBounds, ok := tt.Find("Unstaged diff: " + path)
+	if !ok {
+		t.Fatalf("Git row for %q is not visible: %q", path, tt.Texts())
+	}
+	nameBounds := filenameBounds(t, tt, path)
+	return rowBounds.X + rowBounds.W - nameBounds.X
+}
+
+func branchDiffTextAreaWidth(t *testing.T, tt *ui.Tester, path, firstStatus string) float32 {
+	t.Helper()
+	nameBounds := filenameBounds(t, tt, path)
+	statusBounds, ok := tt.Find(firstStatus)
+	if !ok {
+		t.Fatalf("comparison status %q is not visible: %q", firstStatus, tt.Texts())
+	}
+	return statusBounds.X - nameBounds.X - gitSidebarColumnGap
+}
+
+func TestGitChangeRowsPrioritizeBasenamesOverPaths(t *testing.T) {
+	const nestedPath = "packages/web/src/features/conversations/components/MessageHistoryPanel.tsx"
+	const longBasename = "ExtremelyLongGeneratedStateMachineSidebarAvailabilityControllerConfiguration.tsx"
+	paths := []string{nestedPath, longBasename}
+	root := gitRepo(t, map[string]string{nestedPath: "base\n", longBasename: "base\n"})
+	for _, path := range paths {
+		writeFile(t, root, path, "changed\n")
+	}
+	h := newHarness(t, root)
+	h.readGit()
+	h.a.navigator, h.a.git.historyClosed = navGit, true
+	h.a.sidebarW = 800
+	h.tt.Advance(300 * time.Millisecond)
+	h.tt.Frame()
+	naturalWidths := map[string]float32{}
+	for _, path := range paths {
+		naturalWidths[path] = filenameBounds(t, h.tt, path).W
+	}
+	naturalPathWidth := directoryBounds(t, h.tt, nestedPath).W
+	for _, width := range []float32{420, gitSidebarMinimumWidth} {
+		h.a.sidebarW = width
+		h.tt.Frame()
+		for _, path := range paths {
+			assertBasenameUsesAvailableWidth(t, h.tt, path, "Unstaged diff: "+path, naturalWidths[path], gitTextAreaWidth(t, h.tt, path))
+		}
+		if width == 420 && directoryBounds(t, h.tt, nestedPath).W >= naturalPathWidth-1 {
+			t.Fatalf("directory path did not give space back to the basename at normal width: natural %.1f, current %.1f", naturalPathWidth, directoryBounds(t, h.tt, nestedPath).W)
 		}
 	}
 }
@@ -272,34 +412,42 @@ func TestGitNavigatorStashesCollapseIndependently(t *testing.T) {
 	}
 }
 
-func TestGitCommitInputFollowsStagedRows(t *testing.T) {
-	root := gitRepo(t, map[string]string{"a.go": "package a\n"})
-	writeFile(t, root, "a.go", "package a\n// current\n")
+func TestGitCommitFooterStaysOutsideTreeScrollAndRetainsDraft(t *testing.T) {
+	root := gitRepo(t, map[string]string{"saved.txt": "saved\n"})
+	writeFile(t, root, "saved.txt", "saved stash\n")
+	gitRun(t, root, "stash", "push", "-q", "-m", "saved work")
+	for i := 0; i < 30; i++ {
+		writeFile(t, root, "change-"+strconv.Itoa(i)+".go", "package changes\n")
+	}
 	h := newHarness(t, root)
 	h.readGit()
 	h.a.navigator = navGit
-	h.a.git.historyClosed = true
+	h.tt.SetSize(harnessWidth, 700)
 	h.tt.Frame()
 
-	hasCommitField := func() bool {
+	commitField := func() (ui.AccessInfo, bool) {
 		for _, access := range h.tt.AccessAll() {
 			if access.Role == ui.RoleTextField && access.Name == locales.MsgCommitMessage() {
-				return true
+				return access, true
 			}
 		}
-		return false
+		return ui.AccessInfo{}, false
 	}
-	if hasCommitField() {
+	if _, ok := commitField(); ok {
 		t.Fatal("empty commit field shown without staged changes or a draft")
 	}
 	if err := h.tt.Click("Stage All Changes"); err != nil {
 		t.Fatal(err)
 	}
 	h.settle(func() bool { return !h.a.git.busy && !h.a.git.loading })
-	file, fileOK := h.tt.Find("Staged diff: a.go")
-	commit, commitOK := h.tt.Find(locales.MsgCommitMessage())
-	if !fileOK || !commitOK || commit.Y <= file.Y {
-		t.Fatalf("commit field is not after staged rows: file %v (%v), commit %v (%v), texts %q", file, fileOK, commit, commitOK, h.tt.Texts())
+	file, fileOK := h.tt.Find("Staged diff: change-0.go")
+	commit, commitOK := commitField()
+	commitAction, actionOK := h.tt.AccessByRole(ui.RoleButton, locales.MsgCommit())
+	fieldCenter := commit.Bounds.Y + commit.Bounds.H/2
+	actionCenter := commitAction.Bounds.Y + commitAction.Bounds.H/2
+	if !fileOK || !commitOK || commit.Bounds.Y <= file.Y || !actionOK || commitAction.Bounds.W != 22 || commitAction.Bounds.H != 22 ||
+		actionCenter < fieldCenter-1 || actionCenter > fieldCenter+1 {
+		t.Fatalf("commit footer or inline action is not visible after staging: file %v (%v), commit %v (%v), action %v (%v), texts %q", file, fileOK, commit, commitOK, commitAction, actionOK, h.tt.Texts())
 	}
 	if err := h.tt.Click(locales.MsgCommitMessage()); err != nil {
 		t.Fatal(err)
@@ -313,8 +461,206 @@ func TestGitCommitInputFollowsStagedRows(t *testing.T) {
 		t.Fatal(err)
 	}
 	h.settle(func() bool { return !h.a.git.busy && !h.a.git.loading })
-	if !hasCommitField() {
+	if _, ok := commitField(); !ok {
 		t.Fatal("commit draft field disappeared when changes were unstaged")
+	}
+	commitBefore, _ := commitField()
+	historyBefore, historyOK := h.tt.Find("History")
+	file, fileOK = h.tt.Find("Unstaged diff: change-0.go")
+	if !historyOK || !fileOK {
+		t.Fatalf("scroll anchors missing: History %v (%v), file %v (%v), texts %q", historyBefore, historyOK, file, fileOK, h.tt.Texts())
+	}
+	x, y := file.X+file.W/2, file.Y+file.H/2
+	for i := 0; i < 32 && !h.tt.HasText("Stash: saved work"); i++ {
+		h.tt.Wheel(x, y, 0, 120)
+		h.tt.Advance(150 * time.Millisecond)
+	}
+	if !h.tt.HasText("Stash: saved work") {
+		t.Fatalf("stash row did not enter the tree viewport: %q", h.tt.Texts())
+	}
+	commitAfter, commitOK := commitField()
+	historyAfter, historyOK := h.tt.Find("History")
+	if !commitOK || commitAfter.Bounds != commitBefore.Bounds || !historyOK || historyAfter.Y != historyBefore.Y {
+		t.Fatalf("scrolling the file/stash tree moved the footer or History: commit %v -> %v, History %v -> %v", commitBefore, commitAfter, historyBefore, historyAfter)
+	}
+}
+
+func TestGitConflictHidesFooterUntilResolvedWithStashAndHistory(t *testing.T) {
+	root := gitRepo(t, map[string]string{"settings.go": "base\n", "saved.txt": "saved\n"}, "feature")
+	writeFile(t, root, "saved.txt", "stashed\n")
+	gitRun(t, root, "stash", "push", "-q", "-m", "conflict scenario stash")
+	gitRun(t, root, "switch", "-q", "feature")
+	writeFile(t, root, "settings.go", "incoming\n")
+	gitRun(t, root, "add", "settings.go")
+	gitRun(t, root, "commit", "-qm", "feature change")
+	gitRun(t, root, "switch", "-q", "main")
+	writeFile(t, root, "settings.go", "current\n")
+	gitRun(t, root, "add", "settings.go")
+	gitRun(t, root, "commit", "-qm", "main change")
+	if _, err := git.Command(context.Background(), root, "merge", "feature"); err == nil {
+		t.Fatal("expected a merge conflict")
+	}
+	for i := 0; i < 28; i++ {
+		writeFile(t, root, "work-"+strconv.Itoa(i)+".go", "package work\n")
+	}
+
+	h := newHarness(t, root)
+	h.readGit()
+	h.a.navigator = navGit
+	const draft = "merge draft"
+	h.a.git.message = draft
+	h.tt.SetSize(harnessWidth, 900)
+	h.tt.Frame()
+	h.settle(func() bool { return !h.a.git.history.loading })
+
+	reason := gitConflictText("gitResolveBeforeCommit")
+	if !h.tt.HasText("Conflicted Files") || len(h.a.git.stashes) != 1 {
+		t.Fatalf("conflicts or stash missing: %q, stashes %+v", h.tt.Texts(), h.a.git.stashes)
+	}
+	var field, commitButton, conflictStatus, treeScroll, historyDivider ui.AccessInfo
+	var fieldOK, buttonOK, statusOK, treeScrollOK, dividerOK bool
+	for _, access := range h.tt.AccessAll() {
+		switch {
+		case access.Role == ui.RoleTextField && access.Name == locales.MsgCommitMessage():
+			field, fieldOK = access, true
+		case access.Role == ui.RoleButton && access.Name == locales.MsgCommit():
+			commitButton, buttonOK = access, true
+		case access.Role == ui.RoleText && access.Name == reason:
+			conflictStatus, statusOK = access, true
+		case access.Role == ui.RoleScroll && !treeScrollOK:
+			treeScroll, treeScrollOK = access, true
+		case access.Role == ui.RoleSplitter && access.Bounds.W > 100 && access.Bounds.H <= 2:
+			historyDivider, dividerOK = access, true
+		}
+	}
+	gap := float32(0)
+	if treeScrollOK && dividerOK {
+		gap = historyDivider.Bounds.Y - (treeScroll.Bounds.Y + treeScroll.Bounds.H)
+	}
+	if fieldOK || buttonOK || statusOK || !treeScrollOK || !dividerOK || gap > 3 || h.a.git.message != draft {
+		t.Fatalf("conflict should hide the composer without reserving footer space and retain the draft: field %+v (%v), Commit %+v (%v), status %+v (%v), tree %v (%v), History divider %v (%v), gap %v, draft %q, texts %q", field, fieldOK, commitButton, buttonOK, conflictStatus, statusOK, treeScroll.Bounds, treeScrollOK, historyDivider.Bounds, dividerOK, gap, h.a.git.message, h.tt.Texts())
+	}
+	historyBefore, historyOK := h.tt.Find("History")
+	file, fileOK := h.tt.Find("Unstaged diff: work-0.go")
+	if !historyOK || !fileOK {
+		t.Fatalf("conflict scroll anchors missing: History %v (%v), file %v (%v)", historyBefore, historyOK, file, fileOK)
+	}
+	x, y := file.X+file.W/2, file.Y+file.H/2
+	for i := 0; i < 32 && !h.tt.HasText("Stash: conflict scenario stash"); i++ {
+		h.tt.Wheel(x, y, 0, 120)
+		h.tt.Advance(150 * time.Millisecond)
+	}
+	if !h.tt.HasText("Stash: conflict scenario stash") {
+		t.Fatalf("stash row did not enter the conflict tree viewport: %q", h.tt.Texts())
+	}
+	var fieldAfter ui.AccessInfo
+	fieldAfterOK := false
+	for _, access := range h.tt.AccessAll() {
+		if access.Role == ui.RoleTextField && access.Name == locales.MsgCommitMessage() {
+			fieldAfter = access
+			fieldAfterOK = true
+			break
+		}
+	}
+	historyAfter, historyOK := h.tt.Find("History")
+	var treeScrollAfter ui.AccessInfo
+	for _, access := range h.tt.AccessAll() {
+		if access.Role == ui.RoleScroll {
+			treeScrollAfter = access
+			break
+		}
+	}
+	if fieldAfterOK || !historyOK || historyAfter.Y != historyBefore.Y || treeScrollAfter.Bounds != treeScroll.Bounds || h.a.git.message != draft {
+		t.Fatalf("conflict tree scrolling changed the absent composer, tree viewport, History, or draft: field %v (%v), tree %v -> %v, History %v -> %v, draft %q", fieldAfter, fieldAfterOK, treeScroll.Bounds, treeScrollAfter.Bounds, historyBefore, historyAfter, h.a.git.message)
+	}
+
+	writeFile(t, root, "settings.go", "resolved\n")
+	gitRun(t, root, "add", "settings.go")
+	h.readGit()
+	h.settle(func() bool { return !h.a.git.loading && !h.a.git.busy })
+	field, fieldOK = h.tt.AccessByRole(ui.RoleTextField, locales.MsgCommitMessage())
+	commitButton, buttonOK = h.tt.AccessByRole(ui.RoleButton, locales.MsgCommit())
+	if !h.a.git.merging || !fieldOK || field.Value != draft || !buttonOK || commitButton.Disabled || h.a.git.message != draft {
+		t.Fatalf("composer did not restore with its draft after conflict resolution: merging %v, field %+v (%v), Commit %+v (%v), draft %q", h.a.git.merging, field, fieldOK, commitButton, buttonOK, h.a.git.message)
+	}
+	previousHead := h.a.git.head
+	if err := h.tt.Click(locales.MsgCommit()); err != nil {
+		t.Fatal(err)
+	}
+	h.settle(func() bool { return !h.a.git.loading && !h.a.git.busy })
+	if h.a.git.merging || h.a.git.head == previousHead {
+		t.Fatalf("restored composer could not create the merge commit: merging %v, HEAD %q -> %q, notice %q", h.a.git.merging, previousHead, h.a.git.head, h.a.notice)
+	}
+}
+
+func gitSidebarDivider(t *testing.T, h *harness) ui.AccessInfo {
+	t.Helper()
+	for _, access := range h.tt.AccessAll() {
+		if access.Role == ui.RoleSplitter && access.Bounds.W <= 2 && access.Bounds.H > 10 {
+			return access
+		}
+	}
+	t.Fatalf("Git sidebar divider not found: %q", h.tt.Texts())
+	return ui.AccessInfo{}
+}
+
+func TestGitSidebarMinimumDuringDrag(t *testing.T) {
+	const minWidth = 260
+	root := gitRepo(t, map[string]string{"a.go": "base\n"})
+	writeFile(t, root, "a.go", "staged\n")
+	gitRun(t, root, "add", "a.go")
+	h := newHarness(t, root)
+	h.readGit()
+	h.a.navigator = navGit
+	h.a.git.message = "drag draft"
+	h.tt.Advance(300 * time.Millisecond)
+	h.tt.Frame()
+
+	field, fieldOK := h.tt.AccessByRole(ui.RoleTextField, locales.MsgCommitMessage())
+	button, buttonOK := h.tt.AccessByRole(ui.RoleButton, locales.MsgCommit())
+	if !fieldOK || !buttonOK || button.Disabled {
+		t.Fatalf("staged commit controls unavailable before drag: field %+v (%v), button %+v (%v)", field, fieldOK, button, buttonOK)
+	}
+	divider := gitSidebarDivider(t, h)
+	x, y := divider.Bounds.X+divider.Bounds.W/2, divider.Bounds.Y+divider.Bounds.H/2
+	targetX := float32(70)
+	h.tt.Press(x, y)
+	h.tt.Move(targetX, y)
+	h.tt.Frame()
+
+	divider = gitSidebarDivider(t, h)
+	field, fieldOK = h.tt.AccessByRole(ui.RoleTextField, locales.MsgCommitMessage())
+	button, buttonOK = h.tt.AccessByRole(ui.RoleButton, locales.MsgCommit())
+	if divider.Bounds.X < minWidth-1 || h.a.sidebarW < minWidth || !fieldOK || field.Bounds.W < 100 || field.Offscreen || !buttonOK || button.Disabled || button.Bounds.W != 22 || button.Bounds.H != 22 || button.Offscreen {
+		t.Fatalf("Git sidebar became unusable during an active left drag: divider %v, saved width %v, field %+v (%v), Commit %+v (%v)", divider.Bounds, h.a.sidebarW, field, fieldOK, button, buttonOK)
+	}
+	h.tt.Release(targetX, y)
+	h.tt.Frame()
+}
+
+func TestGitSidebarMinimumFromNarrowSavedWidthIsGitOnly(t *testing.T) {
+	const minWidth, savedWidth = 260, 180
+	root := gitRepo(t, map[string]string{"a.go": "base\n"})
+	cfg := &config.Config{ConfirmClose: true, SidebarWidth: savedWidth}
+	h := newHarnessWithConfig(t, root, cfg)
+	h.readGit()
+	if h.a.sidebarW != savedWidth {
+		t.Fatalf("saved sidebar width loaded as %v, want %v", h.a.sidebarW, savedWidth)
+	}
+
+	h.a.navigator = navGit
+	h.tt.Advance(300 * time.Millisecond)
+	h.tt.Frame()
+	gitDivider := gitSidebarDivider(t, h)
+	if gitDivider.Bounds.X < minWidth-1 || h.a.sidebarW != savedWidth || h.a.cfg.SidebarWidth != savedWidth {
+		t.Fatalf("narrow startup width was not limited to Git display: divider %v, stored width %v, config width %v", gitDivider.Bounds, h.a.sidebarW, h.a.cfg.SidebarWidth)
+	}
+
+	h.a.navigator = navFiles
+	h.tt.Frame()
+	filesDivider := gitSidebarDivider(t, h)
+	if filesDivider.Bounds.X < savedWidth-1 || filesDivider.Bounds.X > savedWidth+1 {
+		t.Fatalf("non-Git navigator lost its saved sidebar width: divider %v, saved width %v", filesDivider.Bounds, savedWidth)
 	}
 }
 

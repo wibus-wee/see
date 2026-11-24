@@ -39,6 +39,7 @@ type minimap struct {
 	bmp      *ui.Bitmap
 	from, to int
 	version  uint64
+	language *editor.Language
 	themeGen int // the theme generation the bitmap was drawn in
 	busy     bool
 
@@ -129,11 +130,15 @@ func (a *App) minimap(c *ui.Context, g *group, d *doc, st *editor.State) {
 	}
 	lines := d.buf.LineCount()
 	version := d.buf.Version()
+	var language *editor.Language
+	if !d.plain {
+		language = d.buf.Language()
+	}
 	l := layoutMinimap(lines, m.h, st.ScrollY(), st.ViewportHeight(), st.LineTop(lines))
 	m.lastLayout = l
 	first := int(l.off / minimapRow)
 	last := min(lines, first+int(m.h/minimapRow)+1)
-	if m.h > 0 && !m.busy && (m.bmp == nil || m.version != version || m.themeGen != a.themeGen || first < m.from || last > m.to) {
+	if m.h > 0 && !m.busy && (m.bmp == nil || m.version != version || m.language != language || m.themeGen != a.themeGen || first < m.from || last > m.to) {
 		a.renderMinimap(m, d, first, last)
 	}
 	if count, _ := st.FindMatches(); count == 0 {
@@ -288,7 +293,7 @@ func (a *App) renderMinimap(m *minimap, d *doc, first, last int) {
 		img := drawMinimap(snap, lang, &t, from, to)
 		a.post.Post(func() {
 			m.busy = false
-			m.bmp, m.from, m.to, m.version, m.themeGen = ui.NewBitmap(img), from, to, snap.Version(), gen
+			m.bmp, m.from, m.to, m.version, m.language, m.themeGen = ui.NewBitmap(img), from, to, snap.Version(), lang, gen
 		})
 	}()
 }

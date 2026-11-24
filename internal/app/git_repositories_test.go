@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 
@@ -49,6 +50,31 @@ func TestGitRepositoriesNavigator(t *testing.T) {
 	}
 	if err := h.tt.ChooseMenuItem(locales.GitSwitchToBranch()); err == nil || !strings.Contains(err.Error(), "disabled") {
 		t.Fatalf("switching to the current branch should be disabled, got %v", err)
+	}
+}
+
+func TestGitRepositoriesTabsUseKeyboardAndSelectedState(t *testing.T) {
+	root := gitRepo(t, map[string]string{"a.txt": "base\n"})
+	h := newHarness(t, root)
+	h.readGit()
+	h.a.navigator = navGit
+	h.tt.Advance(300 * time.Millisecond)
+	h.tt.Frame()
+	if _, ok := h.tt.AccessByRole(ui.RoleTabList, ""); !ok {
+		t.Fatal("Git navigator tabs are not exposed as a tab list")
+	}
+	working, ok := h.tt.AccessByRole(ui.RoleTab, locales.GitRepositoryChanges())
+	if !ok || !working.Selected {
+		t.Fatalf("Working Copy is not exposed as the selected tab: %+v (%v)", working, ok)
+	}
+	if err := h.tt.Click(locales.GitRepositoryChanges()); err != nil {
+		t.Fatal(err)
+	}
+	h.tt.Key(0, ui.KeyRight)
+	h.tt.Frame()
+	repositories, ok := h.tt.AccessByRole(ui.RoleTab, locales.GitRepositories())
+	if h.a.git.repositoryView.page != 1 || !ok || !repositories.Selected {
+		t.Fatalf("Right did not select Repositories through tab navigation: page %d, tab %+v (%v)", h.a.git.repositoryView.page, repositories, ok)
 	}
 }
 
