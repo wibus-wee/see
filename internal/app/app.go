@@ -311,6 +311,7 @@ type doc struct {
 	inlayCancel       context.CancelFunc
 	docLinks          []docLink
 	linkBufVer        uint64 // the buffer's version docLinks were built of
+	linkLocal         bool   // docLinks came of the Markdown parser, not a server
 	linkVersion       uint64 // the buffer's version links were last asked for
 	linkSeq           int
 	linkTimer         *time.Timer
