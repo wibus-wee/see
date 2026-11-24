@@ -1217,7 +1217,11 @@ func (a *App) loaded(d *doc, f workspace.File, buf *editor.Buffer, same bool, er
 		}
 		d.buf.Reset(f.Text)
 		if !f.Plain {
+			oldLanguage := documentLanguageName(d.buf)
 			d.buf.SetLanguage(languageFor(d.name, f.Text))
+			if documentLanguageName(d.buf) != oldLanguage {
+				a.applyEditorPrefsAll()
+			}
 		}
 		for st, p := range places {
 			st.GoTo(clampPos(d.buf, p.pos))

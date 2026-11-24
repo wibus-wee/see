@@ -55,6 +55,7 @@ type Config struct {
 	FontSize             float64              `json:"editorFontSize,omitempty"`    // 13 when 0
 	LineNumbers          int                  `json:"editorLineNumbers,omitempty"` // 0 on, 1 relative, 2 off
 	SoftWrap             bool                 `json:"editorSoftWrap,omitempty"`
+	SoftWrapByLanguage   map[string]bool      `json:"editorSoftWrapByLanguage,omitempty"`
 	EditorShowPageGuide  bool                 `json:"editorShowPageGuide,omitempty"`
 	EditorPageGuide      int                  `json:"editorPageGuideColumn,omitempty"`
 	HideDocComments      bool                 `json:"hideDocComments,omitempty"`
@@ -177,6 +178,14 @@ func (c *Config) SetPath(p string) { c.path = p }
 
 // Path is where this configuration is saved.
 func (c *Config) Path() string { return c.path }
+
+// SoftWrapForLanguage returns the language override or the global default.
+func (c *Config) SoftWrapForLanguage(language string) bool {
+	if wrap, ok := c.SoftWrapByLanguage[language]; ok {
+		return wrap
+	}
+	return c.SoftWrap
+}
 
 func (c *Config) Save() error {
 	if c.path == "" {

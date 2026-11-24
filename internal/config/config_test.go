@@ -28,6 +28,26 @@ func TestReaderModeDefaultAndPersistence(t *testing.T) {
 	}
 }
 
+func TestSoftWrapByLanguageDefaultsAndPersistence(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "config.json")
+	c := Load(p)
+	if c.SoftWrapForLanguage("Markdown") {
+		t.Fatal("language wrapping should inherit the disabled global default")
+	}
+	c.SoftWrap = true
+	if !c.SoftWrapForLanguage("Go") {
+		t.Fatal("language wrapping should inherit the enabled global default")
+	}
+	c.SoftWrapByLanguage = map[string]bool{"Markdown": false, "Go": true}
+	if err := c.Save(); err != nil {
+		t.Fatal(err)
+	}
+	loaded := Load(p)
+	if loaded.SoftWrapForLanguage("Markdown") || !loaded.SoftWrapForLanguage("Go") || !loaded.SoftWrapForLanguage("Python") {
+		t.Fatalf("loaded language wrapping settings: global=%v overrides=%v", loaded.SoftWrap, loaded.SoftWrapByLanguage)
+	}
+}
+
 func TestLSPConfigParses(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "config.json")
 	json := `{
