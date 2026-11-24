@@ -2,6 +2,8 @@ package app
 
 import (
 	"testing"
+
+	"github.com/egoist/mygo/ui/editor"
 )
 
 // A file's icon is its name's, else its longest extension's, without
@@ -51,6 +53,31 @@ func TestFileIconsParse(t *testing.T) {
 				continue
 			}
 			fileIconSVG(icon, dark)
+		}
+	}
+}
+
+// A language's icon is its file's: that of one of its extensions,
+// else of one of the filenames it is known by, else the theme's file.
+func TestLanguageIconName(t *testing.T) {
+	for name, want := range map[string]string{
+		"Go":         "lang-go",
+		"Python":     "lang-python",
+		"Markdown":   "lang-markdown",
+		"Dockerfile": "docker",
+		"CMake":      fileIconTheme.file,
+		"Java":       fileIconTheme.file,
+		"Makefile":   fileIconTheme.file,
+	} {
+		lang := cmakeLanguage
+		if name != "CMake" {
+			lang = editor.LanguageNamed(name)
+		}
+		if lang == nil {
+			t.Fatalf("no language %q", name)
+		}
+		if got := languageIconName(lang); got != want {
+			t.Errorf("%s: %q, want %q", name, got, want)
 		}
 	}
 }
