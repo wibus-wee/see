@@ -166,8 +166,8 @@ func (a *App) showCliDiff(old, new string) {
 
 func (a *App) newCLIBufferDiff(old, new *editor.Buffer, name string) *gitDiffTab {
 	d := &editor.DiffState{Theme: a.edTheme}
-	a.applyDiffPrefs(d)
 	setBufferDiffWhitespace(d, old, new, a.cfg.HideWhitespaceChanges)
+	a.applyDiffPrefs(d)
 	return &gitDiffTab{state: d, oldBuffer: old, newBuffer: new, name: name, cli: true}
 }
 

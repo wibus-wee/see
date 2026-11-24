@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo"
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/plugins/glass"
 	"github.com/egoist/mygo/plugins/updater"
 	"github.com/egoist/mygo/ui"
@@ -76,6 +77,8 @@ type settingsState struct {
 	fontSize            float64
 	termFontSize        float64
 	lineNumbers         int
+	softWrapLanguages   []string
+	softWrapLanguage    string
 	serverInstall       string
 	appearance          int
 	languageChoice      int
@@ -126,7 +129,7 @@ func (a *App) applyEditorPrefs(st *editor.State) {
 	if a.cfg.EditorLineHeight > 0 {
 		st.Font.LineHeight = float32(a.cfg.EditorLineHeight)
 	}
-	st.SoftWrap = a.cfg.SoftWrap
+	st.SoftWrap = a.cfg.SoftWrapForLanguage(documentLanguageName(st.Buffer))
 	st.Whitespace = editor.WhitespaceSelection
 	if a.cfg.ShowInvisibles {
 		st.Whitespace = editor.WhitespaceAll
@@ -152,6 +155,14 @@ func (a *App) applyEditorPrefsAll() {
 			}
 		}
 	}
+	if peek := a.git.peek; peek != nil {
+		if peek.diff != nil {
+			a.applyDiffPrefs(peek.diff)
+		}
+		if peek.filtered != nil {
+			a.applyDiffPrefs(peek.filtered)
+		}
+	}
 }
 
 func (a *App) applyDiffPrefs(diff *editor.DiffState) {
@@ -172,7 +183,7 @@ func (a *App) applyDiffPrefs(diff *editor.DiffState) {
 			diff.Font.Features = "-liga, -calt, " + diff.Font.Features
 		}
 	}
-	diff.Wrap = a.cfg.SoftWrap
+	diff.Wrap = a.cfg.SoftWrapForLanguage(documentLanguageName(diff.New))
 	diff.NoLineNumbers = !diff.LineSelection && a.cfg.LineNumbers == int(editor.LineNumbersOff)
 	diff.Layout = editor.DiffSplit
 	if a.cfg.DiffUnified {
@@ -649,6 +660,23 @@ func (a *App) initFontValues() {
 	s.termHeight = a.cfg.TermLineHeight
 }
 
+func softWrapLanguageNames() []string {
+	names := []string{"Plain Text"}
+	for _, language := range editor.Languages() {
+		names = append(names, language.Name)
+	}
+	names = append(names, cmakeLanguage.Name)
+	slices.Sort(names)
+	return slices.Compact(names)
+}
+
+func documentLanguageName(buf *editor.Buffer) string {
+	if buf == nil || buf.Language() == nil {
+		return "Plain Text"
+	}
+	return buf.Language().Name
+}
+
 func (a *App) editorPane(c *ui.Context) {
 	s := &a.settings
 	a.initFontValues()
@@ -686,6 +714,47 @@ func (a *App) editorPane(c *ui.Context) {
 				a.settingsChanged()
 			}
 			if ui.Switch(c, &a.cfg.EditorShowPageGuide).Label(locales.ShowPageGuide()).Changed() {
+				a.settingsChanged()
+			}
+		},
+	)
+	if len(s.softWrapLanguages) == 0 {
+		s.softWrapLanguages = softWrapLanguageNames()
+		s.softWrapLanguage = "Markdown"
+	}
+	if !slices.Contains(s.softWrapLanguages, s.softWrapLanguage) {
+		s.softWrapLanguage = s.softWrapLanguages[0]
+	}
+	heading(c, locales.Catalog.Format(i18n.Locale(), "msgWrapLinesByLanguage", nil))
+	card(c,
+		func() {
+			labeled(c, locales.Language(), locales.Catalog.Format(i18n.Locale(), "msgLanguageSoftWrapDescription", nil))
+			ui.Select(c, &s.softWrapLanguage, s.softWrapLanguages).Label(locales.Language()).Width(180)
+		},
+		func() {
+			mode := 0
+			if wrap, ok := a.cfg.SoftWrapByLanguage[s.softWrapLanguage]; ok {
+				if wrap {
+					mode = 1
+				} else {
+					mode = 2
+				}
+			}
+			labeled(c, locales.MsgWrapLines(), locales.Catalog.Format(i18n.Locale(), "msgLanguageSoftWrapOverrideDescription", nil))
+			if ui.Segmented(c, &mode,
+				locales.Catalog.Format(i18n.Locale(), "msgWrapDefault", nil),
+				locales.Catalog.Format(i18n.Locale(), "msgWrapEnabled", nil),
+				locales.Catalog.Format(i18n.Locale(), "msgWrapDisabled", nil),
+			).Label(locales.MsgWrapLines()).Changed() {
+				if mode == 0 {
+					delete(a.cfg.SoftWrapByLanguage, s.softWrapLanguage)
+				} else {
+					if a.cfg.SoftWrapByLanguage == nil {
+						a.cfg.SoftWrapByLanguage = make(map[string]bool)
+					}
+					a.cfg.SoftWrapByLanguage[s.softWrapLanguage] = mode == 1
+				}
+				a.applyEditorPrefsAll()
 				a.settingsChanged()
 			}
 		},
