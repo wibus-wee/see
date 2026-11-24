@@ -165,8 +165,8 @@ func (v *gitDiffTab) diffStates() []*editor.DiffState {
 
 func (a *App) newGitDiffTab(p editor.FilePatch, name string, staged bool) *gitDiffTab {
 	d := &editor.DiffState{Theme: a.edTheme}
-	a.applyDiffPrefs(d)
 	a.setDiffPatch(d, p, true)
+	a.applyDiffPrefs(d)
 	d.GoToHunk(0)
 	return &gitDiffTab{state: d, patch: p, name: name, staged: staged}
 }

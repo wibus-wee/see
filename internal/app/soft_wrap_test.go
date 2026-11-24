@@ -48,6 +48,31 @@ func TestEditorAndDiffSoftWrapUseDocumentLanguage(t *testing.T) {
 	}
 }
 
+func TestWorkingCopyMarkdownDiffUsesLanguageSoftWrap(t *testing.T) {
+	root := gitRepo(t, map[string]string{"wrap-demo.md": "# Wrap demo\n\nbefore\n"})
+	writeFile(t, root, "wrap-demo.md", "# Wrap demo\n\nafter\n")
+	h := newHarness(t, root)
+	h.readGit()
+	h.a.cfg.SoftWrap = false
+	h.a.cfg.SoftWrapByLanguage = map[string]bool{"Markdown": true}
+	if len(h.a.git.changes) != 1 || h.a.git.changes[0].Path != "wrap-demo.md" {
+		t.Fatalf("working copy changes = %+v", h.a.git.changes)
+	}
+	h.a.showGitDiff(h.a.git.changes[0], false)
+	key := diffTab("wrap-demo.md", false)
+	h.settle(func() bool {
+		v := h.a.focus.diffs[key]
+		return v != nil && v.state != nil
+	})
+	v := h.a.focus.diffs[key]
+	if language := v.state.New.Language(); language == nil || language.Name != "Markdown" {
+		t.Fatalf("diff new-buffer language = %v, want Markdown", language)
+	}
+	if !v.state.Wrap {
+		t.Fatal("Working Copy Markdown diff did not use the enabled language override")
+	}
+}
+
 func TestLanguageSoftWrapSettingsUpdateOpenEditors(t *testing.T) {
 	root := t.TempDir()
 	for _, name := range []string{"README.md", "main.go"} {

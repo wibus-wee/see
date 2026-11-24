@@ -175,9 +175,9 @@ func (a *App) setGitChangeView(v *gitDiffTab, view gitChangeView, hunk int) {
 	}
 	v.patch, v.partial, v.untracked = view.file, view.partial, view.untracked
 	v.state.LineSelection = v.partial != nil
-	a.applyDiffPrefs(v.state)
 	v.state.SetSelectedLines(editor.DiffLineRange{}, false)
 	setPatch(v.state, v.patch)
+	a.applyDiffPrefs(v.state)
 	v.state.GoToHunk(max(0, min(hunk, len(v.state.Hunks())-1)))
 }
 
