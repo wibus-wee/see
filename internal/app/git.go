@@ -1105,7 +1105,7 @@ func (a *App) commitBar(c *ui.Context, staged int, conflicted bool) {
 		ui.Row(c).FillWidth().Height(34).Padding(0, sidebarInset).Gap(6).AlignItems(ui.Center).Children(func() {
 			in := ui.TextInput(c.Key("git-commit-message"), &a.git.message).Placeholder(placeholder).Label(locales.MsgCommitMessage()).
 				FontSize(gitSidebarRowLabelSize).Grow(1).Shrink(1).MinWidth(0).Height(gitSidebarComposerHeight).
-				Radius(4).Background(colors(c).Pill).Border(1, colors(c).Separator).Padding(0, 8)
+				Radius(14).Background(colors(c).Pill).Border(1, colors(c).Separator).Padding(0, 8)
 			if in.Submitted() {
 				commit()
 			}
