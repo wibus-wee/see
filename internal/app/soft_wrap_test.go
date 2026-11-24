@@ -3,6 +3,7 @@ package app
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"github.com/egoist/mygo/ui"
@@ -185,26 +186,43 @@ func TestLanguageSoftWrapSettingsUpdateOpenEditors(t *testing.T) {
 	}
 	h.a.settings.pane = "editor"
 	settings := ui.NewTester(h.a.settingsView, 900, 680)
-	click := func(label string) {
+	// clickSegment presses the segment of a language's Wrap Lines row,
+	// scrolling the list to bring the row into view first.
+	clickSegment := func(language, segment string) {
 		t.Helper()
-		if err := settings.Click(label); err != nil {
-			t.Fatalf("click %q: %v", label, err)
+		const groupName = "Wrap Lines: "
+		languages := softWrapLanguageNames()
+		row := slices.Index(languages, language)
+		if row < 0 {
+			t.Fatalf("unknown language %q", language)
 		}
+		// Scroll the list to the row, then find its segments in the access
+		// tree by their bounds inside the row's radio group.
+		h.a.settings.softWrapList.ScrollTo(row, ui.Center)
 		settings.Frame()
 		h.tt.Frame()
-	}
-	openLanguageMenu := func() {
-		t.Helper()
-		control, ok := settings.AccessByRole(ui.RolePopUpButton, "Language")
+		group, ok := settings.AccessByRole(ui.RoleRadioGroup, groupName+language)
 		if !ok {
-			t.Fatal("language selector not found")
+			t.Fatalf("wrap row for %q not found", language)
 		}
-		settings.ClickAt(control.Bounds.X+control.Bounds.W/2, control.Bounds.Y+control.Bounds.H/2)
+		var target ui.AccessInfo
+		found := false
+		for _, a := range settings.AccessAll() {
+			if a.Role != ui.RoleRadio || a.Name != segment || found {
+				continue
+			}
+			if a.Bounds.X >= group.Bounds.X && a.Bounds.Y >= group.Bounds.Y &&
+				a.Bounds.X+a.Bounds.W <= group.Bounds.X+group.Bounds.W &&
+				a.Bounds.Y+a.Bounds.H <= group.Bounds.Y+group.Bounds.H {
+				target, found = a, true
+			}
+		}
+		if !found {
+			t.Fatalf("segment %q of %q's wrap row not found", segment, language)
+		}
+		settings.ClickAt(target.Bounds.X+target.Bounds.W/2, target.Bounds.Y+target.Bounds.H/2)
 		settings.Frame()
 		h.tt.Frame()
-		if !settings.HasText("Go") {
-			t.Fatal("language selector did not open its options")
-		}
 	}
 	toggleGlobalWrap := func() {
 		t.Helper()
@@ -225,7 +243,7 @@ func TestLanguageSoftWrapSettingsUpdateOpenEditors(t *testing.T) {
 	}
 	assertWraps(false, false)
 
-	click("Wrap")
+	clickSegment("Markdown", "Wrap")
 	if got, ok := h.a.cfg.SoftWrapByLanguage["Markdown"]; !ok || !got {
 		t.Fatalf("Markdown Wrap override = %v, present %v; want true, present", got, ok)
 	}
@@ -237,18 +255,13 @@ func TestLanguageSoftWrapSettingsUpdateOpenEditors(t *testing.T) {
 	}
 	assertWraps(true, true)
 
-	openLanguageMenu()
-	click("Go")
-	if h.a.settings.softWrapLanguage != "Go" {
-		t.Fatalf("selected language = %q, want Go", h.a.settings.softWrapLanguage)
-	}
-	click("Don't Wrap")
+	clickSegment("Go", "Don't Wrap")
 	if got, ok := h.a.cfg.SoftWrapByLanguage["Go"]; !ok || got {
 		t.Fatalf("Go Don't Wrap override = %v, present %v; want false, present", got, ok)
 	}
 	assertWraps(true, false)
 
-	click("Default")
+	clickSegment("Go", "Default")
 	if _, ok := h.a.cfg.SoftWrapByLanguage["Go"]; ok {
 		t.Fatal("Default did not remove the Go override")
 	}

@@ -77,8 +77,7 @@ type settingsState struct {
 	fontSize            float64
 	termFontSize        float64
 	lineNumbers         int
-	softWrapLanguages   []string
-	softWrapLanguage    string
+	softWrapList        ui.ListState
 	serverInstall       string
 	appearance          int
 	languageChoice      int
@@ -677,6 +676,39 @@ func documentLanguageName(buf *editor.Buffer) string {
 	return buf.Language().Name
 }
 
+// languageWrapRow is a language's row of the soft wrap list: its name,
+// then whether it wraps as the global setting says, always, or never.
+func (a *App) languageWrapRow(item ui.ListRow, language string) {
+	c := item.Context
+	mode := 0
+	if wrap, ok := a.cfg.SoftWrapByLanguage[language]; ok {
+		if wrap {
+			mode = 1
+		} else {
+			mode = 2
+		}
+	}
+	ui.Row(c).FillWidth().MinHeight(32).Padding(3, 14).Gap(12).AlignItems(ui.Center).Children(func() {
+		ui.Text(c, language).Grow(1).Shrink(1).SingleLine().Ellipsis("\u2026").MinWidth(0)
+		if ui.Segmented(c, &mode,
+			locales.Catalog.Format(i18n.Locale(), "msgWrapDefault", nil),
+			locales.Catalog.Format(i18n.Locale(), "msgWrapEnabled", nil),
+			locales.Catalog.Format(i18n.Locale(), "msgWrapDisabled", nil),
+		).Label(locales.MsgWrapLines() + ": " + language).Changed() {
+			if mode == 0 {
+				delete(a.cfg.SoftWrapByLanguage, language)
+			} else {
+				if a.cfg.SoftWrapByLanguage == nil {
+					a.cfg.SoftWrapByLanguage = make(map[string]bool)
+				}
+				a.cfg.SoftWrapByLanguage[language] = mode == 1
+			}
+			a.applyEditorPrefsAll()
+			a.settingsChanged()
+		}
+	})
+}
+
 func (a *App) editorPane(c *ui.Context) {
 	s := &a.settings
 	a.initFontValues()
@@ -718,47 +750,15 @@ func (a *App) editorPane(c *ui.Context) {
 			}
 		},
 	)
-	if len(s.softWrapLanguages) == 0 {
-		s.softWrapLanguages = softWrapLanguageNames()
-		s.softWrapLanguage = "Markdown"
-	}
-	if !slices.Contains(s.softWrapLanguages, s.softWrapLanguage) {
-		s.softWrapLanguage = s.softWrapLanguages[0]
-	}
 	heading(c, locales.Catalog.Format(i18n.Locale(), "msgWrapLinesByLanguage", nil))
-	card(c,
-		func() {
-			labeled(c, locales.Language(), locales.Catalog.Format(i18n.Locale(), "msgLanguageSoftWrapDescription", nil))
-			ui.Select(c, &s.softWrapLanguage, s.softWrapLanguages).Label(locales.Language()).Width(180)
-		},
-		func() {
-			mode := 0
-			if wrap, ok := a.cfg.SoftWrapByLanguage[s.softWrapLanguage]; ok {
-				if wrap {
-					mode = 1
-				} else {
-					mode = 2
-				}
-			}
-			labeled(c, locales.MsgWrapLines(), locales.Catalog.Format(i18n.Locale(), "msgLanguageSoftWrapOverrideDescription", nil))
-			if ui.Segmented(c, &mode,
-				locales.Catalog.Format(i18n.Locale(), "msgWrapDefault", nil),
-				locales.Catalog.Format(i18n.Locale(), "msgWrapEnabled", nil),
-				locales.Catalog.Format(i18n.Locale(), "msgWrapDisabled", nil),
-			).Label(locales.MsgWrapLines()).Changed() {
-				if mode == 0 {
-					delete(a.cfg.SoftWrapByLanguage, s.softWrapLanguage)
-				} else {
-					if a.cfg.SoftWrapByLanguage == nil {
-						a.cfg.SoftWrapByLanguage = make(map[string]bool)
-					}
-					a.cfg.SoftWrapByLanguage[s.softWrapLanguage] = mode == 1
-				}
-				a.applyEditorPrefsAll()
-				a.settingsChanged()
-			}
-		},
-	)
+	ui.Text(c, locales.Catalog.Format(i18n.Locale(), "msgLanguageSoftWrapDescription", nil)).FontSize(12).TextColor(theme.Of(c).Muted).Padding(0, 4, 0, 4)
+	languages := softWrapLanguageNames()
+	list := ui.Column(c).FillWidth().MaxHeight(280).Radius(12).Background(theme.Of(c).Card)
+	list.Children(func() {
+		ui.List(c, &s.softWrapList, len(languages)).ItemKey(func(i int) any { return languages[i] }).Grow(1).FillWidth().Label(locales.Catalog.Format(i18n.Locale(), "msgWrapLinesByLanguage", nil)).Rows(func(item ui.ListRow) {
+			a.languageWrapRow(item, languages[item.Index])
+		})
+	})
 	heading(c, locales.MsgTypography())
 	a.fontPreview(c, false)
 	card(c,
