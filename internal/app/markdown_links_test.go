@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"testing"
 
@@ -200,12 +201,36 @@ func TestMarkdownPreviewOnLinkRejectsUnsafe(t *testing.T) {
 	if got := h.tt.OpenedURLs(); len(got) != 0 {
 		t.Fatalf("unsafe destinations opened %q", got)
 	}
+}
 
-	// A file URI of another host goes to the system, as a remote file.
-	h.a.openMarkdownLink(d, o, "file://host/share/x")
-	if got := h.tt.OpenedURLs(); !slices.Equal(got, []string{"file://host/share/x"}) {
+func TestMarkdownPreviewOnLinkRemoteFileURI(t *testing.T) {
+	h, d := markdownLinkHarness(t, map[string]string{"README.md": "x\n"})
+	// A file URI of another host is a UNC path on Windows, which
+	// uri.ToPath resolves to a local path and opens as a document; on
+	// other platforms it is a remote file and goes to the system.
+	h.a.openMarkdownLink(d, &markdown.Options{}, "file://host/share/x")
+	if runtime.GOOS == "windows" {
+		h.settle(func() bool {
+			return h.a.docs[`\\host\share\x`] != nil
+		})
+	} else if got := h.tt.OpenedURLs(); !slices.Equal(got, []string{"file://host/share/x"}) {
 		t.Fatalf("opened %q", got)
 	}
+}
+
+func TestMarkdownPreviewOnLinkDriveLetter(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("c:/x.md opens as an absolute path, covered by CI")
+	}
+	// A Windows drive letter parses as a one-letter scheme; on POSIX it
+	// resolves relative to the document's directory, as a bare path.
+	h, d := markdownLinkHarness(t, map[string]string{
+		"README.md": "x\n",
+		"c:/x.md":   "y\n",
+	})
+	h.a.openMarkdownLink(d, &markdown.Options{}, "c:/x.md")
+	target := filepath.Join(filepath.Dir(d.path), "c:", "x.md")
+	h.settle(func() bool { return h.a.docs[target] != nil })
 }
 
 func TestMarkdownLinkServerStaysDominant(t *testing.T) {

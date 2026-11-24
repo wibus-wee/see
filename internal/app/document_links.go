@@ -303,10 +303,12 @@ func (a *App) followDocLink(d *doc, target string) {
 	if err != nil {
 		return
 	}
-	// A Windows path parses as a one-letter scheme, c:/x.md's scheme c
-	// and opaque /x.md; it is a local path, not a URI of another scheme.
-	if len(u.Scheme) == 1 && u.Opaque != "" {
-		u.Path, u.Scheme, u.Opaque = u.Scheme+":"+u.Opaque, "", ""
+	// A Windows path parses as a one-letter scheme: c:/x.md as scheme c
+	// and path /x.md, c:x.md as scheme c and opaque x.md. It is a local
+	// path, not a URI of another scheme.
+	if len(u.Scheme) == 1 {
+		u.Path, u.Scheme = u.Scheme+":"+u.Opaque+u.Path, ""
+		u.Opaque = ""
 	}
 	switch u.Scheme {
 	case "http", "https":
@@ -332,7 +334,17 @@ func (a *App) followDocLink(d *doc, target string) {
 				if err != nil {
 					return
 				}
-				path = filepath.Clean(filepath.Join(filepath.Dir(d.path), p))
+				// A POSIX root in a file URI is a Windows drive, as
+				// file:///c:/x.md's /c:/x.md; other POSIX roots are
+				// absolute paths already.
+				if len(p) >= 3 && p[0] == '/' && p[2] == ':' && filepath.Separator == '\\' {
+					p = p[1:]
+				}
+				path = p
+				if !filepath.IsAbs(path) {
+					path = filepath.Join(filepath.Dir(d.path), path)
+				}
+				path = filepath.Clean(path)
 			}
 		}
 		// A link can carry a position, as file:///x.go#L12 or #L12:8, or
