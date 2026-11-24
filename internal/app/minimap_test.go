@@ -38,9 +38,29 @@ func minimapReady(h *harness, g *group, d *doc) *minimap {
 	h.settle(func() bool {
 		h.tt.Frame()
 		m = g.minimaps[d.path]
-		return m != nil && m.bmp != nil && !m.busy && m.version == d.buf.Version()
+		return m != nil && m.bmp != nil && !m.busy && m.version == d.buf.Version() && m.language == d.buf.Language()
 	})
 	return m
+}
+
+func TestMinimapRendersAfterLanguageChanges(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "README.md"), []byte(strings.Repeat("# Heading\nSome text.\n\n", 300)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	h := newHarness(t, root)
+	d := h.open("README.md")
+	g := h.a.focus
+	m := minimapReady(h, g, d)
+	if m.language != d.buf.Language() {
+		t.Fatalf("minimap language = %v, want %v", m.language, d.buf.Language())
+	}
+
+	h.a.selectDocumentLanguage(d, nil)
+	m = minimapReady(h, g, d)
+	if m.language != nil {
+		t.Fatalf("minimap language after switching to plain text = %v, want nil", m.language)
+	}
 }
 
 func TestMinimapScrollsLargeFile(t *testing.T) {

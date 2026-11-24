@@ -39,10 +39,10 @@ func (a *App) stashBar(c *ui.Context) {
 			a.endStash()
 		})
 	}
-	ui.Row(c).Shrink(0).FillWidth().Padding(0, sidebarInset, 6, sidebarInset).Children(func() {
-		ui.Row(c).FillWidth().Height(28).Radius(14).Background(colors(c).Pill).Padding(0, 3, 0, gitSidebarTextOffset).Gap(2).AlignItems(ui.Center).Children(func() {
+	ui.Row(c).Shrink(0).FillWidth().Padding(gitSidebarEmptyInset, sidebarInset).Children(func() {
+		ui.Row(c).FillWidth().Height(gitSidebarComposerHeight).Radius(4).Background(colors(c).Pill).Padding(0, 3, 0, gitSidebarTextOffset).Gap(2).AlignItems(ui.Center).Children(func() {
 			in := ui.TextInput(c.Key("git-stash-message"), &a.git.stashMessage).Placeholder("Stash Message (Optional)").Label("Stash Message").
-				FontSize(12).Grow(1).Background(ui.Transparent).BorderWidth(0).Padding(0).AutoFocus()
+				FontSize(gitSidebarRowLabelSize).Grow(1).Background(ui.Transparent).BorderWidth(0).Padding(0).AutoFocus()
 			switch {
 			case in.Submitted():
 				stash()
@@ -71,7 +71,7 @@ func (a *App) stashRows(c *ui.Context) {
 	if len(a.git.stashes) == 0 {
 		return
 	}
-	a.gitSectionHeader(c, "Stashed Changes", len(a.git.stashes), &a.git.stashesClosed, func() {})
+	a.gitCompactSectionHeader(c, "Stashed Changes", len(a.git.stashes), &a.git.stashesClosed, func() {})
 	if a.git.stashesClosed {
 		return
 	}
@@ -82,7 +82,8 @@ func (a *App) stashRows(c *ui.Context) {
 }
 
 func (a *App) stashRow(c *ui.Context, s git.Stash, now time.Time) {
-	row := ui.Row(c.Key("stash:"+s.EntryKey())).FillWidth().Margin(1, 0).Padding(1, sidebarInset).Gap(2).Radius(4).AlignItems(ui.Center)
+	row := ui.Row(c.Key("stash:"+s.EntryKey())).FillWidth().Height(gitSidebarRowHeight).
+		Padding(0, sidebarInset+gitSidebarTreeIndent).Radius(4).AlignItems(ui.Center)
 	hovered := row.Hovered()
 	if a.focus.active == commitTab(s.Hash) {
 		row.Background(colors(c).SelectedRow)
@@ -110,29 +111,32 @@ func (a *App) stashRow(c *ui.Context, s git.Stash, now time.Time) {
 		}
 	})
 	row.Children(func() {
-		b := ui.ButtonBase(c).Label("Stash: "+s.Message).Tooltip(s.Ref()+" · "+s.Message).Grow(1).Shrink(1).MinWidth(0).Padding(4, 0).Radius(4)
+		detail := s.Ref()
+		if s.Branch != "" {
+			detail += " · " + s.Branch
+		}
+		detail += " · " + relativeTime(s.Date, now)
+		b := ui.ButtonBase(c).Label("Stash: " + s.Message).Tooltip(s.Message + " · " + detail).Description(detail).
+			Grow(1).Shrink(1).MinWidth(0).Padding(0).Radius(4)
 		b.Children(func() {
 			ui.Row(c).FillWidth().Gap(gitSidebarColumnGap).AlignItems(ui.Center).Children(func() {
 				symbolIcon(c, icStash, gitSidebarIconColumn, colors(c).Muted)
-				ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Gap(1).Children(func() {
-					ui.Text(c, s.Message).FontSize(12).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
-					detail := relativeTime(s.Date, now)
-					if s.Branch != "" {
-						detail = s.Branch + " · " + detail
-					}
-					ui.Text(c, detail).FontSize(11).TextColor(colors(c).Muted).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
-				})
+				ui.Text(c, s.Message).FontSize(gitSidebarRowLabelSize).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 			})
 		})
 		b.OnClick(func() { a.openStash(s) })
-		if hovered {
-			if glyphButton(c, icStash, "Apply stash "+s.Message, "Apply Stashed Changes", false, a.git.busy).Clicked() {
-				a.applyStash(s, false)
+		ui.Box(c).Width(gitSidebarStashActionWidth).Height(gitSidebarRowHeight).Shrink(0).Children(func() {
+			if hovered {
+				ui.Row(c).FillWidth().Height(gitSidebarRowHeight).Gap(2).AlignItems(ui.Center).Children(func() {
+					if glyphButton(c, icStash, "Apply stash "+s.Message, "Apply Stashed Changes", false, a.git.busy).Clicked() {
+						a.applyStash(s, false)
+					}
+					if glyphButton(c, icTrash, "Drop stash "+s.Message, "Drop Stash…", false, a.git.busy).Clicked() {
+						a.dropStash(s)
+					}
+				})
 			}
-			if glyphButton(c, icTrash, "Drop stash "+s.Message, "Drop Stash…", false, a.git.busy).Clicked() {
-				a.dropStash(s)
-			}
-		}
+		})
 	})
 }
 

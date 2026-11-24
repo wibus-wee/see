@@ -192,6 +192,7 @@ type App struct {
 
 	hover         hoverState
 	signature     signatureState
+	completions   map[int]*completionState
 	task          *taskRun
 	taskList      ui.ListState
 	term          termPanel
@@ -228,7 +229,7 @@ type App struct {
 	standaloneSessionDocs map[string]struct{} // recovery entries this window owns in the shared empty-root session
 	discardedSessionDocs  map[string]struct{} // documents approved for discard until their workspace is gone
 	theme                 *ui.Theme
-	modifiers             ui.Modifiers // keyboard modifiers held this frame
+	modifiers             ui.Modifiers  // keyboard modifiers held this frame
 	edTheme               *editor.Theme // a stable object: applyAppearance replaces its contents
 	themeDark             bool
 	themeAccent           ui.Color
@@ -324,6 +325,11 @@ type doc struct {
 	baseLang          *editor.Language
 	wrappedLang       *editor.Language
 	wrappedFold       bool // wrappedLang folds by the server's ranges
+	manualLanguage    *editor.Language
+	languageManual    bool
+	detectedVersion   uint64
+	detectedName      string
+	languageChecked   bool
 	localHistoryTimer *time.Timer
 	localHistoryVer   uint64
 	localHistorySaved time.Time
@@ -1216,13 +1222,6 @@ func (a *App) loaded(d *doc, f workspace.File, buf *editor.Buffer, same bool, er
 			}
 		}
 		d.buf.Reset(f.Text)
-		if !f.Plain {
-			oldLanguage := documentLanguageName(d.buf)
-			d.buf.SetLanguage(languageFor(d.name, f.Text))
-			if documentLanguageName(d.buf) != oldLanguage {
-				a.applyEditorPrefsAll()
-			}
-		}
 		for st, p := range places {
 			st.GoTo(clampPos(d.buf, p.pos))
 			st.SetScrollY(p.y)
@@ -1231,6 +1230,7 @@ func (a *App) loaded(d *doc, f workspace.File, buf *editor.Buffer, same bool, er
 			m.Changed(d.uri, d.buf.Snapshot())
 		}
 	}
+	a.setDocumentLanguage(d)
 	a.captureLoadedLocalHistory(d, f.Text)
 	for _, g := range a.groups() {
 		a.showLoaded(g, d)
@@ -1300,6 +1300,7 @@ func (a *App) newEditor(g *group, d *doc) *editor.State {
 		st.SetDiagnostics(d.diagnosticVersion, d.diagnostics)
 	}
 	st.OnDefinition = func(offset int) { a.goToDefinition(g, d, offset) }
+	st.OnCompletion = func(req editor.CompletionRequest) { a.requestCompletions(g, d, st, req) }
 	st.NoDefinitionLink = true // hover.go draws the Cmd link once the server confirms a definition
 	a.loadGitBase(d)
 	st.ContextMenu = func(menu *ui.Menu) {

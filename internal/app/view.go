@@ -11,6 +11,13 @@ import (
 	"github.com/egoist/mygo/ui/editor"
 )
 
+func (a *App) visibleSidebarWidth() float32 {
+	if a.navigator == navGit {
+		return max(a.sidebarW, gitSidebarMinimumWidth)
+	}
+	return a.sidebarW
+}
+
 // editorBindings take from the editor the keys that are the app's.
 func editorBindings() []editor.Binding {
 	none := func(m ui.Modifiers, k ui.Key) editor.Binding {
@@ -158,8 +165,11 @@ func (a *App) view(c *ui.Context) {
 				a.editorArea(c)
 				return
 			}
-			shownWidth := a.sidebarW * progress
+			shownWidth := a.visibleSidebarWidth() * progress
 			if ui.Split(c, &shownWidth, func() { a.navigatorPane(c, vibrant) }, func() { a.editorArea(c) }).Grow(1).FillHeight().Changed() && !a.sidebarOff && progress == 1 {
+				if a.navigator == navGit {
+					shownWidth = max(shownWidth, gitSidebarMinimumWidth)
+				}
 				// Changed holds for every frame of a drag: save once it stops.
 				a.sidebarW = shownWidth
 				a.cfg.SidebarWidth = a.sidebarW
@@ -262,6 +272,13 @@ func (a *App) shortcuts(c *ui.Context) {
 	if st := a.quickHelp; st != nil {
 		c.OnShortcut(0, ui.KeyEscape, func() { a.dismissQuickHelp(st) })
 	} else if c.Shortcut(0, ui.KeyEscape) {
+		if g := a.focus; g != nil {
+			cs := a.completionFor(g)
+			if cs.visible || cs.cancel != nil {
+				a.cancelCompletions(g, g.eds[g.active])
+				return
+			}
+		}
 		pendingScopeRequest := a.scopeCancel != nil
 		hasChoices := a.choices != nil
 		hasPeek := a.git.peek != nil

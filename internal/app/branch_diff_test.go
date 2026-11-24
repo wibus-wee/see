@@ -60,7 +60,10 @@ func TestBranchDiffPickerAndTabs(t *testing.T) {
 		}
 		return b.String()
 	}
-	baseFiles := map[string]string{"a.txt": lines("base-a"), "b.txt": lines("base-b"), "c.txt": lines("base-c")}
+	baseFiles := map[string]string{
+		"a.txt": lines("base-a"), "b.txt": lines("base-b"), "c.txt": lines("base-c"),
+		"main.go": lines("base-main"), "main_test.go": lines("base-test"), "README.md": lines("base-readme"),
+	}
 	for i := range 18 {
 		baseFiles[fmt.Sprintf("z-%02d.txt", i)] = lines(fmt.Sprintf("base-z-%02d", i))
 	}
@@ -115,9 +118,15 @@ func TestBranchDiffPickerAndTabs(t *testing.T) {
 	if h.tt.HasText("Stage All Changes") || h.tt.HasText("Unstage All Changes") {
 		t.Fatalf("comparison mode exposes staging controls: %v", h.tt.Texts())
 	}
-
-	if err := h.tt.Click(logText("gitKindDocs")); err != nil {
-		t.Fatal(err)
+	for _, name := range []string{"main.go", "main_test.go", "README.md"} {
+		if !h.tt.HasText(name) {
+			t.Fatalf("flat comparison list is missing %s: %q", name, h.tt.Texts())
+		}
+	}
+	for _, group := range []string{logText("gitKindTests"), logText("gitKindDocs"), logText("gitKindGenerated")} {
+		if h.tt.HasText(group) {
+			t.Fatalf("semantic file group %q remains in %q", group, h.tt.Texts())
+		}
 	}
 	if err := h.tt.Click("zz-target.txt"); err != nil {
 		t.Fatal(err)
@@ -477,5 +486,96 @@ func TestBranchDiffBinaryIndicatorWithoutEncodedBlob(t *testing.T) {
 	h.tt.Frame()
 	if !h.tt.HasText("Binary file diff is not shown.") || h.tt.HasText("GIT binary patch") {
 		t.Fatalf("binary diff content = %v", h.tt.Texts())
+	}
+}
+
+func TestBranchDiffRowsPrioritizeBasenamesOverPaths(t *testing.T) {
+	const nestedPath = "packages/web/src/features/conversations/components/MessageHistoryPanel.tsx"
+	const longBasename = "ExtremelyLongGeneratedStateMachineSidebarAvailabilityControllerConfiguration.tsx"
+	const longPath = "packages/generated/" + longBasename
+	paths := []string{nestedPath, longPath}
+	baseContent := strings.Repeat("base line\n", 750)
+	headContent := strings.Repeat("head line\n", 596)
+	root := gitRepo(t, map[string]string{nestedPath: baseContent, longPath: "base\n"}, "base")
+	writeFile(t, root, nestedPath, headContent)
+	writeFile(t, root, longPath, "head\n")
+	gitRun(t, root, "add", "--all")
+	gitRun(t, root, "commit", "-qm", "head changes")
+	writeFile(t, root, "working-only.txt", "uncommitted\n")
+
+	h := newHarness(t, root)
+	h.readGit()
+	h.a.navigator, h.a.git.historyClosed = navGit, true
+	h.a.sidebarW = 420
+	h.tt.SetSize(harnessWidth, 800)
+	h.tt.Advance(300 * time.Millisecond)
+	h.tt.Frame()
+	if err := h.tt.Click("Uncommitted"); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.tt.Click("Compare Against Base"); err != nil {
+		t.Fatal(err)
+	}
+	h.settle(func() bool { return !h.a.git.picker.loading })
+	h.tt.Type("base")
+	h.tt.Frame()
+	h.tt.Key(0, ui.KeyEnter)
+	h.tt.Frame()
+	v := settleBranchDiff(t, h)
+	for _, f := range v.files {
+		if f.Path == nestedPath && (f.Added != 596 || f.Deleted != 750) {
+			t.Fatalf("comparison stats for %q = +%d/-%d, want +596/-750", nestedPath, f.Added, f.Deleted)
+		}
+	}
+	if !h.tt.HasText("+596") || !h.tt.HasText("−750") {
+		t.Fatalf("comparison row does not show the fixed +596/-750 counts: %q", h.tt.Texts())
+	}
+	h.a.sidebarW = 800
+	h.tt.Frame()
+	naturalWidths := map[string]float32{}
+	for _, path := range paths {
+		naturalWidths[path] = filenameBounds(t, h.tt, path).W
+	}
+	naturalPathWidth := directoryBounds(t, h.tt, nestedPath).W
+	for _, width := range []float32{420, gitSidebarMinimumWidth} {
+		h.a.sidebarW = width
+		h.tt.Frame()
+		assertBasenameUsesAvailableWidth(t, h.tt, nestedPath, "", naturalWidths[nestedPath], branchDiffTextAreaWidth(t, h.tt, nestedPath, "+596"))
+		assertBasenameUsesAvailableWidth(t, h.tt, longPath, "", naturalWidths[longPath], branchDiffTextAreaWidth(t, h.tt, longPath, "+1"))
+		for _, path := range paths {
+			accessible := false
+			for _, access := range h.tt.AccessAll() {
+				if strings.Contains(access.Name, path) {
+					accessible = true
+					break
+				}
+			}
+			if !accessible {
+				t.Fatalf("full path %q is missing from accessible names: %+v", path, h.tt.AccessAll())
+			}
+		}
+		if width == 420 && directoryBounds(t, h.tt, nestedPath).W >= naturalPathWidth-1 {
+			t.Fatalf("directory path did not give space back to the basename at normal width: natural %.1f, current %.1f", naturalPathWidth, directoryBounds(t, h.tt, nestedPath).W)
+		}
+	}
+	h.a.sidebarW = 420
+	h.tt.Frame()
+	row, ok := h.tt.Find(nestedPath)
+	if !ok {
+		t.Fatalf("comparison row %q is not visible: %q", nestedPath, h.tt.Texts())
+	}
+	h.tt.Move(row.X+row.W/2, row.Y+row.H/2)
+	h.tt.Advance(time.Second)
+	if !h.tt.HasText(branchDiffRowTooltip(nestedPath, "")) {
+		t.Fatalf("comparison row tooltip does not include its full path and Read-only text: %q", h.tt.Texts())
+	}
+}
+
+func TestBranchDiffRowTooltipIncludesRenamePaths(t *testing.T) {
+	const oldPath = "packages/web/src/features/conversations/OldMessageHistoryPanel.tsx"
+	const newPath = "packages/web/src/features/conversations/MessageHistoryPanel.tsx"
+	want := branchDiffText("gitReadOnly") + ": " + oldPath + " → " + newPath
+	if got := branchDiffRowTooltip(newPath, oldPath); got != want {
+		t.Fatalf("rename tooltip = %q, want %q", got, want)
 	}
 }

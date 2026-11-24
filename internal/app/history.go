@@ -184,12 +184,25 @@ func (a *App) gitHistoryHeader(c *ui.Context) {
 // VS Code's views': an arrow and its title, which a click folds and
 // unfolds, a count when not negative, and actions at its end.
 func (a *App) gitSectionHeader(c *ui.Context, title string, count int, closed *bool, actions func()) {
-	ui.Row(c.Key(title)).Shrink(0).FillWidth().Height(28).Padding(0, sidebarInset, 0, sidebarInset).Gap(2).AlignItems(ui.Center).Children(func() {
+	a.gitSectionHeaderStyle(c, title, count, closed, actions, true)
+}
+
+func (a *App) gitCompactSectionHeader(c *ui.Context, title string, count int, closed *bool, actions func()) {
+	a.gitSectionHeaderStyle(c, title, count, closed, actions, false)
+}
+
+func (a *App) gitSectionHeaderStyle(c *ui.Context, title string, count int, closed *bool, actions func(), main bool) {
+	height, inset := float32(gitSidebarGroupHeaderHeight), float32(sidebarInset+gitSidebarTreeIndent)
+	if main {
+		height, inset = float32(gitSidebarMainHeaderHeight), float32(sidebarInset)
+	}
+	ui.Row(c.Key(title)).Shrink(0).FillWidth().Height(height).Padding(0, inset).Gap(2).AlignItems(ui.Center).Children(func() {
 		tip := "Hide " + title
 		if *closed {
 			tip = "Show " + title
 		}
-		b := ui.ButtonBase(c).Label(title).Tooltip(tip).Padding(2, 6, 2, 0).Radius(5).Gap(gitSidebarColumnGap).AlignItems(ui.Center).KeepFocus()
+		b := ui.ButtonBase(c).Label(title).Tooltip(tip).Padding(0, 4, 0, 0).Radius(4).Gap(gitSidebarColumnGap).
+			AlignItems(ui.Center).MinWidth(0).Shrink(1).KeepFocus()
 		if b.Hovered() {
 			b.Background(colors(c).Pill)
 		}
@@ -207,12 +220,14 @@ func (a *App) gitSectionHeader(c *ui.Context, title string, count int, closed *b
 			ui.Box(c).Size(gitSidebarIconColumn, 12).Shrink(0).Center().Children(func() {
 				symbolIcon(c, icChevron, 9, colors(c).Dim).Rotate(turn)
 			})
-			ui.Text(c, title).FontSize(12).Bold().SingleLine()
-			if count > 0 {
-				ui.Text(c, fmt.Sprint(count)).FontSize(11).TextColor(colors(c).Dim).SingleLine()
+			if main {
+				gitSidebarMainLabel(c, title)
+			} else {
+				gitSidebarGroupLabel(c, title)
 			}
+			gitSidebarCount(c, count)
 		})
-		ui.Box(c).Grow(1)
+		ui.Box(c).Grow(1).MinWidth(0).Shrink(1)
 		actions()
 	})
 }

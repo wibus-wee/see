@@ -29,7 +29,7 @@ func (a *App) toolbar(c *ui.Context, sidebarProgress float32, vibrant bool) {
 	closedWidth := max(bar.Left, 8) + headerWidth
 	// Split places its one-point divider after the sidebar; include it in
 	// the header so both divider lines share the same x position.
-	width := closedWidth + (max(closedWidth, a.sidebarW+1)-closedWidth)*sidebarProgress
+	width := closedWidth + (max(closedWidth, a.visibleSidebarWidth()+1)-closedWidth)*sidebarProgress
 	windowWidth, _ := c.Size()
 	const quickWidth = 132
 	center := (width + windowWidth - bar.Right) / 2

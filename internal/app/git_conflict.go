@@ -35,7 +35,7 @@ func conflictTab(path string) string { return diffTabPrefix + "conflict:" + path
 func (a *App) gitConflictRow(c *ui.Context, ch git.Change) {
 	label := fmt.Sprintf(gitConflictText("gitResolveFile"), ch.Path)
 	row := ui.ButtonBase(c.Key(conflictTab(ch.Path))).Label(label).Tooltip(label).
-		FillWidth().Padding(4, sidebarInset+4).Radius(4)
+		FillWidth().Height(gitSidebarRowHeight).Padding(0, sidebarInset+gitSidebarTreeIndent).Radius(4)
 	if a.focus.active == conflictTab(ch.Path) {
 		row.Background(colors(c).SelectedRow)
 	} else if row.Hovered() {
@@ -44,13 +44,13 @@ func (a *App) gitConflictRow(c *ui.Context, ch git.Change) {
 	row.Children(func() {
 		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(6).Children(func() {
 			fileIcon(c, filepath.Base(ch.Path), 15)
-			ui.Text(c, filepath.Base(ch.Path)).FontSize(12).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
+			ui.Text(c, filepath.Base(ch.Path)).FontSize(gitSidebarRowLabelSize).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 			if dir := filepath.Dir(ch.Path); dir != "." {
-				ui.Text(c, filepath.ToSlash(dir)).FontSize(11).TextColor(colors(c).Muted).
+				ui.Text(c, filepath.ToSlash(dir)).FontSize(10).TextColor(colors(c).Muted).
 					SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(1)
 			}
 			ui.Box(c).Grow(1)
-			ui.Text(c, "!").FontSize(11).Bold().TextColor(a.gitStatusColor('!')).Padding(0, 3)
+			ui.Text(c, "!").FontSize(11).FontWeight(600).TextColor(a.gitStatusColor('!')).Padding(0, 3).Shrink(0)
 		})
 	})
 	row.OnClick(func() {

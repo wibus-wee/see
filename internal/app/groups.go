@@ -175,6 +175,9 @@ func (a *App) newGroup() *group {
 // resetLayout leaves one empty group.
 func (a *App) resetLayout() {
 	a.maximized = nil
+	for _, g := range a.groups() {
+		a.releaseCompletionGroup(g)
+	}
 	g := a.newGroup()
 	a.layout = &layout{g: g}
 	a.focus = g
@@ -208,6 +211,7 @@ func (a *App) removeGroup(g *group) {
 	if leaf == nil || leaf.parent == nil {
 		return
 	}
+	a.releaseCompletionGroup(g)
 	if a.maximized == g {
 		a.maximized = nil
 	}
@@ -502,6 +506,9 @@ func (a *App) closeTab(g *group, path string) {
 	g.mru = slices.DeleteFunc(g.mru, func(p string) bool { return p == path })
 	g.cycle = slices.DeleteFunc(g.cycle, func(p string) bool { return p == path })
 	if !g.hasDocument(docPath) {
+		if cs := a.completions[g.id]; cs != nil && cs.path == docPath {
+			a.cancelCompletions(g, cs.editor)
+		}
 		if d := a.docs[docPath]; d != nil && g.pin.requested.doc == d {
 			g.pin.cancelRequest()
 			g.pin = readingPin{seq: g.pin.seq + 1}
@@ -590,6 +597,9 @@ func (a *App) moveTab(from *group, path string, to *group, s side, at int) {
 		from.addTab(path, at)
 		a.activateIn(to, path)
 		return
+	}
+	if cs := a.completions[from.id]; cs != nil && cs.path == tabPath(path) {
+		a.cancelCompletions(from, cs.editor)
 	}
 	if isDiffTab(path) {
 		if to.diffs == nil {
@@ -694,6 +704,9 @@ func (a *App) moveTab(from *group, path string, to *group, s side, at int) {
 			}
 		} else {
 			to.eds[path] = ed
+		}
+		if d := a.docs[path]; d != nil {
+			ed.OnCompletion = func(req editor.CompletionRequest) { a.requestCompletions(to, d, ed, req) }
 		}
 	}
 	if hasPend {
