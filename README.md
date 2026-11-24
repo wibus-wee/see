@@ -2,6 +2,11 @@
 
 **See the code. Follow the idea.**
 
+[![Downloads](https://img.shields.io/github/downloads/wibus-wee/see/total?style=for-the-badge)](https://github.com/wibus-wee/see/releases)
+[![Latest release](https://img.shields.io/github/v/release/wibus-wee/see?style=for-the-badge)](https://github.com/wibus-wee/see/releases/latest)
+[![Tests](https://img.shields.io/github/actions/workflow/status/wibus-wee/see/test.yml?branch=main&style=for-the-badge&label=tests)](https://github.com/wibus-wee/see/actions/workflows/test.yml)
+[![Go version](https://img.shields.io/github/go-mod/go-version/wibus-wee/see?style=for-the-badge)](go.mod)
+
 See is a desktop app for reading source code. Open a folder and you get its tree, tabs, search, symbols, diffs, and a terminal in one window — written in Go and built with [MyGo](https://github.com/egoist/mygo), drawn natively, with no web view in the stack.
 
 
