@@ -155,6 +155,14 @@ func (a *App) applyEditorPrefsAll() {
 			}
 		}
 	}
+	if peek := a.git.peek; peek != nil {
+		if peek.diff != nil {
+			a.applyDiffPrefs(peek.diff)
+		}
+		if peek.filtered != nil {
+			a.applyDiffPrefs(peek.filtered)
+		}
+	}
 }
 
 func (a *App) applyDiffPrefs(diff *editor.DiffState) {

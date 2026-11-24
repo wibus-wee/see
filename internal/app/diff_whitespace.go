@@ -147,6 +147,7 @@ func (a *App) setDiffPatch(d *editor.DiffState, p editor.FilePatch, full bool) {
 		setPatch(d, p)
 	} else {
 		d.SetPatch(p)
+		setPatchLanguage(d, p)
 	}
 }
 

@@ -73,6 +73,101 @@ func TestWorkingCopyMarkdownDiffUsesLanguageSoftWrap(t *testing.T) {
 	}
 }
 
+func TestSavingUntitledDocumentRefreshesLanguageSoftWrap(t *testing.T) {
+	h := newHarness(t, "")
+	h.a.cfg.SoftWrap = false
+	h.a.cfg.SoftWrapByLanguage = map[string]bool{"Markdown": true}
+	h.a.newFile()
+	draft := h.a.docs[h.a.activePath()]
+	state := h.a.activeEditor()
+	if draft == nil || state == nil || state.SoftWrap {
+		t.Fatalf("untitled draft/state = %v/%v, initial wrapping = %v", draft, state != nil, state != nil && state.SoftWrap)
+	}
+	draft.buf.Set("long line")
+	destination := filepath.Join(t.TempDir(), "README.md")
+	h.host.newFile = func(string, string) (string, error) { return destination, nil }
+	h.a.saveActive()
+	h.settle(func() bool { return !draft.saving && !draft.untitled })
+	if language := draft.buf.Language(); language == nil || language.Name != "Markdown" {
+		t.Fatalf("saved document language = %v, want Markdown", language)
+	}
+	if h.a.focus.eds[draft.path] != state {
+		t.Fatal("saving untitled document replaced its editor state")
+	}
+	if !state.SoftWrap {
+		t.Fatal("saved Markdown editor did not use its enabled language override")
+	}
+}
+
+func TestWorkingCopyCMakeDiffUsesLanguageSoftWrap(t *testing.T) {
+	root := gitRepo(t, map[string]string{"CMakeLists.txt": "set(VALUE old)\n"})
+	writeFile(t, root, "CMakeLists.txt", "set(VALUE new)\n")
+	h := newHarness(t, root)
+	h.readGit()
+	h.a.cfg.SoftWrap = false
+	h.a.cfg.SoftWrapByLanguage = map[string]bool{"CMake": true}
+	if len(h.a.git.changes) != 1 || h.a.git.changes[0].Path != "CMakeLists.txt" {
+		t.Fatalf("working copy changes = %+v", h.a.git.changes)
+	}
+	h.a.showGitDiff(h.a.git.changes[0], false)
+	key := diffTab("CMakeLists.txt", false)
+	h.settle(func() bool {
+		v := h.a.focus.diffs[key]
+		return v != nil && v.state != nil
+	})
+	v := h.a.focus.diffs[key]
+	if language := v.state.New.Language(); language == nil || language.Name != "CMake" {
+		t.Fatalf("diff new-buffer language = %v, want CMake", language)
+	}
+	if !v.state.Wrap {
+		t.Fatal("Working Copy CMake diff did not use the enabled language override")
+	}
+}
+
+func TestGitPeekSoftWrapUpdatesForOpenPreview(t *testing.T) {
+	for _, hideWhitespace := range []bool{false, true} {
+		hideWhitespace := hideWhitespace
+		name := map[bool]string{false: "visible-whitespace", true: "hidden-whitespace"}[hideWhitespace]
+		t.Run(name, func(t *testing.T) {
+			root := gitRepo(t, map[string]string{"README.md": "old line\n"})
+			writeFile(t, root, "README.md", "new line\n")
+			h := newHarness(t, root)
+			h.readGit()
+			h.a.cfg.HideWhitespaceChanges = hideWhitespace
+			h.a.cfg.SoftWrap = false
+			h.a.cfg.SoftWrapByLanguage = map[string]bool{"Markdown": false}
+			d := h.open("README.md")
+			h.settle(func() bool {
+				state := h.a.focus.eds[d.path]
+				return d.gitChanges != nil && state != nil && state.DiffBase != nil
+			})
+			state := h.a.focus.eds[d.path]
+			h.a.showGitPeek(h.a.focus, d, state, 0)
+			peek := h.a.git.peek
+			if peek == nil {
+				t.Fatal("Git change preview did not open")
+			}
+			if hideWhitespace {
+				filtered, visible := h.a.gitPeekDiff(peek, state)
+				if !visible || filtered == nil {
+					t.Fatal("filtered Git preview was not created")
+				}
+			}
+			h.a.cfg.SoftWrapByLanguage["Markdown"] = true
+			h.a.applyEditorPrefsAll()
+			if !state.SoftWrap {
+				t.Error("open editor did not pick up the enabled Markdown override")
+			}
+			if !peek.diff.Wrap {
+				t.Error("open Git preview did not pick up the enabled Markdown override")
+			}
+			if hideWhitespace && !peek.filtered.Wrap {
+				t.Error("cached filtered Git preview did not pick up the enabled Markdown override")
+			}
+		})
+	}
+}
+
 func TestLanguageSoftWrapSettingsUpdateOpenEditors(t *testing.T) {
 	root := t.TempDir()
 	for _, name := range []string{"README.md", "main.go"} {
