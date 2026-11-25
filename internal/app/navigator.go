@@ -54,12 +54,6 @@ var thumbSpring = ui.Animation{Spring: ui.SpringOptions{Duration: 260 * time.Mil
 func (a *App) navigatorBar(c *ui.Context) {
 	t := c.Theme()
 	ui.Row(c).FillWidth().Padding(0, 10, 10, 10).Children(func() {
-		const segW, segGap = 38, 2
-		parts := ui.SegmentedBase(c, &a.navigator, 6)
-		parts.Track.FillWidth().Height(30).Padding(3).Gap(segGap).Radius(15).Background(t.Text.Alpha(0.06)).Label(locales.MsgNavigator())
-		if c.Preferences().HighContrast {
-			parts.Track.Border(1, t.Border)
-		}
 		segments := []struct {
 			icon  *ui.SVG
 			label string
@@ -71,16 +65,22 @@ func (a *App) navigatorBar(c *ui.Context) {
 			{icOutline, commandLabel("Show Outline")},
 			{icBookmark, commandLabel("Show Bookmarks")},
 		}
-		// The chosen segment's glass slides to it, as a segmented control's
-		// thumb does: in the flow, first, so that it paints under the
-		// segments, taking no room, and moved along from there.
+		parts := ui.SegmentedBase(c.Key("navigator"), &a.navigator, len(segments))
+		parts.Track.Height(30).Radius(15).Background(t.Text.Alpha(0.06)).Label(locales.MsgNavigator())
+		if c.Preferences().HighContrast {
+			parts.Track.Border(1, t.Border)
+		}
+		share := float32(100) / float32(len(segments))
 		at := parts.Track.AnimateTo("thumb", float32(a.navigator), thumbSpring)
 		parts.Track.Children(func() {
-			ui.Box(c).Width(segW).Height(24).Radius(12).Shrink(0).MarginEnd(-(segW + segGap)).Start(at * (segW + segGap)).
-				Material(glass.Glass{Interactive: true}).PassThrough()
+			// The thumb uses the same shares FillEqually gives the segments,
+			// so the track takes no padding or gap of its own.
+			ui.Box(c.Key("navigator-thumb")).Absolute().StartPercent(at * share).
+				EndPercent((float32(len(segments)-1) - at) * share).
+				Top(3).Bottom(3).MarginX(3).Radius(12).Material(glass.Glass{Interactive: true}).PassThrough().ZIndex(-1)
 			for i, s := range segments {
 				i, s := i, s
-				seg := parts.Segment(i).Width(segW).Height(24).Radius(12).Label(s.label)
+				seg := parts.Segment(i).Height(24).Radius(12).Label(s.label)
 				seg.Children(func() {
 					color := colors(c).Muted
 					if i == a.navigator {
@@ -90,6 +90,7 @@ func (a *App) navigatorBar(c *ui.Context) {
 				})
 			}
 		})
+		parts.Track.FillEqually()
 		if parts.Track.Changed() {
 			switch a.navigator {
 			case navGit:
