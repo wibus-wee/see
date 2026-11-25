@@ -13,6 +13,13 @@ type projectWindow struct {
 	win projectWindowHost
 }
 
+func applyEditorPrefsToProjects(projects []*projectWindow) {
+	for _, project := range projects {
+		app := project.app
+		app.post.Post(func() { app.applyEditorPrefsAll() })
+	}
+}
+
 // approveProjectQuit asks each window with unsaved files before quitting.
 func approveProjectQuit(projects []*projectWindow, done func()) {
 	approved := make(map[*doc]uint64)

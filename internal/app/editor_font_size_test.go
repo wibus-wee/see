@@ -118,6 +118,25 @@ func TestEditorFontSizeWithoutEditors(t *testing.T) {
 	}
 }
 
+func TestEditorLineHeightPreference(t *testing.T) {
+	h := newHarness(t, writeTree(t, map[string]string{"a.go": "package a\npackage b\n"}))
+	h.open("a.go")
+	st := h.a.activeEditor()
+	diff := &editor.DiffState{}
+	h.a.focus.diffs = map[string]*gitDiffTab{"line-height-test": {state: diff}}
+
+	h.a.cfg.EditorLineHeight = 2
+	h.a.applyEditorPrefsAll()
+	h.tt.Frame()
+
+	if got, want := st.LineTop(1)-st.LineTop(0), float64(st.Font.Size*2); got != want {
+		t.Fatalf("editor line height = %g, want %g", got, want)
+	}
+	if diff.LineHeight != 2 {
+		t.Fatalf("diff line height = %g, want 2", diff.LineHeight)
+	}
+}
+
 func TestCommandShortcutsAllPlatforms(t *testing.T) {
 	for _, goos := range []string{"darwin", "linux", "windows"} {
 		t.Run(goos, func(t *testing.T) {
