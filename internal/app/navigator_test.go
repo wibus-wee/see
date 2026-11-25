@@ -41,6 +41,14 @@ func TestNavigatorBarSegmentsScrollSideways(t *testing.T) {
 	if last.Offscreen || last.Bounds.X+last.Bounds.W > 200.5 {
 		t.Fatalf("horizontal scrolling did not reveal the last segment in the visible pill: %+v", last.Bounds)
 	}
+	img := h.tt.Image()
+	br, bg, bb, ba := img.At(30, 70).RGBA()
+	for x := 30; x < 190; x++ {
+		r, g, b, a := img.At(x, 70).RGBA()
+		if r != br || g != bg || b != bb || a != ba {
+			t.Fatalf("navigator shows scroll chrome at x=%d", x)
+		}
+	}
 	if err := h.tt.Click(commandLabel("Show Bookmarks")); err != nil {
 		t.Fatalf("clicking the revealed navigator segment: %v", err)
 	}

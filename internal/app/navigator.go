@@ -71,7 +71,7 @@ func (a *App) navigatorBar(c *ui.Context) {
 			pill.Border(1, t.Border)
 		}
 		pill.Children(func() {
-			ui.ScrollHorizontal(c.Key("navigator-scroll")).Fill().Children(func() {
+			ui.ScrollHorizontal(c.Key("navigator-scroll")).Fill().Scrollbars(false).Children(func() {
 				parts := ui.SegmentedBase(c.Key("navigator"), &a.navigator, len(segments))
 				parts.Track.Height(30).Padding(3).Gap(segGap).Label(locales.MsgNavigator())
 				at := parts.Track.AnimateTo("thumb", float32(a.navigator), thumbSpring)
