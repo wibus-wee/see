@@ -59,12 +59,12 @@ func (a *App) navigatorBar(c *ui.Context) {
 			icon  *ui.SVG
 			label string
 		}{
-			{icFolder, "Show the Project Navigator"},
-			{icSearch, "Show the Find Navigator"},
-			{icGit, "Show the Git Navigator"},
-			{icProblems, commandLabel("problems.show")},
-			{icOutline, commandLabel("outline.show")},
-			{icBookmark, commandLabel("bookmarks.show")},
+			{icFolder, locales.MsgProjectNavigator()},
+			{icSearch, locales.MsgFindNavigator()},
+			{icGit, locales.MsgGitNavigator()},
+			{icProblems, problemText("problemsList")},
+			{icOutline, outlineText("outlineTitle")},
+			{icBookmark, bookmarkText("bookmarksTitle")},
 		}
 		pill := ui.Row(c).FillWidth().Height(30).Radius(15).Clip().Background(t.Text.Alpha(0.06))
 		if c.Preferences().HighContrast {
@@ -80,7 +80,7 @@ func (a *App) navigatorBar(c *ui.Context) {
 						Radius(12).Material(glass.Glass{Interactive: true}).PassThrough().ZIndex(-1)
 					for i, s := range segments {
 						i, s := i, s
-						seg := parts.Segment(i).Width(segW).Height(24).Radius(12).Label(s.label)
+						seg := parts.Segment(i).Width(segW).Height(24).Radius(12).Label(s.label).Tooltip(s.label)
 						seg.Children(func() {
 							color := colors(c).Muted
 							if i == a.navigator {
@@ -175,23 +175,23 @@ func (a *App) treeHeading(c *ui.Context) {
 		if a.filtering() {
 			detail := fmt.Sprintf("%d of %d", a.filter.matches, len(a.quick.files))
 			if a.quick.files == nil {
-				detail = "Filtering…"
+				detail = locales.MsgFiltering()
 			}
 			ui.Text(c, detail).FontSize(11).TextColor(colors(c).Dim).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 		}
 		ui.Box(c).Grow(1)
-		if glyphButton(c, icAdd, "New File", "New File in Project", false, false).Clicked() {
+		if glyphButton(c, icAdd, commandLabel("file.new"), locales.MsgNewFileInProject(), false, false).Clicked() {
 			a.beginEntry(a.entryTarget(), false)
 		}
-		if glyphButton(c, icNewFolder, "New Folder", "New Folder in Project", false, false).Clicked() {
+		if glyphButton(c, icNewFolder, locales.MsgNewFolder(), locales.MsgNewFolderInProject(), false, false).Clicked() {
 			a.beginEntry(a.entryTarget(), true)
 		}
-		if glyphButton(c, icCollapse, "Collapse All Folders", "Collapse All Folders", false, a.filtering()).Clicked() {
+		if glyphButton(c, icCollapse, locales.MsgCollapseAllFolders(), locales.MsgCollapseAllFolders(), false, a.filtering()).Clicked() {
 			a.tree.Open.Clear()
 			a.reveal = ""
 			a.treeRow = -1
 		}
-		if glyphButton(c, icRefresh, "Refresh", "Read the folders again", false, false).Clicked() {
+		if glyphButton(c, icRefresh, locales.MsgRefresh(), locales.MsgReadTheFoldersAgain(), false, false).Clicked() {
 			a.refreshAll()
 		}
 	})
@@ -212,6 +212,21 @@ func glyphButton(c *ui.Context, icon *ui.SVG, label, tip string, on, disabled bo
 	return b
 }
 
+// glyphToggle is glyphButton for a control that stays on or off, which
+// assistive technology sees as a toggle button pressed while on.
+func glyphToggle(c *ui.Context, icon *ui.SVG, label, tip string, on, disabled bool) ui.Element {
+	b := ui.ToggleBase(c, &on).Label(label).Tooltip(tip).Padding(3).Radius(4).Shrink(0).KeepFocus().Disabled(disabled)
+	color := colors(c).Muted
+	if on {
+		color = c.Theme().Accent
+	}
+	if !disabled && (b.Hovered() || b.Pressed()) {
+		b.Background(colors(c).Pill)
+	}
+	b.Children(func() { symbolIcon(c, icon, 13, color) })
+	return b
+}
+
 // filterBar is the field at the bottom of the navigator, as Xcode's and
 // Peek's: it filters the tree, Down moves into it, and Escape clears it.
 func (a *App) filterBar(c *ui.Context) {
@@ -219,7 +234,7 @@ func (a *App) filterBar(c *ui.Context) {
 		// A capsule filled with the label color, borderless, as macOS
 		// 27's search fields in a sidebar.
 		field := ui.SearchField(c, &a.filter.query).FillWidth().Height(28).Radius(14).Background(colors(c).Pill).BorderWidth(0).
-			Label("Filter Files").Bind(&a.filter.field)
+			Label(commandLabel("files.filter")).Bind(&a.filter.field)
 		if a.filter.focus {
 			a.filter.focus = false
 			a.filter.field.Focus(c)
@@ -427,20 +442,20 @@ func (a *App) treeItem(c *ui.Context, p string) {
 		if !e.Dir {
 			dir = filepath.Dir(p)
 		}
-		if m.Item("New File…").Chosen() {
+		if m.Item(locales.MsgNewFile()).Chosen() {
 			a.beginEntry(dir, false)
 		}
-		if m.Item("New Folder…").Chosen() {
+		if m.Item(locales.MsgNewFolderEllipsis()).Chosen() {
 			a.beginEntry(dir, true)
 		}
 		m.Separator()
-		if m.Item("Rename…").Chosen() {
+		if m.Item(locales.MsgRenameEllipsis()).Chosen() {
 			a.beginRename(p)
 		}
-		if m.Item("Copy").Chosen() {
+		if m.Item(locales.Copy()).Chosen() {
 			a.copyFile(p)
 		}
-		if m.Item("Copy Path").Chosen() {
+		if m.Item(locales.MsgCopyPath()).Chosen() {
 			services.WriteClipboard(p)
 		}
 		if runtime.GOOS == "darwin" && !e.Dir && m.Item(locales.QuickLook()).Chosen() {
@@ -451,29 +466,29 @@ func (a *App) treeItem(c *ui.Context, p string) {
 		if m.Item(showInFolderLabel()).Chosen() {
 			mygo.Shell.ShowItemInFolder(p)
 		}
-		if !e.Dir && m.Item("Open with External Editor").Chosen() {
+		if !e.Dir && m.Item(locales.MsgOpenWithExternalEditor()).Chosen() {
 			_ = mygo.Shell.OpenPath(p)
 		}
 		if !e.Dir {
-			if m.Item("Show File History").Chosen() {
+			if m.Item(commandLabel("history.file")).Chosen() {
 				a.showFileHistory(p)
 			}
 			m.Separator()
-			if m.Item("Open").Chosen() {
+			if m.Item(locales.MsgOpen()).Chosen() {
 				a.openFromTree(p, false)
 			}
 		}
 		if e.Dir {
 			m.Separator()
-			if m.Item(commandLabel("terminal.new") + " Here").Chosen() {
+			if m.Item(locales.MsgNewTerminalHere()).Chosen() {
 				a.newTerminalTabAt(p)
 			}
-			if m.Item("Open in External Terminal Here").Disabled(!a.terminalDirOK(p)).Chosen() {
+			if m.Item(locales.MsgOpenInExternalTerminalHere()).Disabled(!a.terminalDirOK(p)).Chosen() {
 				a.openExternalTerminalAt(p)
 			}
 		}
 		m.Separator()
-		if m.Item("Move to Trash").Chosen() {
+		if m.Item(locales.MoveToTrash()).Chosen() {
 			a.requestTrash(p)
 		}
 	})
@@ -544,7 +559,7 @@ func (a *App) findNavigator(c *ui.Context) {
 			if ui.Toggle(c, &f.showReplace, locales.WorkspaceReplace()).KeepFocus().Changed() {
 				f.confirm = false
 			}
-			ui.Toggle(c, &f.showFilters, "Filters").Tooltip(locales.MsgFilesToIncludeAndExclude()).KeepFocus()
+			ui.Toggle(c, &f.showFilters, locales.MsgFilters()).Tooltip(locales.MsgFilesToIncludeAndExclude()).KeepFocus()
 			if changed {
 				a.runFind()
 			}

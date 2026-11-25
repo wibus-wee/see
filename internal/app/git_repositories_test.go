@@ -41,7 +41,7 @@ func TestGitRepositoriesNavigator(t *testing.T) {
 	h := newHarness(t, root)
 	h.readGit()
 	h.a.git.autoFetch = false
-	for _, label := range []string{"Show the Git Navigator", locales.GitRepositories()} {
+	for _, label := range []string{locales.MsgGitNavigator(), locales.GitRepositories()} {
 		if err := h.tt.Click(label); err != nil {
 			t.Fatal(err)
 		}
@@ -116,7 +116,7 @@ func TestChildGitRepositoryDiscoveryIsOptInAndSelectionStaysExplicit(t *testing.
 	if len(h.a.git.repositories) != 2 || h.a.git.root != "" {
 		t.Fatalf("discovery should list children without selecting one: root=%q repositories=%v", h.a.git.root, h.a.git.repositories)
 	}
-	for _, label := range []string{"Show the Git Navigator", locales.GitRepositories()} {
+	for _, label := range []string{locales.MsgGitNavigator(), locales.GitRepositories()} {
 		if err := h.tt.Click(label); err != nil {
 			t.Fatal(err)
 		}
@@ -378,7 +378,7 @@ func TestGitLogTagAndCherryPickActions(t *testing.T) {
 	gitRun(t, root, "commit", "--allow-empty", "-qm", "Advance main")
 	h := newHarness(t, root)
 	h.readGit()
-	for _, label := range []string{"Show the Git Navigator", locales.GitRepositories(), "feature"} {
+	for _, label := range []string{locales.MsgGitNavigator(), locales.GitRepositories(), "feature"} {
 		if err := h.tt.Click(label); err != nil {
 			t.Fatal(err)
 		}

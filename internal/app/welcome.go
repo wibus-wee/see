@@ -103,7 +103,7 @@ func (a *App) welcomeIntro(c *ui.Context) {
 			})
 		})
 		showWelcome := !a.cfg.ReopenLast
-		ui.Checkbox(c, &showWelcome, "Show this window when See launches").FontSize(12).TextColor(colors(c).Muted).OnClick(func() {
+		ui.Checkbox(c, &showWelcome, welcomeText("welcomeShowOnLaunch")).FontSize(12).TextColor(colors(c).Muted).OnClick(func() {
 			a.cfg.ReopenLast = !showWelcome
 			a.saveConfig()
 		})

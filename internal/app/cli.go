@@ -1,9 +1,12 @@
 package app
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/egoist/mygo/i18n"
+
+	"see/locales"
 )
 
 // openCLIPath opens what the app was started with: a folder, or a file in
@@ -11,12 +14,12 @@ import (
 func (a *App) openCLIPath(path string) {
 	path, err := filepath.Abs(path)
 	if err != nil {
-		a.welcomeNote = fmt.Sprintf("Could not open %s: %v", path, describeErr(err))
+		a.welcomeNote = locales.Catalog.Format(i18n.Locale(), "msgCouldNotOpenSPath", map[string]any{"path": path, "reason": describeErr(err)})
 		return
 	}
 	fi, err := os.Stat(path)
 	if err != nil {
-		a.welcomeNote = fmt.Sprintf("Could not open %s: %v", path, describeErr(err))
+		a.welcomeNote = locales.Catalog.Format(i18n.Locale(), "msgCouldNotOpenSPath", map[string]any{"path": path, "reason": describeErr(err)})
 		return
 	}
 	if fi.IsDir() {

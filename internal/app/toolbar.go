@@ -3,9 +3,9 @@ package app
 import (
 	"path/filepath"
 	"runtime"
-	"strings"
 	"see/internal/languages"
 	"see/locales"
+	"strings"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/plugins/glass"
@@ -50,19 +50,19 @@ func (a *App) toolbar(c *ui.Context, sidebarProgress float32, vibrant bool) {
 			sidebarHeader.Background(colors(c).Toolbar).BorderWidth(0, 0, 1, 0).BorderColor(colors(c).Hairline)
 		}
 		sidebarHeader.Children(func() {
-			if a.root != "" && glassToolbarButton(c, icSidebar, "Show Navigator", "Hide or Show the Navigator", !a.sidebarOff).Clicked() {
+			if a.root != "" && glassToolbarButton(c, icSidebar, locales.MsgNavigator(), commandLabel("navigator.toggle"), !a.sidebarOff).Clicked() {
 				a.sidebarOff = !a.sidebarOff
 			}
 		})
 		ui.Row(c).Grow(1).Shrink(1).FillHeight().Padding(0, bar.Right+8, 0, 6).Gap(6).AlignItems(ui.Center).Background(colors(c).Toolbar).
 			BorderWidth(0, 0, 1, 0).BorderColor(colors(c).Hairline).Children(func() {
 			ui.Row(c).Height(32).Radius(16).Padding(0, 3).AlignItems(ui.Center).Material(glass.Glass{}).Children(func() {
-				back := iconButtonWithState(c, icBack, "Go Back", "Go Back", false, len(a.hist.Back) == 0, 13)
+				back := iconButtonWithState(c, icBack, locales.MsgBack(), locales.MsgBack(), false, len(a.hist.Back) == 0, 13)
 				if back.Clicked() {
 					a.goBack()
 				}
 				ui.Box(c).Size(1, 16).Background(colors(c).Separator)
-				fwd := iconButtonWithState(c, icForward, "Go Forward", "Go Forward", false, len(a.hist.Forward) == 0, 13)
+				fwd := iconButtonWithState(c, icForward, locales.MsgForward(), locales.MsgForward(), false, len(a.hist.Forward) == 0, 13)
 				if fwd.Clicked() {
 					a.goForward()
 				}
@@ -84,17 +84,17 @@ func (a *App) toolbar(c *ui.Context, sidebarProgress float32, vibrant bool) {
 			}
 			ui.Box(c).Grow(1)
 			ui.Row(c).Height(32).Radius(16).Padding(0, 3).AlignItems(ui.Center).Material(glass.Glass{}).Children(func() {
-				if iconButton(c, icSplitH, "Split Right", "Add Editor on Right ("+keyLabel("Cmd+", "D")+")", false).Clicked() {
+				if iconButton(c, icSplitH, commandLabel("editorGroup.splitRight"), commandLabel("editorGroup.addRight")+" ("+keyLabel("Cmd+", "D")+")", false).Clicked() {
 					a.splitActive(sideRight)
 				}
-				if iconButton(c, icSplitV, "Split Down", "Add Editor Below ("+keyLabel("Cmd+Shift+", "D")+")", false).Clicked() {
+				if iconButton(c, icSplitV, commandLabel("editorGroup.splitDown"), commandLabel("editorGroup.addBelow")+" ("+keyLabel("Cmd+Shift+", "D")+")", false).Clicked() {
 					a.splitActive(sideBottom)
 				}
 			})
-			if glassToolbarButton(c, icPanel, "Show Terminal", "Hide or Show the Terminal ("+keyLabel("Cmd+Shift+", "Y")+")", a.term.open).Clicked() {
+			if glassToolbarButton(c, icPanel, locales.Terminal(), commandLabel("terminal.toggle")+" ("+keyLabel("Cmd+Shift+", "Y")+")", a.term.open).Clicked() {
 				a.toggleTerminal()
 			}
-			if glassToolbarButton(c, icInspector, inspectorText("inspectorShow"), inspectorText("inspectorShowTip"), a.inspectorOpen()).Clicked() {
+			if glassToolbarButton(c, icInspector, inspectorText("inspectorPane"), inspectorText("inspectorShowTip"), a.inspectorOpen()).Clicked() {
 				a.toggleInspector()
 			}
 		})

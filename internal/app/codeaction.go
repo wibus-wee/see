@@ -260,7 +260,7 @@ func (a *App) codeActionLightbulb(c *ui.Context, g *group, d *doc, st *editor.St
 	}
 	ui.Overlay(c, func() {
 		b := ui.ButtonBase(c.Key(struct{ line int }{pos.Line})).Absolute().Left(x).Top(y).Width(size * 0.8).Height(size * 0.8).Radius(4).
-			Label(commandLabel("codeAction.show"))
+			Label(commandLabel("codeAction.show")).Tooltip(commandLabel("codeAction.show"))
 		if b.Hovered() || b.Pressed() {
 			b.Background(colors(c).Pill)
 		}

@@ -28,10 +28,10 @@ func (a *App) tabFileMenu(c *ui.Context, m *ui.Menu, tab string, d *doc, diff *g
 	if m.Item(commandLabel("navigator.reveal")).Disabled(!a.canRevealInProjectNavigator(path)).Chosen() {
 		a.revealInProjectNavigator(path)
 	}
-	if m.Item("Show File History").Disabled(a.git.root == "").Chosen() {
+	if m.Item(commandLabel("history.file")).Disabled(a.git.root == "").Chosen() {
 		a.showFileHistory(path)
 	}
-	if m.Item("Copy Path").Chosen() {
+	if m.Item(locales.MsgCopyPath()).Chosen() {
 		services.WriteClipboard(path)
 	}
 	if runtime.GOOS == "darwin" && m.Item(locales.QuickLook()).Chosen() {
@@ -147,7 +147,7 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 				if diff != nil && !diff.page() && diff.revision == nil {
 					nameLabel += " (" + diff.label() + ")"
 				}
-				cl := ui.ButtonBase(c).Label(locales.MsgClose()+nameLabel).Size(16, 16).Radius(4).Center().KeepFocus()
+				cl := ui.ButtonBase(c).Label(locales.MsgClose()+nameLabel).Tooltip(locales.MsgClose()+nameLabel).Size(16, 16).Radius(4).Center().KeepFocus()
 				if hovered || active {
 					cl.Children(func() { symbolIcon(c, icClose, 10, colors(c).Muted) })
 					if cl.Hovered() {
@@ -238,11 +238,11 @@ func (a *App) diffJumpBar(c *ui.Context, g *group) {
 		}
 		ui.Box(c).Grow(1)
 		if v.commit == nil {
-			label := diffWhitespaceText("msgHideWhitespaceChanges")
+			label, tip := diffWhitespaceText("msgWhitespaceChanges"), diffWhitespaceText("msgHideWhitespaceChanges")
 			if a.cfg.HideWhitespaceChanges {
-				label = diffWhitespaceText("msgShowWhitespaceChanges")
+				tip = diffWhitespaceText("msgShowWhitespaceChanges")
 			}
-			if glyphButton(c.Key("diff-whitespace"), icDiffWhitespace, label, label, a.cfg.HideWhitespaceChanges, false).Clicked() {
+			if glyphToggle(c.Key("diff-whitespace"), icDiffWhitespace, label, tip, a.cfg.HideWhitespaceChanges, false).Clicked() {
 				a.toggleDiffWhitespace()
 			}
 		}
@@ -263,20 +263,20 @@ func (a *App) diffJumpBar(c *ui.Context, g *group) {
 			if v.partial != nil && len(hunks) > 0 {
 				a.gitDiffPartButton(c, v, hunks)
 			}
-			icon, tip := icDiffInline, "Show Changes Inline"
+			icon, label, tip := icDiffInline, locales.MsgInlineDiff(), locales.MsgShowChangesInline()
 			if a.cfg.DiffUnified {
-				icon, tip = icDiffSplit, "Show Changes Side by Side"
+				icon, label, tip = icDiffSplit, locales.MsgSideBySide(), locales.MsgShowChangesSideBySide()
 			}
-			if glyphButton(c, icon, tip, tip, false, false).Clicked() {
+			if glyphButton(c, icon, label, tip, false, false).Clicked() {
 				a.toggleDiffLayout()
 			}
 		}
 		if len(g.order) == 1 && len(a.groups()) == 1 {
-			label := "Close " + filepath.Base(v.name) + " (" + v.label() + ")"
+			label := locales.MsgClose() + filepath.Base(v.name) + " (" + v.label() + ")"
 			if v.branch != nil {
-				label = "Close " + v.name
+				label = locales.MsgClose() + v.name
 			}
-			if glyphButton(c, icClose, label, "Close Diff", false, false).Clicked() {
+			if glyphButton(c, icClose, label, locales.MsgCloseDiff(), false, false).Clicked() {
 				a.closeTab(g, g.active)
 			}
 		}
@@ -329,11 +329,11 @@ func (a *App) jumpBar(c *ui.Context, g *group) {
 		related.PopoverMenuButton(func(menu *ui.Menu) {
 			a.addCounterpartsMenu(menu, g)
 			menu.Separator()
-			if menu.Item("Callers").Chosen() {
+			if menu.Item(locales.InspectorCallers()).Chosen() {
 				a.focus = g
 				a.findUsagesAt(true, ui.Point{X: g.relatedBounds.X, Y: g.relatedBounds.Y + g.relatedBounds.H}, true)
 			}
-			if menu.Item("References").Chosen() {
+			if menu.Item(locales.MsgReferences()).Chosen() {
 				a.focus = g
 				a.findUsagesAt(false, ui.Point{X: g.relatedBounds.X, Y: g.relatedBounds.Y + g.relatedBounds.H}, true)
 			}
@@ -422,18 +422,18 @@ func (a *App) jumpBar(c *ui.Context, g *group) {
 				name = d.name
 			}
 			if isMarkdownTab(tab) {
-				name += " Preview"
+				name += " " + locales.MsgPreview()
 			}
-			if glyphButton(c, icClose, "Close "+name, "Close File", false, false).Clicked() {
+			if glyphButton(c, icClose, locales.MsgClose()+name, locales.MsgCloseFile(), false, false).Clicked() {
 				a.closeTab(g, tab)
 			}
 		}
 		if !isMarkdownTab(tab) && a.canViewBytes(p) {
-			label := "Show File Bytes"
+			label, tip := locales.MsgFileBytes(), locales.MsgShowFileBytes()
 			if g.hexPreview[p] {
-				label = "Show File"
+				label, tip = locales.MsgFileText(), locales.MsgShowFile()
 			}
-			if glyphButton(c, icHex, label, label, g.hexPreview[p], false).Clicked() {
+			if glyphToggle(c, icHex, label, tip, g.hexPreview[p], false).Clicked() {
 				if g.hexPreview == nil {
 					g.hexPreview = map[string]bool{}
 				}
@@ -441,11 +441,11 @@ func (a *App) jumpBar(c *ui.Context, g *group) {
 			}
 		}
 		if isMarkdown(p) {
-			label := "Open Markdown Preview"
+			label, tip := locales.MsgMarkdownPreview(), commandLabel("markdown.preview")
 			if g.markdownPreview[p] || isMarkdownTab(tab) {
-				label = "Show Markdown Source"
+				label, tip = locales.MsgMarkdownSource(), locales.MsgShowMarkdownSource()
 			}
-			if glyphButton(c, icMarkdown, label, label+" ("+keyLabel("Cmd+Shift+", "V")+")", g.markdownPreview[p] || isMarkdownTab(tab), false).Clicked() {
+			if glyphToggle(c, icMarkdown, label, tip+" ("+keyLabel("Cmd+Shift+", "V")+")", g.markdownPreview[p] || isMarkdownTab(tab), false).Clicked() {
 				a.focus = g
 				if isMarkdownTab(tab) || g.markdownPreview[p] {
 					delete(g.markdownPreview, p)

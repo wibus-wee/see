@@ -263,7 +263,7 @@ func (a *App) renameStrip(c *ui.Context, bounds ui.Rect, st *editor.State, d *do
 			row := ui.Row(c).FillWidth().Height(stripH).AlignItems(ui.Center).Gap(4)
 			row.Children(func() {
 				ui.Text(c, locales.RenameSymbol()).FontSize(11).TextColor(pal.Muted).SingleLine()
-				in := ui.TextInput(c, &r.name).FontSize(12).Grow(1).AutoFocus().Background(ui.Transparent).BorderWidth(0)
+				in := ui.TextInput(c, &r.name).Label(locales.RenameSymbol()).FontSize(12).Grow(1).AutoFocus().Background(ui.Transparent).BorderWidth(0)
 				if !r.selected {
 					r.selected = true
 					in.SetTextSelection(0, utf8.RuneCountInString(r.name))

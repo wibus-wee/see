@@ -89,7 +89,7 @@ func (a *App) hexView(c *ui.Context, g *group, d *doc) {
 			if jump.Submitted() {
 				a.jumpHex(control, state, d.size)
 			}
-			if ui.Button(c, "Go").Height(26).Clicked() {
+			if ui.Button(c, locales.MsgGo()).Height(26).Clicked() {
 				a.jumpHex(control, state, d.size)
 			}
 			ui.Box(c).Width(1).Height(18).Background(colors(c).Separator).Shrink(0)

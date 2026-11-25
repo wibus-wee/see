@@ -315,8 +315,10 @@ func iconButton(c *ui.Context, icon *ui.SVG, label, tip string, on bool) ui.Elem
 	return iconButtonWithState(c, icon, label, tip, on, false, 6)
 }
 
+// glassToolbarButton is a toolbar button on the window's glass that stays
+// pressed while on, as the navigator's, the terminal's and the inspector's.
 func glassToolbarButton(c *ui.Context, icon *ui.SVG, label, tip string, on bool) ui.Element {
-	b := ui.ButtonBase(c).Label(label).Tooltip(tip).Size(32, 32).Radius(16).Shrink(0).KeepFocus().
+	b := ui.ToggleBase(c, &on).Label(label).Tooltip(tip).Size(32, 32).Radius(16).Shrink(0).KeepFocus().
 		Center().Material(glass.Glass{Interactive: true})
 	b.Children(func() {
 		face := ui.Box(c).Size(24, 24).Radius(12).Center()

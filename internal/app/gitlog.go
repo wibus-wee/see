@@ -256,7 +256,7 @@ func (a *App) gitLogContent(c *ui.Context, g *group, v *gitLogView) {
 			if h.all {
 				tip = fmt.Sprintf(locales.MsgShowOnlySAndUpstream(), a.git.branch)
 			}
-			if glyphButton(c, icBranches, "All Branches", tip, h.all, false).Clicked() {
+			if glyphToggle(c, icBranches, locales.MsgAllBranches(), tip, h.all, false).Clicked() {
 				h.all, h.stale = !h.all, true
 				a.syncHistory()
 			}
@@ -396,14 +396,14 @@ func (a *App) logRow(c *ui.Context, v *gitLogView, cm git.Commit, columns logTab
 	}
 	row.OnClick(func() { a.chooseLogCommit(v, cm) })
 	row.ContextMenu(func(m *ui.Menu) {
-		if m.Item("Open in Tab").Chosen() {
+		if m.Item(locales.MsgOpenInTab()).Chosen() {
 			a.openCommit(cm)
 		}
 		m.Separator()
-		if m.Item("Copy Commit Hash").Chosen() {
+		if m.Item(locales.MsgCopyCommitHash()).Chosen() {
 			c.Services().WriteClipboard(cm.Hash)
 		}
-		if m.Item("Copy Subject").Chosen() {
+		if m.Item(locales.MsgCopySubject()).Chosen() {
 			c.Services().WriteClipboard(cm.Subject)
 		}
 		a.commitRowItems(m, c, cm)
@@ -469,7 +469,7 @@ func (a *App) logCommitContent(c *ui.Context, g *group, lc *logCommit) {
 				})
 				ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
 					ui.Text(c, cm.Short).FontSize(12).TextColor(colors(c).Muted).Selectable()
-					if glyphButton(c, icCopy, "Copy Commit Hash", "Copy Commit Hash", false, false).Clicked() {
+					if glyphButton(c, icCopy, locales.MsgCopyCommitHash(), locales.MsgCopyCommitHash(), false, false).Clicked() {
 						c.Services().WriteClipboard(cm.Hash)
 						a.note(locales.MsgCopied()+cm.Short+".", false)
 					}

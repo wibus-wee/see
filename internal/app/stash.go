@@ -1,12 +1,13 @@
 package app
 
 import (
-	"fmt"
 	"time"
 
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 
 	"see/internal/git"
+	"see/locales"
 )
 
 var icStash = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13.5h4.5l1.5 2.5h4l1.5-2.5H20"/><path d="M6 5.5h12l2 8v5H4v-5z"/><path d="M12 7.5v4.5m-2-2 2 2 2-2"/></svg>`))
@@ -41,7 +42,7 @@ func (a *App) stashBar(c *ui.Context) {
 	}
 	ui.Row(c).Shrink(0).FillWidth().Padding(gitSidebarEmptyInset, sidebarInset).Children(func() {
 		ui.Row(c).FillWidth().Height(gitSidebarComposerHeight).Radius(4).Background(colors(c).Pill).Padding(0, 3, 0, gitSidebarTextOffset).Gap(2).AlignItems(ui.Center).Children(func() {
-			in := ui.TextInput(c.Key("git-stash-message"), &a.git.stashMessage).Placeholder("Stash Message (Optional)").Label("Stash Message").
+			in := ui.TextInput(c.Key("git-stash-message"), &a.git.stashMessage).Placeholder(locales.MsgStashMessageOptional()).Label(locales.MsgStashMessage()).
 				FontSize(gitSidebarRowLabelSize).Grow(1).Background(ui.Transparent).BorderWidth(0).Padding(0).AutoFocus()
 			switch {
 			case in.Submitted():
@@ -49,11 +50,11 @@ func (a *App) stashBar(c *ui.Context) {
 			case in.Shortcut(0, ui.KeyEscape):
 				a.endStash()
 			}
-			if glyphButton(c, icClose, "Cancel Stash", "Cancel", false, false).Clicked() {
+			if glyphButton(c, icClose, locales.MsgCancelStash(), locales.Cancel(), false, false).Clicked() {
 				a.endStash()
 			}
-			tip := fmt.Sprintf("Stash %d change%s", len(a.git.changes), plural(len(a.git.changes)))
-			b := ui.ButtonBase(c).Label("Stash").Tooltip(tip).Size(22, 22).Radius(11).Center().Disabled(!can).KeepFocus()
+			tip := locales.Catalog.Format(i18n.Locale(), "msgStashDChanges", map[string]any{"count": len(a.git.changes)})
+			b := ui.ButtonBase(c).Label(locales.MsgStash()).Tooltip(tip).Size(22, 22).Radius(11).Center().Disabled(!can).KeepFocus()
 			color := colors(c).Dim
 			if can {
 				b.Background(c.Theme().Accent)
@@ -71,7 +72,7 @@ func (a *App) stashRows(c *ui.Context) {
 	if len(a.git.stashes) == 0 {
 		return
 	}
-	a.gitCompactSectionHeader(c, "Stashed Changes", len(a.git.stashes), &a.git.stashesClosed, func() {})
+	a.gitCompactSectionHeader(c, locales.MsgStashedChanges(), len(a.git.stashes), &a.git.stashesClosed, func() {})
 	if a.git.stashesClosed {
 		return
 	}
@@ -91,22 +92,22 @@ func (a *App) stashRow(c *ui.Context, s git.Stash, now time.Time) {
 		row.Background(colors(c).Pill)
 	}
 	row.ContextMenu(func(m *ui.Menu) {
-		if m.Item("Show Stashed Changes").Chosen() {
+		if m.Item(locales.MsgShowStashedChanges()).Chosen() {
 			a.openStash(s)
 		}
 		m.Separator()
-		if m.Item("Apply Stashed Changes").Disabled(a.git.busy).Chosen() {
+		if m.Item(locales.MsgApplyStashedChanges()).Disabled(a.git.busy).Chosen() {
 			a.applyStash(s, false)
 		}
-		if m.Item("Apply and Drop Stash").Disabled(a.git.busy).Chosen() {
+		if m.Item(locales.MsgApplyAndDropStash()).Disabled(a.git.busy).Chosen() {
 			a.applyStash(s, true)
 		}
 		m.Separator()
-		if m.Item("Copy Stash Message").Chosen() {
+		if m.Item(locales.MsgCopyStashMessage()).Chosen() {
 			c.Services().WriteClipboard(s.Message)
 		}
 		m.Separator()
-		if m.Item("Drop Stash…").Disabled(a.git.busy).Chosen() {
+		if m.Item(locales.MsgDropStash()).Disabled(a.git.busy).Chosen() {
 			a.dropStash(s)
 		}
 	})
@@ -116,7 +117,7 @@ func (a *App) stashRow(c *ui.Context, s git.Stash, now time.Time) {
 			detail += " · " + s.Branch
 		}
 		detail += " · " + relativeTime(s.Date, now)
-		b := ui.ButtonBase(c).Label("Stash: " + s.Message).Tooltip(s.Message + " · " + detail).Description(detail).
+		b := ui.ButtonBase(c).Label(locales.MsgStash() + ": " + s.Message).Tooltip(s.Message + " · " + detail).Description(detail).
 			Grow(1).Shrink(1).MinWidth(0).Padding(0).Radius(4)
 		b.Children(func() {
 			ui.Row(c).FillWidth().Gap(gitSidebarColumnGap).AlignItems(ui.Center).Children(func() {
@@ -128,10 +129,10 @@ func (a *App) stashRow(c *ui.Context, s git.Stash, now time.Time) {
 		ui.Box(c).Width(gitSidebarStashActionWidth).Height(gitSidebarRowHeight).Shrink(0).Children(func() {
 			if hovered {
 				ui.Row(c).FillWidth().Height(gitSidebarRowHeight).Gap(2).AlignItems(ui.Center).Children(func() {
-					if glyphButton(c, icStash, "Apply stash "+s.Message, "Apply Stashed Changes", false, a.git.busy).Clicked() {
+					if glyphButton(c, icStash, locales.Catalog.Format(i18n.Locale(), "msgApplyStashS", map[string]any{"message": s.Message}), locales.MsgApplyStashedChanges(), false, a.git.busy).Clicked() {
 						a.applyStash(s, false)
 					}
-					if glyphButton(c, icTrash, "Drop stash "+s.Message, "Drop Stash…", false, a.git.busy).Clicked() {
+					if glyphButton(c, icTrash, locales.Catalog.Format(i18n.Locale(), "msgDropStashS", map[string]any{"message": s.Message}), locales.MsgDropStash(), false, a.git.busy).Clicked() {
 						a.dropStash(s)
 					}
 				})
@@ -151,7 +152,7 @@ func (a *App) openStash(s git.Stash) {
 				return
 			}
 			if err != nil {
-				a.note("Git: "+gitErrLine(err), true)
+				a.note(locales.MsgGit()+" "+gitErrLine(err), true)
 				return
 			}
 			cm.Subject = s.Message
@@ -162,9 +163,9 @@ func (a *App) openStash(s git.Stash) {
 
 func (a *App) applyStash(s git.Stash, drop bool) {
 	ctx, root := a.wsCtx, a.git.root
-	done := "Applied stashed changes."
+	done := locales.MsgAppliedStashedChanges()
 	if drop {
-		done = "Applied and dropped the stash."
+		done = locales.MsgAppliedAndDroppedTheStash()
 	}
 	a.stashJob(done, func() error { return git.StashApply(ctx, root, s, drop) }, nil)
 }
@@ -174,17 +175,17 @@ func (a *App) dropStash(s git.Stash) {
 	if a.git.busy || a.deleteConfirm != nil {
 		return
 	}
-	q := &confirmation{message: fmt.Sprintf("Drop the stash “%s”? Its changes cannot be recovered.", s.Message)}
+	q := &confirmation{message: locales.Catalog.Format(i18n.Locale(), "msgDropTheStashSItsChangesCannotBeRecovered", map[string]any{"message": s.Message})}
 	q.actions = []action{
-		{"Drop Stash", func() {
+		{locales.MsgDropStashAction(), func() {
 			if a.deleteConfirm != q {
 				return
 			}
 			a.deleteConfirm = nil
 			ctx, root := a.wsCtx, a.git.root
-			a.stashJob("Dropped the stash.", func() error { return git.StashDrop(ctx, root, s) }, nil)
+			a.stashJob(locales.MsgDroppedTheStash(), func() error { return git.StashDrop(ctx, root, s) }, nil)
 		}},
-		{"Cancel", func() {
+		{locales.Cancel(), func() {
 			if a.deleteConfirm == q {
 				a.deleteConfirm = nil
 			}
@@ -200,7 +201,7 @@ func (a *App) stashJob(done string, job func() error, ok func()) {
 		return
 	}
 	if len(a.dirtyDocs()) > 0 {
-		a.note("Save or revert unsaved edits first: stashing changes the files on disk.", true)
+		a.note(locales.MsgSaveOrRevertUnsavedEditsFirst(), true)
 		return
 	}
 	a.runBranchJob(done, func() error {
