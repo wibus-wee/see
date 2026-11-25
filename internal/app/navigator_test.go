@@ -1,54 +1,71 @@
 package app
 
 import (
-	"math"
 	"testing"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 
 	"see/locales"
 )
 
-func TestNavigatorBarSegmentsFitSidebar(t *testing.T) {
+func TestNavigatorBarSegmentsScrollSideways(t *testing.T) {
 	h := newHarness(t, writeTree(t, map[string]string{"file.txt": "file\n"}))
 	h.a.sidebarW = 210
 	h.tt.Frame()
 
-	track, ok := h.tt.AccessByRole(ui.RoleRadioGroup, locales.MsgNavigator())
-	if !ok {
+	if _, ok := h.tt.AccessByRole(ui.RoleRadioGroup, locales.MsgNavigator()); !ok {
 		t.Fatalf("navigator segmented control is missing: %v", h.tt.AccessAll())
 	}
-	labels := []string{
-		"Show the Project Navigator",
-		"Show the Find Navigator",
-		"Show the Git Navigator",
-		commandLabel("Show Problems"),
-		commandLabel("Show Outline"),
-		commandLabel("Show Bookmarks"),
-	}
-	var width float32
-	for i, label := range labels {
-		segment, ok := h.tt.AccessByRole(ui.RoleRadio, label)
+	segment := func(label string) ui.AccessInfo {
+		t.Helper()
+		s, ok := h.tt.AccessByRole(ui.RoleRadio, label)
 		if !ok {
 			t.Fatalf("navigator segment %q is missing: %v", label, h.tt.AccessAll())
 		}
-		if segment.Offscreen {
-			t.Fatalf("navigator segment %q is offscreen at %+v", label, segment.Bounds)
-		}
-		if segment.Bounds.X < track.Bounds.X-0.5 || segment.Bounds.X+segment.Bounds.W > track.Bounds.X+track.Bounds.W+0.5 {
-			t.Fatalf("navigator segment %q at %+v escapes its track %+v", label, segment.Bounds, track.Bounds)
-		}
-		if i == 0 {
-			width = segment.Bounds.W
-		} else if math.Abs(float64(segment.Bounds.W-width)) > 0.5 {
-			t.Fatalf("navigator segment %q is %v wide, want about %v", label, segment.Bounds.W, width)
-		}
+		return s
+	}
+	first := segment("Show the Project Navigator")
+	second := segment("Show the Find Navigator")
+	last := segment(commandLabel("Show Bookmarks"))
+	if first.Bounds.W != 38 || second.Bounds.X-first.Bounds.X != 40 {
+		t.Fatalf("navigator segments do not keep their fixed spacing: first %+v, second %+v", first.Bounds, second.Bounds)
+	}
+	if !last.Offscreen {
+		t.Fatalf("narrow sidebar did not initially clip the last segment: %+v", last.Bounds)
+	}
+
+	h.tt.Wheel(100, 60, 120, 0)
+	h.tt.Advance(150 * time.Millisecond)
+	last = segment(commandLabel("Show Bookmarks"))
+	if last.Offscreen || last.Bounds.X+last.Bounds.W > 200.5 {
+		t.Fatalf("horizontal scrolling did not reveal the last segment in the visible pill: %+v", last.Bounds)
 	}
 	if err := h.tt.Click(commandLabel("Show Bookmarks")); err != nil {
-		t.Fatalf("clicking the last navigator segment: %v", err)
+		t.Fatalf("clicking the revealed navigator segment: %v", err)
 	}
 	h.tt.Frame()
 	if h.a.navigator != navBookmarks {
-		t.Fatalf("clicking the last navigator segment chose %d", h.a.navigator)
+		t.Fatalf("clicking the revealed navigator segment chose %d", h.a.navigator)
+	}
+}
+
+func TestNavigatorKeyboardSelectionScrollsIntoView(t *testing.T) {
+	h := newHarness(t, writeTree(t, map[string]string{"file.txt": "file\n"}))
+	h.a.sidebarW = 210
+	h.tt.Frame()
+	if err := h.tt.Click("Show the Project Navigator"); err != nil {
+		t.Fatalf("focusing the navigator: %v", err)
+	}
+	for range 5 {
+		h.tt.Key(0, ui.KeyRight)
+		h.tt.Advance(80 * time.Millisecond)
+	}
+	if h.a.navigator != navBookmarks {
+		t.Fatalf("right arrows chose navigator %d", h.a.navigator)
+	}
+	last, ok := h.tt.AccessByRole(ui.RoleRadio, commandLabel("Show Bookmarks"))
+	if !ok || last.Offscreen {
+		t.Fatalf("keyboard selection did not scroll the last segment into view: %+v", last.Bounds)
 	}
 }

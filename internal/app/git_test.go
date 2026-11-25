@@ -527,7 +527,7 @@ func TestGitConflictHidesFooterUntilResolvedWithStashAndHistory(t *testing.T) {
 			commitButton, buttonOK = access, true
 		case access.Role == ui.RoleText && access.Name == reason:
 			conflictStatus, statusOK = access, true
-		case access.Role == ui.RoleScroll && !treeScrollOK:
+		case access.Role == ui.RoleScroll && access.Bounds.H > 100 && !treeScrollOK:
 			treeScroll, treeScrollOK = access, true
 		case access.Role == ui.RoleSplitter && access.Bounds.W > 100 && access.Bounds.H <= 2:
 			historyDivider, dividerOK = access, true
@@ -565,7 +565,7 @@ func TestGitConflictHidesFooterUntilResolvedWithStashAndHistory(t *testing.T) {
 	historyAfter, historyOK := h.tt.Find("History")
 	var treeScrollAfter ui.AccessInfo
 	for _, access := range h.tt.AccessAll() {
-		if access.Role == ui.RoleScroll {
+		if access.Role == ui.RoleScroll && access.Bounds.H > 100 {
 			treeScrollAfter = access
 			break
 		}
