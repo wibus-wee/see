@@ -55,11 +55,6 @@ func (a *App) navigatorBar(c *ui.Context) {
 	t := c.Theme()
 	ui.Row(c).FillWidth().Padding(0, 10, 10, 10).Children(func() {
 		const segW, segGap = 38, 2
-		parts := ui.SegmentedBase(c, &a.navigator, 6)
-		parts.Track.FillWidth().Height(30).Padding(3).Gap(segGap).Radius(15).Background(t.Text.Alpha(0.06)).Label(locales.MsgNavigator())
-		if c.Preferences().HighContrast {
-			parts.Track.Border(1, t.Border)
-		}
 		segments := []struct {
 			icon  *ui.SVG
 			label string
@@ -71,33 +66,40 @@ func (a *App) navigatorBar(c *ui.Context) {
 			{icOutline, commandLabel("Show Outline")},
 			{icBookmark, commandLabel("Show Bookmarks")},
 		}
-		// The chosen segment's glass slides to it, as a segmented control's
-		// thumb does: in the flow, first, so that it paints under the
-		// segments, taking no room, and moved along from there.
-		at := parts.Track.AnimateTo("thumb", float32(a.navigator), thumbSpring)
-		parts.Track.Children(func() {
-			ui.Box(c).Width(segW).Height(24).Radius(12).Shrink(0).MarginEnd(-(segW + segGap)).Start(at * (segW + segGap)).
-				Material(glass.Glass{Interactive: true}).PassThrough()
-			for i, s := range segments {
-				i, s := i, s
-				seg := parts.Segment(i).Width(segW).Height(24).Radius(12).Label(s.label)
-				seg.Children(func() {
-					color := colors(c).Muted
-					if i == a.navigator {
-						color = colors(c).Text
-					}
-					symbolIcon(c, s.icon, 14, color)
-				})
-			}
-		})
-		if parts.Track.Changed() {
-			switch a.navigator {
-			case navGit:
-				a.refreshGit()
-			case navProblems:
-				a.startProjectDiagnostics()
-			}
+		pill := ui.Row(c).FillWidth().Height(30).Radius(15).Clip().Background(t.Text.Alpha(0.06))
+		if c.Preferences().HighContrast {
+			pill.Border(1, t.Border)
 		}
+		pill.Children(func() {
+			ui.ScrollHorizontal(c.Key("navigator-scroll")).Fill().Scrollbars(false).Children(func() {
+				parts := ui.SegmentedBase(c.Key("navigator"), &a.navigator, len(segments))
+				parts.Track.Height(30).Padding(3).Gap(segGap).Label(locales.MsgNavigator())
+				at := parts.Track.AnimateTo("thumb", float32(a.navigator), thumbSpring)
+				parts.Track.Children(func() {
+					ui.Box(c.Key("navigator-thumb")).Absolute().Start(3 + at*(segW+segGap)).Top(3).Width(segW).Height(24).
+						Radius(12).Material(glass.Glass{Interactive: true}).PassThrough().ZIndex(-1)
+					for i, s := range segments {
+						i, s := i, s
+						seg := parts.Segment(i).Width(segW).Height(24).Radius(12).Label(s.label)
+						seg.Children(func() {
+							color := colors(c).Muted
+							if i == a.navigator {
+								color = colors(c).Text
+							}
+							symbolIcon(c, s.icon, 14, color)
+						})
+					}
+				})
+				if parts.Track.Changed() {
+					switch a.navigator {
+					case navGit:
+						a.refreshGit()
+					case navProblems:
+						a.startProjectDiagnostics()
+					}
+				}
+			})
+		})
 	})
 }
 
