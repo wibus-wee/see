@@ -139,7 +139,7 @@ func TestEditAllInScopeShortcutAndPalette(t *testing.T) {
 				st := h.a.activeEditor()
 				st.GoTo(d.buf.Pos(offsets[1]))
 				h.tt.Frame()
-				if !h.a.commandEnabled("Edit All in Scope") {
+				if !h.a.commandEnabled("edit.allInScope") {
 					t.Fatal("Edit All in Scope is disabled for a Go source file")
 				}
 				if palette {
@@ -201,7 +201,7 @@ func TestEditAllInScopeAfterClosingBytesPreview(t *testing.T) {
 	if !g.hexPreview[d.path] || d.hex == nil {
 		t.Fatal("byte preview did not open and populate its cache")
 	}
-	if h.a.commandEnabled("Edit All in Scope") {
+	if h.a.commandEnabled("edit.allInScope") {
 		t.Fatal("Edit All in Scope should be disabled while the byte preview is active")
 	}
 
@@ -214,7 +214,7 @@ func TestEditAllInScopeAfterClosingBytesPreview(t *testing.T) {
 	}
 	st.GoTo(d.buf.Pos(offsets[1]))
 	h.tt.Frame()
-	if !h.a.commandEnabled("Edit All in Scope") {
+	if !h.a.commandEnabled("edit.allInScope") {
 		t.Fatal("cached byte-preview state disabled Edit All in Scope after returning to source")
 	}
 
@@ -256,7 +256,7 @@ func TestEditAllInScopeEditorContextMenuTargetsClickedPane(t *testing.T) {
 	if len(menu) == 0 {
 		t.Fatal("right-click did not open the editor context menu")
 	}
-	for _, item := range []string{"Cut", "Copy", "Paste", "Select All", "Find References", commandLabel("Edit All in Scope")} {
+	for _, item := range []string{"Cut", "Copy", "Paste", "Select All", "Find References", commandLabel("edit.allInScope")} {
 		if !slices.Contains(menu, item) {
 			t.Fatalf("context menu is missing %q: %v", item, menu)
 		}
@@ -265,7 +265,7 @@ func TestEditAllInScopeEditorContextMenuTargetsClickedPane(t *testing.T) {
 	h.a.focus = active
 	targetState.GoTo(d.buf.Pos(offsets[1]))
 	activeState.GoTo(d.buf.Pos(offsets[1]))
-	if err := h.tt.ChooseMenuItem(commandLabel("Edit All in Scope")); err != nil {
+	if err := h.tt.ChooseMenuItem(commandLabel("edit.allInScope")); err != nil {
 		t.Fatalf("%v; menu=%v", err, h.tt.Menu())
 	}
 	h.settle(func() bool { return len(targetState.Selections()) == 3 || h.a.notice != "" })
@@ -668,12 +668,12 @@ func TestEditAllInScopeTrustAndSourceGating(t *testing.T) {
 		t.Fatalf("untrusted workspace started or changed an edit: trustAsk=%v client=%v selections=%+v", h.a.trustAsk, manager.Current(), st.Selections())
 	}
 	st.ReadOnly = true
-	if h.a.commandEnabled("Edit All in Scope") {
+	if h.a.commandEnabled("edit.allInScope") {
 		t.Fatal("command enabled for a read-only editor")
 	}
 	st.ReadOnly = false
 	h.open("README.md")
-	if h.a.commandEnabled("Edit All in Scope") {
+	if h.a.commandEnabled("edit.allInScope") {
 		t.Fatal("command enabled for a Markdown document")
 	}
 }
@@ -686,7 +686,7 @@ func TestEditAllInScopeWithoutLanguageServerDoesNotMutate(t *testing.T) {
 	st := h.a.activeEditor()
 	st.Select(offset, offset+len("名字"))
 	before := slices.Clone(st.Selections())
-	if h.a.commandEnabled("Edit All in Scope") {
+	if h.a.commandEnabled("edit.allInScope") {
 		t.Fatal("command enabled without a language server")
 	}
 	h.a.editAllInScope()

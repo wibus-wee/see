@@ -80,7 +80,7 @@ func TestRevealInProjectNavigatorWithNoProjectFile(t *testing.T) {
 	h.a.newFile()
 	h.a.navigator = navProblems
 	h.tt.Frame()
-	if h.a.commandEnabled("Reveal in Project Navigator") {
+	if h.a.commandEnabled("navigator.reveal") {
 		t.Fatal("reveal is enabled for an untitled tab")
 	}
 	h.tt.Key(ui.Cmd|ui.Shift, ui.KeyJ)

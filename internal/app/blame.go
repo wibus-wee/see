@@ -125,7 +125,7 @@ func (a *App) blameStatus(c *ui.Context, d *doc, st *editor.State) {
 		return
 	}
 	label := strings.Join([]string{b.Short, b.Author, blameDate(b.Date)}, " · ")
-	button := ui.ButtonBase(c).Label(label).Tooltip(b.Subject+"\n"+b.Date.Local().Format("2006-01-02 15:04:05 MST")+"\n"+commandLabel("Show Line's Commit in Git Log")).
+	button := ui.ButtonBase(c).Label(label).Tooltip(b.Subject+"\n"+b.Date.Local().Format("2006-01-02 15:04:05 MST")+"\n"+commandLabel("git.revealLineCommit")).
 		Padding(2, 5).Radius(4).MaxWidth(480).Shrink(1).Cursor(ui.CursorPointer)
 	if button.Hovered() {
 		button.Background(colors(c).Pill)

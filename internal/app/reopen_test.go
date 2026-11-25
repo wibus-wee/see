@@ -130,12 +130,12 @@ func TestReopenClosedTabRestoresPreviewTab(t *testing.T) {
 
 func TestReopenClosedTabCommandEnabledOnlyWithHistory(t *testing.T) {
 	h := newHarness(t, writeTree(t, map[string]string{"a.txt": "text"}))
-	if h.a.commandEnabled("Reopen Closed Tab") {
+	if h.a.commandEnabled("tab.reopen") {
 		t.Fatal("enabled with nothing closed")
 	}
 	d := h.open("a.txt")
 	h.a.closeDoc(d.path)
-	if !h.a.commandEnabled("Reopen Closed Tab") {
+	if !h.a.commandEnabled("tab.reopen") {
 		t.Fatal("disabled with a closed tab to reopen")
 	}
 }

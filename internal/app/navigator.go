@@ -62,9 +62,9 @@ func (a *App) navigatorBar(c *ui.Context) {
 			{icFolder, "Show the Project Navigator"},
 			{icSearch, "Show the Find Navigator"},
 			{icGit, "Show the Git Navigator"},
-			{icProblems, commandLabel("Show Problems")},
-			{icOutline, commandLabel("Show Outline")},
-			{icBookmark, commandLabel("Show Bookmarks")},
+			{icProblems, commandLabel("problems.show")},
+			{icOutline, commandLabel("outline.show")},
+			{icBookmark, commandLabel("bookmarks.show")},
 		}
 		pill := ui.Row(c).FillWidth().Height(30).Radius(15).Clip().Background(t.Text.Alpha(0.06))
 		if c.Preferences().HighContrast {
@@ -465,7 +465,7 @@ func (a *App) treeItem(c *ui.Context, p string) {
 		}
 		if e.Dir {
 			m.Separator()
-			if m.Item(commandLabel("New Terminal") + " Here").Chosen() {
+			if m.Item(commandLabel("terminal.new") + " Here").Chosen() {
 				a.newTerminalTabAt(p)
 			}
 			if m.Item("Open in External Terminal Here").Disabled(!a.terminalDirOK(p)).Chosen() {

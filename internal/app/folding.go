@@ -14,28 +14,28 @@ func foldingCommands() []command {
 		mod, foldMods = "Cmd+", "Cmd+Alt+"
 	}
 	var cmds []command
-	add := func(name, shortcut string, cmd editor.Command) {
-		cmds = append(cmds, command{name: name, key: shortcut, run: func(a *App) {
+	add := func(id, name, shortcut string, cmd editor.Command) {
+		cmds = append(cmds, command{id: id, name: name, key: shortcut, run: func(a *App) {
 			if st := a.activeEditor(); st != nil {
 				st.Run(cmd)
 			}
 		}})
 	}
-	add("Fold", keyLabel(foldMods, "["), editor.Fold)
-	add("Unfold", keyLabel(foldMods, "]"), editor.Unfold)
+	add("fold.fold", "Fold", keyLabel(foldMods, "["), editor.Fold)
+	add("fold.unfold", "Unfold", keyLabel(foldMods, "]"), editor.Unfold)
 	chord := func(key string) string { return keyLabel(mod, "K") + " " + keyLabel(mod, key) }
-	add("Toggle Fold", chord("L"), editor.ToggleFold)
-	add("Fold Recursively", chord("["), editor.FoldRecursive)
-	add("Unfold Recursively", chord("]"), editor.UnfoldRecursive)
-	add("Fold All", chord("0"), editor.FoldAll)
-	add("Unfold All", chord("J"), editor.UnfoldAll)
-	cmds = append(cmds, command{name: "Fold Imports", run: func(a *App) {
+	add("fold.toggle", "Toggle Fold", chord("L"), editor.ToggleFold)
+	add("fold.recursive", "Fold Recursively", chord("["), editor.FoldRecursive)
+	add("fold.unfoldRecursive", "Unfold Recursively", chord("]"), editor.UnfoldRecursive)
+	add("fold.all", "Fold All", chord("0"), editor.FoldAll)
+	add("fold.unfoldAll", "Unfold All", chord("J"), editor.UnfoldAll)
+	cmds = append(cmds, command{id: "fold.imports", name: "Fold Imports", run: func(a *App) {
 		if st := a.activeEditor(); st != nil {
 			st.FoldImports()
 		}
 	}})
 	for n := 1; n <= 5; n++ {
-		add(fmt.Sprintf("Fold Level %d", n), chord(fmt.Sprint(n)), editor.FoldLevel1+editor.Command(n-1))
+		add(fmt.Sprintf("fold.level%d", n), fmt.Sprintf("Fold Level %d", n), chord(fmt.Sprint(n)), editor.FoldLevel1+editor.Command(n-1))
 	}
 	return cmds
 }
@@ -43,9 +43,9 @@ func foldingCommands() []command {
 func (a *App) foldingMenu(update func(func())) []*mygo.MenuItem {
 	var items []*mygo.MenuItem
 	for _, cmd := range foldingCommands() {
-		switch cmd.name {
-		case "Fold", "Unfold", "Fold All", "Unfold All", "Fold Imports":
-			items = append(items, &mygo.MenuItem{Label: commandLabel(cmd.name), Click: func(*mygo.MenuItem, *mygo.Window) {
+		switch cmd.id {
+		case "fold.fold", "fold.unfold", "fold.all", "fold.unfoldAll", "fold.imports":
+			items = append(items, &mygo.MenuItem{Label: commandLabel(cmd.id), Click: func(*mygo.MenuItem, *mygo.Window) {
 				update(func() { cmd.run(a) })
 			}})
 		}

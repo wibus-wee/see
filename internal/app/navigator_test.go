@@ -27,7 +27,7 @@ func TestNavigatorBarSegmentsScrollSideways(t *testing.T) {
 	}
 	first := segment("Show the Project Navigator")
 	second := segment("Show the Find Navigator")
-	last := segment(commandLabel("Show Bookmarks"))
+	last := segment(commandLabel("bookmarks.show"))
 	if first.Bounds.W != 38 || second.Bounds.X-first.Bounds.X != 40 {
 		t.Fatalf("navigator segments do not keep their fixed spacing: first %+v, second %+v", first.Bounds, second.Bounds)
 	}
@@ -37,7 +37,7 @@ func TestNavigatorBarSegmentsScrollSideways(t *testing.T) {
 
 	h.tt.Wheel(100, 60, 120, 0)
 	h.tt.Advance(150 * time.Millisecond)
-	last = segment(commandLabel("Show Bookmarks"))
+	last = segment(commandLabel("bookmarks.show"))
 	if last.Offscreen || last.Bounds.X+last.Bounds.W > 200.5 {
 		t.Fatalf("horizontal scrolling did not reveal the last segment in the visible pill: %+v", last.Bounds)
 	}
@@ -49,7 +49,7 @@ func TestNavigatorBarSegmentsScrollSideways(t *testing.T) {
 			t.Fatalf("navigator shows scroll chrome at x=%d", x)
 		}
 	}
-	if err := h.tt.Click(commandLabel("Show Bookmarks")); err != nil {
+	if err := h.tt.Click(commandLabel("bookmarks.show")); err != nil {
 		t.Fatalf("clicking the revealed navigator segment: %v", err)
 	}
 	h.tt.Frame()
@@ -72,7 +72,7 @@ func TestNavigatorKeyboardSelectionScrollsIntoView(t *testing.T) {
 	if h.a.navigator != navBookmarks {
 		t.Fatalf("right arrows chose navigator %d", h.a.navigator)
 	}
-	last, ok := h.tt.AccessByRole(ui.RoleRadio, commandLabel("Show Bookmarks"))
+	last, ok := h.tt.AccessByRole(ui.RoleRadio, commandLabel("bookmarks.show"))
 	if !ok || last.Offscreen {
 		t.Fatalf("keyboard selection did not scroll the last segment into view: %+v", last.Bounds)
 	}

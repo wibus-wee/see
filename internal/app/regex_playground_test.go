@@ -163,7 +163,7 @@ func TestRegexPlaygroundPaletteEditAndEscape(t *testing.T) {
 	st.GoTo(st.Buffer.Pos(strings.Index(source, `\p{L}`) + 2))
 	h.a.openPalette()
 	h.tt.Frame()
-	if err := h.tt.Click(commandLabel("Test Regex")); err != nil {
+	if err := h.tt.Click(commandLabel("regex.playground")); err != nil {
 		t.Fatalf("click Test Regex: %v; visible=%v", err, h.tt.Texts())
 	}
 	h.tt.Frame()
@@ -387,7 +387,7 @@ func TestRegexPlaygroundContextualAction(t *testing.T) {
 	st := h.a.focus.eds[d.path]
 	st.GoTo(st.Buffer.Pos(strings.Index(source, "word") + 1))
 	h.tt.Frame()
-	label := commandLabel("Test Regex")
+	label := commandLabel("regex.playground")
 	if !h.tt.HasText(label) {
 		t.Fatalf("contextual action missing at regex caret: %v", h.tt.Texts())
 	}

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/sahilm/fuzzy"
 	"github.com/egoist/mygo/ui/editor"
 
 	"see/internal/config"
@@ -272,6 +273,7 @@ type quickOpen struct {
 	truncated     bool
 	err           error
 	results       []search.Scored
+	commands      []command // palette rows results indexes, command mode only
 	list          ui.ListState
 	sel           int
 	line          int // line to open, from a trailing :N in the query
@@ -351,6 +353,68 @@ func (a *App) ensureFiles() {
 	}()
 }
 
+// rankCommands lists the commands the palette offers, ranked against
+// the query. A command matches on three spellings at once — its dotted
+// id (font.bigger), its English name, and the localized title — so a
+// user typing either language, or the id itself, finds it. The best
+// score of the three wins; rows keep the command, not the matched
+// spelling, as their identity.
+func (a *App) rankCommands(query string) ([]command, []search.Scored) {
+	var visible []command
+	for _, cmd := range commands() {
+		switch cmd.id {
+		case "git.revealLineCommit":
+			if !a.canRevealLineCommit() {
+				continue
+			}
+		case "history.file":
+			if !a.canShowFileHistory() {
+				continue
+			}
+		case "git.revealHead", "git.jumpToDate", "git.showLog", "git.showHistory":
+			if a.git.root == "" {
+				continue
+			}
+		case "git.stash":
+			if a.git.root == "" || len(a.git.changes) == 0 {
+				continue
+			}
+		}
+		visible = append(visible, cmd)
+	}
+	if query == "" {
+		scored := make([]search.Scored, len(visible))
+		for i, cmd := range visible {
+			scored[i] = search.Scored{Path: commandLabel(cmd.id)}
+		}
+		return visible, scored
+	}
+	type match struct {
+		cmd   command
+		score int
+	}
+	var matches []match
+	for _, cmd := range visible {
+		best := -1
+		for _, spelling := range []string{commandLabel(cmd.id), cmd.name, cmd.id} {
+			if m := fuzzy.FindNoSort(query, []string{spelling}); len(m) > 0 && m[0].Score > best {
+				best = m[0].Score
+			}
+		}
+		if best >= 0 {
+			matches = append(matches, match{cmd, best})
+		}
+	}
+	slices.SortStableFunc(matches, func(x, y match) int { return y.score - x.score })
+	cmds := make([]command, len(matches))
+	scored := make([]search.Scored, len(matches))
+	for i, m := range matches {
+		cmds[i] = m.cmd
+		scored[i] = search.Scored{Path: commandLabel(m.cmd.id)}
+	}
+	return cmds, scored
+}
+
 // rankQuick ranks the files for the query when it changed.
 func (a *App) rankQuick() {
 	q := &a.quick
@@ -413,33 +477,10 @@ func (a *App) rankQuick() {
 		q.line, q.col = 0, 0
 		if path, line, col, ok := splitQuickPosition(q.query); ok && path == "" && a.activeEditor() != nil {
 			q.line, q.col = line, col
-			q.results = []search.Scored{{Path: fmt.Sprintf("%s %d:%d", commandLabel("Go to Line"), line, max(col, 1))}}
+			q.results = []search.Scored{{Path: fmt.Sprintf("%s %d:%d", commandLabel("line.goto"), line, max(col, 1))}}
 		}
 	} else if strings.HasPrefix(q.query, ">") {
-		all := commands()
-		var names []string
-		for _, cmd := range all {
-			switch cmd.name {
-			case "Show Line's Commit in Git Log":
-				if !a.canRevealLineCommit() {
-					continue
-				}
-			case "Show File History":
-				if !a.canShowFileHistory() {
-					continue
-				}
-			case "Git: Reveal HEAD in Log", "Git: Jump to Date…", "Git: Show Log", "Git: Show History":
-				if a.git.root == "" {
-					continue
-				}
-			case "Git: Stash Changes…":
-				if a.git.root == "" || len(a.git.changes) == 0 {
-					continue
-				}
-			}
-			names = append(names, commandLabel(cmd.name))
-		}
-		q.results = search.Fuzzy(names, strings.TrimSpace(q.query[1:]), len(names))
+		q.commands, q.results = a.rankCommands(strings.TrimSpace(q.query[1:]))
 	} else if strings.HasPrefix(q.query, "@") || targeted {
 		q.results = nil
 		if q.filePath != "" && a.cfg.IsTrusted(a.root) {
@@ -597,12 +638,10 @@ func (a *App) chooseQuick(i int) {
 		return
 	}
 	if strings.HasPrefix(q.query, ">") {
-		for _, cmd := range commands() {
-			if commandLabel(cmd.name) == p {
-				if a.commandEnabled(cmd.name) {
-					cmd.run(a)
-				}
-				return
+		if i < len(q.commands) {
+			cmd := q.commands[i]
+			if a.commandEnabled(cmd.id) {
+				cmd.run(a)
 			}
 		}
 		return

@@ -139,7 +139,7 @@ func (a *App) peekView(c *ui.Context, p *peekState) {
 				loc = fmt.Sprintf("%s:%d", p.t.path, p.t.pos.Line+1)
 			}
 			ui.Text(c, loc).FontSize(11).TextColor(colors(c).Muted).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(1)
-			if ui.Button(c, commandLabel("Go to Definition")).Clicked() {
+			if ui.Button(c, commandLabel("definition.goto")).Clicked() {
 				a.jump(p.group, p.from, p.t, p.enc)
 				a.peek = nil
 			}

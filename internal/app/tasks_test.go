@@ -37,7 +37,7 @@ func TestTaskPanelLinksAndStop(t *testing.T) {
 		t.Fatal("jump lost history")
 	}
 	h.tt.Frame()
-	if err := h.tt.Click(commandLabel("Tasks: Stop")); err != nil {
+	if err := h.tt.Click(commandLabel("tasks.stop")); err != nil {
 		t.Fatal(err)
 	}
 	if ctx.Err() != context.Canceled {

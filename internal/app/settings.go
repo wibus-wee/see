@@ -1192,7 +1192,7 @@ func (a *App) searchPane(c *ui.Context) {
 func (a *App) shortcutsPane(c *ui.Context) {
 	rows := []struct{ what, mods, key string }{}
 	for _, cmd := range commands() {
-		rows = append(rows, struct{ what, mods, key string }{cmd.name, cmd.mods, cmd.key})
+		rows = append(rows, struct{ what, mods, key string }{commandLabel(cmd.id), cmd.mods, cmd.key})
 	}
 	var fns []func()
 	for _, r := range rows {

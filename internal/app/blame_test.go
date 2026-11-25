@@ -58,7 +58,7 @@ func TestInlineBlameAndStatus(t *testing.T) {
 	}
 	h.a.openQuickPanel(">")
 	for _, r := range h.a.quick.results {
-		if r.Path == commandLabel("Show Line's Commit in Git Log") {
+		if r.Path == commandLabel("git.revealLineCommit") {
 			t.Fatal("uncommitted reveal command is present")
 		}
 	}

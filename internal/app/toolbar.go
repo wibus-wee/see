@@ -266,7 +266,7 @@ func (a *App) activityView(c *ui.Context) {
 		case a.task != nil && a.task.status == "taskRunning":
 			ui.Spinner(c).FontSize(11)
 			ui.Text(c, "go "+strings.Join(a.task.kind.Args(), " ")).FontSize(12).TextColor(colors(c).Muted).SingleLine().Ellipsis("…").Shrink(1).MinWidth(0)
-			stop := ui.ButtonBase(c).Label(taskMessage("tasksStop")).Tooltip(commandLabel("Tasks: Stop")).Padding(0, 2).Radius(4)
+			stop := ui.ButtonBase(c).Label(taskMessage("tasksStop")).Tooltip(commandLabel("tasks.stop")).Padding(0, 2).Radius(4)
 			if stop.Hovered() {
 				stop.Background(colors(c).Pill)
 			}
