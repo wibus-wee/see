@@ -49,6 +49,21 @@ func regexToolBoundsSanitized(bounds ui.Rect) ui.Rect {
 	return bounds
 }
 
+func regexToolBoundsWithinViewport(bounds ui.Rect, width, height float32) ui.Rect {
+	bounds = regexToolBoundsSanitized(bounds)
+	if !finiteRegexGeometry(width) || width < 0 {
+		width = 0
+	}
+	if !finiteRegexGeometry(height) || height < 0 {
+		height = 0
+	}
+	x := min(max(bounds.X, 0), width)
+	y := min(max(bounds.Y, 0), height)
+	right := min(bounds.X+bounds.W, width)
+	bottom := min(bounds.Y+bounds.H, height)
+	return ui.Rect{X: x, Y: y, W: max(float32(0), right-x), H: max(float32(0), bottom-y)}
+}
+
 func regexToolMinimumSize(bounds, sourceBounds ui.Rect) (float32, float32) {
 	bounds, sourceBounds = regexToolBoundsSanitized(bounds), regexToolBoundsSanitized(sourceBounds)
 	marginX, marginY := min(regexToolMargin, bounds.W/2), min(regexToolMargin, bounds.H/2)

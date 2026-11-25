@@ -470,6 +470,77 @@ func TestRegexToolWindowClampsWhenSidebarExpands(t *testing.T) {
 	}
 }
 
+func TestRegexToolWindowClampsRestoredGeometryToSmallViewport(t *testing.T) {
+	root := writeTree(t, map[string]string{
+		"a.go": "package a\nimport \"regexp\"\nvar re = regexp.MustCompile(`word`)\n",
+		"b.go": "package b\nvar value = 1\n",
+		"c.go": "package c\nvar value = 2\n",
+	})
+	cfg := &config.Config{ConfirmClose: true, SidebarWidth: 240}
+	h := newHarnessWithConfig(t, root, cfg)
+	sourceDoc := h.open("a.go")
+	sourceGroup := h.a.focus
+	sourceEditor := sourceGroup.eds[sourceDoc.path]
+	sourceEditor.GoTo(sourceEditor.Buffer.Pos(strings.Index(sourceDoc.buf.String(), "word")))
+	h.a.openRegexPlaygroundFor(sourceGroup, sourceDoc, sourceEditor)
+	h.tt.Frame()
+	h.tt.Frame()
+	h.a.splitActive(sideRight)
+	middleGroup := h.a.focus
+	h.open("b.go")
+	h.a.splitActive(sideRight)
+	lastGroup := h.a.focus
+	h.open("c.go")
+	h.tt.Advance(300 * time.Millisecond)
+
+	if panes := []ui.Rect{
+		regexToolGroupBounds(t, h, sourceGroup),
+		regexToolGroupBounds(t, h, middleGroup),
+		regexToolGroupBounds(t, h, lastGroup),
+	}; panes[0].W >= 440 || panes[1].W >= 440 || panes[2].W >= 440 {
+		t.Fatalf("fixture did not create narrow split panes: %+v", panes)
+	}
+
+	wide := ui.Rect{X: 400, Y: 80, W: 680, H: 420}
+	h.a.regexToolWindow.rect = wide
+	h.a.regexToolWindow.initialized = true
+	h.tt.Frame()
+	h.a.captureSession()
+	saved := cfg.Workspaces[root]
+	if saved.RegexToolX != wide.X || saved.RegexToolWidth != wide.W {
+		t.Fatalf("wide geometry was not persisted before restore: %+v", saved)
+	}
+	h.a.sidebarOff = true
+	h.tt.Advance(300 * time.Millisecond)
+	h.a.sidebarOff = false
+	h.tt.Advance(300 * time.Millisecond)
+	h.a.restoreRegexToolWindow(saved)
+	h.tt.Frame()
+	if h.a.sidebarOff || regexToolGroupBounds(t, h, sourceGroup).X <= 0 {
+		t.Fatal("sidebar did not reopen beside the split editor")
+	}
+
+	const viewportWidth, viewportHeight = 590, 450
+	h.tt.SetSize(viewportWidth, viewportHeight)
+	_, windowFound := h.tt.Find(locales.RegexToolWindow())
+	if !windowFound {
+		t.Fatal("restored regex tool disappeared after shrinking the window")
+	}
+	close, closeFound := h.tt.Find(locales.Close())
+	geometry := h.a.regexToolWindow.rect
+	closeX, closeY := close.X+close.W/2, close.Y+close.H/2
+	if geometry.X < 0 || geometry.Y < 0 || geometry.X+geometry.W > viewportWidth || geometry.Y+geometry.H > viewportHeight ||
+		!closeFound || close.W == 0 || close.H == 0 || close.X < geometry.X || close.Y < geometry.Y || close.X+close.W > geometry.X+geometry.W || close.Y+close.H > geometry.Y+geometry.H ||
+		close.X+close.W > viewportWidth || close.Y+close.H > viewportHeight {
+		t.Fatalf("restored tool or close control escaped the current %dx%d-DIP viewport: geometry=%+v close=%+v found=%v", viewportWidth, viewportHeight, geometry, close, closeFound)
+	}
+	h.tt.ClickAt(closeX, closeY)
+	h.tt.Frame()
+	if h.a.regexPlayground != nil {
+		t.Fatal("close control was not reachable after the small-window resize")
+	}
+}
+
 func TestRegexToolPersistenceDoesNotReopenPlayground(t *testing.T) {
 	root := writeTree(t, map[string]string{"a.go": "package a\nimport \"regexp\"\nvar re = regexp.MustCompile(`word`)\n"})
 	cfg := &config.Config{ConfirmClose: true}

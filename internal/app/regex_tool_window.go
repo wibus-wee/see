@@ -80,6 +80,9 @@ func (a *App) regexToolSourceVisible(p *regexPlayground) bool {
 }
 
 func (a *App) regexToolWindowView(c *ui.Context, p *regexPlayground, bounds, sourceBounds ui.Rect) {
+	windowWidth, windowHeight := c.Size()
+	bounds = regexToolBoundsWithinViewport(bounds, windowWidth, windowHeight)
+	sourceBounds = regexToolBoundsWithinViewport(sourceBounds, windowWidth, windowHeight)
 	rect := a.ensureRegexToolRect(bounds, sourceBounds)
 	ui.Overlay(c, func() {
 		window := ui.Column(c.Key("regex-tool-window")).Bind(&a.regexToolWindow.handle).Absolute().Left(rect.X).Top(rect.Y).Width(rect.W).Height(rect.H)
