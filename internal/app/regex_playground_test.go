@@ -395,10 +395,12 @@ func TestRegexPlaygroundStaysWithItsDocumentAndEditor(t *testing.T) {
 		t.Fatal("playground is missing from the initiating editor after split")
 	}
 	sourceBounds, otherBounds := regexToolGroupBounds(t, h, g), regexToolGroupBounds(t, h, other)
+	workspaceLeft, workspaceTop := min(sourceBounds.X, otherBounds.X), min(sourceBounds.Y, otherBounds.Y)
+	workspaceRight := max(sourceBounds.X+sourceBounds.W, otherBounds.X+otherBounds.W)
+	workspaceBottom := max(sourceBounds.Y+sourceBounds.H, otherBounds.Y+otherBounds.H)
 	if p.group != g || p.doc != d || other == g || textCount(h.tt.Texts(), locales.RegexPlaygroundTitle()) != 1 ||
-		tool.X < sourceBounds.X || tool.Y < sourceBounds.Y || tool.X+tool.W > sourceBounds.X+sourceBounds.W || tool.Y+tool.H > sourceBounds.Y+sourceBounds.H ||
-		tool.X < otherBounds.X+otherBounds.W && tool.X+tool.W > otherBounds.X && tool.Y < otherBounds.Y+otherBounds.H && tool.Y+tool.H > otherBounds.Y {
-		t.Fatal("playground escaped its initiating editor in the split layout")
+		tool.X < workspaceLeft || tool.Y < workspaceTop || tool.X+tool.W > workspaceRight || tool.Y+tool.H > workspaceBottom {
+		t.Fatal("playground lost its source ownership or workspace bounds in the split layout")
 	}
 	if d.buf.String() != "package a\nimport \"regexp\"\nvar re = regexp.MustCompile(`word`)\n" || len(h.a.dirtyDocs()) != 0 {
 		t.Fatal("tab or group changes modified source")

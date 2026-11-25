@@ -49,11 +49,30 @@ func regexToolBoundsSanitized(bounds ui.Rect) ui.Rect {
 	return bounds
 }
 
+func regexToolMinimumSize(bounds, sourceBounds ui.Rect) (float32, float32) {
+	bounds, sourceBounds = regexToolBoundsSanitized(bounds), regexToolBoundsSanitized(sourceBounds)
+	marginX, marginY := min(regexToolMargin, bounds.W/2), min(regexToolMargin, bounds.H/2)
+	sourceMarginX, sourceMarginY := min(regexToolMargin, sourceBounds.W/2), min(regexToolMargin, sourceBounds.H/2)
+	maxW, maxH := max(float32(0), bounds.W-2*marginX), max(float32(0), bounds.H-2*marginY)
+	sourceMaxW, sourceMaxH := max(float32(0), sourceBounds.W-2*sourceMarginX), max(float32(0), sourceBounds.H-2*sourceMarginY)
+	return min(regexToolMinWidth, maxW, sourceMaxW), min(regexToolMinHeight, maxH, sourceMaxH)
+}
+
 func clampRegexToolRect(rect, bounds ui.Rect) ui.Rect {
+	return clampRegexToolRectWithMinimum(rect, bounds, regexToolMinWidth, regexToolMinHeight)
+}
+
+func clampRegexToolRectWithMinimum(rect, bounds ui.Rect, minWidth, minHeight float32) ui.Rect {
 	bounds = regexToolBoundsSanitized(bounds)
 	marginX, marginY := min(regexToolMargin, bounds.W/2), min(regexToolMargin, bounds.H/2)
 	maxW, maxH := max(float32(0), bounds.W-2*marginX), max(float32(0), bounds.H-2*marginY)
-	minW, minH := min(regexToolMinWidth, maxW), min(regexToolMinHeight, maxH)
+	if !finiteRegexGeometry(minWidth) || minWidth < 0 {
+		minWidth = regexToolMinWidth
+	}
+	if !finiteRegexGeometry(minHeight) || minHeight < 0 {
+		minHeight = regexToolMinHeight
+	}
+	minW, minH := min(minWidth, maxW), min(minHeight, maxH)
 	if !finiteRegexGeometry(rect.W) || rect.W <= 0 {
 		rect.W = regexToolDefaultWidth
 	}
@@ -73,8 +92,12 @@ func clampRegexToolRect(rect, bounds ui.Rect) ui.Rect {
 }
 
 func resizeRegexToolRect(rect ui.Rect, edge regexToolResizeEdge, dx, dy float32, bounds ui.Rect) ui.Rect {
+	return resizeRegexToolRectWithMinimum(rect, edge, dx, dy, bounds, regexToolMinWidth, regexToolMinHeight)
+}
+
+func resizeRegexToolRectWithMinimum(rect ui.Rect, edge regexToolResizeEdge, dx, dy float32, bounds ui.Rect, minWidth, minHeight float32) ui.Rect {
 	bounds = regexToolBoundsSanitized(bounds)
-	rect = clampRegexToolRect(rect, bounds)
+	rect = clampRegexToolRectWithMinimum(rect, bounds, minWidth, minHeight)
 	if !finiteRegexGeometry(dx) {
 		dx = 0
 	}
@@ -82,8 +105,8 @@ func resizeRegexToolRect(rect ui.Rect, edge regexToolResizeEdge, dx, dy float32,
 		dy = 0
 	}
 	marginX, marginY := min(regexToolMargin, bounds.W/2), min(regexToolMargin, bounds.H/2)
-	minW := min(regexToolMinWidth, max(float32(0), bounds.W-2*marginX))
-	minH := min(regexToolMinHeight, max(float32(0), bounds.H-2*marginY))
+	minW := min(minWidth, max(float32(0), bounds.W-2*marginX))
+	minH := min(minHeight, max(float32(0), bounds.H-2*marginY))
 	left, right := rect.X, rect.X+rect.W
 	top, bottom := rect.Y, rect.Y+rect.H
 	if edge&regexToolResizeLeft != 0 {
@@ -98,5 +121,5 @@ func resizeRegexToolRect(rect ui.Rect, edge regexToolResizeEdge, dx, dy float32,
 	if edge&regexToolResizeBottom != 0 {
 		bottom = max(min(bottom+dy, bounds.Y+bounds.H-marginY), top+minH)
 	}
-	return clampRegexToolRect(ui.Rect{X: left, Y: top, W: right - left, H: bottom - top}, bounds)
+	return clampRegexToolRectWithMinimum(ui.Rect{X: left, Y: top, W: right - left, H: bottom - top}, bounds, minWidth, minHeight)
 }

@@ -102,6 +102,154 @@ func TestRegexToolWindowTitleAndAllResizeHandles(t *testing.T) {
 	}
 }
 
+func TestRegexToolResizesAcrossThreeEditorGroupsAndBack(t *testing.T) {
+	root := writeTree(t, map[string]string{
+		"a.go": "package a\nimport \"regexp\"\nvar re = regexp.MustCompile(`word`)\n",
+		"b.go": "package b\nvar value = 1\n",
+		"c.go": "package c\nvar value = 2\n",
+	})
+	h := newHarness(t, root)
+	sourceDoc := h.open("a.go")
+	sourceGroup := h.a.focus
+	sourceEditor := sourceGroup.eds[sourceDoc.path]
+	sourceEditor.GoTo(sourceEditor.Buffer.Pos(strings.Index(sourceDoc.buf.String(), "word")))
+	h.a.splitActive(sideRight)
+	middleGroup := h.a.focus
+	h.open("b.go")
+	h.a.splitActive(sideRight)
+	lastGroup := h.a.focus
+	h.open("c.go")
+	h.a.openRegexPlaygroundFor(sourceGroup, sourceDoc, sourceEditor)
+	h.tt.Frame()
+	h.tt.Frame()
+	if h.a.regexPlayground == nil || !h.tt.HasText(locales.RegexToolWindow()) {
+		t.Fatal("regex tool did not open in the source editor")
+	}
+
+	panesBefore := []ui.Rect{
+		regexToolGroupBounds(t, h, sourceGroup),
+		regexToolGroupBounds(t, h, middleGroup),
+		regexToolGroupBounds(t, h, lastGroup),
+	}
+	initial := h.a.regexToolWindow.rect
+	if initial.X < panesBefore[0].X || initial.Y < panesBefore[0].Y ||
+		initial.X+initial.W > panesBefore[0].X+panesBefore[0].W || initial.Y+initial.H > panesBefore[0].Y+panesBefore[0].H {
+		t.Fatalf("tool did not start inside its source pane: tool=%+v source=%+v", initial, panesBefore[0])
+	}
+
+	targetRight := panesBefore[2].X + panesBefore[2].W/2
+	dx := targetRight - (initial.X + initial.W)
+	if dx <= 0 {
+		t.Fatalf("three-pane fixture leaves no room to expand: tool=%+v panes=%+v", initial, panesBefore)
+	}
+	east, ok := h.tt.Find(locales.RegexToolResizeEast())
+	if !ok {
+		t.Fatal("east resize handle is missing before crossing panes")
+	}
+	dragTester(t, h, east, dx, 0)
+	expanded := h.a.regexToolWindow.rect
+	if expanded.X+expanded.W <= panesBefore[2].X {
+		t.Fatalf("direct edge resize did not reach the third pane: tool=%+v panes=%+v", expanded, panesBefore)
+	}
+	for i, group := range []*group{sourceGroup, middleGroup, lastGroup} {
+		if got := regexToolGroupBounds(t, h, group); got != panesBefore[i] {
+			t.Fatalf("pane %d geometry changed during tool resize: before=%+v after=%+v", i, panesBefore[i], got)
+		}
+	}
+
+	east, ok = h.tt.Find(locales.RegexToolResizeEast())
+	if !ok {
+		t.Fatal("east resize handle is missing after crossing panes")
+	}
+	dragTester(t, h, east, initial.X+initial.W-(expanded.X+expanded.W), 0)
+	if got := h.a.regexToolWindow.rect; got != initial {
+		t.Fatalf("shrinking the tool back did not restore its source-pane bounds: got=%+v want=%+v", got, initial)
+	}
+	for i, group := range []*group{sourceGroup, middleGroup, lastGroup} {
+		if got := regexToolGroupBounds(t, h, group); got != panesBefore[i] {
+			t.Fatalf("pane %d geometry changed while shrinking the tool: before=%+v after=%+v", i, panesBefore[i], got)
+		}
+	}
+}
+
+func TestRegexToolReopeningFitsRememberedGeometryToNewNarrowSource(t *testing.T) {
+	root := writeTree(t, map[string]string{
+		"a.go": "package a\nimport \"regexp\"\nvar re = regexp.MustCompile(`word`)\n",
+		"b.go": "package b\nvar value = 1\n",
+		"c.go": "package c\nvar value = 2\n",
+	})
+	h := newHarness(t, root)
+	sourceDoc := h.open("a.go")
+	sourceGroup := h.a.focus
+	sourceEditor := sourceGroup.eds[sourceDoc.path]
+	sourceEditor.GoTo(sourceEditor.Buffer.Pos(strings.Index(sourceDoc.buf.String(), "word")))
+	h.a.splitActive(sideRight)
+	middleGroup := h.a.focus
+	h.open("b.go")
+	h.a.splitActive(sideRight)
+	narrowGroup := h.a.focus
+	narrowDoc := h.open("c.go")
+	narrowEditor := narrowGroup.eds[narrowDoc.path]
+	h.a.openRegexPlaygroundFor(sourceGroup, sourceDoc, sourceEditor)
+	h.tt.Frame()
+	h.tt.Frame()
+
+	panes := []ui.Rect{
+		regexToolGroupBounds(t, h, sourceGroup),
+		regexToolGroupBounds(t, h, middleGroup),
+		regexToolGroupBounds(t, h, narrowGroup),
+	}
+	if narrowGroup == sourceGroup || panes[2].W >= regexToolMinWidth {
+		t.Fatalf("fixture does not use a different narrow source: source=%+v narrow=%+v", panes[0], panes[2])
+	}
+	title, ok := h.tt.Find(locales.RegexToolTitlebar())
+	if !ok {
+		t.Fatal("titlebar is missing before moving remembered geometry")
+	}
+	dragTester(t, h, title, 0, -40)
+	initial := h.a.regexToolWindow.rect
+	east, ok := h.tt.Find(locales.RegexToolResizeEast())
+	if !ok {
+		t.Fatal("east resize handle is missing before opening elsewhere")
+	}
+	targetRight := panes[2].X + panes[2].W/2
+	dragTester(t, h, east, targetRight-(initial.X+initial.W), 0)
+	expanded := h.a.regexToolWindow.rect
+	if expanded.X+expanded.W <= panes[2].X {
+		t.Fatalf("tool did not expand across the panes: expanded=%+v panes=%+v", expanded, panes)
+	}
+	if expanded.Y != initial.Y {
+		t.Fatalf("horizontal expansion changed remembered vertical position: before=%+v after=%+v", initial, expanded)
+	}
+	previous := h.a.regexPlayground
+	h.a.closeRegexPlayground(previous)
+	h.a.openRegexPlaygroundFor(narrowGroup, narrowDoc, narrowEditor)
+	h.tt.Frame()
+	h.tt.Frame()
+
+	narrowBounds := regexToolGroupBounds(t, h, narrowGroup)
+	window, ok := h.tt.Find(locales.RegexToolWindow())
+	if !ok || window.X < narrowBounds.X || window.Y < narrowBounds.Y ||
+		window.X+window.W > narrowBounds.X+narrowBounds.W || window.Y+window.H > narrowBounds.Y+narrowBounds.H {
+		t.Fatalf("reopened tool did not fit its new narrow source pane: window=%+v source=%+v found=%v", window, narrowBounds, ok)
+	}
+	workspaceBounds := ui.Rect{
+		X: min(panes[0].X, panes[1].X, panes[2].X),
+		Y: min(panes[0].Y, panes[1].Y, panes[2].Y),
+	}
+	workspaceRight := max(panes[0].X+panes[0].W, panes[1].X+panes[1].W, panes[2].X+panes[2].W)
+	workspaceBottom := max(panes[0].Y+panes[0].H, panes[1].Y+panes[1].H, panes[2].Y+panes[2].H)
+	workspaceBounds.W, workspaceBounds.H = workspaceRight-workspaceBounds.X, workspaceBottom-workspaceBounds.Y
+	wantWidth, wantHeight := regexToolMinimumSize(workspaceBounds, narrowBounds)
+	if !h.a.regexToolWindow.minimumSet || h.a.regexToolWindow.minWidth != wantWidth || h.a.regexToolWindow.minHeight != wantHeight {
+		t.Fatalf("reopened tool retained stale minimum: got=%g/%g want=%g/%g", h.a.regexToolWindow.minWidth, h.a.regexToolWindow.minHeight, wantWidth, wantHeight)
+	}
+	wantRect := clampRegexToolRectWithMinimum(expanded, narrowBounds, wantWidth, wantHeight)
+	if h.a.regexPlayground == nil || h.a.regexPlayground.group != narrowGroup || h.a.regexPlayground.doc != narrowDoc || h.a.regexToolWindow.rect != wantRect {
+		t.Fatalf("reopened geometry was not fitted from the remembered rectangle: got=%+v want=%+v playground=%+v", h.a.regexToolWindow.rect, wantRect, h.a.regexPlayground)
+	}
+}
+
 func TestRegexToolWindowClampsToSmallEditor(t *testing.T) {
 	h, _, p := openRegexToolHarness(t)
 	h.tt.SetSize(500, 320)
@@ -307,12 +455,16 @@ func TestRegexToolEscapeAndSourceClosureAreScoped(t *testing.T) {
 	if sourceGroup == otherGroup {
 		t.Fatal("split editor did not become distinct")
 	}
-	sourceBounds, otherBounds := regexToolGroupBounds(t, h, sourceGroup), regexToolGroupBounds(t, h, otherGroup)
-	if tool.X < sourceBounds.X || tool.Y < sourceBounds.Y || tool.X+tool.W > sourceBounds.X+sourceBounds.W || tool.Y+tool.H > sourceBounds.Y+sourceBounds.H ||
-		tool.X < otherBounds.X+otherBounds.W && tool.X+tool.W > otherBounds.X && tool.Y < otherBounds.Y+otherBounds.H && tool.Y+tool.H > otherBounds.Y {
-		t.Fatal("tool escaped the initiating editor into the other split")
+	otherBounds := regexToolGroupBounds(t, h, otherGroup)
+	clickX, clickY := otherBounds.X+otherBounds.W/2, otherBounds.Y+otherBounds.H/2
+	if clickX >= tool.X && clickX < tool.X+tool.W && clickY >= tool.Y && clickY < tool.Y+tool.H {
+		clickY = min(clickY, tool.Y-8)
 	}
-	h.tt.ClickAt(otherBounds.X+otherBounds.W/2, otherBounds.Y+otherBounds.H/2)
+	if clickX < otherBounds.X || clickX >= otherBounds.X+otherBounds.W || clickY < otherBounds.Y || clickY >= otherBounds.Y+otherBounds.H ||
+		clickX >= tool.X && clickX < tool.X+tool.W && clickY >= tool.Y && clickY < tool.Y+tool.H {
+		t.Fatalf("could not find an uncovered editor point: point=(%g,%g) pane=%+v tool=%+v", clickX, clickY, otherBounds, tool)
+	}
+	h.tt.ClickAt(clickX, clickY)
 	h.tt.Type("X")
 	h.tt.Frame()
 	if !strings.Contains(otherDoc.buf.String(), "X") {

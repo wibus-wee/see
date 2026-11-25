@@ -130,6 +130,9 @@ func (a *App) openRegexPlaygroundFor(g *group, d *doc, st *editor.State) {
 	a.focus = g
 	a.regexPlayground = playground
 	a.focusEditor = playground.sample
+	a.regexToolWindow.fitToSourceOnOpen = true
+	a.regexToolWindow.minimumSet = false
+	a.regexToolWindow.minWidth, a.regexToolWindow.minHeight = 0, 0
 }
 
 func (a *App) closeRegexPlayground(p *regexPlayground) {

@@ -9,16 +9,25 @@ import (
 )
 
 type regexToolWindowState struct {
-	rect        ui.Rect
-	initialized bool
-	handle      ui.Handle
+	rect              ui.Rect
+	initialized       bool
+	handle            ui.Handle
+	workspaceHandle   ui.Handle
+	minWidth          float32
+	minHeight         float32
+	minimumSet        bool
+	fitToSourceOnOpen bool
 }
 
 func (s *regexToolWindowState) resetWorkspace() {
-	s.rect, s.initialized = ui.Rect{}, false
+	s.rect, s.initialized, s.minimumSet, s.fitToSourceOnOpen = ui.Rect{}, false, false, false
+	s.minWidth, s.minHeight = 0, 0
 }
 
 func (a *App) restoreRegexToolWindow(s config.Workspace) {
+	a.regexToolWindow.minimumSet = false
+	a.regexToolWindow.minWidth, a.regexToolWindow.minHeight = 0, 0
+	a.regexToolWindow.fitToSourceOnOpen = false
 	if finiteRegexGeometry(s.RegexToolX) && finiteRegexGeometry(s.RegexToolY) &&
 		finiteRegexGeometry(s.RegexToolWidth) && s.RegexToolWidth > 0 &&
 		finiteRegexGeometry(s.RegexToolHeight) && s.RegexToolHeight > 0 {
@@ -29,14 +38,27 @@ func (a *App) restoreRegexToolWindow(s config.Workspace) {
 	}
 }
 
-func (a *App) ensureRegexToolRect(bounds ui.Rect) ui.Rect {
+func (a *App) ensureRegexToolRect(bounds, sourceBounds ui.Rect) ui.Rect {
+	if sourceBounds.W <= 0 || sourceBounds.H <= 0 {
+		sourceBounds = bounds
+	}
+	if !a.regexToolWindow.minimumSet {
+		a.regexToolWindow.minWidth, a.regexToolWindow.minHeight = regexToolMinimumSize(bounds, sourceBounds)
+		a.regexToolWindow.minimumSet = true
+	}
 	if !a.regexToolWindow.initialized {
-		a.regexToolWindow.rect = regexToolDefaultRect(bounds)
+		a.regexToolWindow.rect = regexToolDefaultRect(sourceBounds)
 		a.regexToolWindow.initialized = true
+		a.regexToolWindow.fitToSourceOnOpen = false
 		a.saveConfigSoon()
 		return a.regexToolWindow.rect
 	}
-	clamped := clampRegexToolRect(a.regexToolWindow.rect, bounds)
+	clampBounds := bounds
+	if a.regexToolWindow.fitToSourceOnOpen {
+		clampBounds = sourceBounds
+	}
+	clamped := clampRegexToolRectWithMinimum(a.regexToolWindow.rect, clampBounds, a.regexToolWindow.minWidth, a.regexToolWindow.minHeight)
+	a.regexToolWindow.fitToSourceOnOpen = false
 	if clamped != a.regexToolWindow.rect {
 		a.regexToolWindow.rect = clamped
 		a.saveConfigSoon()
@@ -44,8 +66,15 @@ func (a *App) ensureRegexToolRect(bounds ui.Rect) ui.Rect {
 	return a.regexToolWindow.rect
 }
 
-func (a *App) regexToolWindowView(c *ui.Context, p *regexPlayground, bounds ui.Rect) {
-	rect := a.ensureRegexToolRect(bounds)
+func (a *App) regexToolSourceVisible(p *regexPlayground) bool {
+	if !a.regexPlaygroundSourceLive(p) || p.group.active != p.doc.path {
+		return false
+	}
+	return a.maximized == nil || a.maximized == p.group || a.layout.find(a.maximized) == nil || len(a.groups()) <= 1
+}
+
+func (a *App) regexToolWindowView(c *ui.Context, p *regexPlayground, bounds, sourceBounds ui.Rect) {
+	rect := a.ensureRegexToolRect(bounds, sourceBounds)
 	ui.Overlay(c, func() {
 		window := ui.Column(c.Key("regex-tool-window")).Bind(&a.regexToolWindow.handle).Absolute().Left(rect.X).Top(rect.Y).Width(rect.W).Height(rect.H)
 		window.Label(locales.RegexToolWindow()).Background(c.Theme().Surface).BorderWidth(1, 1, 1, 1).BorderColor(colors(c).Separator).Radius(9).Clip().Children(func() {
@@ -66,7 +95,7 @@ func (a *App) regexToolTitlebar(c *ui.Context, p *regexPlayground, bounds ui.Rec
 			if dx != 0 || dy != 0 {
 				a.regexToolWindow.rect.X += dx
 				a.regexToolWindow.rect.Y += dy
-				a.regexToolWindow.rect = clampRegexToolRect(a.regexToolWindow.rect, bounds)
+				a.regexToolWindow.rect = clampRegexToolRectWithMinimum(a.regexToolWindow.rect, bounds, a.regexToolWindow.minWidth, a.regexToolWindow.minHeight)
 				a.saveConfigSoon()
 			}
 		}
@@ -98,7 +127,7 @@ func (a *App) regexToolResizeHandles(c *ui.Context, bounds ui.Rect) {
 		target := ui.Box(c.Key(handle.key)).Absolute().Cursor(handle.cursor).Label(handle.label)
 		target = handle.style(target)
 		if dx, dy, dragged := target.Dragged(); dragged && (dx != 0 || dy != 0) {
-			a.regexToolWindow.rect = resizeRegexToolRect(a.regexToolWindow.rect, handle.edge, dx, dy, bounds)
+			a.regexToolWindow.rect = resizeRegexToolRectWithMinimum(a.regexToolWindow.rect, handle.edge, dx, dy, bounds, a.regexToolWindow.minWidth, a.regexToolWindow.minHeight)
 			a.saveConfigSoon()
 		}
 	}
