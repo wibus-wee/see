@@ -224,7 +224,6 @@ func (a *App) findUsagesPinned() {
 	}
 	a.term.maximized = false
 	a.cancelNav()
-	a.hideLink()
 	snap := d.buf.Snapshot()
 	pos := st.CursorPos()
 	from := nav.Entry{Path: d.path, Line: pos.Line, ByteColumn: pos.Col}

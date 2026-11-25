@@ -129,7 +129,6 @@ func (a *App) showHierarchyAt(g *group, types bool) {
 	cs := &a.calls
 	a.cancelCalls()
 	cs.types = types
-	a.hideLink()
 	a.term.maximized = false
 	a.term.open = true
 	a.term.view = panelCalls
