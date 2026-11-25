@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"fmt"
 	"runtime"
 	"strings"
 	"sync"
@@ -330,5 +331,82 @@ func TestParameterHintsUnsupportedEmptyAndErrorsAreSilent(t *testing.T) {
 				t.Fatalf("unsupported hints populated lanes: language=%+v parameters=%+v", d.languageInlays, d.parameterInlays)
 			}
 		})
+	}
+}
+
+// scrollHintsHarness opens a file far taller than the window whose fake
+// server hints every line in any range asked.
+func scrollHintsHarness(t *testing.T) (*harness, *doc, *editor.State) {
+	t.Helper()
+	root := writeTree(t, map[string]string{"main.go": bigInlaySource(200)})
+	h := newHarness(t, root)
+	h.a.cfg.Trust(root)
+	h.fc.inlayHints = func(_ context.Context, uri string, r lsp.Range) ([]lsp.InlayHint, error) {
+		var hints []lsp.InlayHint
+		for line := r.Start.Line; line <= r.End.Line; line += 2 {
+			hints = append(hints, lsp.InlayHint{Position: lsp.Position{Line: line, Character: 2}, Label: ": int", Kind: 1, PaddingRight: true})
+		}
+		return hints, nil
+	}
+	d := h.open("main.go")
+	return h, d, h.a.activeEditor()
+}
+
+func bigInlaySource(n int) string {
+	var sb strings.Builder
+	sb.WriteString("package main\n\nfunc compute() int { return 1 }\n\nfunc main() {\n")
+	for i := 0; i < n; i++ {
+		if i%2 == 0 {
+			fmt.Fprintf(&sb, "\tv%d := compute() // line %d\n", i, i)
+		} else {
+			fmt.Fprintf(&sb, "\t_ = v%d\n", i-1)
+		}
+	}
+	sb.WriteString("}\n")
+	return sb.String()
+}
+
+func TestInlayHintsSurviveScrollWhileNextRequestSettles(t *testing.T) {
+	h, d, st := scrollHintsHarness(t)
+	settleInlays(h, d)
+	before := len(d.languageInlays)
+	if before == 0 {
+		t.Fatal("no hints before scrolling")
+	}
+	version := d.buf.Version()
+	// Scroll down far enough that the visible range moves: the request
+	// for the new lines debounces and then waits on the server. The
+	// hints already fetched must stay on screen the whole time, rather
+	// than blanking until the reply lands.
+	st.SetScrollY(st.LineTop(80))
+	h.tt.Frame()
+	if len(d.languageInlays) != before {
+		t.Fatalf("scrolling blanked the hints: %d -> %d", before, len(d.languageInlays))
+	}
+	for i := 0; i < 20; i++ {
+		h.tt.Frame()
+		if d.buf.Version() != version {
+			t.Fatal("buffer changed without an edit")
+		}
+		if len(d.languageInlays) == 0 {
+			t.Fatalf("hints flickered off during the scroll settle, frame %d", i)
+		}
+	}
+	settleInlays(h, d)
+	if len(d.languageInlays) == 0 {
+		t.Fatal("hints never refilled after the scroll settled")
+	}
+}
+
+func TestInlayHintsClearOnEdit(t *testing.T) {
+	h, d, _ := scrollHintsHarness(t)
+	settleInlays(h, d)
+	if len(d.languageInlays) == 0 {
+		t.Fatal("no hints before editing")
+	}
+	d.buf.Set(strings.Replace(d.buf.String(), "compute()", "compute2()", 1))
+	h.tt.Frame()
+	if len(d.languageInlays) != 0 || len(d.parameterInlays) != 0 {
+		t.Fatalf("hints survived a buffer edit: language=%+v parameters=%+v", d.languageInlays, d.parameterInlays)
 	}
 }

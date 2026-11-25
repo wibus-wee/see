@@ -23,8 +23,15 @@ const inlaySettle = 100 * time.Millisecond
 // syncInlayHints asks the document's server for the hints of the lines
 // on screen and fills languageInlays with them. It runs on a scroll
 // settle and on every buffer version change; a reply that arrives after
-// the buffer or the view moved on is dropped.
+// the buffer or the view moved on is dropped. Only an edit clears the
+// hints already shown: scroll-only moves keep them, as clearing them
+// for the new range's request hid every hint until its reply landed,
+// which the reader saw as hints flickering off and on with each scroll.
+// An edit invalidates the offsets the lanes hold, so they go.
 func (a *App) syncInlayHints(d *doc, st *editor.State) {
+	if d.buf != nil && d.inlayKey.first >= 0 && d.buf.Version() != d.inlayKey.version {
+		a.clearInlayHints(d)
+	}
 	m := a.serverFor(d.path)
 	served := m != nil && a.cfg.IsTrusted(a.root)
 	if !served || d.buf == nil || d.lossy || d.plain || st == nil || a.wsCtx == nil {
@@ -53,7 +60,6 @@ func (a *App) syncInlayHints(d *doc, st *editor.State) {
 	if d.inlayCancel != nil {
 		d.inlayCancel()
 	}
-	d.languageInlays, d.parameterInlays = nil, nil // never show the old range's hints over the new text
 	d.inlayKey = key
 	seq, gen := d.inlaySeq, a.gen
 	ctx, cancel := context.WithCancel(a.wsCtx)
