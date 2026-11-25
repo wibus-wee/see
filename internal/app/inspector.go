@@ -93,11 +93,12 @@ func (a *App) inspectorTabs(c *ui.Context) {
 		}
 		segments := []struct {
 			icon  *ui.SVG
+			short string
 			label string
 		}{
-			{icPage, inspectorText("inspectorFileTip")},
-			{icClock, inspectorText("inspectorHistoryTip")},
-			{icQuestion, inspectorText("inspectorQuickHelpTip")},
+			{icPage, inspectorText("inspectorFileShort"), inspectorText("inspectorFileTip")},
+			{icClock, inspectorText("inspectorHistoryShort"), inspectorText("inspectorHistoryTip")},
+			{icQuestion, inspectorText("inspectorQuickHelpShort"), inspectorText("inspectorQuickHelpTip")},
 		}
 		at := parts.Track.AnimateTo("thumb", float32(in.tab), thumbSpring)
 		parts.Track.Children(func() {
@@ -111,7 +112,10 @@ func (a *App) inspectorTabs(c *ui.Context) {
 					if i == in.tab {
 						color = colors(c).Text
 					}
-					symbolIcon(c, s.icon, 14, color)
+					ui.Row(c).Gap(4).AlignItems(ui.Center).Children(func() {
+						symbolIcon(c, s.icon, 13, color)
+						ui.Text(c, s.short).FontSize(10).TextColor(color).SingleLine()
+					})
 				})
 			}
 		})

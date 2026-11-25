@@ -60,6 +60,12 @@ type gitState struct {
 	autoFetch     bool
 	autoFetching  bool
 	lastFetch     time.Time
+	fetchFailures int // background fetches in a row that could not reach a remote
+	// offline is what the last network command's outcome proved: one that
+	// could not reach its remote, whatever started it. While it holds,
+	// auto-fetch stands down; the fetches the user asks for still run,
+	// and theirs are the outcomes that lift it.
+	offline bool
 	// notifiedBehind is the incoming count a background fetch last
 	// announced, so the next one tells only when it grew; fetchNotified
 	// marks the status read following one.
@@ -112,6 +118,12 @@ type gitDiffTab struct {
 	untracked bool
 	pending   bool // restored, and waiting to be read
 	change    bool // compares a repository's working tree or index
+	// lineSel is the last line range selected on the diff, in the
+	// diff's own line numbers; lineFile is the file it is of when the
+	// tab shows more than one, as a branch comparison's, "" otherwise.
+	lineSel  editor.DiffLineRange
+	lineSelOn bool
+	lineFile  string
 }
 
 // label tells what a diff compares: the commit, the index or the

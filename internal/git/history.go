@@ -327,6 +327,30 @@ func commitRange(ctx context.Context, root, revision string) map[string]bool {
 	return m
 }
 
+// CountCommits is how many commits the history walks: of HEAD and its
+// upstream, or of every branch with all, as Log reads them. It answers
+// -1 when the repository cannot say.
+func CountCommits(ctx context.Context, root string, all bool) int {
+	args := []string{"rev-list", "--count"}
+	if all {
+		args = append(args, "--branches", "--remotes", "--tags", "HEAD")
+	} else {
+		args = append(args, "HEAD")
+		if upstream, err := Command(ctx, root, "rev-parse", "--verify", "--quiet", "@{upstream}"); err == nil {
+			args = append(args, strings.TrimSpace(string(upstream)))
+		}
+	}
+	out, err := Command(ctx, root, args...)
+	if err != nil {
+		return -1
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(string(out)))
+	if err != nil {
+		return -1
+	}
+	return n
+}
+
 // FileStat is a file a commit changed, with the lines added and deleted,
 // -1 each for a binary file.
 type FileStat struct {

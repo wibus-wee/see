@@ -33,6 +33,22 @@ func (a *App) maybeFetchGit(now time.Time) {
 		!a.git.lastFetch.IsZero() && now.Sub(a.git.lastFetch) < gitFetchInterval {
 		return
 	}
+	// Offline stands auto-fetch down whole: no process, no failure count,
+	// no log. Nothing is scheduled to lift it — the fetch or push the
+	// user runs when the network is back does, so recovery costs nothing
+	// while the machine is away and nothing once it returns.
+	if a.git.offline {
+		return
+	}
+	// A fetch that cannot reach its remote backs off instead of spinning
+	// every two minutes: the next try is a fetch interval later per
+	// failure, up to eight.
+	if a.git.fetchFailures > 0 {
+		backoff := gitFetchInterval << min(a.git.fetchFailures-1, 3)
+		if now.Sub(a.git.lastFetch) < backoff {
+			return
+		}
+	}
 	a.runSyncGit("Fetching…", "", true, "fetch", "--all", "--prune")
 }
 
@@ -59,11 +75,21 @@ func (a *App) runSyncGit(doing, done string, background bool, args ...string) {
 			a.git.autoFetching = false
 			if err != nil {
 				if background {
-					a.logf("git auto-fetch: %v", err)
+					// A background failure the network explains marks the app
+					// offline once, quietly: the fetch was never the user's,
+					// and the log line would repeat with every retry.
+					if git.Reachable(err) {
+						a.git.fetchFailures++
+						a.logf("git auto-fetch: %v", err)
+					} else {
+						a.git.offline = true
+					}
 				} else {
+					a.git.offline = !git.Reachable(err)
 					a.note(locales.MsgGit()+gitErrLine(err), true)
 				}
 			} else {
+				a.git.fetchFailures, a.git.offline = 0, false
 				if background {
 					// The status read that follows reports newly incoming
 					// commits; a fetch of the user's does not, they are

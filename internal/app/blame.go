@@ -104,6 +104,7 @@ func parameterHintModifier(goos string) ui.Modifiers {
 }
 
 func (a *App) editorInlays(d *doc, st *editor.State) []editor.Inlay {
+	st.CursorPos() // Follow buffer edits before copying the cached hint offsets.
 	var inlays []editor.Inlay
 	if !a.cfg.HideTypeHints {
 		inlays = append(inlays, d.languageInlays...)

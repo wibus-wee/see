@@ -305,6 +305,7 @@ type doc struct {
 	languageInlays    []editor.Inlay
 	readerCache       *readerCache
 	parameterInlays   []editor.Inlay
+	inlayVersion      uint64 // version of the cached hint offsets
 	inlayKey          inlayKey
 	inlaySeq          int
 	inlayTimer        *time.Timer
@@ -325,6 +326,7 @@ type doc struct {
 	foldFolder        *foldFolder // the language's Folder, once wrapped
 	baseLang          *editor.Language
 	wrappedLang       *editor.Language
+	wrappedInlays     bool
 	wrappedFold       bool // wrappedLang folds by the server's ranges
 	manualLanguage    *editor.Language
 	languageManual    bool
@@ -1768,8 +1770,8 @@ func (a *App) openLanguageDocument(m *langserver.Server, ctx context.Context, d 
 }
 
 // upgradeLanguage wraps the document buffer's language in a
-// highlighter layering what its server answers — semantic tokens over
-// the tokenizer's, folding ranges for the gutter — once it is up. It
+// highlighter layering semantic tokens and folding ranges over the tokenizer,
+// and following edits to keep cached inlay offsets current. It
 // runs when the document first syncs, and again whenever a server
 // takes over — start, restart and retry all reach it through
 // openLanguageDocument — and when a lane learns its capability.
@@ -1788,7 +1790,7 @@ func (a *App) upgradeLanguage(d *doc, m *langserver.Server, client langserver.Cl
 	if d.wrappedLang == lang {
 		baseLang = d.baseLang
 	}
-	sem, fold := false, false
+	sem, fold, inlays := false, false, false
 	if sc, ok := client.(semanticTokensClient); ok && sc.HasSemanticTokens() &&
 		baseLang.Tokenizer != nil && baseLang.Highlighter == nil {
 		sem = true // the semantic layer needs a tokenizer to build on
@@ -1799,7 +1801,11 @@ func (a *App) upgradeLanguage(d *doc, m *langserver.Server, client langserver.Cl
 		d.foldRanges != nil && (baseLang.Tokenizer != nil || baseLang.Highlighter != nil) {
 		fold = true
 	}
-	if !sem && !fold || d.wrappedLang == lang && (!fold || d.wrappedFold) {
+	if ic, ok := client.(inlayHintClient); ok && ic.HasInlayHints() &&
+		(baseLang.Tokenizer != nil || baseLang.Highlighter != nil) {
+		inlays = true
+	}
+	if !sem && !fold && !inlays || d.wrappedLang == lang && (!fold || d.wrappedFold) && (!inlays || d.wrappedInlays) {
 		return // nothing to add, or already wrapped with all it gets
 	}
 	ctx, gen := a.wsCtx, a.gen
@@ -1833,8 +1839,15 @@ func (a *App) upgradeLanguage(d *doc, m *langserver.Server, client langserver.Cl
 			d.foldFolder = &foldFolder{base: base, doc: d}
 			base = d.foldFolder
 		}
+		if inlays {
+			if d.inlayVersion != text.Version() {
+				a.clearInlayHints(d)
+			}
+			base = trackInlayEdits(base, d)
+		}
 		return base
 	}
+	d.wrappedInlays = inlays
 	d.baseLang, d.wrappedLang, d.wrappedFold = baseLang, &wrapped, fold
 	d.buf.SetLanguage(&wrapped)
 }
