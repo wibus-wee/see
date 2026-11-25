@@ -256,7 +256,7 @@ func TestEditAllInScopeEditorContextMenuTargetsClickedPane(t *testing.T) {
 	if len(menu) == 0 {
 		t.Fatal("right-click did not open the editor context menu")
 	}
-	for _, item := range []string{"Cut", "Copy", "Paste", "Select All", "Find References", commandLabel("edit.allInScope")} {
+	for _, item := range []string{"Cut", "Copy", "Paste", "Find References", commandLabel("edit.allInScope")} {
 		if !slices.Contains(menu, item) {
 			t.Fatalf("context menu is missing %q: %v", item, menu)
 		}

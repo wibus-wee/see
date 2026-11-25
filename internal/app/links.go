@@ -111,19 +111,18 @@ func (a *App) linkItems(menu *ui.Menu, d *doc, st *editor.State) {
 	if d.untitled {
 		return
 	}
-	menu.Separator()
-	if menu.Item("Copy Code Reference").Chosen() {
+	if menu.Item(editorContextMenuText("editorContextCopyCodeReference", nil)).Chosen() {
 		ref := a.codeReference(d, st)
 		a.services.WriteClipboard(ref)
 		a.note(locales.MsgCopied()+ref+".", false)
 	}
 	if link := a.webLink(d, st); link != "" {
 		host := hostName(a.git.web)
-		if menu.Item("Copy " + host + " Link").Chosen() {
+		if menu.Item(editorContextMenuText("editorContextCopyHostLink", map[string]any{"host": host})).Chosen() {
 			a.services.WriteClipboard(link)
 			a.note(locales.MsgCopiedThe()+host+locales.MsgLink(), false)
 		}
-		if menu.Item("Open on " + host).Chosen() {
+		if menu.Item(editorContextMenuText("editorContextOpenOnHost", map[string]any{"host": host})).Chosen() {
 			a.services.OpenURL(link)
 		}
 	}

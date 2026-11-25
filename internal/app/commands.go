@@ -154,6 +154,13 @@ func commandsFor(goos string) []command {
 		{"shell.installSee", "Shell Command: Install 'see' Command in PATH", "", "", 0, 0, func(a *App) { a.installSee() }},
 		{"shell.uninstallSee", "Shell Command: Uninstall 'see' Command from PATH", "", "", 0, 0, func(a *App) { a.uninstallSee() }},
 	}
+	addEditorCommand := func(id, name string, editorCmd editor.Command) command {
+		return command{id: id, name: name, run: func(a *App) {
+			if st := a.activeEditor(); st != nil {
+				st.Run(editorCmd)
+			}
+		}}
+	}
 	cmds = append(cmds,
 		command{"editor.signatureHelp", "Show Signature Help", "Ctrl+Shift+", "Space", ui.Ctrl | ui.Shift, ui.KeySpace, func(a *App) { a.showSignatureAtCaret() }},
 		command{"find.file", "Find in File", "Cmd+", "F", 0, 0, func(a *App) {
@@ -186,8 +193,24 @@ func commandsFor(goos string) []command {
 		command{"format.document", "Format Document", "Shift+Alt+", "F", ui.Shift | ui.Alt, ui.KeyF, func(a *App) { a.formatDocument() }},
 		command{"format.selection", "Format Selection", "", "", 0, 0, func(a *App) { a.formatSelection() }},
 		command{"edit.allInScope", "Edit All in Scope", scopeLabel, scopeKeyName, scopeMods, scopeKey, func(a *App) { a.editAllInScope() }},
+		addEditorCommand("selection.all", "Select All", editor.SelectAll),
+		addEditorCommand("selection.nextOccurrence", "Select Next Occurrence", editor.SelectNext),
+		addEditorCommand("selection.allOccurrences", "Select All Occurrences", editor.SelectAllMatches),
 		command{"selection.expand", "Expand Selection", "Shift+Alt+", "↑", ui.Shift | ui.Alt, ui.KeyUp, func(a *App) { a.expandSelection() }},
 		command{"selection.shrink", "Shrink Selection", "Shift+Alt+", "↓", ui.Shift | ui.Alt, ui.KeyDown, func(a *App) { a.shrinkSelection() }},
+		addEditorCommand("selection.splitLines", "Split into Lines", editor.SplitSelectionIntoLines),
+		addEditorCommand("transform.upperCase", "Upper Case", editor.Uppercase),
+		addEditorCommand("transform.lowerCase", "Lower Case", editor.Lowercase),
+		addEditorCommand("transform.titleCase", "Title Case", editor.TitleCase),
+		addEditorCommand("transform.snakeCase", "Snake Case", editor.SnakeCase),
+		addEditorCommand("transform.kebabCase", "Kebab Case", editor.KebabCase),
+		addEditorCommand("transform.camelCase", "Camel Case", editor.CamelCase),
+		addEditorCommand("transform.pascalCase", "Pascal Case", editor.PascalCase),
+		addEditorCommand("transform.sortLines", "Sort Lines", editor.SortLines),
+		addEditorCommand("transform.reverseLines", "Reverse Lines", editor.ReverseLines),
+		addEditorCommand("transform.uniqueLines", "Unique Lines", editor.UniqueLines),
+		addEditorCommand("transform.joinLines", "Join Lines", editor.JoinLines),
+		addEditorCommand("transform.trimTrailingWhitespace", "Trim Trailing Whitespace", editor.TrimTrailingWhitespace),
 	)
 	for n := 1; n <= 9; n++ {
 		label := fmt.Sprintf("Select Tab %d", n)
