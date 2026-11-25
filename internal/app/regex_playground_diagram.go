@@ -51,7 +51,7 @@ func regexCapturePalette(c *ui.Context, number int) regexCaptureColor {
 	return light[index]
 }
 
-func (a *App) regexPlaygroundDiagram(c *ui.Context, p *regexPlayground, availableWidth float32) {
+func (a *App) regexPlaygroundDiagram(c *ui.Context, p *regexPlayground, availableWidth, maxHeight float32) {
 	var selected *regexplayground.Match
 	captures := map[int]regexplayground.Capture{}
 	if p.selected >= 0 && p.selected < len(p.result.Matches) {
@@ -72,7 +72,7 @@ func (a *App) regexPlaygroundDiagram(c *ui.Context, p *regexPlayground, availabl
 	viewportHeight := float32(48)
 	contentWidth, contentHeight := viewportWidth, viewportHeight
 	if p.diagramValid {
-		viewportHeight = min32(max32(layout.height, 72), 148)
+		viewportHeight = regexPlaygroundDiagramViewportHeight(layout.height, maxHeight)
 		contentWidth = max32(viewportWidth, layout.width+76)
 		contentHeight = max32(viewportHeight, layout.height)
 	}
@@ -167,6 +167,14 @@ func layoutRegexRail(node regexplayground.DiagramNode, captures map[int]regexpla
 		layout.width, layout.height = 38, 28
 	}
 	return layout
+}
+
+func regexPlaygroundDiagramMaxHeight(bodyHeight float32) float32 {
+	return min32(148, max32(72, bodyHeight*0.36))
+}
+
+func regexPlaygroundDiagramViewportHeight(layoutHeight, maxHeight float32) float32 {
+	return min32(max32(layoutHeight, 72), maxHeight)
 }
 
 func regexDiagramClassLabel(class regexplayground.DiagramClass) string {
@@ -384,7 +392,6 @@ func drawRegexRailNode(paint *ui.Painter, layout regexRailLayout, x, y, scale fl
 		paint.Text(box.X+(box.W-textWidth)/2, box.Y+5*scale, label, 11*scale, textColor)
 	}
 }
-
 func drawRegexRailSequenceConnections(paint *ui.Painter, layout regexRailLayout, x, y, mid, width, scale float32, color ui.Color) {
 	if len(layout.children) == 0 {
 		return

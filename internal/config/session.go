@@ -8,13 +8,17 @@ type Workspace struct {
 	Navigator     int     `json:"navigator,omitempty"`
 	// ChangesClosed, StashesClosed, and HistoryClosed are the Git
 	// navigator's sections folded away.
-	ChangesClosed bool    `json:"changesClosed,omitempty"`
-	StashesClosed bool    `json:"stashesClosed,omitempty"`
-	HistoryClosed bool    `json:"historyClosed,omitempty"`
-	GitSplit      float32 `json:"gitSplit,omitempty"`    // the changes' share of the Git navigator, as a percentage
-	GitLogSplit   float32 `json:"gitLogSplit,omitempty"` // the commits' share of the Git log's tab, as a percentage
-	WindowWidth   int     `json:"windowWidth,omitempty"`
-	WindowHeight  int     `json:"windowHeight,omitempty"`
+	ChangesClosed   bool    `json:"changesClosed,omitempty"`
+	StashesClosed   bool    `json:"stashesClosed,omitempty"`
+	HistoryClosed   bool    `json:"historyClosed,omitempty"`
+	GitSplit        float32 `json:"gitSplit,omitempty"`    // the changes' share of the Git navigator, as a percentage
+	GitLogSplit     float32 `json:"gitLogSplit,omitempty"` // the commits' share of the Git log's tab, as a percentage
+	WindowWidth     int     `json:"windowWidth,omitempty"`
+	WindowHeight    int     `json:"windowHeight,omitempty"`
+	RegexToolX      float32 `json:"regexToolX,omitempty"`
+	RegexToolY      float32 `json:"regexToolY,omitempty"`
+	RegexToolWidth  float32 `json:"regexToolWidth,omitempty"`
+	RegexToolHeight float32 `json:"regexToolHeight,omitempty"`
 	// Terminals are the panel's tabs, each its shells side by side; a
 	// shell's scrollback and command history are not kept.
 	Terminals      []TermTab `json:"terminals,omitempty"`

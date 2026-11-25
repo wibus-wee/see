@@ -234,6 +234,7 @@ func (a *App) removeGroup(g *group) {
 			a.focus = gs[0]
 		}
 	}
+	a.closeRegexPlaygroundForSource(g, "")
 }
 
 // addTab puts path in g at index at (its end when out of range), or
@@ -538,6 +539,7 @@ func (a *App) closeTab(g *group, path string) {
 	if len(g.order) == 0 && len(a.groups()) > 1 {
 		a.removeGroup(g)
 	}
+	a.closeRegexPlaygroundForSource(g, docPath)
 	if p := a.tabFile(g, g.active); a.focus == g && p != "" {
 		a.revealInTree(p)
 	}
@@ -734,6 +736,7 @@ func (a *App) moveTab(from *group, path string, to *group, s side, at int) {
 		a.removeGroup(from)
 	}
 	a.activateIn(to, path)
+	a.closeRegexPlaygroundForSource(from, tabPath(path))
 }
 
 // splitActive shows the focused group's document in a new group at s

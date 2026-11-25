@@ -51,6 +51,39 @@ func TestRegexDiagramRepeatLabelsPreserveBoundsAndLaziness(t *testing.T) {
 	}
 }
 
+func TestRegexDiagramOptionalBypassFitsDefaultAndEnlargedTools(t *testing.T) {
+	diagram, err := regexplayground.ParseDiagram(`(?P<word>\p{L}+)([0-9]+)?`, regexplayground.Flags{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var layout regexRailLayout
+	tt := ui.NewTester(func(c *ui.Context) {
+		layout = layoutRegexRail(diagram.Root, nil, false, c)
+	}, 680, 420)
+	tt.Frame()
+	if layout.node.Kind != regexplayground.DiagramSequence || len(layout.children) != 2 || len(layout.positions) != 2 || layout.children[1].node.Kind != regexplayground.DiagramRepeat {
+		t.Fatalf("expected sequence ending in optional repeat, got %+v", layout.node)
+	}
+	optional := layout.children[1]
+	if optional.node.RepeatMin != 0 || optional.node.RepeatMax != 1 {
+		t.Fatalf("expected optional digit branch, got %+v", optional.node)
+	}
+
+	for _, tool := range []struct {
+		name   string
+		height float32
+	}{
+		{name: "default 680x420", height: 420},
+		{name: "enlarged 920x620", height: 620},
+	} {
+		maxHeight := regexPlaygroundDiagramMaxHeight(tool.height - 40)
+		viewportHeight := regexPlaygroundDiagramViewportHeight(layout.height, maxHeight)
+		if layout.height > viewportHeight {
+			t.Errorf("%s tool clips full optional diagram: diagram %.1f, viewport %.1f", tool.name, layout.height, viewportHeight)
+		}
+	}
+}
+
 func TestRegexPlaygroundDiagramClearsAndRecovers(t *testing.T) {
 	const pattern = `(?P<word>\p{L}+)([0-9]+)?`
 	p := &regexPlayground{pattern: pattern}
@@ -332,7 +365,7 @@ func TestRegexPlaygroundCaptureBackgroundsUseUnicodeRangesAndIgnoreZeroWidth(t *
 	}
 }
 
-func TestRegexPlaygroundStaysWithItsDocumentAndGroup(t *testing.T) {
+func TestRegexPlaygroundStaysWithItsDocumentAndEditor(t *testing.T) {
 	h := newHarness(t, writeTree(t, map[string]string{
 		"a.go": "package a\nimport \"regexp\"\nvar re = regexp.MustCompile(`word`)\n",
 		"b.go": "package b\n",
@@ -348,19 +381,28 @@ func TestRegexPlaygroundStaysWithItsDocumentAndGroup(t *testing.T) {
 		t.Fatal("playground did not open for its source document")
 	}
 	h.open("b.go")
-	if h.tt.HasText(locales.RegexPlaygroundTitle()) {
-		t.Fatal("playground appeared over another tab")
+	if h.tt.HasText(locales.RegexToolWindow()) {
+		t.Fatal("playground escaped its initiating document after switching tabs")
 	}
 	h.a.activateIn(g, d.path)
 	h.tt.Frame()
-	if h.a.regexPlayground != p || !h.tt.HasText(locales.RegexPlaygroundTitle()) {
-		t.Fatal("returning to the source tab did not restore its playground")
+	if h.a.regexPlayground != p || !h.tt.HasText(locales.RegexToolWindow()) {
+		t.Fatal("playground did not return with its initiating document")
 	}
 	h.a.splitActive(sideRight)
 	other := h.a.focus
 	h.tt.Frame()
-	if p.group != g || p.doc != d || other == g || textCount(h.tt.Texts(), locales.RegexPlaygroundTitle()) != 1 {
-		t.Fatal("playground was not isolated to its original group and document")
+	tool, ok := h.tt.Find(locales.RegexToolWindow())
+	if !ok {
+		t.Fatal("playground is missing from the initiating editor after split")
+	}
+	sourceBounds, otherBounds := regexToolGroupBounds(t, h, g), regexToolGroupBounds(t, h, other)
+	workspaceLeft, workspaceTop := min(sourceBounds.X, otherBounds.X), min(sourceBounds.Y, otherBounds.Y)
+	workspaceRight := max(sourceBounds.X+sourceBounds.W, otherBounds.X+otherBounds.W)
+	workspaceBottom := max(sourceBounds.Y+sourceBounds.H, otherBounds.Y+otherBounds.H)
+	if p.group != g || p.doc != d || other == g || textCount(h.tt.Texts(), locales.RegexPlaygroundTitle()) != 1 ||
+		tool.X < workspaceLeft || tool.Y < workspaceTop || tool.X+tool.W > workspaceRight || tool.Y+tool.H > workspaceBottom {
+		t.Fatal("playground lost its source ownership or workspace bounds in the split layout")
 	}
 	if d.buf.String() != "package a\nimport \"regexp\"\nvar re = regexp.MustCompile(`word`)\n" || len(h.a.dirtyDocs()) != 0 {
 		t.Fatal("tab or group changes modified source")

@@ -131,6 +131,9 @@ func (a *App) openRegexPlaygroundFor(g *group, d *doc, st *editor.State) {
 	a.focus = g
 	a.regexPlayground = playground
 	a.focusEditor = playground.sample
+	a.regexToolWindow.fitToSourceOnOpen = true
+	a.regexToolWindow.minimumSet = false
+	a.regexToolWindow.minWidth, a.regexToolWindow.minHeight = 0, 0
 }
 
 func (a *App) closeRegexPlayground(p *regexPlayground) {
@@ -138,55 +141,46 @@ func (a *App) closeRegexPlayground(p *regexPlayground) {
 		return
 	}
 	a.regexPlayground = nil
-	a.focus = p.group
-	a.focusEditor = p.sourceEditor
-}
-
-func (a *App) regexPlaygroundView(c *ui.Context, bounds ui.Rect, st *editor.State, p *regexPlayground) {
-	if c.Shortcut(0, ui.KeyEscape) {
-		a.closeRegexPlayground(p)
+	if a.regexPlaygroundSourceLive(p) {
+		a.focus = p.group
+		if p.group.active != p.doc.path {
+			a.activateIn(p.group, p.doc.path)
+		}
+		a.focusEditor = p.sourceEditor
 		return
 	}
-	a.editorPeekSized(c, bounds, st, p.line, locales.RegexPlaygroundTitle(), locales.Close(), 540, 580, nil,
-		func() { a.closeRegexPlayground(p) }, func() {
-			ui.Column(c).Grow(1).FillWidth().Children(func() {
-				ui.Row(c).FillWidth().Shrink(0).Padding(10, 12, 4).Gap(8).AlignItems(ui.Center).Children(func() {
-					ui.Text(c, locales.RegexPattern()+":").FontSize(11).TextColor(colors(c).Muted).Width(72).Shrink(0)
-					patternInput := ui.TextInput(c, &p.pattern).Label(locales.RegexPattern()).Font("monospace").FontSize(13).Grow(1).MinWidth(80)
-					if patternInput.Shortcut(0, ui.KeyEscape) {
-						a.closeRegexPlayground(p)
-					}
-					if patternInput.Changed() {
-						p.patternVersion++
-						p.unsupportedFlags = nil
-					}
-					ui.Text(c, locales.RegexEngineBadge()).FontSize(11).TextColor(c.Theme().Accent).SingleLine()
-				})
-				ui.Row(c).FillWidth().Shrink(0).Padding(2, 12, 8).Gap(10).AlignItems(ui.Center).Children(func() {
-					ui.Checkbox(c, &p.flags.IgnoreCase, locales.RegexIgnoreCase())
-					ui.Checkbox(c, &p.flags.Multiline, locales.RegexMultiline())
-					ui.Checkbox(c, &p.flags.DotAll, locales.RegexDotAll())
-				})
-				p.refresh(c)
-				a.regexPlaygroundDiagram(c, p, max32(200, bounds.W-48))
-				ui.Row(c).Grow(1).FillWidth().Gap(0).BorderWidth(1, 0, 0, 0).BorderColor(colors(c).Separator).Children(func() {
-					ui.Column(c).Grow(11).Fill().Padding(10, 12, 12).Children(func() {
-						ui.Text(c, locales.RegexSample()+":").FontSize(11).TextColor(colors(c).Muted).Padding(0, 0, 6)
-						view := editor.View(c.Key("regex-playground-sample"), p.sample).Grow(1).FillWidth()
-						if view.Shortcut(0, ui.KeyEscape) {
-							a.closeRegexPlayground(p)
-						}
-						if a.focusEditor == p.sample {
-							view.Focus()
-							a.focusEditor = nil
-						}
-					})
-					ui.Column(c).Grow(9).Fill().Padding(10, 12, 12).BorderWidth(0, 0, 0, 1).BorderColor(colors(c).Separator).Children(func() {
-						a.regexPlaygroundResults(c, p)
-					})
-				})
-			})
-		})
+	a.focusEditor = a.currentValidEditor()
+}
+
+func (a *App) regexPlaygroundSourceLive(p *regexPlayground) bool {
+	return p != nil && p.group != nil && p.doc != nil && p.sourceEditor != nil && a.layout != nil &&
+		a.layout.find(p.group) != nil && p.group.has(p.doc.path) && a.docs[p.doc.path] == p.doc &&
+		p.group.eds[p.doc.path] == p.sourceEditor
+}
+
+func (a *App) closeRegexPlaygroundForSource(g *group, path string) {
+	p := a.regexPlayground
+	if p == nil || p.group != g || p.doc == nil || path != "" && p.doc.path != path {
+		return
+	}
+	if !a.regexPlaygroundSourceLive(p) {
+		a.closeRegexPlayground(p)
+	}
+}
+
+func (a *App) currentValidEditor() *editor.State {
+	if a.layout != nil && a.focus != nil && a.layout.find(a.focus) != nil {
+		if st := a.activeEditor(); st != nil {
+			return st
+		}
+	}
+	for _, g := range a.groups() {
+		if st := g.eds[g.active]; st != nil {
+			a.focus = g
+			return st
+		}
+	}
+	return nil
 }
 
 func (p *regexPlayground) refresh(c *ui.Context) {
