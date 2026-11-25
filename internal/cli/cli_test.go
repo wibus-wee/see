@@ -73,20 +73,6 @@ func TestInvocationDistinguishesDesktopLaunchFromLinuxShellCommand(t *testing.T)
 	if _, ok := Invocation(desktopExecutable, nil); ok {
 		t.Fatal("desktop launch was treated as a CLI invocation")
 	}
-	cliExecutable := filepath.Join(dir, "see-cli")
-	if err := os.WriteFile(cliExecutable, nil, 0755); err != nil {
-		t.Fatal(err)
-	}
-	cliLink := filepath.Join(dir, "see")
-	if err := os.Remove(cliLink); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Symlink(cliExecutable, cliLink); err != nil {
-		t.Fatal(err)
-	}
-	if _, ok := Invocation(cliLink, nil); !ok {
-		t.Fatal("the installed CLI symlink was not treated as a CLI invocation")
-	}
 	for _, tc := range []struct {
 		name string
 		args []string
@@ -100,6 +86,20 @@ func TestInvocationDistinguishesDesktopLaunchFromLinuxShellCommand(t *testing.T)
 		if !ok || !slices.Equal(got, tc.want) {
 			t.Errorf("Invocation(%q, %q) = %q, %v; want %q, true", desktopExecutable, tc.args, got, ok, tc.want)
 		}
+	}
+	cliExecutable := filepath.Join(dir, "see-cli")
+	if err := os.WriteFile(cliExecutable, nil, 0755); err != nil {
+		t.Fatal(err)
+	}
+	cliLink := filepath.Join(dir, "see")
+	if err := os.Remove(cliLink); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(cliExecutable, cliLink); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := Invocation(cliLink, nil); !ok {
+		t.Fatal("the installed CLI symlink was not treated as a CLI invocation")
 	}
 }
 
