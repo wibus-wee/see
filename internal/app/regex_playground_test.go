@@ -78,12 +78,8 @@ func TestRegexDiagramOptionalBypassFitsDefaultAndEnlargedTools(t *testing.T) {
 	} {
 		maxHeight := regexPlaygroundDiagramMaxHeight(tool.height - 40)
 		viewportHeight := regexPlaygroundDiagramViewportHeight(layout.height, maxHeight)
-		bypassBottom := regexRailOptionalBypassBottom(layout.positions[1].y, optional.height, 1) + 0.9
 		if layout.height > viewportHeight {
-			t.Errorf("%s tool clips diagram content: diagram %.1f, viewport %.1f", tool.name, layout.height, viewportHeight)
-		}
-		if bypassBottom > viewportHeight {
-			t.Errorf("%s tool clips optional bypass: bypass bottom %.1f, viewport %.1f (diagram %.1f)", tool.name, bypassBottom, viewportHeight, layout.height)
+			t.Errorf("%s tool clips full optional diagram: diagram %.1f, viewport %.1f", tool.name, layout.height, viewportHeight)
 		}
 	}
 }
