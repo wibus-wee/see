@@ -419,6 +419,8 @@ func Main() {
 			currentApp, currentWin := current.app, current.win
 			mygo.App.SetMenu(mygo.NewMenu([]*mygo.MenuItem{
 				appMenu(currentApp), currentApp.fileMenu(currentWin.Update), {Role: mygo.RoleEditMenu},
+				{Label: commandLabel("selection.menu"), Submenu: currentApp.selectionMenu(currentWin.Update)},
+				{Label: commandLabel("transform.menu"), Submenu: currentApp.transformMenu(currentWin.Update)},
 				{Label: locales.Editor(), Submenu: []*mygo.MenuItem{{Label: quickHelpText("navigate"), Submenu: []*mygo.MenuItem{{
 					Label: commandLabel("help.quick"), Accelerator: "Alt+CmdOrCtrl+K",
 					Click: func(*mygo.MenuItem, *mygo.Window) { currentWin.Update(currentApp.showQuickHelpAtCaret) },

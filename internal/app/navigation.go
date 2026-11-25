@@ -108,6 +108,16 @@ func (a *App) commandEnabled(id string) bool {
 		_, rng := a.formatEnabled(a.activePath())
 		st := a.activeEditor()
 		return st != nil && rng && hasSelection(st)
+	case "selection.all", "selection.nextOccurrence", "selection.allOccurrences", "selection.expand", "selection.shrink":
+		return a.activeEditor() != nil
+	case "selection.splitLines":
+		st := a.activeEditor()
+		return st != nil && hasSelection(st)
+	case "transform.upperCase", "transform.lowerCase", "transform.titleCase", "transform.snakeCase",
+		"transform.kebabCase", "transform.camelCase", "transform.pascalCase", "transform.sortLines",
+		"transform.reverseLines", "transform.uniqueLines", "transform.joinLines", "transform.trimTrailingWhitespace":
+		st := a.activeEditor()
+		return st != nil && !st.ReadOnly
 	// Commands that only run an editor command or read the editor.
 	case "find.file", "find.replaceFile", "definition.goto",
 		"problem.next", "problem.previous", "method.next", "method.previous", "line.goto", "symbols.file",
@@ -207,7 +217,7 @@ func (a *App) navigationMenuItems(run func(func())) []*mygo.MenuItem {
 }
 
 func (a *App) refreshNavigationMenu() {
-	state := [6]bool{a.activeEditor() != nil, a.commandEnabled("implementation.goto"), a.commandEnabled("typeDefinition.goto"), a.commandEnabled("definition.peek"), a.commandEnabled("hierarchy.types"), a.canDiscardChange()}
+	state := [8]bool{a.activeEditor() != nil, a.commandEnabled("implementation.goto"), a.commandEnabled("typeDefinition.goto"), a.commandEnabled("definition.peek"), a.commandEnabled("hierarchy.types"), a.canDiscardChange(), a.commandEnabled("selection.splitLines"), a.commandEnabled("transform.upperCase")}
 	if state != a.navigationMenuState {
 		a.navigationMenuState = state
 		a.host.RefreshMenu()
