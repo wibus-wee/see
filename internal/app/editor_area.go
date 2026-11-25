@@ -282,6 +282,21 @@ func (a *App) groupContent(c *ui.Context, g *group) {
 			a.hiddenWhitespaceDiff(c)
 			return
 		}
+		if v.rev != "" {
+			// A commit's file: the diff over a bar with its permalink,
+			// as the revision comparison's.
+			ui.Column(c).Fill().Children(func() {
+				view := editor.DiffView(c, v.state).Grow(1).FillWidth()
+				if a.focusGroupTarget == g {
+					view.Focus()
+				}
+				if a.focusGroupTarget == nil && view.FocusWithin() {
+					a.focus = g
+				}
+				a.commitFileBar(c, v)
+			})
+			return
+		}
 		view := editor.DiffView(c, v.state).Grow(1).FillWidth()
 		if a.focusGroupTarget == g {
 			view.Focus()

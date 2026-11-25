@@ -125,7 +125,11 @@ func (a *App) selectRevision(v *gitDiffTab, index int) {
 			lang := languageFor(filepath.Base(path), string(old))
 			before.SetLanguage(lang)
 			after.SetLanguage(lang)
-			v.state = &editor.DiffState{Old: before, New: after, Theme: a.edTheme}
+			v.lineSelOn = false
+			v.state = &editor.DiffState{Old: before, New: after, Theme: a.edTheme, LineSelection: true}
+			v.state.OnLineSelection = func(r editor.DiffLineRange) {
+				v.lineSel, v.lineSelOn = r, true
+			}
 			a.applyDiffPrefs(v.state)
 		})
 	}()
@@ -212,6 +216,7 @@ func (a *App) revisionContent(c *ui.Context, g *group, v *gitDiffTab) {
 				add, del := v.state.Stats()
 				ui.Text(c, fmt.Sprintf("+%d −%d", add, del)).FontSize(11).TextColor(p.Muted)
 			}
+			a.diffLinkButton(c, v, a.revisionLinkTarget(v))
 			if ui.Button(c, localHistoryText("localHistoryRefresh")).Disabled(r.loading).Clicked() {
 				a.refreshRevision(v)
 			}

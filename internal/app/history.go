@@ -524,6 +524,11 @@ func (a *App) openCommitFile(g *group, cm git.Commit, f git.FileStat) {
 			}
 			v := a.newGitDiffTab(patches[0], f.Path, false)
 			v.rev, v.hash, v.oldPath = cm.Short, hash, f.OldPath
+			v.state.LineSelection = true
+			v.state.NoLineNumbers = false
+			v.state.OnLineSelection = func(r editor.DiffLineRange) {
+				v.lineSel, v.lineSelOn = r, true
+			}
 			if g.diffs == nil {
 				g.diffs = map[string]*gitDiffTab{}
 			}
@@ -539,6 +544,25 @@ func (a *App) openCommitFile(g *group, cm git.Commit, f git.FileStat) {
 			a.activateIn(g, key)
 		})
 	}()
+}
+
+// commitFileBar is the bar under a commit's file open as a diff: the
+// commit it is of, and the permalink of the lines selected at it.
+func (a *App) commitFileBar(c *ui.Context, v *gitDiffTab) {
+	p := colors(c)
+	ui.Row(c).FillWidth().Height(30).Padding(0, 8).Gap(6).AlignItems(ui.Center).
+		BorderWidth(1, 0, 0, 0).BorderColor(p.Separator).Children(func() {
+		ui.Text(c, v.rev).FontSize(11).TextColor(p.Muted).SingleLine()
+		if v.oldPath != "" {
+			ui.Text(c, filepath.ToSlash(v.oldPath)+" → "+filepath.ToSlash(v.name)).FontSize(11).TextColor(p.Muted).SingleLine().Ellipsis("…").Shrink(1)
+		}
+		ui.Box(c).Grow(1)
+		if v.state != nil {
+			add, del := v.state.Stats()
+			ui.Text(c, fmt.Sprintf("+%d −%d", add, del)).FontSize(11).TextColor(p.Muted)
+		}
+		a.diffLinkButton(c, v, a.commitFileLinkTarget(v))
+	})
 }
 
 // fileCommit is the commit f's diff is read from: a stash's untracked
