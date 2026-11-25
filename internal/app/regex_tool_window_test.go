@@ -3,6 +3,7 @@ package app
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -140,6 +141,26 @@ func TestRegexToolWindowTitleAndAllResizeHandles(t *testing.T) {
 				t.Fatalf("%s drag did not resize: before=%+v after=%+v", test.label, before, after)
 			}
 		})
+	}
+}
+
+func TestRegexToolTitlebarControlsAlignAtOppositeEdges(t *testing.T) {
+	h, _, _ := openRegexToolHarness(t)
+	drag, dragFound := h.tt.Find(locales.RegexToolTitlebar())
+	title, titleFound := h.tt.Find(locales.RegexPlaygroundTitle())
+	close, closeFound := h.tt.Find(locales.Close())
+	glyph, glyphFound := h.tt.Find("×")
+	if !dragFound || !titleFound || !closeFound || !glyphFound {
+		t.Fatalf("titlebar controls missing: drag=%v title=%v close=%v glyph=%v", dragFound, titleFound, closeFound, glyphFound)
+	}
+	if title.X > drag.X+1 {
+		t.Fatalf("title is not left-aligned within the draggable area: title=%+v drag=%+v", title, drag)
+	}
+	centerY := func(r ui.Rect) float32 { return r.Y + r.H/2 }
+	if math.Abs(float64(centerY(title)-centerY(close))) > 1 ||
+		math.Abs(float64(glyph.X+glyph.W/2-(close.X+close.W/2))) > 1 ||
+		math.Abs(float64(centerY(glyph)-centerY(close))) > 1 {
+		t.Fatalf("titlebar controls are not centered: title=%+v close=%+v glyph=%+v", title, close, glyph)
 	}
 }
 
@@ -424,9 +445,24 @@ func TestRegexToolWindowClampsWhenSidebarExpands(t *testing.T) {
 	h, _, p := openRegexToolHarness(t)
 	h.a.regexToolWindow.rect = ui.Rect{X: 400, Y: 80, W: 680, H: 420}
 	h.a.regexToolWindow.initialized = true
-	h.a.sidebarW = 460
 	h.tt.Advance(300 * time.Millisecond)
+
+	groupBeforeResize := regexToolGroupBounds(t, h, p.group)
+	splitterX := h.a.sidebarW + 0.5
+	splitterY := groupBeforeResize.Y + groupBeforeResize.H/2
+	h.tt.Move(splitterX, splitterY)
 	h.tt.Frame()
+	if cursor := h.tt.Cursor(); cursor != ui.CursorResizeEW {
+		t.Fatalf("sidebar divider did not expose its horizontal resize cursor: %v", cursor)
+	}
+	h.tt.Press(splitterX, splitterY)
+	h.tt.Move(splitterX+200, splitterY)
+	h.tt.Release(splitterX+200, splitterY)
+	h.tt.Frame()
+	if h.a.sidebarW < 450 {
+		t.Fatalf("sidebar divider did not expand the sidebar: width=%v", h.a.sidebarW)
+	}
+
 	window, ok := h.tt.Find(locales.RegexToolWindow())
 	group := regexToolGroupBounds(t, h, p.group)
 	if !ok || window.X < group.X || window.Y < group.Y || window.X+window.W > group.X+group.W || window.Y+window.H > group.Y+group.H {

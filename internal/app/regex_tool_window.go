@@ -94,7 +94,7 @@ func (a *App) regexToolWindowView(c *ui.Context, p *regexPlayground, bounds, sou
 
 func (a *App) regexToolTitlebar(c *ui.Context, p *regexPlayground, bounds ui.Rect) {
 	ui.Row(c).FillWidth().Height(38).Shrink(0).Padding(4, 10).Gap(6).AlignItems(ui.Center).BorderWidth(0, 0, 1, 0).BorderColor(colors(c).Separator).Children(func() {
-		drag := ui.Box(c.Key("regex-tool-title-drag")).Grow(1).FillHeight().Cursor(ui.CursorMove).Label(locales.RegexToolTitlebar()).AlignItems(ui.Center).Children(func() {
+		drag := ui.Row(c.Key("regex-tool-title-drag")).Grow(1).FillHeight().Cursor(ui.CursorMove).Label(locales.RegexToolTitlebar()).Justify(ui.Start).AlignItems(ui.Center).Children(func() {
 			ui.Text(c, locales.RegexPlaygroundTitle()).FontSize(12).FontWeight(600).SingleLine()
 		})
 		if dx, dy, dragged := drag.Dragged(); dragged {
@@ -105,7 +105,10 @@ func (a *App) regexToolTitlebar(c *ui.Context, p *regexPlayground, bounds ui.Rec
 				a.saveConfigSoon()
 			}
 		}
-		close := ui.Button(c, "×").Label(locales.Close()).Tooltip(locales.Close()).Size(28, 26).Shrink(0).KeepFocus()
+		close := ui.ButtonBase(c.Key("regex-tool-close")).Label(locales.Close()).Tooltip(locales.Close()).Size(28, 26).Shrink(0).KeepFocus().Center().Cursor(ui.CursorPointer)
+		close.Children(func() {
+			ui.Text(c, "×").FontSize(16)
+		})
 		if close.Clicked() {
 			a.closeRegexPlayground(p)
 		}
