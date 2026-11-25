@@ -165,6 +165,14 @@ func (a *App) applyEditorPrefsAll() {
 	}
 }
 
+func (a *App) applyEditorPrefsAcrossWindows() {
+	if a.editorPrefsChanged != nil {
+		a.editorPrefsChanged()
+		return
+	}
+	a.applyEditorPrefsAll()
+}
+
 func (a *App) applyDiffPrefs(diff *editor.DiffState) {
 	diff.Font = ui.Font{
 		Family:   a.cfg.FontFamily,
@@ -796,7 +804,7 @@ func (a *App) editorPane(c *ui.Context) {
 			ui.Text(c, fmt.Sprintf("%g", height)).TextColor(theme.Of(c).Muted)
 			if ui.Stepper(c, &height, 1, 3, 0.1).Label(locales.MsgEditorLineHeight()).Changed() {
 				a.cfg.EditorLineHeight = height
-				a.applyEditorPrefsAll()
+				a.applyEditorPrefsAcrossWindows()
 				a.settingsChanged()
 			}
 		},
@@ -1229,7 +1237,7 @@ func (a *App) advancedPane(c *ui.Context) {
 				def.SetPath(a.cfg.Path())
 				def.SavedFindQueries = a.cfg.SavedFindQueries
 				*a.cfg = *def
-				a.applyEditorPrefsAll()
+				a.applyEditorPrefsAcrossWindows()
 				a.settingsChanged()
 			}
 		},

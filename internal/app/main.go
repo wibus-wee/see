@@ -58,6 +58,8 @@ func Main() {
 		openFromSystem func(string)
 		pendingOpen    []string
 	)
+	refreshEditorPrefs := func() { applyEditorPrefsToProjects(projects) }
+	a.editorPrefsChanged = refreshEditorPrefs
 	// Files and folders opened with the application, as by a drop on its
 	// Dock icon: they wait for the windows to exist when the app starts
 	// with one, and open in the windows that fit them after.
@@ -174,6 +176,7 @@ func Main() {
 			}
 			child := newApp(cfg)
 			child.trustChanged = a.trustChanged
+			child.editorPrefsChanged = refreshEditorPrefs
 			child.ownsStandaloneSession = false
 			child.version = a.version
 			child.hasWelcome = true
