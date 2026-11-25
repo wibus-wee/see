@@ -17,19 +17,17 @@ type inlayHintClient interface {
 	InlayHints(ctx context.Context, uri string, r lsp.Range) ([]lsp.InlayHint, error)
 }
 
-// inlaySettle is how long scrolling must stop before hints refresh.
+// inlaySettle is how long scrolling or editing must stop before hints refresh.
 const inlaySettle = 100 * time.Millisecond
 
-// syncInlayHints asks the document's server for the hints of the lines
-// on screen and fills languageInlays with them. It runs on a scroll
-// settle and on every buffer version change; a reply that arrives after
-// the buffer or the view moved on is dropped. Only an edit clears the
-// hints already shown: scroll-only moves keep them, as clearing them
-// for the new range's request hid every hint until its reply landed,
-// which the reader saw as hints flickering off and on with each scroll.
-// An edit invalidates the offsets the lanes hold, so they go.
+// syncInlayHints refreshes the visible range after scrolling or editing settles.
+// Cached hints follow edits through the highlighter until a fresh reply arrives.
 func (a *App) syncInlayHints(d *doc, st *editor.State) {
-	if d.buf != nil && d.inlayKey.first >= 0 && d.buf.Version() != d.inlayKey.version {
+	if st != nil {
+		// Synchronize the highlighter before inspecting or replaying cached offsets.
+		st.CursorPos()
+	}
+	if d.buf != nil && d.inlayKey.first >= 0 && d.inlayVersion != d.buf.Version() {
 		a.clearInlayHints(d)
 	}
 	m := a.serverFor(d.path)
@@ -112,7 +110,9 @@ func (a *App) fetchInlayHints(ctx context.Context, d *doc, m *langserver.Server,
 		if !a.cfg.IsTrusted(a.root) {
 			return
 		}
+		a.upgradeLanguage(d, m, c)
 		d.languageInlays, d.parameterInlays = toInlayLanes(hints, snap, enc)
+		d.inlayVersion = snap.Version()
 	})
 }
 
@@ -169,4 +169,7 @@ func (a *App) clearInlayHints(d *doc) {
 		d.inlayCancel = nil
 	}
 	d.languageInlays, d.parameterInlays, d.inlayKey = nil, nil, inlayKey{first: -1}
+	if d.buf != nil {
+		d.inlayVersion = d.buf.Version()
+	}
 }
