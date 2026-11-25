@@ -133,6 +133,10 @@ func (a *App) regexPlaygroundBody(c *ui.Context, p *regexPlayground, width, heig
 				a.regexPlaygroundDiagram(c, p, width-20, regexPlaygroundDiagramMaxHeight(height))
 			}
 			if width < 580 {
+				resultsMinHeight := float32(72)
+				if p.selected >= 0 && p.selected < len(p.result.Matches) && len(p.result.Matches[p.selected].Captures) > 1 {
+					resultsMinHeight = 240
+				}
 				ui.Column(c).Grow(1).FillWidth().MinHeight(0).Gap(0).BorderWidth(1, 0, 0, 0).BorderColor(colors(c).Separator).Children(func() {
 					ui.Column(c).Grow(1).FillWidth().MinHeight(72).Padding(7, 10, 6).Children(func() {
 						ui.Text(c, locales.RegexSample()+":").FontSize(10).TextColor(colors(c).Muted).Padding(0, 0, 4)
@@ -142,7 +146,7 @@ func (a *App) regexPlaygroundBody(c *ui.Context, p *regexPlayground, width, heig
 							a.focusEditor = nil
 						}
 					})
-					ui.Column(c).Grow(1).FillWidth().MinHeight(72).Padding(7, 10, 6).BorderWidth(1, 0, 0, 0).BorderColor(colors(c).Separator).Children(func() { a.regexPlaygroundResults(c, p) })
+					ui.Column(c).Grow(1).FillWidth().MinHeight(resultsMinHeight).Padding(7, 10, 6).BorderWidth(1, 0, 0, 0).BorderColor(colors(c).Separator).Children(func() { a.regexPlaygroundResults(c, p) })
 				})
 				return
 			}

@@ -117,6 +117,70 @@ func TestRegexToolWindowClampsToSmallEditor(t *testing.T) {
 	}
 }
 
+func TestRegexToolCompactCaptureRowsAreReachableByScrolling(t *testing.T) {
+	h, _, p := openRegexToolHarness(t)
+	p.pattern = `(?P<one>a)(?P<two>b)(?P<three>c)(?P<four>d)(?P<five>e)(?P<six>f)(?P<seven>g)(?P<eight>h)`
+	p.patternVersion++
+	p.sample.Buffer.Set(strings.Repeat("abcdefgh ", 8))
+	h.a.regexToolWindow.rect = ui.Rect{X: 36, Y: 36, W: 500, H: 320}
+	h.a.regexToolWindow.initialized = true
+	h.tt.Frame()
+	if len(p.result.Matches) != 8 || len(p.result.Matches[0].Captures) != 9 {
+		t.Fatalf("compact fixture has %d matches and %d captures, want 8 and 9", len(p.result.Matches), len(p.result.Matches[0].Captures))
+	}
+
+	tool, ok := h.tt.Find(locales.RegexToolWindow())
+	if !ok || tool.W >= 580 || tool.H > 320 {
+		t.Fatalf("compact regex tool bounds = %+v, found=%v", tool, ok)
+	}
+	visibleCapture := func(value string) (ui.Rect, bool) {
+		bounds, found := h.tt.Find(value)
+		return bounds, found && bounds.H >= 12 && bounds.Y >= tool.Y+40 && bounds.Y+bounds.H <= tool.Y+tool.H
+	}
+	firstBounds, firstVisible := visibleCapture(`"a"`)
+	lastBounds, lastVisible := visibleCapture(`"h"`)
+	if firstVisible && lastVisible {
+		t.Fatal("compact layout did not require scrolling to reach both capture rows")
+	}
+	matchesBefore, _ := h.tt.Find(locales.RegexMatches())
+
+	x, y := tool.X+tool.W/2, tool.Y+tool.H-16
+	scrolled := false
+	for range 12 {
+		h.tt.Scroll(x, y, 0, 160)
+		h.tt.Frame()
+		matchesNow, _ := h.tt.Find(locales.RegexMatches())
+		if matchesNow.Y != matchesBefore.Y || matchesNow.H > matchesBefore.H {
+			scrolled = true
+		}
+		firstNow, firstNowVisible := visibleCapture(`"a"`)
+		if firstNowVisible {
+			firstBounds, firstVisible = firstNow, true
+		}
+		if captures, found := h.tt.Find(locales.RegexCaptures()); found && captures.H >= 8 && captures.Y+captures.H+8 < tool.Y+tool.H {
+			y = captures.Y + captures.H + 8
+			break
+		}
+	}
+	captures, _ := h.tt.Find(locales.RegexCaptures())
+	if captures.H >= 8 && captures.Y+captures.H+8 < tool.Y+tool.H {
+		for range 12 {
+			h.tt.Scroll(x, y, 0, 40)
+			h.tt.Frame()
+			if bounds, visible := visibleCapture(`"a"`); visible {
+				firstBounds, firstVisible = bounds, true
+			}
+			if bounds, visible := visibleCapture(`"h"`); visible {
+				lastBounds, lastVisible = bounds, true
+			}
+			if scrolled && firstVisible && lastVisible {
+				return
+			}
+		}
+	}
+	t.Fatalf("compact capture rows were not both reachable by scrolling: first=%+v visible=%v last=%+v visible=%v matches before=%+v tool=%+v", firstBounds, firstVisible, lastBounds, lastVisible, matchesBefore, tool)
+}
+
 func TestRegexToolWindowClampsWhenSidebarExpands(t *testing.T) {
 	h, _, p := openRegexToolHarness(t)
 	h.a.regexToolWindow.rect = ui.Rect{X: 400, Y: 80, W: 680, H: 420}
