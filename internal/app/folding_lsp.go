@@ -139,6 +139,7 @@ func (a *App) clearFoldingRanges(d *doc) {
 		d.buf.SetLanguage(d.baseLang)
 	}
 	d.foldFolder, d.baseLang, d.wrappedLang, d.wrappedFold = nil, nil, nil, false
+	d.wrappedInlays = false
 }
 
 // foldFolder is a buffer's highlighter answering FoldEnd from the

@@ -193,7 +193,7 @@ func TestParameterHintsShowOnlyWhilePlatformModifierHeldWithoutEditingSource(t *
 	}
 }
 
-func TestParameterHintsClearUntilChangedBufferReplyArrives(t *testing.T) {
+func TestParameterHintsRemainUntilChangedBufferReplyArrives(t *testing.T) {
 	started, release := make(chan struct{}), make(chan struct{})
 	var once sync.Once
 	var mu sync.Mutex
@@ -209,7 +209,12 @@ func TestParameterHintsClearUntilChangedBufferReplyArrives(t *testing.T) {
 		once.Do(func() { close(started) })
 		select {
 		case <-release:
-			return resizeParameterHints(), nil
+			hints := resizeParameterHints()
+			for i := range hints {
+				hints[i].Position.Line++
+				hints[i].Label = "updated " + hints[i].Label
+			}
+			return hints, nil
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		}
@@ -220,10 +225,11 @@ func TestParameterHintsClearUntilChangedBufferReplyArrives(t *testing.T) {
 	if got := h.a.editorInlays(d, st); len(got) != 2 {
 		t.Fatalf("initial parameter hints: %+v", got)
 	}
-	d.buf.Set(strings.Replace(d.buf.String(), "320", "640", 1))
+	st.Select(0, 0)
+	st.Insert("// prefix\n")
 	h.tt.Frame()
-	if len(d.parameterInlays) != 0 || len(h.a.editorInlays(d, st)) != 0 {
-		t.Fatalf("old parameter hints remained after buffer change: %+v", d.parameterInlays)
+	if len(d.parameterInlays) != 2 || len(h.a.editorInlays(d, st)) != 2 {
+		t.Fatalf("parameter hints disappeared after buffer change: %+v", d.parameterInlays)
 	}
 	deadline := time.After(5 * time.Second)
 	for {
@@ -239,12 +245,12 @@ func TestParameterHintsClearUntilChangedBufferReplyArrives(t *testing.T) {
 		}
 	}
 requested:
-	if len(h.a.editorInlays(d, st)) != 0 {
-		t.Fatalf("stale parameter hints appeared while updated request was pending: %+v", d.parameterInlays)
+	if len(h.a.editorInlays(d, st)) != 2 {
+		t.Fatalf("parameter hints disappeared while updated request was pending: %+v", d.parameterInlays)
 	}
 	close(release)
-	settleParameterInlays(h, d)
-	if got := h.a.editorInlays(d, st); len(got) != 2 {
+	settleInlayRequest(h, d)
+	if got := h.a.editorInlays(d, st); len(got) != 2 || got[0].Text != " updated width: " || got[0].Offset != strings.Index(d.buf.String(), "320") {
 		t.Fatalf("updated parameter hints did not arrive: %+v", got)
 	}
 }
@@ -398,15 +404,134 @@ func TestInlayHintsSurviveScrollWhileNextRequestSettles(t *testing.T) {
 	}
 }
 
-func TestInlayHintsClearOnEdit(t *testing.T) {
-	h, d, _ := scrollHintsHarness(t)
-	settleInlays(h, d)
-	if len(d.languageInlays) == 0 {
-		t.Fatal("no hints before editing")
+func TestInlayHintsMoveOnEdit(t *testing.T) {
+	var mu sync.Mutex
+	requests := 0
+	h, d, st := resizeHintsHarness(t, func(ctx context.Context, _ string, _ lsp.Range) ([]lsp.InlayHint, error) {
+		mu.Lock()
+		requests++
+		n := requests
+		mu.Unlock()
+		if n == 1 {
+			return append(resizeParameterHints(), lsp.InlayHint{Position: lsp.Position{Line: 5, Character: 8}, Label: ": []byte", Kind: 1}), nil
+		}
+		<-ctx.Done()
+		return nil, ctx.Err()
+	})
+	settleParameterInlays(h, d)
+	before := d.parameterInlays[0].Offset
+	typeBefore := d.languageInlays[0].Offset
+	st.Select(0, 0)
+	st.Insert("// prefix\n")
+	d.diagnosticVersion = d.buf.Version()
+	d.diagnostics = []editor.Diagnostic{{Start: 0, Severity: editor.SeverityError, Message: "current diagnostic"}}
+	check := func(want int) {
+		t.Helper()
+		h.tt.Frame()
+		if len(d.languageInlays) != 1 || d.languageInlays[0].Offset != typeBefore+want-before {
+			t.Fatalf("type hints: %+v", d.languageInlays)
+		}
+		if len(d.parameterInlays) != 2 || d.parameterInlays[0].Offset != want {
+			t.Fatalf("cached hints = %+v, want first offset %d", d.parameterInlays, want)
+		}
 	}
-	d.buf.Set(strings.Replace(d.buf.String(), "compute()", "compute2()", 1))
+	check(before + len("// prefix\n"))
+	h.tt.HoldModifiers(parameterHintModifier(runtime.GOOS))
+	for i := 0; i < 3; i++ {
+		check(before + len("// prefix\n"))
+	}
+	if got := h.a.editorInlays(d, st); len(got) != 4 || got[1].Offset != before+len("// prefix\n") || got[3].Offset != len("// prefix") {
+		t.Fatalf("visible hints: %+v", got)
+	}
+	h.tt.HoldModifiers(0)
+	check(before + len("// prefix\n"))
+	if got := h.a.editorInlays(d, st); len(got) != 2 || got[1].Offset != len("// prefix") {
+		t.Fatalf("hidden hints: %+v", got)
+	}
+	h.tt.HoldModifiers(parameterHintModifier(runtime.GOOS))
+	check(before + len("// prefix\n"))
+	if got := h.a.editorInlays(d, st); len(got) != 4 || got[1].Offset != before+len("// prefix\n") || got[3].Offset != len("// prefix") {
+		t.Fatalf("re-enabled hints: %+v", got)
+	}
+	if !d.buf.Undo() {
+		t.Fatal("insert was not undoable")
+	}
+	check(before)
+}
+
+func TestInlayHintsRecoverAfterEditLogGap(t *testing.T) {
+	release := make(chan struct{})
+	var mu sync.Mutex
+	requests := 0
+	h, d, _ := resizeHintsHarness(t, func(ctx context.Context, _ string, _ lsp.Range) ([]lsp.InlayHint, error) {
+		mu.Lock()
+		requests++
+		n := requests
+		mu.Unlock()
+		if n == 1 {
+			return resizeParameterHints(), nil
+		}
+		select {
+		case <-release:
+			hints := resizeParameterHints()
+			hints[0].Label = "recovered:"
+			return hints, nil
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	})
+	settleParameterInlays(h, d)
+	// Append beyond the hinted lines without letting the editor consume its edit log.
+	for i := 0; i < 300; i++ {
+		end := d.buf.Len()
+		d.buf.Edit(editor.Edit{Start: end, End: end, Text: " "})
+	}
 	h.tt.Frame()
-	if len(d.languageInlays) != 0 || len(d.parameterInlays) != 0 {
-		t.Fatalf("hints survived a buffer edit: language=%+v parameters=%+v", d.languageInlays, d.parameterInlays)
+	if len(d.parameterInlays) != 0 || len(d.languageInlays) != 0 {
+		t.Fatalf("hints survived unavailable edit history: %+v", d.parameterInlays)
+	}
+	h.settle(func() bool {
+		h.tt.Frame()
+		mu.Lock()
+		defer mu.Unlock()
+		return requests >= 2
+	})
+	close(release)
+	settleParameterInlays(h, d)
+	if d.parameterInlays[0].Text != " recovered: " {
+		t.Fatalf("fresh hints not installed: %+v", d.parameterInlays)
+	}
+	for i := 0; i < 3; i++ {
+		h.tt.Frame()
+		if len(d.parameterInlays) != 2 {
+			t.Fatal("fresh hints cleared on a later frame")
+		}
+	}
+}
+
+func TestInlayHintsReplayMultipleEditsBeforeFrame(t *testing.T) {
+	var mu sync.Mutex
+	requests := 0
+	h, d, _ := resizeHintsHarness(t, func(ctx context.Context, _ string, _ lsp.Range) ([]lsp.InlayHint, error) {
+		mu.Lock()
+		requests++
+		n := requests
+		mu.Unlock()
+		if n == 1 {
+			return resizeParameterHints(), nil
+		}
+		<-ctx.Done()
+		return nil, ctx.Err()
+	})
+	settleParameterInlays(h, d)
+	before := []int{d.parameterInlays[0].Offset, d.parameterInlays[1].Offset}
+	d.buf.Edit(editor.Edit{Text: "// prefix\n"})
+	at := strings.Index(d.buf.String(), "180")
+	d.buf.Edit(editor.Edit{Start: at, End: at, Text: "  "})
+	for i := 0; i < 3; i++ {
+		h.tt.Frame()
+		if len(d.parameterInlays) != 2 || d.parameterInlays[0].Offset != before[0]+len("// prefix\n") || d.parameterInlays[1].Offset != before[1]+len("// prefix\n")+2 {
+			t.Fatalf("frame %d: hints did not replay both edits exactly once: %+v", i, d.parameterInlays)
+		}
 	}
 }
