@@ -128,6 +128,7 @@ func (a *App) applyEditorPrefs(st *editor.State) {
 	if a.cfg.EditorLineHeight > 0 {
 		st.Font.LineHeight = float32(a.cfg.EditorLineHeight)
 	}
+	st.LineHeight = float32(a.cfg.EditorLineHeight)
 	st.SoftWrap = a.cfg.SoftWrapForLanguage(documentLanguageName(st.Buffer))
 	st.Whitespace = editor.WhitespaceSelection
 	if a.cfg.ShowInvisibles {
@@ -175,6 +176,7 @@ func (a *App) applyDiffPrefs(diff *editor.DiffState) {
 	if a.cfg.EditorLineHeight > 0 {
 		diff.Font.LineHeight = float32(a.cfg.EditorLineHeight)
 	}
+	diff.LineHeight = float32(a.cfg.EditorLineHeight)
 	if a.cfg.EditorNoLigatures {
 		if diff.Font.Features == "" {
 			diff.Font.Features = "-liga, -calt"
