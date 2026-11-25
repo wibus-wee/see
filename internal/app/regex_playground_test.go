@@ -162,6 +162,8 @@ func TestRegexPlaygroundPaletteEditAndEscape(t *testing.T) {
 	st := group.eds[d.path]
 	st.GoTo(st.Buffer.Pos(strings.Index(source, `\p{L}`) + 2))
 	h.a.openPalette()
+	h.a.quick.query = ">" + commandLabel("regex.playground")
+	h.a.rankQuick()
 	h.tt.Frame()
 	if err := h.tt.Click(commandLabel("regex.playground")); err != nil {
 		t.Fatalf("click Test Regex: %v; visible=%v", err, h.tt.Texts())

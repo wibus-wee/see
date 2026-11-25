@@ -296,6 +296,9 @@ func TestQuickHelpCommandPaletteMouseEscapeRestoresEditor(t *testing.T) {
 	h.tt.Frame()
 
 	h.tt.Key(ui.Cmd|ui.Shift, ui.KeyP)
+	h.a.quick.query = ">Show Quick Help"
+	h.a.rankQuick()
+	h.tt.Frame()
 	waitForText(t, h, "Show Quick Help")
 	if err := h.tt.Click("Show Quick Help"); err != nil {
 		t.Fatal(err)
