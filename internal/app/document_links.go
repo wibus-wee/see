@@ -173,9 +173,8 @@ func toDocLinks(raw []lsp.DocumentLink, snap editor.Snapshot, enc string) []docL
 	return out
 }
 
-// linkBackgrounds underlays each link's range in the link color, as the
-// Cmd-held definition link is: the color is translucent enough to read
-// as an underline over the text.
+// linkBackgrounds underlays each link's range in the link color: it is
+// translucent enough to read as an underline over the text.
 func (a *App) linkBackgrounds(st *editor.State, d *doc) {
 	if len(d.docLinks) == 0 || d.buf == nil || d.buf.Version() != d.linkBufVer {
 		return // links of an older text, as a fetch not yet back, stay off
@@ -185,8 +184,6 @@ func (a *App) linkBackgrounds(st *editor.State, d *doc) {
 	for _, l := range d.docLinks {
 		bgs = append(bgs, editor.TextBackground{Start: l.start, End: l.end, Color: link})
 	}
-	// The hover's own Cmd link, a TextBackgrounds it sets, stays under
-	// the same color; a second entry of it is harmless.
 	bgs = append(bgs, st.TextBackgrounds...)
 	st.TextBackgrounds = bgs
 }

@@ -121,9 +121,6 @@ func (a *App) view(c *ui.Context) {
 	}
 	// Cmd held makes hovers links to definitions; letting it go ends one.
 	a.hover.cmd = c.Modifiers()&ui.Cmd != 0
-	if !a.hover.cmd {
-		a.hideLink()
-	}
 	if a.root == "" && a.hasWelcome && len(a.docs) == 0 && !a.hasTabs() {
 		// The primary main window hides without a folder; its welcome
 		// window and folderless project windows show these actions.

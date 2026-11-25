@@ -129,7 +129,6 @@ func (a *App) showHierarchyAt(g *group, types bool) {
 	cs := &a.calls
 	a.cancelCalls()
 	cs.types = types
-	a.hideLink()
 	a.term.maximized = false
 	a.term.open = true
 	a.term.view = panelCalls
@@ -583,7 +582,7 @@ func (a *App) callRow(c *ui.Context, k int) {
 			a.openCallRow(k)
 		})
 	}
-	if row.DoubleClicked() {
+	if row.RowDoubleClicked() {
 		a.openCallRow(k)
 	}
 	row.ContextMenu(func(m *ui.Menu) {

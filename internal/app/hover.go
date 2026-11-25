@@ -22,14 +22,14 @@ import (
 	"see/internal/langserver"
 )
 
-// hoverState follows language server hover requests: only the latest one
-// shows, and while Cmd is held a hover is a link to the definition,
-// underlaid in the text, with the definition's code in the card.
+// hoverState follows language server hover requests: only the latest
+// one shows. The link Cmd+click goes from is the editor's own, drawn as
+// the modifier is held; with it held, a hover is the definition's code
+// in the card.
 type hoverState struct {
 	seq    uint64
 	cancel context.CancelFunc
-	cmd    bool          // Cmd held, as the last frame saw
-	link   *editor.State // the editor showing a link
+	cmd    bool // Cmd held, as the last frame saw
 	cache  map[hoverKey]hoverResult
 	epoch  uint64
 }
@@ -65,7 +65,6 @@ func (a *App) invalidateHover() {
 		a.hover.cancel = nil
 	}
 	a.hover.cache = nil
-	a.hideLink()
 	if st := a.quickHelp; st != nil {
 		a.dismissQuickHelp(st)
 	}
@@ -76,13 +75,8 @@ func (a *App) invalidateHover() {
 }
 
 func (a *App) showHover(st *editor.State, cmd bool, r hoverResult) {
-	if cmd {
-		if !a.hover.cmd {
-			return
-		}
-		a.hideLink()
-		st.TextBackgrounds = []editor.TextBackground{{Start: r.start, End: r.end, Color: a.colors().Link}}
-		a.hover.link = st
+	if cmd && !a.hover.cmd {
+		return // the modifier was let go as the answer came back
 	}
 	st.ShowHover(r.start, r.end, "", func(c *ui.Context) { hoverContent(c, r.markdown, r.location) })
 }
@@ -97,8 +91,26 @@ func (a *App) hoverAt(d *doc, st *editor.State, r editor.HoverRequest) {
 	if a.quickHelpRequest != nil {
 		a.cancelQuickHelpRequest()
 	}
+	if d.buf == nil {
+		return
+	}
+	snap := d.buf.Snapshot()
+	pos := snap.Pos(r.Offset)
+	line := snap.Line(pos.Line)
+	// Past the line's end the pointer is on its trailing decoration,
+	// which is blame: answer with the commit, whatever a server says.
+	if pos.Col >= len(line) {
+		if a.cfg.HideInlineBlame {
+			return
+		}
+		if b, ok := a.lineBlameAt(d, pos.Line); ok {
+			end := snap.LineStart(pos.Line) + len(line)
+			st.ShowHover(end, end, "", func(c *ui.Context) { a.blameHoverContent(c, b) })
+		}
+		return
+	}
 	m := a.serverFor(d.path)
-	if m == nil || d.buf == nil || !a.cfg.IsTrusted(a.root) {
+	if m == nil || !a.cfg.IsTrusted(a.root) {
 		return
 	}
 	if s, _ := m.Status(); s == langserver.Failed {
@@ -109,9 +121,6 @@ func (a *App) hoverAt(d *doc, st *editor.State, r editor.HoverRequest) {
 	}
 	a.hover.seq++
 	seq, gen, cmd, epoch := a.hover.seq, a.gen, a.hover.cmd, a.hover.epoch
-	snap := d.buf.Snapshot()
-	pos := snap.Pos(r.Offset)
-	line := snap.Line(pos.Line)
 	ws, we := wordAt(line, pos.Col)
 	if ws == we {
 		return // not on a word
@@ -179,14 +188,6 @@ func (a *App) hoverAt(d *doc, st *editor.State, r editor.HoverRequest) {
 			a.showHover(st, cmd, result)
 		})
 	}()
-}
-
-// hideLink takes the Cmd link out of the text.
-func (a *App) hideLink() {
-	if a.hover.link != nil {
-		a.hover.link.TextBackgrounds = nil
-		a.hover.link = nil
-	}
 }
 
 // renderHover keeps the editor's selectable hover and gives it the app's

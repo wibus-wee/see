@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/egoist/mygo/ui/editor"
 
@@ -123,5 +124,85 @@ func TestRevealCommitOutsideHistoryAndError(t *testing.T) {
 	h.settle(func() bool { return v.pending == "" })
 	if !strings.HasPrefix(h.a.notice, logText("blameRevealFailed")) {
 		t.Fatalf("missing error: %q", h.a.notice)
+	}
+}
+
+func TestBlameHoverOnTrailingInlay(t *testing.T) {
+	h := newHarness(t, gitRepo(t, map[string]string{"a.txt": "one\ntwo\n"}))
+	h.readGit()
+	d := h.open("a.txt")
+	h.settle(func() bool { return d.blameReady })
+	st := h.a.activeEditor()
+	// The caret at the first line's end gives the position where its
+	// trailing blame starts; just past it the pointer is on the text.
+	st.GoTo(editor.Pos{Line: 0, Col: 3})
+	h.tt.Frame()
+	caret, ok := h.tt.TextCaret()
+	if !ok {
+		t.Fatal("line end caret is not available")
+	}
+	h.tt.Move(caret.X+caret.H, caret.Y+caret.H/2)
+	h.tt.Advance(1500 * time.Millisecond)
+	h.tt.Frame()
+	if !h.tt.HasText("first") {
+		t.Fatalf("blame hover missing subject: %q", h.tt.Texts())
+	}
+	if !h.tt.HasText(d.blame[0].Short) {
+		t.Fatalf("blame hover missing hash: %q", h.tt.Texts())
+	}
+	// The hash opens the commit in the Git Log.
+	if err := h.tt.Click(commandLabel("Show Line's Commit in Git Log") + ": " + d.blame[0].Short); err != nil {
+		t.Fatalf("hash is not clickable: %v", err)
+	}
+	h.settle(func() bool { return h.a.focus != nil && h.a.focus.active == gitLogTab })
+}
+
+func TestBlameHoverDismissedOffTrailing(t *testing.T) {
+	h := newHarness(t, gitRepo(t, map[string]string{"a.txt": "one\ntwo\n"}))
+	h.readGit()
+	d := h.open("a.txt")
+	h.settle(func() bool { return d.blameReady })
+	st := h.a.activeEditor()
+	st.GoTo(editor.Pos{Line: 0, Col: 3})
+	h.tt.Frame()
+	caret, ok := h.tt.TextCaret()
+	if !ok {
+		t.Fatal("line end caret is not available")
+	}
+	h.tt.Move(caret.X+caret.H, caret.Y+caret.H/2)
+	h.tt.Advance(1500 * time.Millisecond)
+	h.tt.Frame()
+	if !h.tt.HasText("first") {
+		t.Fatalf("blame hover missing: %q", h.tt.Texts())
+	}
+	// Hovering the line's own text, past the hide grace, closes the card.
+	h.tt.Move(caret.X-caret.H, caret.Y+caret.H/2)
+	h.tt.Advance(1500 * time.Millisecond)
+	h.tt.Frame()
+	if h.tt.HasText("first") {
+		t.Fatalf("blame hover survived moving into the text: %q", h.tt.Texts())
+	}
+}
+
+func TestBlameHoverUncommitted(t *testing.T) {
+	h := newHarness(t, gitRepo(t, map[string]string{"a.txt": "one\ntwo\n"}))
+	h.readGit()
+	d := h.open("a.txt")
+	h.settle(func() bool { return d.blameReady })
+	d.buf.Set("one\nchanged\n")
+	h.tt.Frame()
+	h.settle(func() bool { return d.blameReady })
+	st := h.a.activeEditor()
+	st.GoTo(editor.Pos{Line: 1, Col: len("changed")})
+	h.tt.Frame()
+	caret, ok := h.tt.TextCaret()
+	if !ok {
+		t.Fatal("line end caret is not available")
+	}
+	h.tt.Move(caret.X+caret.H, caret.Y+caret.H/2)
+	h.tt.Advance(1500 * time.Millisecond)
+	h.tt.Frame()
+	if !h.tt.HasText(logText("blameUncommitted")) {
+		t.Fatalf("uncommitted blame hover missing: %q", h.tt.Texts())
 	}
 }

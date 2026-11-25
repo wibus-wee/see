@@ -1302,7 +1302,6 @@ func (a *App) newEditor(g *group, d *doc) *editor.State {
 	}
 	st.OnDefinition = func(offset int) { a.goToDefinition(g, d, offset) }
 	st.OnCompletion = func(req editor.CompletionRequest) { a.requestCompletions(g, d, st, req) }
-	st.NoDefinitionLink = true // hover.go draws the Cmd link once the server confirms a definition
 	a.loadGitBase(d)
 	st.ContextMenu = func(menu *ui.Menu) {
 		if menu.Item(commandLabel("regex.playground")).Chosen() {
@@ -1552,7 +1551,6 @@ func (a *App) goToLocation(g *group, d *doc, offset int, kind string) {
 		return
 	}
 	a.cancelNav()
-	a.hideLink()
 	snap := d.buf.Snapshot()
 	pos := snap.Pos(offset)
 	from := nav.Entry{Path: d.path, Line: pos.Line, ByteColumn: pos.Col}
@@ -1967,7 +1965,6 @@ func (a *App) findUsagesAt(callers bool, anchor ui.Point, validAnchor bool) {
 	}
 	a.term.maximized = false
 	a.cancelNav()
-	a.hideLink()
 	snap := d.buf.Snapshot()
 	pos := st.CursorPos()
 	from := nav.Entry{Path: d.path, Line: pos.Line, ByteColumn: pos.Col}
