@@ -87,6 +87,20 @@ func TestInvocationDistinguishesDesktopLaunchFromLinuxShellCommand(t *testing.T)
 	if _, ok := Invocation(cliLink, nil); !ok {
 		t.Fatal("the installed CLI symlink was not treated as a CLI invocation")
 	}
+	for _, tc := range []struct {
+		name string
+		args []string
+		want []string
+	}{
+		{"explicit path", []string{"/project"}, []string{"/project"}},
+		{"RunArg without path", []string{RunArg}, nil},
+		{"RunArg with path", []string{RunArg, "/project"}, []string{"/project"}},
+	} {
+		got, ok := Invocation(desktopExecutable, tc.args)
+		if !ok || !slices.Equal(got, tc.want) {
+			t.Errorf("Invocation(%q, %q) = %q, %v; want %q, true", desktopExecutable, tc.args, got, ok, tc.want)
+		}
+	}
 }
 
 func TestInvocationWindowsLauncher(t *testing.T) {
