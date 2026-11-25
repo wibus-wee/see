@@ -1023,6 +1023,56 @@ func TestGitAutoFetchFailureRetriesAndDiscoversRemotes(t *testing.T) {
 	}
 }
 
+// A fetch that cannot reach its remote stands auto-fetch down: the
+// failure counts once, no retry follows, and the fetch the user runs
+// when the network is back — which offline never blocks — lifts it.
+func TestGitAutoFetchStandsDownOffline(t *testing.T) {
+	root := gitRepo(t, map[string]string{"a.go": "package a\n"})
+	// Port 1 of localhost answers nothing, so the fetch fails the way a
+	// dropped connection does, fast and offline or not.
+	gitRun(t, root, "remote", "add", "origin", "https://127.0.0.1:1/r.git")
+	h := newHarness(t, root)
+	t.Cleanup(h.a.wsCancel)
+	h.a.git.autoFetch = true
+	h.readGit()
+	if !h.a.git.offline || h.a.git.fetchFailures != 0 {
+		t.Fatalf("unreachable remote: offline %v, failures %d", h.a.git.offline, h.a.git.fetchFailures)
+	}
+
+	// Past every backoff, auto-fetch still does not try while offline.
+	h.a.git.lastFetch = time.Now().Add(-time.Hour)
+	before := h.a.git.lastFetch
+	h.readGit()
+	if !h.a.git.lastFetch.Equal(before) {
+		t.Fatal("auto-fetch retried while offline")
+	}
+
+	// The user's own fetch still runs, and its failure keeps the state.
+	h.a.gitFetch()
+	h.settle(func() bool { return !h.a.git.busy && !h.a.git.loading })
+	if !h.a.git.offline {
+		t.Fatal("a manual fetch offline never blocks cleared the state")
+	}
+
+	// The remote answering again — the machine back on the network — the
+	// user's fetch succeeds, and the next refresh's auto-fetch runs.
+	bare := t.TempDir()
+	gitRun(t, bare, "init", "-q", "--bare")
+	gitRun(t, root, "remote", "set-url", "origin", bare)
+	gitRun(t, root, "push", "-qu", "origin", "main")
+	gitRun(t, bare, "tag", "recovered", "main")
+	h.a.gitFetch()
+	h.settle(func() bool { return !h.a.git.busy && !h.a.git.loading })
+	if h.a.git.offline {
+		t.Fatal("a successful manual fetch left the app offline")
+	}
+	h.a.git.lastFetch = time.Now().Add(-gitFetchInterval)
+	h.readGit()
+	if _, err := git.Command(context.Background(), root, "rev-parse", "--verify", "refs/tags/recovered"); err != nil {
+		t.Fatalf("auto-fetch did not resume after the network recovered: %v", err)
+	}
+}
+
 // The editor's links name the lines selected: a reference from the
 // workspace's root, and their page on the host at HEAD.
 func TestCodeLinks(t *testing.T) {

@@ -8774,6 +8774,16 @@ func (msgs Messages) MsgDPlusCommits() string {
 	return Catalog.Format(msgs.locale, "msgDPlusCommits", nil)
 }
 
+// MsgDOfDCommits says "%d of %d commits"
+// in the language the app shows.
+func MsgDOfDCommits() string { return In(i18n.Locale()).MsgDOfDCommits() }
+
+// MsgDOfDCommits says "%d of %d commits"
+// in the language of msgs.
+func (msgs Messages) MsgDOfDCommits() string {
+	return Catalog.Format(msgs.locale, "msgDOfDCommits", nil)
+}
+
 // MsgDFileSChanged says "{count, plural, one {# file changed} other {# files changed}}"
 // in the language the app shows.
 func MsgDFileSChanged(count int) string { return In(i18n.Locale()).MsgDFileSChanged(count) }
