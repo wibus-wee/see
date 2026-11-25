@@ -363,7 +363,7 @@ func TestRegexPlaygroundCaptureBackgroundsUseUnicodeRangesAndIgnoreZeroWidth(t *
 	}
 }
 
-func TestRegexPlaygroundStaysVisibleAcrossTabsAndGroups(t *testing.T) {
+func TestRegexPlaygroundStaysWithItsDocumentAndEditor(t *testing.T) {
 	h := newHarness(t, writeTree(t, map[string]string{
 		"a.go": "package a\nimport \"regexp\"\nvar re = regexp.MustCompile(`word`)\n",
 		"b.go": "package b\n",
@@ -379,19 +379,26 @@ func TestRegexPlaygroundStaysVisibleAcrossTabsAndGroups(t *testing.T) {
 		t.Fatal("playground did not open for its source document")
 	}
 	h.open("b.go")
-	if !h.tt.HasText(locales.RegexPlaygroundTitle()) {
-		t.Fatal("workspace playground disappeared after switching tabs")
+	if h.tt.HasText(locales.RegexToolWindow()) {
+		t.Fatal("playground escaped its initiating document after switching tabs")
 	}
 	h.a.activateIn(g, d.path)
 	h.tt.Frame()
-	if h.a.regexPlayground != p || !h.tt.HasText(locales.RegexPlaygroundTitle()) {
-		t.Fatal("workspace playground changed when returning to the source tab")
+	if h.a.regexPlayground != p || !h.tt.HasText(locales.RegexToolWindow()) {
+		t.Fatal("playground did not return with its initiating document")
 	}
 	h.a.splitActive(sideRight)
 	other := h.a.focus
 	h.tt.Frame()
-	if p.group != g || p.doc != d || other == g || textCount(h.tt.Texts(), locales.RegexPlaygroundTitle()) != 1 {
-		t.Fatal("playground was not rendered once across the editor workspace")
+	tool, ok := h.tt.Find(locales.RegexToolWindow())
+	if !ok {
+		t.Fatal("playground is missing from the initiating editor after split")
+	}
+	sourceBounds, otherBounds := regexToolGroupBounds(t, h, g), regexToolGroupBounds(t, h, other)
+	if p.group != g || p.doc != d || other == g || textCount(h.tt.Texts(), locales.RegexPlaygroundTitle()) != 1 ||
+		tool.X < sourceBounds.X || tool.Y < sourceBounds.Y || tool.X+tool.W > sourceBounds.X+sourceBounds.W || tool.Y+tool.H > sourceBounds.Y+sourceBounds.H ||
+		tool.X < otherBounds.X+otherBounds.W && tool.X+tool.W > otherBounds.X && tool.Y < otherBounds.Y+otherBounds.H && tool.Y+tool.H > otherBounds.Y {
+		t.Fatal("playground escaped its initiating editor in the split layout")
 	}
 	if d.buf.String() != "package a\nimport \"regexp\"\nvar re = regexp.MustCompile(`word`)\n" || len(h.a.dirtyDocs()) != 0 {
 		t.Fatal("tab or group changes modified source")

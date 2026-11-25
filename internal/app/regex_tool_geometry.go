@@ -7,13 +7,11 @@ import (
 )
 
 const (
-	regexToolDefaultWidth      = float32(680)
-	regexToolDefaultHeight     = float32(420)
-	regexToolMinWidth          = float32(440)
-	regexToolMinHeight         = float32(280)
-	regexToolMargin            = float32(12)
-	regexToolDividerHeight     = float32(8)
-	regexToolDefaultDockHeight = float32(260)
+	regexToolDefaultWidth  = float32(680)
+	regexToolDefaultHeight = float32(420)
+	regexToolMinWidth      = float32(440)
+	regexToolMinHeight     = float32(280)
+	regexToolMargin        = float32(12)
 )
 
 type regexToolResizeEdge uint8
@@ -101,17 +99,4 @@ func resizeRegexToolRect(rect ui.Rect, edge regexToolResizeEdge, dx, dy float32,
 		bottom = max(min(bottom+dy, bounds.Y+bounds.H-marginY), top+minH)
 	}
 	return clampRegexToolRect(ui.Rect{X: left, Y: top, W: right - left, H: bottom - top}, bounds)
-}
-
-func clampRegexToolDockHeight(height, availableHeight float32) float32 {
-	if !finiteRegexGeometry(availableHeight) || availableHeight < 0 {
-		availableHeight = 0
-	}
-	if !finiteRegexGeometry(height) || height <= 0 {
-		height = regexToolDefaultDockHeight
-	}
-	usableEditor := min(float32(160), availableHeight*0.4)
-	maxDock := max(float32(0), availableHeight-usableEditor)
-	minDock := min(float32(180), maxDock)
-	return min(max(height, minDock), maxDock)
 }

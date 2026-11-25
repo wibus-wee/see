@@ -2,11 +2,13 @@ package app
 
 import (
 	"encoding/json"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 
 	"see/internal/config"
@@ -24,10 +26,21 @@ func openRegexToolHarness(t *testing.T) (*harness, *doc, *regexPlayground) {
 	st.GoTo(st.Buffer.Pos(strings.Index(d.buf.String(), "word")))
 	h.a.openRegexPlaygroundFor(h.a.focus, d, st)
 	h.tt.Frame()
+	h.tt.Frame()
 	if h.a.regexPlayground == nil || !h.tt.HasText(locales.RegexToolWindow()) {
-		t.Fatal("workspace regex tool did not open")
+		t.Fatal("editor regex tool did not open")
 	}
 	return h, d, h.a.regexPlayground
+}
+
+func regexToolGroupBounds(t *testing.T, h *harness, g *group) ui.Rect {
+	t.Helper()
+	label := fmt.Sprintf("%s %d", locales.Catalog.Format(i18n.Locale(), "editorGroup", nil), g.id)
+	bounds, ok := h.tt.Find(label)
+	if !ok {
+		t.Fatalf("editor group %q was not found", label)
+	}
+	return bounds
 }
 
 func dragTester(t *testing.T, h *harness, bounds ui.Rect, dx, dy float32) {
@@ -89,57 +102,32 @@ func TestRegexToolWindowTitleAndAllResizeHandles(t *testing.T) {
 	}
 }
 
-func TestRegexToolWindowClampsToSmallEditorWorkspace(t *testing.T) {
-	h, _, _ := openRegexToolHarness(t)
+func TestRegexToolWindowClampsToSmallEditor(t *testing.T) {
+	h, _, p := openRegexToolHarness(t)
 	h.tt.SetSize(500, 320)
 	h.tt.Frame()
+	h.tt.Frame()
 	window, ok := h.tt.Find(locales.RegexToolWindow())
-	if !ok || window.W <= 0 || window.X+window.W > 500 || window.Y+window.H > 320 {
-		t.Fatalf("regex tool is not bounded to the small window: %+v found=%v", window, ok)
+	group := regexToolGroupBounds(t, h, p.group)
+	if !ok || window.W <= 0 || window.X < group.X || window.Y < group.Y || window.X+window.W > group.X+group.W || window.Y+window.H > group.Y+group.H {
+		t.Fatalf("regex tool is not bounded to its small editor: window=%+v editor=%+v found=%v", window, group, ok)
 	}
 	if h.a.regexToolWindow.rect.W >= regexToolMinWidth || h.a.regexToolWindow.rect.H >= regexToolMinHeight {
-		t.Fatalf("small workspace did not shrink effective minimum: %+v", h.a.regexToolWindow.rect)
+		t.Fatalf("small editor did not shrink effective minimum: %+v", h.a.regexToolWindow.rect)
 	}
 }
 
 func TestRegexToolWindowClampsWhenSidebarExpands(t *testing.T) {
-	h, _, _ := openRegexToolHarness(t)
+	h, _, p := openRegexToolHarness(t)
 	h.a.regexToolWindow.rect = ui.Rect{X: 400, Y: 80, W: 680, H: 420}
 	h.a.regexToolWindow.initialized = true
 	h.a.sidebarW = 460
 	h.tt.Advance(300 * time.Millisecond)
 	h.tt.Frame()
-	if right := h.a.regexToolWindow.rect.X + h.a.regexToolWindow.rect.W; right > 1100-460-regexToolMargin+1 {
-		t.Fatalf("floating tool escaped the editor workspace after sidebar expansion: %+v", h.a.regexToolWindow.rect)
-	}
-}
-
-func TestRegexToolDockDividerAndUndockPreservePlayground(t *testing.T) {
-	h, _, p := openRegexToolHarness(t)
-	p.sample.Buffer.Set("kept sample")
-	h.tt.Frame()
-	if err := h.tt.Click(locales.RegexToolDock()); err != nil {
-		t.Fatal(err)
-	}
-	h.tt.Frame()
-	if !h.a.regexToolWindow.docked || h.a.regexPlayground != p || p.sample.Buffer.String() != "kept sample" {
-		t.Fatal("docking changed playground state")
-	}
-	divider, ok := h.tt.Find(locales.RegexToolDockDivider())
-	if !ok {
-		t.Fatal("dock divider is missing")
-	}
-	before := h.a.regexToolWindow.dockHeight
-	dragTester(t, h, divider, 0, 24)
-	if got := h.a.regexToolWindow.dockHeight; got != before-24 {
-		t.Fatalf("dock height after divider drag = %v, want %v", got, before-24)
-	}
-	if err := h.tt.Click(locales.RegexToolUndock()); err != nil {
-		t.Fatal(err)
-	}
-	h.tt.Frame()
-	if h.a.regexToolWindow.docked || h.a.regexPlayground != p || p.sample.Buffer.String() != "kept sample" {
-		t.Fatal("undocking changed playground state")
+	window, ok := h.tt.Find(locales.RegexToolWindow())
+	group := regexToolGroupBounds(t, h, p.group)
+	if !ok || window.X < group.X || window.Y < group.Y || window.X+window.W > group.X+group.W || window.Y+window.H > group.Y+group.H {
+		t.Fatalf("floating tool escaped its editor after sidebar expansion: window=%+v editor=%+v found=%v", window, group, ok)
 	}
 }
 
@@ -154,19 +142,17 @@ func TestRegexToolPersistenceDoesNotReopenPlayground(t *testing.T) {
 	st := h.a.focus.eds[d.path]
 	st.GoTo(st.Buffer.Pos(strings.Index(d.buf.String(), "word")))
 	h.a.openRegexPlaygroundFor(h.a.focus, d, st)
+	h.tt.Frame()
 	p := h.a.regexPlayground
 	if p == nil {
 		t.Fatal("regex playground did not open")
 	}
 	p.sample.Buffer.Set("private sample text")
-	h.a.regexToolWindow.rect = ui.Rect{X: 31, Y: 47, W: 620, H: 390}
-	h.a.regexToolWindow.initialized = true
-	h.a.regexToolWindow.docked = true
-	h.a.regexToolWindow.dockHeight = 300
+	rect := h.a.regexToolWindow.rect
 	h.a.captureSession()
 	saved := cfg.Workspaces[h.a.root]
-	if saved.RegexToolX != 31 || saved.RegexToolY != 47 || saved.RegexToolWidth != 620 || saved.RegexToolHeight != 390 || !saved.RegexToolDocked || saved.RegexToolDockHeight != 300 {
-		t.Fatalf("workspace session did not capture independent geometry: %+v", saved)
+	if saved.RegexToolX != rect.X || saved.RegexToolY != rect.Y || saved.RegexToolWidth != rect.W || saved.RegexToolHeight != rect.H {
+		t.Fatalf("workspace session did not capture editor-window geometry: %+v", saved)
 	}
 	h.a.closeRegexPlayground(p)
 	h.a.closeWorkspace()
@@ -186,7 +172,7 @@ func TestRegexToolPersistenceDoesNotReopenPlayground(t *testing.T) {
 		t.Fatal("restore reopened the regex tool")
 	}
 	state := h2.a.regexToolWindow
-	if !state.initialized || state.rect != (ui.Rect{X: 31, Y: 47, W: 620, H: 390}) || !state.docked || state.dockHeight != 300 {
+	if !state.initialized || state.rect != rect {
 		t.Fatalf("workspace geometry did not restore: %+v", state)
 	}
 	d2 := h2.open("a.go")
@@ -194,7 +180,7 @@ func TestRegexToolPersistenceDoesNotReopenPlayground(t *testing.T) {
 	st2.GoTo(st2.Buffer.Pos(strings.Index(d2.buf.String(), "word")))
 	h2.a.openRegexPlaygroundFor(h2.a.focus, d2, st2)
 	h2.tt.Frame()
-	if h2.a.regexPlayground == nil || h2.a.regexPlayground.sample.Buffer.String() != "" || h2.a.regexToolWindow.rect != state.rect || !h2.a.regexToolWindow.docked {
+	if h2.a.regexPlayground == nil || h2.a.regexPlayground.sample.Buffer.String() != "" || h2.a.regexToolWindow.rect != state.rect {
 		t.Fatalf("reopening tool did not reuse geometry without sample text: state=%+v playground=%+v", h2.a.regexToolWindow, h2.a.regexPlayground)
 	}
 }
@@ -204,12 +190,11 @@ func TestRegexToolGeometryRestoresWithoutSavedEditorLayout(t *testing.T) {
 	cfg := &config.Config{ConfirmClose: true, Workspaces: map[string]config.Workspace{
 		root: {
 			RegexToolX: 42, RegexToolY: 53, RegexToolWidth: 610, RegexToolHeight: 380,
-			RegexToolDocked: true, RegexToolDockHeight: 275,
 		},
 	}}
 	h := newHarnessWithConfig(t, root, cfg)
 	state := h.a.regexToolWindow
-	if h.a.regexPlayground != nil || !state.initialized || state.rect != (ui.Rect{X: 42, Y: 53, W: 610, H: 380}) || !state.docked || state.dockHeight != 275 {
+	if h.a.regexPlayground != nil || !state.initialized || state.rect != (ui.Rect{X: 42, Y: 53, W: 610, H: 380}) {
 		t.Fatalf("geometry did not restore without a saved editor layout: %+v", state)
 	}
 }
@@ -223,18 +208,14 @@ func TestRegexToolWorkspaceSwitchRestoresOwnGeometry(t *testing.T) {
 	h := newHarnessWithConfig(t, rootA, cfg)
 	h.a.regexToolWindow.rect = ui.Rect{X: 70, Y: 80, W: 600, H: 400}
 	h.a.regexToolWindow.initialized = true
-	h.a.regexToolWindow.docked = true
-	h.a.regexToolWindow.dockHeight = 280
 	h.a.openWorkspace(rootB)
-	if h.a.regexPlayground != nil || h.a.regexToolWindow.initialized || h.a.regexToolWindow.docked {
+	if h.a.regexPlayground != nil || h.a.regexToolWindow.initialized {
 		t.Fatal("workspace switch carried active tool state into a new workspace")
 	}
 	h.a.regexToolWindow.rect = ui.Rect{X: 25, Y: 35, W: 510, H: 310}
 	h.a.regexToolWindow.initialized = true
-	h.a.regexToolWindow.docked = false
-	h.a.regexToolWindow.dockHeight = 220
 	h.a.openWorkspace(rootA)
-	if !h.a.regexToolWindow.initialized || h.a.regexToolWindow.rect != (ui.Rect{X: 70, Y: 80, W: 600, H: 400}) || !h.a.regexToolWindow.docked || h.a.regexToolWindow.dockHeight != 280 {
+	if !h.a.regexToolWindow.initialized || h.a.regexToolWindow.rect != (ui.Rect{X: 70, Y: 80, W: 600, H: 400}) {
 		t.Fatalf("workspace-specific geometry did not restore: %+v", h.a.regexToolWindow)
 	}
 }
@@ -246,22 +227,32 @@ func TestRegexToolEscapeAndSourceClosureAreScoped(t *testing.T) {
 		t.Fatal("tool titlebar not found")
 	}
 	dragTester(t, h, title, 50, 100)
-	group := p.group
+	sourceGroup := p.group
+	h.a.splitActive(sideRight)
+	otherGroup := h.a.focus
 	h.open("b.go")
-	other := group.eds[workspacePath(h.a, "b.go")]
+	other := otherGroup.eds[workspacePath(h.a, "b.go")]
 	if other == nil {
-		t.Fatal("second editor did not open")
+		t.Fatal("other split editor did not open")
 	}
 	otherDoc := h.a.docs[workspacePath(h.a, "b.go")]
 	tool, ok := h.tt.Find(locales.RegexToolWindow())
 	if !ok {
-		t.Fatal("floating tool not found")
+		t.Fatal("tool did not remain in its initiating editor")
 	}
-	h.tt.ClickAt(tool.X-20, tool.Y-50)
+	if sourceGroup == otherGroup {
+		t.Fatal("split editor did not become distinct")
+	}
+	sourceBounds, otherBounds := regexToolGroupBounds(t, h, sourceGroup), regexToolGroupBounds(t, h, otherGroup)
+	if tool.X < sourceBounds.X || tool.Y < sourceBounds.Y || tool.X+tool.W > sourceBounds.X+sourceBounds.W || tool.Y+tool.H > sourceBounds.Y+sourceBounds.H ||
+		tool.X < otherBounds.X+otherBounds.W && tool.X+tool.W > otherBounds.X && tool.Y < otherBounds.Y+otherBounds.H && tool.Y+tool.H > otherBounds.Y {
+		t.Fatal("tool escaped the initiating editor into the other split")
+	}
+	h.tt.ClickAt(otherBounds.X+otherBounds.W/2, otherBounds.Y+otherBounds.H/2)
 	h.tt.Type("X")
 	h.tt.Frame()
 	if !strings.Contains(otherDoc.buf.String(), "X") {
-		t.Fatal("typing outside the tool did not reach the editor")
+		t.Fatal("typing outside the tool did not reach the other editor")
 	}
 	h.tt.Key(0, ui.KeyEscape)
 	h.tt.Frame()
@@ -327,9 +318,25 @@ func TestRegexToolCloseDoesNotRestoreClosedSourceGroup(t *testing.T) {
 	if h.a.layout.find(sourceGroup) != nil {
 		t.Fatal("closing the source tab did not collapse its group")
 	}
-	h.a.closeRegexPlayground(p)
+	if h.a.regexPlayground != nil {
+		t.Fatal("closing the source editor left its playground alive")
+	}
 	if h.a.focus != otherGroup || h.a.focusEditor != other {
 		t.Fatalf("closing tool restored a stale source group: focus=%p editor=%p", h.a.focus, h.a.focusEditor)
+	}
+}
+
+func TestRegexToolClosesWhenItsSourceTabCloses(t *testing.T) {
+	h, d, p := openRegexToolHarness(t)
+	group := p.group
+	h.open("b.go")
+	other := group.eds[workspacePath(h.a, "b.go")]
+	h.a.closeTab(group, d.path)
+	if h.a.layout.find(group) == nil {
+		t.Fatal("closing the source tab unexpectedly removed its group")
+	}
+	if h.a.regexPlayground != nil || h.a.focusEditor != other {
+		t.Fatalf("closing the source tab left stale playground focus: playground=%p editor=%p", h.a.regexPlayground, h.a.focusEditor)
 	}
 }
 

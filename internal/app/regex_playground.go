@@ -154,6 +154,16 @@ func (a *App) regexPlaygroundSourceLive(p *regexPlayground) bool {
 		p.group.eds[p.doc.path] == p.sourceEditor
 }
 
+func (a *App) closeRegexPlaygroundForSource(g *group, path string) {
+	p := a.regexPlayground
+	if p == nil || p.group != g || p.doc == nil || path != "" && p.doc.path != path {
+		return
+	}
+	if !a.regexPlaygroundSourceLive(p) {
+		a.closeRegexPlayground(p)
+	}
+}
+
 func (a *App) currentValidEditor() *editor.State {
 	if a.layout != nil && a.focus != nil && a.layout.find(a.focus) != nil {
 		if st := a.activeEditor(); st != nil {

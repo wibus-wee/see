@@ -29,26 +29,24 @@ func (a *App) editorArea(c *ui.Context) {
 	if target := a.focusGroupTarget; target != nil && (a.layout.find(target) == nil || target.focusHandle.FocusWithin(c)) {
 		a.focusGroupTarget = nil
 	}
-	a.regexToolArea(c, a.regexPlayground, func() {
-		ui.Row(c).Fill().AlignItems(ui.Stretch).Children(func() {
-			ui.Column(c).Grow(1).FillHeight().Children(func() {
-				a.editorsAndPanel(c, func() {
-					ui.Column(c).Fill().Children(func() {
-						if g := a.maximized; g != nil && a.layout.find(g) != nil && len(a.groups()) > 1 {
-							a.groupView(c, g)
-						} else {
-							a.layoutView(c, a.layout)
-						}
-					})
+	ui.Row(c).Fill().AlignItems(ui.Stretch).Children(func() {
+		ui.Column(c).Grow(1).FillHeight().Children(func() {
+			a.editorsAndPanel(c, func() {
+				ui.Column(c).Fill().Children(func() {
+					if g := a.maximized; g != nil && a.layout.find(g) != nil && len(a.groups()) > 1 {
+						a.groupView(c, g)
+					} else {
+						a.layoutView(c, a.layout)
+					}
 				})
 			})
-			if a.inspectorOpen() {
-				ui.Column(c).Width(a.inspectorW()).FillHeight().Shrink(0).Children(func() {
-					a.inspectorDivider(c)
-					a.inspectorView(c)
-				})
-			}
 		})
+		if a.inspectorOpen() {
+			ui.Column(c).Width(a.inspectorW()).FillHeight().Shrink(0).Children(func() {
+				a.inspectorDivider(c)
+				a.inspectorView(c)
+			})
+		}
 	})
 }
 
@@ -622,6 +620,9 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 		}
 		if a.focusGroupTarget == nil && ed.FocusWithin() && a.focus != g {
 			a.focus = g
+		}
+		if p := a.regexPlayground; p != nil && p.group == g && p.doc == d && p.sourceEditor == st {
+			a.regexToolWindowView(c, p, g.focusHandle.Bounds(c))
 		}
 	}
 }

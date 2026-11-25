@@ -21,7 +21,15 @@ func TestRegexToolRectClampsInvalidAndOffscreenGeometry(t *testing.T) {
 
 	tiny := clampRegexToolRect(ui.Rect{}, ui.Rect{W: 300, H: 200})
 	if tiny.W != 276 || tiny.H != 176 || tiny.X != 12 || tiny.Y != 12 {
-		t.Fatalf("small workspace did not shrink effective minimum: %+v", tiny)
+		t.Fatalf("small editor did not shrink effective minimum: %+v", tiny)
+	}
+}
+
+func TestRegexToolRectClampsWithinEditorBoundsOrigin(t *testing.T) {
+	bounds := ui.Rect{X: 320, Y: 120, W: 500, H: 360}
+	got := clampRegexToolRect(ui.Rect{X: -900, Y: 9000, W: 680, H: 420}, bounds)
+	if got != (ui.Rect{X: 332, Y: 132, W: 476, H: 336}) {
+		t.Fatalf("clamped editor-local rect = %+v", got)
 	}
 }
 
@@ -50,7 +58,7 @@ func TestRegexToolResizeKeepsOppositeEdgesAnchored(t *testing.T) {
 				t.Fatalf("opposite edge moved: start=%+v got=%+v", start, got)
 			}
 			if got.W < regexToolMinWidth || got.H < regexToolMinHeight || got.X < regexToolMargin || got.Y < regexToolMargin || got.X+got.W > bounds.W-regexToolMargin || got.Y+got.H > bounds.H-regexToolMargin {
-				t.Fatalf("resize escaped bounds or minimum: %+v", got)
+				t.Fatalf("resize escaped editor bounds or minimum: %+v", got)
 			}
 		})
 	}
@@ -65,26 +73,14 @@ func TestRegexToolResizeClampsMinimumAndWorkspaceEdges(t *testing.T) {
 	}
 	got = resizeRegexToolRect(start, regexToolResizeRight|regexToolResizeBottom, 1000, 1000, bounds)
 	if got.X != start.X || got.Y != start.Y || got.X+got.W != bounds.W-regexToolMargin || got.Y+got.H != bounds.H-regexToolMargin {
-		t.Fatalf("resize did not clamp at workspace edges: %+v", got)
+		t.Fatalf("resize did not clamp at editor edges: %+v", got)
 	}
 	got = resizeRegexToolRect(ui.Rect{W: 260, H: 150}, regexToolResizeLeft|regexToolResizeTop, -100, -100, ui.Rect{W: 300, H: 200})
 	if got.W != 276 || got.H != 176 || got.X != 12 || got.Y != 12 {
-		t.Fatalf("effective resize minimum did not shrink for tiny workspace: %+v", got)
+		t.Fatalf("effective resize minimum did not shrink for tiny editor: %+v", got)
 	}
 	got = resizeRegexToolRect(start, regexToolResizeRight|regexToolResizeBottom, float32(math.NaN()), float32(math.Inf(1)), ui.Rect{X: float32(math.NaN()), Y: float32(math.Inf(1)), W: 300, H: 200})
 	if got != (ui.Rect{X: 12, Y: 12, W: 276, H: 176}) {
 		t.Fatalf("resize did not normalize invalid inputs: %+v", got)
-	}
-}
-
-func TestRegexToolDockHeightLeavesUsableEditorArea(t *testing.T) {
-	if got := clampRegexToolDockHeight(900, 600); got != 440 {
-		t.Fatalf("dock height = %v, want 440", got)
-	}
-	if got := clampRegexToolDockHeight(1, 200); got != 120 {
-		t.Fatalf("tiny dock height = %v, want 120", got)
-	}
-	if got := clampRegexToolDockHeight(200, float32(math.NaN())); got != 0 {
-		t.Fatalf("invalid available height = %v, want 0", got)
 	}
 }

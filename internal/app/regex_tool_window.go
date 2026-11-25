@@ -11,14 +11,11 @@ import (
 type regexToolWindowState struct {
 	rect        ui.Rect
 	initialized bool
-	docked      bool
-	dockHeight  float32
 	handle      ui.Handle
-	area        ui.Handle
 }
 
 func (s *regexToolWindowState) resetWorkspace() {
-	s.rect, s.initialized, s.docked, s.dockHeight = ui.Rect{}, false, false, 0
+	s.rect, s.initialized = ui.Rect{}, false
 }
 
 func (a *App) restoreRegexToolWindow(s config.Workspace) {
@@ -30,25 +27,9 @@ func (a *App) restoreRegexToolWindow(s config.Workspace) {
 	} else {
 		a.regexToolWindow.rect, a.regexToolWindow.initialized = ui.Rect{}, false
 	}
-	a.regexToolWindow.docked = s.RegexToolDocked
-	if finiteRegexGeometry(s.RegexToolDockHeight) && s.RegexToolDockHeight > 0 {
-		a.regexToolWindow.dockHeight = s.RegexToolDockHeight
-	} else {
-		a.regexToolWindow.dockHeight = regexToolDefaultDockHeight
-	}
 }
 
-func (a *App) regexToolBounds(c *ui.Context) ui.Rect {
-	b := a.regexToolWindow.area.Bounds(c)
-	if b.W > 0 && b.H > 0 {
-		return ui.Rect{W: b.W, H: b.H}
-	}
-	w, h := c.Size()
-	return ui.Rect{W: w, H: max(float32(0), h-40)}
-}
-
-func (a *App) ensureRegexToolRect(c *ui.Context) ui.Rect {
-	bounds := a.regexToolBounds(c)
+func (a *App) ensureRegexToolRect(bounds ui.Rect) ui.Rect {
 	if !a.regexToolWindow.initialized {
 		a.regexToolWindow.rect = regexToolDefaultRect(bounds)
 		a.regexToolWindow.initialized = true
@@ -63,90 +44,29 @@ func (a *App) ensureRegexToolRect(c *ui.Context) ui.Rect {
 	return a.regexToolWindow.rect
 }
 
-func (a *App) regexToolArea(c *ui.Context, p *regexPlayground, body func()) {
-	area := ui.Column(c.Key("editor-area")).Fill().Background(colors(c).Editor).Bind(&a.regexToolWindow.area)
-	area.Children(func() {
-		if a.regexToolWindow.initialized {
-			bounds := a.regexToolBounds(c)
-			clamped := clampRegexToolRect(a.regexToolWindow.rect, bounds)
-			if clamped != a.regexToolWindow.rect {
-				a.regexToolWindow.rect = clamped
-				a.saveConfigSoon()
-			}
-		}
-		if p != nil && a.regexToolWindow.docked {
-			areaHeight := a.regexToolBounds(c).H
-			dockHeight := clampRegexToolDockHeight(a.regexToolWindow.dockHeight, areaHeight-regexToolDividerHeight)
-			if dockHeight != a.regexToolWindow.dockHeight {
-				a.regexToolWindow.dockHeight = dockHeight
-				a.saveConfigSoon()
-			}
-			ui.Column(c).Grow(1).FillWidth().MinHeight(0).Children(body)
-			divider := ui.Box(c.Key("regex-tool-dock-divider")).FillWidth().Height(regexToolDividerHeight).Cursor(ui.CursorResizeNS).Label(locales.RegexToolDockDivider())
-			if _, dy, dragged := divider.Dragged(); dragged && dy != 0 {
-				a.regexToolWindow.dockHeight = clampRegexToolDockHeight(dockHeight-dy, areaHeight-regexToolDividerHeight)
-				a.saveConfigSoon()
-			}
-			a.regexToolWindowView(c, p, ui.Rect{W: a.regexToolBounds(c).W, H: dockHeight}, false)
-			return
-		}
-		body()
-		if p != nil {
-			r := a.ensureRegexToolRect(c)
-			a.regexToolWindowView(c, p, r, true)
-		}
+func (a *App) regexToolWindowView(c *ui.Context, p *regexPlayground, bounds ui.Rect) {
+	rect := a.ensureRegexToolRect(bounds)
+	ui.Overlay(c, func() {
+		window := ui.Column(c.Key("regex-tool-window")).Bind(&a.regexToolWindow.handle).Absolute().Left(rect.X).Top(rect.Y).Width(rect.W).Height(rect.H)
+		window.Label(locales.RegexToolWindow()).Background(c.Theme().Surface).BorderWidth(1, 1, 1, 1).BorderColor(colors(c).Separator).Radius(9).Clip().Children(func() {
+			a.regexToolTitlebar(c, p, bounds)
+			a.regexPlaygroundBody(c, p, rect.W, max(float32(0), rect.H-40))
+			a.regexToolResizeHandles(c, bounds)
+		})
+		a.regexToolWindow.handle.OnShortcut(c, 0, ui.KeyEscape, func() { a.closeRegexPlayground(p) })
 	})
 }
 
-func (a *App) regexToolWindowView(c *ui.Context, p *regexPlayground, rect ui.Rect, floating bool) {
-	var window ui.Element
-	if floating {
-		window = ui.Column(c.Key("regex-tool-window")).Bind(&a.regexToolWindow.handle).Absolute().Left(rect.X).Top(rect.Y).Width(rect.W).Height(rect.H)
-	} else {
-		window = ui.Column(c.Key("regex-tool-window")).Bind(&a.regexToolWindow.handle).FillWidth().Height(rect.H).MinHeight(0)
-	}
-	window.Label(locales.RegexToolWindow()).Background(c.Theme().Surface).BorderWidth(1, 1, 1, 1).BorderColor(colors(c).Separator).Radius(9).Clip().Children(func() {
-		a.regexToolTitlebar(c, p)
-		a.regexPlaygroundBody(c, p, rect.W, max(float32(0), rect.H-40))
-		if floating {
-			a.regexToolResizeHandles(c)
-		}
-	})
-	a.regexToolWindow.handle.OnShortcut(c, 0, ui.KeyEscape, func() { a.closeRegexPlayground(p) })
-}
-
-func (a *App) regexToolTitlebar(c *ui.Context, p *regexPlayground) {
+func (a *App) regexToolTitlebar(c *ui.Context, p *regexPlayground, bounds ui.Rect) {
 	ui.Row(c).FillWidth().Height(38).Shrink(0).Padding(4, 10).Gap(6).AlignItems(ui.Center).BorderWidth(0, 0, 1, 0).BorderColor(colors(c).Separator).Children(func() {
-		cursor := ui.CursorDefault
-		if !a.regexToolWindow.docked {
-			cursor = ui.CursorMove
-		}
-		drag := ui.Box(c.Key("regex-tool-title-drag")).Grow(1).FillHeight().Cursor(cursor).Label(locales.RegexToolTitlebar()).AlignItems(ui.Center).Children(func() {
+		drag := ui.Box(c.Key("regex-tool-title-drag")).Grow(1).FillHeight().Cursor(ui.CursorMove).Label(locales.RegexToolTitlebar()).AlignItems(ui.Center).Children(func() {
 			ui.Text(c, locales.RegexPlaygroundTitle()).FontSize(12).FontWeight(600).SingleLine()
 		})
-		if dx, dy, dragged := drag.Dragged(); dragged && !a.regexToolWindow.docked {
+		if dx, dy, dragged := drag.Dragged(); dragged {
 			if dx != 0 || dy != 0 {
-				bounds := a.regexToolBounds(c)
 				a.regexToolWindow.rect.X += dx
 				a.regexToolWindow.rect.Y += dy
 				a.regexToolWindow.rect = clampRegexToolRect(a.regexToolWindow.rect, bounds)
-				a.saveConfigSoon()
-			}
-		}
-		if a.regexToolWindow.docked {
-			button := ui.Button(c, locales.RegexToolUndock()).Label(locales.RegexToolUndock()).Tooltip(locales.RegexToolUndockTooltip()).Shrink(0).KeepFocus()
-			if button.Clicked() {
-				a.ensureRegexToolRect(c)
-				a.regexToolWindow.docked = false
-				a.saveConfigSoon()
-			}
-		} else {
-			button := ui.Button(c, locales.RegexToolDock()).Label(locales.RegexToolDock()).Tooltip(locales.RegexToolDockTooltip()).Shrink(0).KeepFocus()
-			if button.Clicked() {
-				a.regexToolWindow.docked = true
-				if a.regexToolWindow.dockHeight <= 0 {
-					a.regexToolWindow.dockHeight = regexToolDefaultDockHeight
-				}
 				a.saveConfigSoon()
 			}
 		}
@@ -157,7 +77,7 @@ func (a *App) regexToolTitlebar(c *ui.Context, p *regexPlayground) {
 	})
 }
 
-func (a *App) regexToolResizeHandles(c *ui.Context) {
+func (a *App) regexToolResizeHandles(c *ui.Context, bounds ui.Rect) {
 	const grip = float32(10)
 	for _, handle := range []struct {
 		key    string
@@ -178,7 +98,7 @@ func (a *App) regexToolResizeHandles(c *ui.Context) {
 		target := ui.Box(c.Key(handle.key)).Absolute().Cursor(handle.cursor).Label(handle.label)
 		target = handle.style(target)
 		if dx, dy, dragged := target.Dragged(); dragged && (dx != 0 || dy != 0) {
-			a.regexToolWindow.rect = resizeRegexToolRect(a.regexToolWindow.rect, handle.edge, dx, dy, a.regexToolBounds(c))
+			a.regexToolWindow.rect = resizeRegexToolRect(a.regexToolWindow.rect, handle.edge, dx, dy, bounds)
 			a.saveConfigSoon()
 		}
 	}
