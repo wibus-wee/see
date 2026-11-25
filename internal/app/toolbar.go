@@ -2,6 +2,7 @@ package app
 
 import (
 	"path/filepath"
+	"runtime"
 	"strings"
 	"see/internal/languages"
 	"see/locales"
@@ -129,16 +130,35 @@ func (a *App) projectTitle(c *ui.Context) {
 	if b.Hovered() || b.Pressed() {
 		b.Background(colors(c).Pill)
 	}
-	b.OnClick(func() {
-		r := a.titleButton.Bounds(c)
-		a.projectMenu(int(r.X), int(r.Y+r.H+4))
-	})
+	if runtime.GOOS == "linux" {
+		b.PopoverMenuButton(a.projectPopoverMenu, ui.PopoverMenuButtonOptions{Open: &a.titleOpen, Panel: popoverMenuPanel})
+	} else {
+		b.OnClick(func() {
+			r := a.titleButton.Bounds(c)
+			a.projectMenu(int(r.X), int(r.Y+r.H+4))
+		})
+	}
 	b.Children(func() {
 		ui.Row(c).Gap(4).AlignItems(ui.Center).Children(func() {
 			ui.Text(c, filepath.Base(a.root)).Bold().SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 			symbolIcon(c, icChevron, 9, colors(c).Dim).Shrink(0)
 		})
 	})
+}
+
+func (a *App) projectPopoverMenu(m *ui.Menu) {
+	for _, p := range a.cfg.Recent {
+		p := p
+		if m.Item(projectLabel(a.cfg.Recent, p)).ID(p).Radio(p == a.root).Tooltip(p).Chosen() {
+			a.openRecent(p)
+		}
+	}
+	if len(a.cfg.Recent) > 0 {
+		m.Separator()
+	}
+	if m.Item(locales.MsgOpenFolder()).Shortcut(ui.Cmd, ui.KeyO).Chosen() {
+		a.openFolderDialog()
+	}
 }
 
 // projectMenu opens the recent folders at x, y in the window, as Xcode's
