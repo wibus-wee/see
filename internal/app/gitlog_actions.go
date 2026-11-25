@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 
 	"see/internal/git"
@@ -226,7 +227,7 @@ func (a *App) commitRowItems(m *ui.Menu, c *ui.Context, cm git.Commit) {
 	}
 	if link := a.commitLink(cm.Hash); link != "" {
 		m.Separator()
-		if m.Item(locales.MsgOpenOn() + hostName(a.git.web)).Chosen() {
+		if m.Item(locales.Catalog.Format(i18n.Locale(), "editorContextOpenOnHost", map[string]any{"host": hostName(a.git.web)})).Chosen() {
 			c.Services().OpenURL(link)
 		}
 	}

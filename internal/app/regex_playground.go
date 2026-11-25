@@ -5,6 +5,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 
@@ -315,7 +316,11 @@ func (a *App) regexMatchDetails(c *ui.Context, p *regexPlayground) {
 		ui.Column(c).FillWidth().Gap(2).Children(func() {
 			for i, match := range p.result.Matches {
 				index := i
-				label := fmt.Sprintf("Match %d, %s, %s", i+1, regexMatchPreview(match), regexCharacterRange(p.cacheSample, match.Start, match.End))
+				label := locales.Catalog.Format(i18n.Locale(), "msgMatchNInSample", map[string]any{
+					"n":     i + 1,
+					"text":  regexMatchPreview(match),
+					"range": regexCharacterRange(p.cacheSample, match.Start, match.End),
+				})
 				button := ui.ButtonBase(c.Key(struct {
 					Playground *regexPlayground
 					Match      int

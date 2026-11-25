@@ -10,6 +10,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 
@@ -128,13 +129,13 @@ func (v *gitDiffTab) label() string {
 	case v.localHistory != nil:
 		return localHistoryText("localHistoryTab")
 	case v.cli:
-		return "Diff"
+		return locales.MsgDiffTab()
 	case v.rev != "":
 		return v.rev
 	case v.staged:
-		return "Staged"
+		return locales.MsgStaged()
 	}
-	return "Working Tree"
+	return locales.GitWorkingTree()
 }
 
 // page reports whether the tab shows a commit or the log, not a file's
@@ -919,11 +920,11 @@ func (a *App) gitNavigator(c *ui.Context) {
 								}
 							}
 							if staged > 0 {
-								a.gitSection(c, "Staged Changes", staged)
+								a.gitSection(c, locales.MsgStagedChanges(), staged)
 							}
 							a.gitRows(c, true)
 							if unstaged > 0 && (staged > 0 || conflicts > 0) {
-								a.gitSection(c, "Changes", unstaged)
+								a.gitSection(c, locales.MsgChanges(), unstaged)
 							}
 							a.gitRows(c, false)
 						}
@@ -1004,9 +1005,9 @@ func (a *App) gitSection(c *ui.Context, name string, count int) {
 }
 
 func (a *App) gitRow(c *ui.Context, ch git.Change, staged bool) {
-	label, action := "Unstaged", "Stage"
+	label, action := locales.MsgUnstaged(), locales.MsgStage()
 	if staged {
-		label, action = "Staged", "Unstage"
+		label, action = locales.MsgStaged(), locales.MsgUnstage()
 	}
 	container := ui.Row(c.Key(fmt.Sprintf("%t:%s", staged, ch.Path))).FillWidth().Height(gitSidebarRowHeight).
 		Padding(0, sidebarInset+gitSidebarTreeIndent).Gap(2).Radius(4).AlignItems(ui.Center)
@@ -1035,10 +1036,10 @@ func (a *App) gitRow(c *ui.Context, ch git.Change, staged bool) {
 			}
 		})
 		if hovered {
-			if ch.Work != 'D' && !(ch.Index == 'D' && ch.Work == ' ') && glyphButton(c, icGitOpen, "Open file "+ch.Path, "Open File", false, false).Clicked() {
+			if ch.Work != 'D' && !(ch.Index == 'D' && ch.Work == ' ') && glyphButton(c, icGitOpen, locales.Catalog.Format(i18n.Locale(), "msgOpenFileS", map[string]any{"path": ch.Path}), locales.MsgOpenFileAction(), false, false).Clicked() {
 				a.openGitFile(ch)
 			}
-			if !staged && glyphButton(c, icGitDiscard, "Discard changes "+ch.Path, "Discard Changes", false, a.git.busy).Clicked() {
+			if !staged && glyphButton(c, icGitDiscard, locales.Catalog.Format(i18n.Locale(), "msgDiscardChangesS", map[string]any{"path": ch.Path}), locales.DiscardChanges(), false, a.git.busy).Clicked() {
 				if a.git.selected[gitChangeKey(false, ch.Path)] {
 					var targets []git.Change
 					for _, c2 := range a.git.changes {
@@ -1134,11 +1135,11 @@ func (a *App) commitBar(c *ui.Context, staged int, conflicted bool) {
 			a.gitAction("commit", "-m", a.git.message)
 		}
 	}
-	placeholder := "Commit Message"
+	placeholder := locales.MsgCommitMessage()
 	if staged == 0 && !a.git.merging {
-		placeholder = "Stage changes to commit"
+		placeholder = locales.MsgStageChangesToCommit()
 	}
-	tip := "Commit " + fmt.Sprint(staged) + " staged change" + plural(staged)
+	tip := locales.Catalog.Format(i18n.Locale(), "msgCommitDStagedChanges", map[string]any{"count": staged})
 	if a.git.merging {
 		tip = gitConflictText("gitCommitMerge")
 	}

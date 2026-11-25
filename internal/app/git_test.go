@@ -1187,7 +1187,7 @@ func TestDiffLayoutAndChanges(t *testing.T) {
 	if v.state.Layout != editor.DiffSplit {
 		t.Fatal("a diff starts side by side")
 	}
-	if err := h.tt.Click("Show Changes Inline"); err != nil {
+	if err := h.tt.Click(locales.MsgInlineDiff()); err != nil {
 		t.Fatal(err)
 	}
 	h.tt.Frame()

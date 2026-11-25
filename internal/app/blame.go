@@ -163,7 +163,7 @@ func (a *App) blameHoverContent(c *ui.Context, b git.BlameLine) {
 			})
 		}
 		section(logText("blameSectionCommit"), func() {
-			ui.Row(c).FillWidth().Gap(6).AlignItems(ui.Center).Cursor(ui.CursorPointer).Label(commandLabel("Show Line's Commit in Git Log")+": "+b.Short).OnClick(func() { a.revealLogCommit(b.Hash) }).Children(func() {
+			ui.Row(c).FillWidth().Gap(6).AlignItems(ui.Center).Cursor(ui.CursorPointer).Label(commandLabel("git.revealLineCommit") + ": " + b.Short).OnClick(func() { a.revealLogCommit(b.Hash) }).Children(func() {
 				ui.Text(c, b.Short).FontSize(13).TextColor(c.Theme().Accent).SingleLine().Shrink(0)
 				ui.Row(c).Grow(1).AlignItems(ui.Center).Justify(ui.End).Gap(3).Children(func() {
 					ui.Text(c, logText("blameViewInGitLog")).FontSize(11).TextColor(colors(c).Muted).SingleLine()

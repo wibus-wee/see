@@ -18,6 +18,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 	"github.com/egoist/mygo/ui/markdown"
@@ -452,7 +453,7 @@ func (a *App) openFolderDialog() {
 func (a *App) openWorkspace(dir string) {
 	root, err := workspace.CanonicalRoot(dir)
 	if err != nil {
-		a.welcomeNote = fmt.Sprintf("Could not open %s: %v", dir, describeErr(err))
+		a.welcomeNote = locales.Catalog.Format(i18n.Locale(), "msgCouldNotOpenSPath", map[string]any{"path": dir, "reason": describeErr(err)})
 		if errors.Is(err, fs.ErrNotExist) && slices.Contains(a.cfg.Recent, dir) {
 			a.cfg.RemoveRecent(dir)
 			a.saveConfig()
@@ -1959,7 +1960,8 @@ func (a *App) findUsagesAt(callers bool, anchor ui.Point, validAnchor bool) {
 				if skipped > 0 {
 					a.note(locales.MsgResultsAreNotInLocalFiles(), false)
 				} else {
-					a.note("No "+name+locales.MsgFound(), false)
+					display := referenceTitle(name)
+					a.note(locales.Catalog.Format(i18n.Locale(), "msgNoSFound", map[string]any{"name": display}), false)
 				}
 				return
 			}

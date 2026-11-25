@@ -577,19 +577,19 @@ func (a *App) termTabList(c *ui.Context) {
 			small := func(icon *ui.SVG, label, tip string) bool {
 				return iconButton(c, icon, label, tip, false).Padding(3).Clicked()
 			}
-			if small(icPlus, "New Terminal", "New Terminal ("+keyLabel("Ctrl+Shift+", "`")+")") {
+			if small(icPlus, commandLabel("terminal.new"), commandLabel("terminal.new")+" ("+keyLabel("Ctrl+Shift+", "`")+")") {
 				a.newTerminalTab()
 			}
-			if small(icSplitH, "Split Terminal", "Split Terminal ("+keyLabel("Cmd+", "D")+")") {
+			if small(icSplitH, locales.MsgSplitTerminal(), locales.MsgSplitTerminal()+" ("+keyLabel("Cmd+", "D")+")") {
 				a.splitTerminal()
 			}
-			if tab := tp.active; tab != nil && small(icTrash, "Kill Terminal", "Kill the Terminal") {
+			if tab := tp.active; tab != nil && small(icTrash, locales.MsgKillTerminal(), locales.MsgKillTheTerminal()) {
 				a.closePane(tab.active)
 			}
 			ui.Box(c).Grow(1)
-			maxIcon, maxTip := icMaximize, "Maximize the Panel"
+			maxIcon, maxTip := icMaximize, locales.MsgMaximizeThePanel()
 			if tp.maximized {
-				maxIcon, maxTip = icRestore, "Restore the Panel"
+				maxIcon, maxTip = icRestore, locales.MsgRestoreThePanel()
 			}
 			compact := func(icon *ui.SVG, label, tip string) bool {
 				b := ui.ButtonBase(c).Label(label).Tooltip(tip).Size(22, 22).Radius(6).Shrink(0).KeepFocus().Center()
@@ -602,7 +602,7 @@ func (a *App) termTabList(c *ui.Context) {
 			if compact(maxIcon, maxTip, maxTip) {
 				tp.maximized = !tp.maximized
 			}
-			if compact(icClose, "Hide the Panel", "Hide the Panel ("+keyLabel("Cmd+Shift+", "Y")+")") {
+			if compact(icClose, locales.MsgHideThePanel(), locales.MsgHideThePanel()+" ("+keyLabel("Cmd+Shift+", "Y")+")") {
 				tp.open, tp.maximized = false, false
 			}
 		})
@@ -690,7 +690,7 @@ func (a *App) termPaneRow(c *ui.Context, i, j int, tab *termTab, p *termPane, ne
 			t.TextColor(colors(c).Muted)
 		}
 		if hovered {
-			split := ui.ButtonBase(c).Label(fmt.Sprintf(locales.MsgSplitTerminalDD(), i+1, j+1)).Size(20, 20).Radius(3).Center().KeepFocus()
+			split := ui.ButtonBase(c).Label(fmt.Sprintf(locales.MsgSplitTerminalDD(), i+1, j+1)).Tooltip(fmt.Sprintf(locales.MsgSplitTerminalDD(), i+1, j+1)).Size(20, 20).Radius(3).Center().KeepFocus()
 			split.Children(func() { symbolIcon(c, icSplitH, 16, colors(c).Muted) })
 			split.OnClick(func() {
 				tp.active, tab.active = tab, p
@@ -698,7 +698,7 @@ func (a *App) termPaneRow(c *ui.Context, i, j int, tab *termTab, p *termPane, ne
 				a.splitTerminal()
 			})
 		}
-		cl := ui.ButtonBase(c).Label(fmt.Sprintf(locales.MsgCloseTerminalDD(), i+1, j+1)).Size(20, 20).Radius(3).Center().KeepFocus()
+		cl := ui.ButtonBase(c).Label(fmt.Sprintf(locales.MsgCloseTerminalDD(), i+1, j+1)).Tooltip(fmt.Sprintf(locales.MsgCloseTerminalDD(), i+1, j+1)).Size(20, 20).Radius(3).Center().KeepFocus()
 		if hovered {
 			cl.Children(func() { symbolIcon(c, icTrash, 16, colors(c).Muted) })
 		}

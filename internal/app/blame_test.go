@@ -165,7 +165,7 @@ func TestBlameHoverOnTrailingInlay(t *testing.T) {
 		writeBlameHoverScreenshot(t, h, false, "blame-hover-long.png")
 	}
 	// The hash opens the commit in the Git Log.
-	if err := h.tt.Click(commandLabel("Show Line's Commit in Git Log") + ": " + d.blame[0].Short); err != nil {
+	if err := h.tt.Click(commandLabel("git.revealLineCommit") + ": " + d.blame[0].Short); err != nil {
 		t.Fatalf("hash is not clickable: %v", err)
 	}
 	h.settle(func() bool { return h.a.focus != nil && h.a.focus.active == gitLogTab })

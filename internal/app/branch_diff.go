@@ -69,7 +69,7 @@ func (a *App) branchDiffModePicker(c *ui.Context) {
 		iconColor = c.Theme().Accent
 	}
 	selectMode := ui.SelectBase(c.Key("git-change-mode"), mode)
-	selectMode.Trigger.Label(selected).Tooltip("Current mode: "+selected+". Click to change comparison mode.").Padding(2, 5).Radius(6).Gap(4).AlignItems(ui.Center).KeepFocus()
+	selectMode.Trigger.Label(selected).Tooltip(locales.Catalog.Format(i18n.Locale(), "msgCurrentModeSClickToChangeComparisonMode", map[string]any{"mode": selected})).Padding(2, 5).Radius(6).Gap(4).AlignItems(ui.Center).KeepFocus()
 	selectMode.Trigger.Children(func() {
 		ui.Row(c).Gap(4).AlignItems(ui.Center).Children(func() {
 			symbolIcon(c, icDiffSplit, 14, iconColor).Shrink(0)
