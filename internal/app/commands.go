@@ -14,6 +14,7 @@ import (
 )
 
 type command struct {
+	id              string
 	name, mods, key string
 	shortcutMods    ui.Modifiers
 	shortcutKey     ui.Key
@@ -36,91 +37,91 @@ func commandsFor(goos string) []command {
 	methodLabel, methodMods := methodShortcut(goos)
 	maximizeLabel, maximizeMods := maximizeEditorShortcut(goos)
 	cmds := []command{
-		{"Bigger", "Cmd+", "=", ui.Cmd, ui.KeyEqual, func(a *App) { a.changeEditorFontSize(1) }},
-		{"Smaller", "Cmd+", "-", ui.Cmd, ui.KeyMinus, func(a *App) { a.changeEditorFontSize(-1) }},
-		{"Reset Editor Font Size", "", "", 0, 0, func(a *App) { a.setEditorFontSize(13) }},
-		{"New File", "Cmd+", "N", ui.Cmd, ui.KeyN, func(a *App) { a.newFile() }},
-		{"Command Palette", "Cmd+Shift+", "P", ui.Cmd | ui.Shift, ui.KeyP, func(a *App) { a.openPalette() }},
-		{"New Window", "Cmd+Shift+", "N", ui.Cmd | ui.Shift, ui.KeyN, func(a *App) {
+		{"font.bigger", "Bigger", "Cmd+", "=", ui.Cmd, ui.KeyEqual, func(a *App) { a.changeEditorFontSize(1) }},
+		{"font.smaller", "Smaller", "Cmd+", "-", ui.Cmd, ui.KeyMinus, func(a *App) { a.changeEditorFontSize(-1) }},
+		{"font.reset", "Reset Editor Font Size", "", "", 0, 0, func(a *App) { a.setEditorFontSize(13) }},
+		{"file.new", "New File", "Cmd+", "N", ui.Cmd, ui.KeyN, func(a *App) { a.newFile() }},
+		{"workbench.commandPalette", "Command Palette", "Cmd+Shift+", "P", ui.Cmd | ui.Shift, ui.KeyP, func(a *App) { a.openPalette() }},
+		{"window.new", "New Window", "Cmd+Shift+", "N", ui.Cmd | ui.Shift, ui.KeyN, func(a *App) {
 			a.host.OpenProjectWindow("")
 		}},
-		{"Open Folder", "Cmd+", "O", ui.Cmd, ui.KeyO, func(a *App) { a.openFolderDialog() }},
-		{"Open Quickly", "Cmd+Shift+", "O", ui.Cmd | ui.Shift, ui.KeyO, func(a *App) { a.openQuickly() }},
-		{"Show Problems", "Cmd+Shift+", "M", ui.Cmd | ui.Shift, ui.KeyM, (*App).showProblems},
-		{"Show Quick Help", "Alt+Cmd+", "K", ui.Alt | ui.Cmd, ui.KeyK, func(a *App) { a.showQuickHelpAtCaret() }},
-		{"Test Regex", "", "", 0, 0, func(a *App) { a.openRegexPlayground() }},
-		{"Toggle Quick Help Inspector", "Alt+Cmd+", "I", ui.Alt | ui.Cmd, ui.KeyI, func(a *App) { a.toggleInspector() }},
-		{"Next Problem", "", "F8", 0, ui.KeyF8, func(a *App) { a.goToProblem(1) }},
-		{"Previous Problem", "Shift+", "F8", ui.Shift, ui.KeyF8, func(a *App) { a.goToProblem(-1) }},
-		{"Go to Line", "Ctrl+", "G", ui.Ctrl, ui.KeyG, func(a *App) {
+		{"folder.open", "Open Folder", "Cmd+", "O", ui.Cmd, ui.KeyO, func(a *App) { a.openFolderDialog() }},
+		{"file.openQuickly", "Open Quickly", "Cmd+Shift+", "O", ui.Cmd | ui.Shift, ui.KeyO, func(a *App) { a.openQuickly() }},
+		{"problems.show", "Show Problems", "Cmd+Shift+", "M", ui.Cmd | ui.Shift, ui.KeyM, (*App).showProblems},
+		{"help.quick", "Show Quick Help", "Alt+Cmd+", "K", ui.Alt | ui.Cmd, ui.KeyK, func(a *App) { a.showQuickHelpAtCaret() }},
+		{"regex.playground", "Test Regex", "", "", 0, 0, func(a *App) { a.openRegexPlayground() }},
+		{"help.toggleInspector", "Toggle Quick Help Inspector", "Alt+Cmd+", "I", ui.Alt | ui.Cmd, ui.KeyI, func(a *App) { a.toggleInspector() }},
+		{"problem.next", "Next Problem", "", "F8", 0, ui.KeyF8, func(a *App) { a.goToProblem(1) }},
+		{"problem.previous", "Previous Problem", "Shift+", "F8", ui.Shift, ui.KeyF8, func(a *App) { a.goToProblem(-1) }},
+		{"line.goto", "Go to Line", "Ctrl+", "G", ui.Ctrl, ui.KeyG, func(a *App) {
 			if a.activeEditor() != nil {
 				a.openQuickPanel(":")
 			}
 		}},
-		{"Reveal in Project Navigator", "Cmd+Shift+", "J", ui.Cmd | ui.Shift, ui.KeyJ, func(a *App) {
+		{"navigator.reveal", "Reveal in Project Navigator", "Cmd+Shift+", "J", ui.Cmd | ui.Shift, ui.KeyJ, func(a *App) {
 			a.revealInProjectNavigator(a.activeProjectFile())
 		}},
-		{"Search File Symbols", "Alt+Cmd+", "O", ui.Alt | ui.Cmd, ui.KeyO, func(a *App) { a.openQuickPanel("@") }},
-		{"Search Workspace Symbols", "Cmd+", "T", ui.Cmd, ui.KeyT, func(a *App) { a.openQuickPanel("#") }},
-		{"Open Markdown Preview", "Cmd+Shift+", "V", ui.Cmd | ui.Shift, ui.KeyV, func(a *App) { a.openMarkdownTab(a.focus) }},
-		{"Find in Workspace", "Cmd+Shift+", "F", ui.Cmd | ui.Shift, ui.KeyF, func(a *App) {
+		{"symbols.file", "Search File Symbols", "Alt+Cmd+", "O", ui.Alt | ui.Cmd, ui.KeyO, func(a *App) { a.openQuickPanel("@") }},
+		{"symbols.workspace", "Search Workspace Symbols", "Cmd+", "T", ui.Cmd, ui.KeyT, func(a *App) { a.openQuickPanel("#") }},
+		{"markdown.preview", "Open Markdown Preview", "Cmd+Shift+", "V", ui.Cmd | ui.Shift, ui.KeyV, func(a *App) { a.openMarkdownTab(a.focus) }},
+		{"search.workspace", "Find in Workspace", "Cmd+Shift+", "F", ui.Cmd | ui.Shift, ui.KeyF, func(a *App) {
 			a.sidebarOff, a.navigator, a.find.focus = false, navFind, true
 		}},
-		{"Replace in Workspace", "Cmd+Shift+", "H", ui.Cmd | ui.Shift, ui.KeyH, func(a *App) {
+		{"search.replaceWorkspace", "Replace in Workspace", "Cmd+Shift+", "H", ui.Cmd | ui.Shift, ui.KeyH, func(a *App) {
 			a.sidebarOff, a.navigator, a.find.focus, a.find.showReplace = false, navFind, true, true
 		}},
-		{"Show Outline", "", "", 0, 0, func(a *App) { a.sidebarOff, a.navigator = false, navOutline }},
-		{"Show Bookmarks", "", "", 0, 0, func(a *App) { a.sidebarOff, a.navigator = false, navBookmarks }},
-		{"Toggle Bookmark", "Alt+Cmd+", "B", ui.Alt | ui.Cmd, ui.KeyB, func(a *App) { a.toggleBookmark() }},
-		{"Show Document Items", docItemsLabel, docItemsKeyName, docItemsMods, docItemsKey, func(a *App) { a.focus.jumpSymbols = true }},
-		{"Show Group Files", groupFilesLabel, groupFilesKeyName, groupFilesMods, groupFilesKey, func(a *App) { a.focus.jumpFiles = true }},
-		{"Next Counterpart", counterpartLabel, "↓", counterpartMods, ui.KeyDown, func(a *App) { a.switchCounterpart(1) }},
-		{"Previous Counterpart", counterpartLabel, "↑", counterpartMods, ui.KeyUp, func(a *App) { a.switchCounterpart(-1) }},
-		{"Show Git", "", "", 0, 0, func(a *App) { a.sidebarOff, a.navigator = false, navGit; a.refreshGit() }},
-		{"Git: Show History", "", "", 0, 0, func(a *App) {
+		{"outline.show", "Show Outline", "", "", 0, 0, func(a *App) { a.sidebarOff, a.navigator = false, navOutline }},
+		{"bookmarks.show", "Show Bookmarks", "", "", 0, 0, func(a *App) { a.sidebarOff, a.navigator = false, navBookmarks }},
+		{"bookmark.toggle", "Toggle Bookmark", "Alt+Cmd+", "B", ui.Alt | ui.Cmd, ui.KeyB, func(a *App) { a.toggleBookmark() }},
+		{"jumpbar.documentItems", "Show Document Items", docItemsLabel, docItemsKeyName, docItemsMods, docItemsKey, func(a *App) { a.focus.jumpSymbols = true }},
+		{"jumpbar.groupFiles", "Show Group Files", groupFilesLabel, groupFilesKeyName, groupFilesMods, groupFilesKey, func(a *App) { a.focus.jumpFiles = true }},
+		{"counterpart.next", "Next Counterpart", counterpartLabel, "↓", counterpartMods, ui.KeyDown, func(a *App) { a.switchCounterpart(1) }},
+		{"counterpart.previous", "Previous Counterpart", counterpartLabel, "↑", counterpartMods, ui.KeyUp, func(a *App) { a.switchCounterpart(-1) }},
+		{"git.show", "Show Git", "", "", 0, 0, func(a *App) { a.sidebarOff, a.navigator = false, navGit; a.refreshGit() }},
+		{"git.showHistory", "Git: Show History", "", "", 0, 0, func(a *App) {
 			a.sidebarOff, a.navigator, a.git.historyClosed = false, navGit, false
 			a.refreshGit()
 		}},
-		{"Edit Search Results", "", "", 0, 0, func(a *App) { a.openSearchEdit() }},
-		{"Git: Show Log", "", "", 0, 0, func(a *App) { a.openGitLog() }},
-	{"Git: Stash Changes…", "", "", 0, 0, func(a *App) { a.beginStash() }},
-		{"Show File History", "", "", 0, 0, func(a *App) { a.showActiveFileHistory() }},
-		{"Compare with Revision…", "", "", 0, 0, func(a *App) { a.showActiveRevision() }},
-		{"Show Local History", "", "", 0, 0, func(a *App) { a.showActiveLocalHistory() }},
-		{"Git: Reveal HEAD in Log", "", "", 0, 0, func(a *App) { a.revealLogRef("HEAD") }},
-		{"Git: Jump to Date…", "", "", 0, 0, func(a *App) { a.openJumpToDate() }},
-		{"Show Line's Commit in Git Log", "", "", 0, 0, func(a *App) { a.revealLineCommit() }},
-		{"Toggle Minimap", "", "", 0, 0, func(a *App) { a.cfg.HideMinimap = !a.cfg.HideMinimap; a.settingsChanged() }},
-		{"Toggle Reader Mode", "", "", 0, 0, func(a *App) { a.cfg.HideDocComments = !a.cfg.HideDocComments; a.settingsChanged() }},
-		{"Toggle Inline Git Blame", "", "", 0, 0, func(a *App) { a.cfg.HideInlineBlame = !a.cfg.HideInlineBlame; a.settingsChanged() }},
-		{"Show Invisibles", "", "", 0, 0, func(a *App) { a.toggleInvisibles() }},
-		{"Toggle Type Hints", "", "", 0, 0, func(a *App) { a.toggleTypeHints() }},
-		{"Toggle Inline Diff", "", "", 0, 0, func(a *App) { a.toggleDiffLayout() }},
-		{"Toggle Whitespace Changes", "", "", 0, 0, func(a *App) { a.toggleDiffWhitespace() }},
-		{"Next Change", "", "", 0, 0, func(a *App) { a.goToChange(1) }},
-		{"Previous Change", "", "", 0, 0, func(a *App) { a.goToChange(-1) }},
-		{"Discard Change", "", "", 0, 0, func(a *App) { a.discardChange() }},
-		{"Git: Fetch", "", "", 0, 0, func(a *App) { a.gitFetch() }},
-		{"Git: Pull", "", "", 0, 0, func(a *App) { a.gitPull() }},
-		{"Git: Push", "", "", 0, 0, func(a *App) { a.gitPush() }},
-		{"Git: Switch Branch…", "", "", 0, 0, func(a *App) { a.openBranchPicker(a.git.picker.anchor) }},
-		{"Filter Files", "Alt+Cmd+", "J", ui.Alt | ui.Cmd, ui.KeyJ, func(a *App) {
+		{"search.editResults", "Edit Search Results", "", "", 0, 0, func(a *App) { a.openSearchEdit() }},
+		{"git.showLog", "Git: Show Log", "", "", 0, 0, func(a *App) { a.openGitLog() }},
+	{"git.stash", "Git: Stash Changes…", "", "", 0, 0, func(a *App) { a.beginStash() }},
+		{"history.file", "Show File History", "", "", 0, 0, func(a *App) { a.showActiveFileHistory() }},
+		{"history.compare", "Compare with Revision…", "", "", 0, 0, func(a *App) { a.showActiveRevision() }},
+		{"history.local", "Show Local History", "", "", 0, 0, func(a *App) { a.showActiveLocalHistory() }},
+		{"git.revealHead", "Git: Reveal HEAD in Log", "", "", 0, 0, func(a *App) { a.revealLogRef("HEAD") }},
+		{"git.jumpToDate", "Git: Jump to Date…", "", "", 0, 0, func(a *App) { a.openJumpToDate() }},
+		{"git.revealLineCommit", "Show Line's Commit in Git Log", "", "", 0, 0, func(a *App) { a.revealLineCommit() }},
+		{"editor.toggleMinimap", "Toggle Minimap", "", "", 0, 0, func(a *App) { a.cfg.HideMinimap = !a.cfg.HideMinimap; a.settingsChanged() }},
+		{"editor.toggleReaderMode", "Toggle Reader Mode", "", "", 0, 0, func(a *App) { a.cfg.HideDocComments = !a.cfg.HideDocComments; a.settingsChanged() }},
+		{"git.toggleBlame", "Toggle Inline Git Blame", "", "", 0, 0, func(a *App) { a.cfg.HideInlineBlame = !a.cfg.HideInlineBlame; a.settingsChanged() }},
+		{"editor.showInvisibles", "Show Invisibles", "", "", 0, 0, func(a *App) { a.toggleInvisibles() }},
+		{"editor.toggleTypeHints", "Toggle Type Hints", "", "", 0, 0, func(a *App) { a.toggleTypeHints() }},
+		{"diff.toggleInline", "Toggle Inline Diff", "", "", 0, 0, func(a *App) { a.toggleDiffLayout() }},
+		{"diff.toggleWhitespace", "Toggle Whitespace Changes", "", "", 0, 0, func(a *App) { a.toggleDiffWhitespace() }},
+		{"change.next", "Next Change", "", "", 0, 0, func(a *App) { a.goToChange(1) }},
+		{"change.previous", "Previous Change", "", "", 0, 0, func(a *App) { a.goToChange(-1) }},
+		{"change.discard", "Discard Change", "", "", 0, 0, func(a *App) { a.discardChange() }},
+		{"git.fetch", "Git: Fetch", "", "", 0, 0, func(a *App) { a.gitFetch() }},
+		{"git.pull", "Git: Pull", "", "", 0, 0, func(a *App) { a.gitPull() }},
+		{"git.push", "Git: Push", "", "", 0, 0, func(a *App) { a.gitPush() }},
+		{"git.switchBranch", "Git: Switch Branch…", "", "", 0, 0, func(a *App) { a.openBranchPicker(a.git.picker.anchor) }},
+		{"files.filter", "Filter Files", "Alt+Cmd+", "J", ui.Alt | ui.Cmd, ui.KeyJ, func(a *App) {
 			a.sidebarOff, a.navigator, a.filter.focus = false, navFiles, true
 		}},
-		{"Show or Hide the Navigator", "Cmd+", "B", ui.Cmd, ui.KeyB, func(a *App) { a.sidebarOff = !a.sidebarOff }},
-		{"Go Back", backMods, "-", 0, ui.KeyMinus, func(a *App) { a.goBack() }},
-		{"Go Forward", forwardMods, "-", 0, ui.KeyMinus, func(a *App) { a.goForward() }},
-		{"Focus Next Editor", "", "F6", 0, ui.KeyF6, func(a *App) { a.cycleEditorGroup(1) }},
-		{"Split Editor Right", "", "", 0, 0, func(a *App) { a.splitActive(sideRight) }},
-		{"Split Editor Down", "", "", 0, 0, func(a *App) { a.splitActive(sideBottom) }},
-		{"Focus Previous Editor", "Shift+", "F6", ui.Shift, ui.KeyF6, func(a *App) { a.cycleEditorGroup(-1) }},
-		{"Move Tab to Next Editor", "", "", 0, 0, func(a *App) { a.moveTabToNextEditor() }},
-		{"Next Tab", "Ctrl+", "Tab", ui.Ctrl, ui.KeyTab, func(a *App) { a.cycleTab(1) }},
-		{"Previous Tab", "Ctrl+Shift+", "Tab", ui.Ctrl | ui.Shift, ui.KeyTab, func(a *App) { a.cycleTab(-1) }},
-		{"Save", "Cmd+", "S", ui.Cmd, ui.KeyS, func(a *App) { a.saveActive() }},
-		{"Save All", "Cmd+Shift+", "S", ui.Cmd | ui.Shift, ui.KeyS, func(a *App) { a.saveAll() }},
-		{"Reopen Closed Tab", "Cmd+Shift+", "T", ui.Cmd | ui.Shift, ui.KeyT, func(a *App) { a.reopenClosedTab() }},
-		{"Close Tab", "Cmd+", "W", ui.Cmd, ui.KeyW, func(a *App) {
+		{"navigator.toggle", "Show or Hide the Navigator", "Cmd+", "B", ui.Cmd, ui.KeyB, func(a *App) { a.sidebarOff = !a.sidebarOff }},
+		{"nav.back", "Go Back", backMods, "-", 0, ui.KeyMinus, func(a *App) { a.goBack() }},
+		{"nav.forward", "Go Forward", forwardMods, "-", 0, ui.KeyMinus, func(a *App) { a.goForward() }},
+		{"editorGroup.focusNext", "Focus Next Editor", "", "F6", 0, ui.KeyF6, func(a *App) { a.cycleEditorGroup(1) }},
+		{"editorGroup.splitRight", "Split Editor Right", "", "", 0, 0, func(a *App) { a.splitActive(sideRight) }},
+		{"editorGroup.splitDown", "Split Editor Down", "", "", 0, 0, func(a *App) { a.splitActive(sideBottom) }},
+		{"editorGroup.focusPrevious", "Focus Previous Editor", "Shift+", "F6", ui.Shift, ui.KeyF6, func(a *App) { a.cycleEditorGroup(-1) }},
+		{"tab.moveToNextEditor", "Move Tab to Next Editor", "", "", 0, 0, func(a *App) { a.moveTabToNextEditor() }},
+		{"tab.next", "Next Tab", "Ctrl+", "Tab", ui.Ctrl, ui.KeyTab, func(a *App) { a.cycleTab(1) }},
+		{"tab.previous", "Previous Tab", "Ctrl+Shift+", "Tab", ui.Ctrl | ui.Shift, ui.KeyTab, func(a *App) { a.cycleTab(-1) }},
+		{"file.save", "Save", "Cmd+", "S", ui.Cmd, ui.KeyS, func(a *App) { a.saveActive() }},
+		{"file.saveAll", "Save All", "Cmd+Shift+", "S", ui.Cmd | ui.Shift, ui.KeyS, func(a *App) { a.saveAll() }},
+		{"tab.reopen", "Reopen Closed Tab", "Cmd+Shift+", "T", ui.Cmd | ui.Shift, ui.KeyT, func(a *App) { a.reopenClosedTab() }},
+		{"tab.close", "Close Tab", "Cmd+", "W", ui.Cmd, ui.KeyW, func(a *App) {
 			// As Xcode: the tab, and the window once no tab is left.
 			if p := a.focus.active; p != "" {
 				a.closeDoc(p)
@@ -128,72 +129,74 @@ func commandsFor(goos string) []command {
 				a.host.CloseWindow()
 			}
 		}},
-		{"Close Other Tabs", "", "", 0, 0, func(a *App) { a.closeTabs(a.focus, a.focus.active, closeOtherTabs) }},
-		{"Close Tabs to the Right", "", "", 0, 0, func(a *App) { a.closeTabs(a.focus, a.focus.active, closeRightTabs) }},
-		{"Close Saved Tabs", "", "", 0, 0, func(a *App) { a.closeTabs(a.focus, a.focus.active, closeSavedTabs) }},
-		{"Add Editor on Right", "Cmd+", "D", ui.Cmd, ui.KeyD, func(a *App) { a.splitActive(sideRight) }},
-		{"Add Editor Below", "Cmd+Shift+", "D", ui.Cmd | ui.Shift, ui.KeyD, func(a *App) { a.splitActive(sideBottom) }},
-		{"Maximize Editor", maximizeLabel, "Return", maximizeMods, ui.KeyEnter, func(a *App) { a.toggleMaximizeEditor() }},
-		{"Show or Hide the Terminal", "Cmd+Shift+", "Y", ui.Cmd | ui.Shift, ui.KeyY, func(a *App) { a.toggleTerminal() }},
-		{"Go: Build Workspace", "Cmd+Shift+", "B", ui.Cmd | ui.Shift, ui.KeyB, func(a *App) { a.runGoTask(tasks.Build) }},
-		{"Go: Test Workspace", "", "", 0, 0, func(a *App) { a.runGoTask(tasks.Test) }},
-		{"Tasks: Show", "", "", 0, 0, func(a *App) { a.showTasks() }},
-		{"Tasks: Stop", "", "", 0, 0, func(a *App) { a.stopGoTask() }},
-		{"Show Output", "", "", 0, 0, func(a *App) { a.term.open = true; a.term.view = panelOutput; a.term.focus = nil }},
-		{"New Terminal", "Ctrl+Shift+", "`", ui.Ctrl | ui.Shift, ui.KeyBackquote, func(a *App) { a.newTerminalTab() }},
-		{"Open in External Terminal", "Cmd+Shift+", "C", ui.Cmd | ui.Shift, ui.KeyC, func(a *App) { a.openExternalTerminal() }},
-		{"Settings", "Cmd+", ",", ui.Cmd, ui.KeyComma, func(a *App) {
+		{"tab.closeOthers", "Close Other Tabs", "", "", 0, 0, func(a *App) { a.closeTabs(a.focus, a.focus.active, closeOtherTabs) }},
+		{"tab.closeRight", "Close Tabs to the Right", "", "", 0, 0, func(a *App) { a.closeTabs(a.focus, a.focus.active, closeRightTabs) }},
+		{"tab.closeSaved", "Close Saved Tabs", "", "", 0, 0, func(a *App) { a.closeTabs(a.focus, a.focus.active, closeSavedTabs) }},
+		{"editorGroup.addRight", "Add Editor on Right", "Cmd+", "D", ui.Cmd, ui.KeyD, func(a *App) { a.splitActive(sideRight) }},
+		{"editorGroup.addBelow", "Add Editor Below", "Cmd+Shift+", "D", ui.Cmd | ui.Shift, ui.KeyD, func(a *App) { a.splitActive(sideBottom) }},
+		{"editorGroup.maximize", "Maximize Editor", maximizeLabel, "Return", maximizeMods, ui.KeyEnter, func(a *App) { a.toggleMaximizeEditor() }},
+		{"terminal.toggle", "Show or Hide the Terminal", "Cmd+Shift+", "Y", ui.Cmd | ui.Shift, ui.KeyY, func(a *App) { a.toggleTerminal() }},
+		{"go.build", "Go: Build Workspace", "Cmd+Shift+", "B", ui.Cmd | ui.Shift, ui.KeyB, func(a *App) { a.runGoTask(tasks.Build) }},
+		{"go.test", "Go: Test Workspace", "", "", 0, 0, func(a *App) { a.runGoTask(tasks.Test) }},
+		{"tasks.show", "Tasks: Show", "", "", 0, 0, func(a *App) { a.showTasks() }},
+		{"tasks.stop", "Tasks: Stop", "", "", 0, 0, func(a *App) { a.stopGoTask() }},
+		{"output.show", "Show Output", "", "", 0, 0, func(a *App) { a.term.open = true; a.term.view = panelOutput; a.term.focus = nil }},
+		{"terminal.new", "New Terminal", "Ctrl+Shift+", "`", ui.Ctrl | ui.Shift, ui.KeyBackquote, func(a *App) { a.newTerminalTab() }},
+		{"terminal.openExternal", "Open in External Terminal", "Cmd+Shift+", "C", ui.Cmd | ui.Shift, ui.KeyC, func(a *App) { a.openExternalTerminal() }},
+		{"app.settings", "Settings", "Cmd+", ",", ui.Cmd, ui.KeyComma, func(a *App) {
 			a.host.OpenSettings()
 		}},
-		{"Keep Preview Tab", "", "", 0, 0, func(a *App) {
+		{"tab.keepPreview", "Keep Preview Tab", "", "", 0, 0, func(a *App) {
 			if a.focus != nil {
 				a.focus.preview = ""
 			}
 		}},
-		{"Shell Command: Install 'see' Command in PATH", "", "", 0, 0, func(a *App) { a.installSee() }},
-		{"Shell Command: Uninstall 'see' Command from PATH", "", "", 0, 0, func(a *App) { a.uninstallSee() }},
+		{"shell.installSee", "Shell Command: Install 'see' Command in PATH", "", "", 0, 0, func(a *App) { a.installSee() }},
+		{"shell.uninstallSee", "Shell Command: Uninstall 'see' Command from PATH", "", "", 0, 0, func(a *App) { a.uninstallSee() }},
 	}
 	cmds = append(cmds,
-		command{"Show Signature Help", "Ctrl+Shift+", "Space", ui.Ctrl | ui.Shift, ui.KeySpace, func(a *App) { a.showSignatureAtCaret() }},
-		command{"Find in File", "Cmd+", "F", 0, 0, func(a *App) {
+		command{"editor.signatureHelp", "Show Signature Help", "Ctrl+Shift+", "Space", ui.Ctrl | ui.Shift, ui.KeySpace, func(a *App) { a.showSignatureAtCaret() }},
+		command{"find.file", "Find in File", "Cmd+", "F", 0, 0, func(a *App) {
 			if st := a.activeEditor(); st != nil {
 				st.Run(editor.Find)
 			}
 		}},
-		command{"Replace in File", replaceLabel, replaceKeyName, replaceMods, replaceKey, func(a *App) {
+		command{"find.replaceFile", "Replace in File", replaceLabel, replaceKeyName, replaceMods, replaceKey, func(a *App) {
 			if st := a.activeEditor(); st != nil {
 				st.Run(editor.FindReplace)
 			}
 		}},
-		command{"Find References", "Shift+", "F12", ui.Shift, ui.KeyF12, func(a *App) { a.findUsages(false) }},
-		command{"Pin References", "", "", 0, 0, func(a *App) { a.pinReferencesCommand() }},
-		command{"Find Callers", "", "", 0, 0, func(a *App) { a.findUsages(true) }},
-		command{"Show Call Hierarchy", "Shift+Alt+", "H", ui.Shift | ui.Alt, ui.KeyH, func(a *App) { a.showCallHierarchy() }},
-		command{"Show Type Hierarchy", "", "", 0, 0, func(a *App) { a.showTypeHierarchyAt(a.focus) }},
-		command{"Next Method", methodLabel, "↓", methodMods, ui.KeyDown, func(a *App) { a.goToMethod(1) }},
-		command{"Previous Method", methodLabel, "↑", methodMods, ui.KeyUp, func(a *App) { a.goToMethod(-1) }},
-		command{"Go to Definition", "", "F12", 0, 0, func(a *App) {
+		command{"references.find", "Find References", "Shift+", "F12", ui.Shift, ui.KeyF12, func(a *App) { a.findUsages(false) }},
+		command{"references.pin", "Pin References", "", "", 0, 0, func(a *App) { a.pinReferencesCommand() }},
+		command{"references.callers", "Find Callers", "", "", 0, 0, func(a *App) { a.findUsages(true) }},
+		command{"hierarchy.calls", "Show Call Hierarchy", "Shift+Alt+", "H", ui.Shift | ui.Alt, ui.KeyH, func(a *App) { a.showCallHierarchy() }},
+		command{"hierarchy.types", "Show Type Hierarchy", "", "", 0, 0, func(a *App) { a.showTypeHierarchyAt(a.focus) }},
+		command{"method.next", "Next Method", methodLabel, "↓", methodMods, ui.KeyDown, func(a *App) { a.goToMethod(1) }},
+		command{"method.previous", "Previous Method", methodLabel, "↑", methodMods, ui.KeyUp, func(a *App) { a.goToMethod(-1) }},
+		command{"definition.goto", "Go to Definition", "", "F12", 0, 0, func(a *App) {
 			if st := a.activeEditor(); st != nil && st.OnDefinition != nil {
 				st.OnDefinition(st.Buffer.Offset(st.CursorPos()))
 			}
 		}},
-		command{"Peek Definition", "Alt+", "F12", ui.Alt, ui.KeyF12, func(a *App) { a.navigateActive("peek") }},
-		command{"Go to Implementation", "Cmd+", "F12", ui.Cmd, ui.KeyF12, func(a *App) { a.navigateActive("implementation") }},
-		command{"Go to Type Definition", "", "", 0, 0, func(a *App) { a.navigateActive("typeDefinition") }},
-		command{"Show Code Actions", "Cmd+", ".", ui.Cmd, ui.KeyPeriod, func(a *App) { a.showCodeActions() }},
-		command{"Rename Symbol", "", "F2", 0, ui.KeyF2, func(a *App) { a.renameSymbol() }},
-		command{"Format Document", "Shift+Alt+", "F", ui.Shift | ui.Alt, ui.KeyF, func(a *App) { a.formatDocument() }},
-		command{"Format Selection", "", "", 0, 0, func(a *App) { a.formatSelection() }},
-		command{"Edit All in Scope", scopeLabel, scopeKeyName, scopeMods, scopeKey, func(a *App) { a.editAllInScope() }},
-		command{"Expand Selection", "Shift+Alt+", "↑", ui.Shift | ui.Alt, ui.KeyUp, func(a *App) { a.expandSelection() }},
-		command{"Shrink Selection", "Shift+Alt+", "↓", ui.Shift | ui.Alt, ui.KeyDown, func(a *App) { a.shrinkSelection() }},
+		command{"definition.peek", "Peek Definition", "Alt+", "F12", ui.Alt, ui.KeyF12, func(a *App) { a.navigateActive("peek") }},
+		command{"implementation.goto", "Go to Implementation", "Cmd+", "F12", ui.Cmd, ui.KeyF12, func(a *App) { a.navigateActive("implementation") }},
+		command{"typeDefinition.goto", "Go to Type Definition", "", "", 0, 0, func(a *App) { a.navigateActive("typeDefinition") }},
+		command{"codeAction.show", "Show Code Actions", "Cmd+", ".", ui.Cmd, ui.KeyPeriod, func(a *App) { a.showCodeActions() }},
+		command{"symbol.rename", "Rename Symbol", "", "F2", 0, ui.KeyF2, func(a *App) { a.renameSymbol() }},
+		command{"format.document", "Format Document", "Shift+Alt+", "F", ui.Shift | ui.Alt, ui.KeyF, func(a *App) { a.formatDocument() }},
+		command{"format.selection", "Format Selection", "", "", 0, 0, func(a *App) { a.formatSelection() }},
+		command{"edit.allInScope", "Edit All in Scope", scopeLabel, scopeKeyName, scopeMods, scopeKey, func(a *App) { a.editAllInScope() }},
+		command{"selection.expand", "Expand Selection", "Shift+Alt+", "↑", ui.Shift | ui.Alt, ui.KeyUp, func(a *App) { a.expandSelection() }},
+		command{"selection.shrink", "Shrink Selection", "Shift+Alt+", "↓", ui.Shift | ui.Alt, ui.KeyDown, func(a *App) { a.shrinkSelection() }},
 	)
 	for n := 1; n <= 9; n++ {
 		label := fmt.Sprintf("Select Tab %d", n)
+		id := fmt.Sprintf("tab.select%d", n)
 		if n == 9 {
 			label = "Select Last Tab"
+			id = "tab.selectLast"
 		}
-		cmds = append(cmds, command{label, "Cmd+", fmt.Sprint(n), ui.Cmd, ui.Key1 + ui.Key(n-1), func(a *App) { a.activateTabNumber(n) }})
+		cmds = append(cmds, command{id, label, "Cmd+", fmt.Sprint(n), ui.Cmd, ui.Key1 + ui.Key(n-1), func(a *App) { a.activateTabNumber(n) }})
 	}
 	cmds = append(cmds, foldingCommands()...)
 	for i := range cmds {

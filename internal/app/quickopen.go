@@ -124,10 +124,12 @@ func (a *App) quickRow(c *ui.Context, i int) {
 	}
 	if strings.HasPrefix(q.query, ">") || strings.HasPrefix(q.query, ":") {
 		enabled := true
-		for _, cmd := range commands() {
-			if commandLabel(cmd.name) == r.Path {
-				enabled = a.commandEnabled(cmd.name)
-				break
+		shortcut := ""
+		if i < len(q.commands) {
+			cmd := q.commands[i]
+			enabled = a.commandEnabled(cmd.id)
+			if cmd.key != "" {
+				shortcut = keyLabel(cmd.mods, cmd.key)
 			}
 		}
 		row := ui.Row(c.Key(r.Path)).FillWidth().Padding(8).Gap(8).Radius(8).AlignItems(ui.Center).Disabled(!enabled)
@@ -137,11 +139,8 @@ func (a *App) quickRow(c *ui.Context, i int) {
 		row.OnClick(func() { a.chooseQuick(i) })
 		row.Children(func() {
 			ui.Text(c, r.Path).Grow(1).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0)
-			for _, cmd := range commands() {
-				if commandLabel(cmd.name) == r.Path && cmd.key != "" {
-					ui.Text(c, keyLabel(cmd.mods, cmd.key)).TextColor(colors(c).Muted)
-					break
-				}
+			if shortcut != "" {
+				ui.Text(c, shortcut).TextColor(colors(c).Muted)
 			}
 		})
 		return

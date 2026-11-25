@@ -2,25 +2,26 @@ package app
 
 import (
 	"see/locales"
+	"strings"
 	"testing"
 )
 
 func TestCommandTranslations(t *testing.T) {
 	for _, cmd := range commands() {
-		key := commandMessages[cmd.name]
+		key := commandMessages[cmd.id]
 		if key == "" {
 			// Numbered tab commands are generated dynamically.
-			if len(cmd.name) >= len("Select Tab ") && cmd.name[:len("Select Tab ")] == "Select Tab " {
+			if strings.HasPrefix(cmd.id, "tab.select") && cmd.id != "tab.selectLast" {
 				continue
 			}
-			t.Errorf("missing translation for %q", cmd.name)
+			t.Errorf("missing translation for %q", cmd.id)
 			continue
 		}
 		if got := locales.Catalog.Format("en", key, nil); got != cmd.name {
-			t.Errorf("%q has English label %q", cmd.name, got)
+			t.Errorf("%q has English label %q", cmd.id, got)
 		}
 		if got := locales.Catalog.Format("zh-Hans", key, nil); got == cmd.name {
-			t.Errorf("%q has no Chinese label", cmd.name)
+			t.Errorf("%q has no Chinese label", cmd.id)
 		}
 	}
 }

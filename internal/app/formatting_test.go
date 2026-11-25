@@ -123,27 +123,27 @@ func TestFormatCommandEnabled(t *testing.T) {
 	a := h.a
 	armDocumentFormat(h, nil)
 	h.tt.Frame()
-	if !a.commandEnabled("Format Document") {
+	if !a.commandEnabled("format.document") {
 		t.Fatal("Format Document disabled")
 	}
-	if a.commandEnabled("Format Selection") {
+	if a.commandEnabled("format.selection") {
 		t.Fatal("Format Selection enabled without a selection")
 	}
 	// A selection still leaves it off: the server answers no ranges.
 	st.Select(0, 2)
 	h.tt.Frame()
-	if a.commandEnabled("Format Selection") {
+	if a.commandEnabled("format.selection") {
 		t.Fatal("Format Selection enabled without the capability")
 	}
 	// Range formatting plus a selection turns it on; none turns it off.
 	armRangeFormat(h, nil)
 	h.tt.Frame()
-	if !a.commandEnabled("Format Selection") {
+	if !a.commandEnabled("format.selection") {
 		t.Fatal("Format Selection disabled with capability and selection")
 	}
 	st.Select(2, 2)
 	h.tt.Frame()
-	if a.commandEnabled("Format Selection") {
+	if a.commandEnabled("format.selection") {
 		t.Fatal("Format Selection enabled on an empty selection")
 	}
 }
@@ -158,7 +158,7 @@ func TestFormatUnsupported(t *testing.T) {
 	}
 	st.Select(0, 2)
 	h.tt.Frame()
-	if a.commandEnabled("Format Document") || a.commandEnabled("Format Selection") {
+	if a.commandEnabled("format.document") || a.commandEnabled("format.selection") {
 		t.Fatal("format commands enabled without the capability")
 	}
 }

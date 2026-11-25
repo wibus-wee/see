@@ -106,7 +106,7 @@ func TestDiscardChangePreviewAndCommand(t *testing.T) {
 	if h.a.git.peek == nil {
 		t.Fatal("change bar did not open preview")
 	}
-	if err := h.tt.Click(commandLabel("Discard Change")); err != nil {
+	if err := h.tt.Click(commandLabel("change.discard")); err != nil {
 		t.Fatal(err)
 	}
 	h.tt.Frame()
@@ -122,7 +122,7 @@ func TestDiscardChangePreviewAndCommand(t *testing.T) {
 		t.Fatalf("undo: %q", d.buf.String())
 	}
 	st.GoTo(editor.Pos{Line: 2})
-	if h.a.commandEnabled("Discard Change") {
+	if h.a.commandEnabled("change.discard") {
 		t.Fatal("command enabled outside a hunk")
 	}
 	h.a.discardChange()
@@ -130,7 +130,7 @@ func TestDiscardChangePreviewAndCommand(t *testing.T) {
 		t.Fatal("disabled command changed buffer")
 	}
 	st.GoTo(editor.Pos{Line: 4})
-	if !h.a.commandEnabled("Discard Change") {
+	if !h.a.commandEnabled("change.discard") {
 		t.Fatal("command disabled in a hunk")
 	}
 	h.a.discardChange()
@@ -139,7 +139,7 @@ func TestDiscardChangePreviewAndCommand(t *testing.T) {
 	}
 	st.ReadOnly = true
 	st.GoTo(editor.Pos{})
-	if h.a.commandEnabled("Discard Change") {
+	if h.a.commandEnabled("change.discard") {
 		t.Fatal("command enabled in read-only editor")
 	}
 }

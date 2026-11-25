@@ -41,9 +41,9 @@ func supportsNavigation(c langserver.Client, kind string) bool {
 
 func navigationCommand(kind string) string {
 	if kind == "implementation" {
-		return "Go to Implementation"
+		return "implementation.goto"
 	}
-	return "Go to Type Definition"
+	return "typeDefinition.goto"
 }
 
 func navigationText(kind, suffix string) string {
@@ -74,99 +74,99 @@ func (a *App) navigateActive(kind string) {
 // commandEnabled reports whether a palette or menu command does
 // anything now, so commands that would silently no-op show disabled
 // instead.
-func (a *App) commandEnabled(name string) bool {
+func (a *App) commandEnabled(id string) bool {
 	g := a.focus
-	switch name {
-	case "Split Editor Right", "Split Editor Down":
+	switch id {
+	case "editorGroup.splitRight", "editorGroup.splitDown":
 		return g != nil && g.active != ""
-	case "Show Type Hierarchy":
+	case "hierarchy.types":
 		return a.activeEditor() != nil && a.navigationEnabled(a.activePath(), "typeHierarchy")
-	case "Reopen Closed Tab":
+	case "tab.reopen":
 		return len(a.closed) > 0
-	case "Show Local History":
+	case "history.local":
 		d := a.docs[a.activePath()]
 		return a.localHistorySupported(d) && a.activeEditor() != nil
-	case "Compare with Revision…":
+	case "history.compare":
 		d := a.docs[a.activePath()]
 		return a.activeEditor() != nil && d != nil && !d.untitled && d.buf != nil
-	case "Edit All in Scope":
+	case "edit.allInScope":
 		d, st := a.scopeEditDocument()
 		return d != nil && st != nil && a.serverFor(d.path) != nil
-	case "Rename Symbol":
+	case "symbol.rename":
 		d, st := a.renameDocument()
 		return d != nil && st != nil && a.renameEnabled(d.path)
-	case "Go to Implementation":
+	case "implementation.goto":
 		return a.activeEditor() != nil && a.navigationEnabled(a.activePath(), "implementation")
-	case "Go to Type Definition":
+	case "typeDefinition.goto":
 		return a.activeEditor() != nil && a.navigationEnabled(a.activePath(), "typeDefinition")
-	case "Peek Definition":
+	case "definition.peek":
 		return a.activeEditor() != nil && a.navigationEnabled(a.activePath(), "peek")
-	case "Format Document":
+	case "format.document":
 		document, _ := a.formatEnabled(a.activePath())
 		return a.activeEditor() != nil && document
-	case "Format Selection":
+	case "format.selection":
 		_, rng := a.formatEnabled(a.activePath())
 		st := a.activeEditor()
 		return st != nil && rng && hasSelection(st)
 	// Commands that only run an editor command or read the editor.
-	case "Find in File", "Replace in File", "Go to Definition",
-		"Next Problem", "Previous Problem", "Next Method", "Previous Method", "Go to Line", "Search File Symbols",
-		"Show Document Items", "Fold", "Unfold", "Toggle Fold",
-		"Fold Recursively", "Unfold Recursively", "Fold All", "Unfold All",
-		"Fold Imports", "Fold Level 1", "Fold Level 2", "Fold Level 3",
-		"Fold Level 4", "Fold Level 5":
+	case "find.file", "find.replaceFile", "definition.goto",
+		"problem.next", "problem.previous", "method.next", "method.previous", "line.goto", "symbols.file",
+		"jumpbar.documentItems", "fold.fold", "fold.unfold", "fold.toggle",
+		"fold.recursive", "fold.unfoldRecursive", "fold.all", "fold.unfoldAll",
+		"fold.imports", "fold.level1", "fold.level2", "fold.level3",
+		"fold.level4", "fold.level5":
 		return a.activeEditor() != nil
 	// References, callers and the hierarchy need a language server for
 	// the file; Pin References also pins a list the peek already shows.
-	case "Find References", "Find Callers", "Show Call Hierarchy":
+	case "references.find", "references.callers", "hierarchy.calls":
 		return a.activeEditor() != nil && a.serverFor(a.activePath()) != nil
-	case "Pin References":
+	case "references.pin":
 		return a.choices != nil && a.choices.title == "references" && len(a.choices.locs) > 0 ||
 			a.activeEditor() != nil && a.serverFor(a.activePath()) != nil
 	// Workspace-wide views and searches need an open folder.
-	case "Find in Workspace", "Replace in Workspace", "Search Workspace Symbols",
-		"Filter Files", "Open Quickly", "Show Outline", "Show Group Files":
+	case "search.workspace", "search.replaceWorkspace", "symbols.workspace",
+		"files.filter", "file.openQuickly", "outline.show", "jumpbar.groupFiles":
 		return a.root != ""
-	case "Edit Search Results":
+	case "search.editResults":
 		return len(a.find.results) > 0 && !a.find.running
-	case "Reveal in Project Navigator":
+	case "navigator.reveal":
 		return a.canRevealInProjectNavigator(a.activeProjectFile())
 	// Commands that only read or act on the repository.
-	case "Show Git", "Git: Show History", "Git: Show Log", "Next Change",
-		"Previous Change", "Toggle Inline Diff", "Toggle Inline Git Blame":
+	case "git.show", "git.showHistory", "git.showLog", "change.next",
+		"change.previous", "diff.toggleInline", "git.toggleBlame":
 		return a.git.root != ""
-	case "Git: Fetch", "Git: Pull", "Git: Push", "Git: Switch Branch…":
+	case "git.fetch", "git.pull", "git.push", "git.switchBranch":
 		return a.git.root != "" && !a.git.busy
 	// Go tasks need a folder; an untrusted one asks first, which is
 	// still something the command does.
-	case "Go: Build Workspace", "Go: Test Workspace", "Tasks: Stop", "Tasks: Show",
-		"Show Output":
+	case "go.build", "go.test", "tasks.stop", "tasks.show",
+		"output.show":
 		return a.root != ""
 	// Markdown preview needs a markdown tab open.
-	case "Open Markdown Preview":
+	case "markdown.preview":
 		return g != nil && isMarkdown(tabPath(g.active)) && a.docs[tabPath(g.active)] != nil
-	case "Show Line's Commit in Git Log":
+	case "git.revealLineCommit":
 		return a.canRevealLineCommit()
-	case "Discard Change":
+	case "change.discard":
 		return a.canDiscardChange()
-	case "Show File History":
+	case "history.file":
 		return a.canShowFileHistory()
-	case "Git: Reveal HEAD in Log", "Git: Jump to Date…":
+	case "git.revealHead", "git.jumpToDate":
 		return a.git.root != ""
 	// Tab and group commands need a group with tabs, or more than one.
-	case "Next Tab", "Previous Tab":
+	case "tab.next", "tab.previous":
 		return g != nil && len(g.order) >= 2
-	case "Move Tab to Next Editor", "Focus Next Editor", "Focus Previous Editor":
-		return len(a.groups()) >= 2 && (name != "Move Tab to Next Editor" || g != nil && g.active != "")
-	case "Save":
+	case "tab.moveToNextEditor", "editorGroup.focusNext", "editorGroup.focusPrevious":
+		return len(a.groups()) >= 2 && (id != "tab.moveToNextEditor" || g != nil && g.active != "")
+	case "file.save":
 		return a.activeEditor() != nil
-	case "Save All":
+	case "file.saveAll":
 		return len(a.dirtyDocs()) > 0
-	case "Close Tab":
+	case "tab.close":
 		return g == nil || g.active != "" // nil focus closes the window
-	case "Close Other Tabs", "Close Tabs to the Right":
+	case "tab.closeOthers", "tab.closeRight":
 		return g != nil && len(g.order) >= 2
-	case "Close Saved Tabs":
+	case "tab.closeSaved":
 		if g == nil {
 			return false
 		}
@@ -177,16 +177,16 @@ func (a *App) commandEnabled(name string) bool {
 			return true
 		}
 		return false
-	case "Keep Preview Tab":
+	case "tab.keepPreview":
 		return g != nil && g.preview != ""
-	case "Go Back":
+	case "nav.back":
 		return len(a.hist.Back) > 0
-	case "Go Forward":
+	case "nav.forward":
 		return len(a.hist.Forward) > 0
-	case "Select Last Tab":
+	case "tab.selectLast":
 		return g != nil && len(g.order) > 0
 	}
-	if strings.HasPrefix(name, "Select Tab ") {
+	if strings.HasPrefix(id, "tab.select") {
 		return g != nil && len(g.order) > 0
 	}
 	return true
@@ -195,11 +195,11 @@ func (a *App) commandEnabled(name string) bool {
 func (a *App) navigationMenuItems(run func(func())) []*mygo.MenuItem {
 	var items []*mygo.MenuItem
 	for _, cmd := range commands() {
-		if cmd.name != "Go to Definition" && cmd.name != "Peek Definition" && cmd.name != "Go to Implementation" && cmd.name != "Go to Type Definition" && cmd.name != "Show Call Hierarchy" && cmd.name != "Show Type Hierarchy" && cmd.name != "Next Method" && cmd.name != "Previous Method" {
+		if cmd.id != "definition.goto" && cmd.id != "definition.peek" && cmd.id != "implementation.goto" && cmd.id != "typeDefinition.goto" && cmd.id != "hierarchy.calls" && cmd.id != "hierarchy.types" && cmd.id != "method.next" && cmd.id != "method.previous" {
 			continue
 		}
 		items = append(items, &mygo.MenuItem{
-			Label: commandLabel(cmd.name), Disabled: a.activeEditor() == nil || !a.commandEnabled(cmd.name),
+			Label: commandLabel(cmd.id), Disabled: a.activeEditor() == nil || !a.commandEnabled(cmd.id),
 			Click: func(*mygo.MenuItem, *mygo.Window) { run(func() { cmd.run(a) }) },
 		})
 	}
@@ -207,7 +207,7 @@ func (a *App) navigationMenuItems(run func(func())) []*mygo.MenuItem {
 }
 
 func (a *App) refreshNavigationMenu() {
-	state := [6]bool{a.activeEditor() != nil, a.commandEnabled("Go to Implementation"), a.commandEnabled("Go to Type Definition"), a.commandEnabled("Peek Definition"), a.commandEnabled("Show Type Hierarchy"), a.canDiscardChange()}
+	state := [6]bool{a.activeEditor() != nil, a.commandEnabled("implementation.goto"), a.commandEnabled("typeDefinition.goto"), a.commandEnabled("definition.peek"), a.commandEnabled("hierarchy.types"), a.canDiscardChange()}
 	if state != a.navigationMenuState {
 		a.navigationMenuState = state
 		a.host.RefreshMenu()

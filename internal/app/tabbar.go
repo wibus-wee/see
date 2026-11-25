@@ -25,7 +25,7 @@ func (a *App) tabFileMenu(c *ui.Context, m *ui.Menu, tab string, d *doc, diff *g
 	}
 	path := tabPath(tab)
 	services := c.Services()
-	if m.Item(commandLabel("Reveal in Project Navigator")).Disabled(!a.canRevealInProjectNavigator(path)).Chosen() {
+	if m.Item(commandLabel("navigator.reveal")).Disabled(!a.canRevealInProjectNavigator(path)).Chosen() {
 		a.revealInProjectNavigator(path)
 	}
 	if m.Item("Show File History").Disabled(a.git.root == "").Chosen() {
@@ -98,19 +98,19 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 			}
 			tab.ContextMenu(func(m *ui.Menu) {
 				a.tabFileMenu(c, m, p, d, diff)
-				if m.Item(commandLabel("Close Tab")).Chosen() {
+				if m.Item(commandLabel("tab.close")).Chosen() {
 					a.closeTab(g, p)
 				}
-				if g.preview == p && m.Item(commandLabel("Keep Preview Tab")).Chosen() {
+				if g.preview == p && m.Item(commandLabel("tab.keepPreview")).Chosen() {
 					g.preview = ""
 				}
-				if m.Item(commandLabel("Close Other Tabs")).Chosen() {
+				if m.Item(commandLabel("tab.closeOthers")).Chosen() {
 					a.closeTabs(g, p, closeOtherTabs)
 				}
-				if m.Item(commandLabel("Close Tabs to the Right")).Chosen() {
+				if m.Item(commandLabel("tab.closeRight")).Chosen() {
 					a.closeTabs(g, p, closeRightTabs)
 				}
-				if m.Item(commandLabel("Close Saved Tabs")).Chosen() {
+				if m.Item(commandLabel("tab.closeSaved")).Chosen() {
 					a.closeTabs(g, p, closeSavedTabs)
 				}
 			})

@@ -572,7 +572,7 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 			if visible {
 				height = 264
 			}
-			act := &peekAction{label: commandLabel("Discard Change"), destructive: true, do: func() { a.discardChangeAt(d, st, peek.line) }}
+			act := &peekAction{label: commandLabel("change.discard"), destructive: true, do: func() { a.discardChangeAt(d, st, peek.line) }}
 			a.editorPeekAction(c, bounds, st, peek.line, d.name+" — Git changes", "Close Change Preview", height, visible, act, func() { a.git.peek = nil }, func() {
 				if !visible {
 					a.hiddenWhitespaceDiff(c)
@@ -601,7 +601,7 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 			}
 			var pin *peekAction
 			if ch.title == "references" {
-				pin = &peekAction{icon: icPin, label: commandLabel("Pin References"), tip: commandLabel("Pin References"), do: func() { a.pinReferences(ch) }}
+				pin = &peekAction{icon: icPin, label: commandLabel("references.pin"), tip: commandLabel("references.pin"), do: func() { a.pinReferences(ch) }}
 			}
 			a.editorPeekAction(c, bounds, st, ch.from.Line, fmt.Sprintf("%d %s", len(ch.locs), ch.title), closeLabel, 264, false,
 				pin, func() { a.choices = nil }, func() { a.relatedView(c, ch) })

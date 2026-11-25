@@ -129,11 +129,11 @@ func (a *App) bookmarksNavigator(c *ui.Context) {
 			})
 		})
 		row.ContextMenu(func(m *ui.Menu) {
-			if m.Item(commandLabel("Remove Bookmark")).Chosen() {
+			if m.Item(commandLabel("bookmark.remove")).Chosen() {
 				a.bookmarks.Remove(bm.Path, bm.Line)
 				a.saveConfigSoon()
 			}
-			if m.Item(commandLabel("Clear Bookmarks")).Chosen() {
+			if m.Item(commandLabel("bookmarks.clear")).Chosen() {
 				a.bookmarks.Clear()
 				a.saveConfigSoon()
 			}

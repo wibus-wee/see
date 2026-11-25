@@ -148,10 +148,10 @@ func (a *App) taskView(c *ui.Context) {
 	ui.Column(c).Fill().Children(func() {
 		ui.Row(c).FillWidth().Padding(6, 12).Gap(8).AlignItems(ui.Center).Children(func() {
 			ui.Text(c, taskMessage("tasksTitle")).Bold().Grow(1)
-			ui.Button(c, taskMessage("tasksBuild")).Label(commandLabel("Go: Build Workspace")).OnClick(func() { a.runGoTask(tasks.Build) })
-			ui.Button(c, taskMessage("tasksTest")).Label(commandLabel("Go: Test Workspace")).OnClick(func() { a.runGoTask(tasks.Test) })
+			ui.Button(c, taskMessage("tasksBuild")).Label(commandLabel("go.build")).OnClick(func() { a.runGoTask(tasks.Build) })
+			ui.Button(c, taskMessage("tasksTest")).Label(commandLabel("go.test")).OnClick(func() { a.runGoTask(tasks.Test) })
 			if a.task != nil && a.task.status == "taskRunning" {
-				ui.Button(c, taskMessage("tasksStop")).Label(commandLabel("Tasks: Stop")).OnClick(a.stopGoTask)
+				ui.Button(c, taskMessage("tasksStop")).Label(commandLabel("tasks.stop")).OnClick(a.stopGoTask)
 			}
 		})
 		run := a.task

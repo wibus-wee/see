@@ -100,7 +100,7 @@ func TestMethodNavigationMenu(t *testing.T) {
 	}
 	h.open("a.go")
 	h.tt.Frame()
-	if !h.a.commandEnabled("Next Method") {
+	if !h.a.commandEnabled("method.next") {
 		t.Fatal("Next Method disabled with an editor")
 	}
 }

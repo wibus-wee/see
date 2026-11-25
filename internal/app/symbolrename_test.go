@@ -126,11 +126,11 @@ func TestRenameCommandEnabled(t *testing.T) {
 	h.fc.rename = func(ctx context.Context, u string, pos lsp.Position, n string) (*lsp.WorkspaceEdit, error) {
 		return &lsp.WorkspaceEdit{}, nil
 	}
-	if !h.a.commandEnabled("Rename Symbol") {
+	if !h.a.commandEnabled("symbol.rename") {
 		t.Fatal("rename should be enabled")
 	}
 	h.fc.noRename = true
-	if h.a.commandEnabled("Rename Symbol") {
+	if h.a.commandEnabled("symbol.rename") {
 		t.Fatal("rename should be disabled without the provider")
 	}
 }

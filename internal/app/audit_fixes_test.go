@@ -82,7 +82,7 @@ func TestCloneCompletionRedrawsWelcome(t *testing.T) {
 }
 
 func TestSplitPaletteCommands(t *testing.T) {
-	for _, name := range []string{"Split Editor Right", "Split Editor Down"} {
+	for _, name := range []string{"editorGroup.splitRight", "editorGroup.splitDown"} {
 		t.Run(name, func(t *testing.T) {
 			h := newHarness(t, "")
 			if h.a.commandEnabled(name) {

@@ -417,12 +417,12 @@ func Main() {
 			mygo.App.SetMenu(mygo.NewMenu([]*mygo.MenuItem{
 				appMenu(currentApp), currentApp.fileMenu(currentWin.Update), {Role: mygo.RoleEditMenu},
 				{Label: locales.Editor(), Submenu: []*mygo.MenuItem{{Label: quickHelpText("navigate"), Submenu: []*mygo.MenuItem{{
-					Label: commandLabel("Show Quick Help"), Accelerator: "Alt+CmdOrCtrl+K",
+					Label: commandLabel("help.quick"), Accelerator: "Alt+CmdOrCtrl+K",
 					Click: func(*mygo.MenuItem, *mygo.Window) { currentWin.Update(currentApp.showQuickHelpAtCaret) },
-				}}}, {Label: commandLabel("Discard Change"), Disabled: !currentApp.canDiscardChange(),
+				}}}, {Label: commandLabel("change.discard"), Disabled: !currentApp.canDiscardChange(),
 					Click: func(*mygo.MenuItem, *mygo.Window) { currentWin.Update(currentApp.discardChange) },
 				}, mygo.Separator(), {
-					Label: commandLabel("Show Invisibles"), Type: mygo.MenuItemCheckbox, Checked: currentApp.cfg.ShowInvisibles,
+					Label: commandLabel("editor.showInvisibles"), Type: mygo.MenuItemCheckbox, Checked: currentApp.cfg.ShowInvisibles,
 					Click: func(*mygo.MenuItem, *mygo.Window) { currentWin.Update(currentApp.toggleInvisibles) },
 				}}},
 				{Label: locales.View(), Submenu: append(append([]*mygo.MenuItem{
@@ -430,7 +430,7 @@ func Main() {
 					{Label: locales.EditorFontSize(), Submenu: currentApp.editorFontSizeMenu(currentWin.Update)},
 				}, currentApp.navigationMenuItems(currentWin.Update)...), []*mygo.MenuItem{
 					{Label: locales.Appearance(), Submenu: appearanceMenu(currentApp)},
-					{Label: commandLabel("Toggle Reader Mode"), Click: func(*mygo.MenuItem, *mygo.Window) {
+					{Label: commandLabel("editor.toggleReaderMode"), Click: func(*mygo.MenuItem, *mygo.Window) {
 						currentWin.Update(func() { currentApp.cfg.HideDocComments = !currentApp.cfg.HideDocComments; currentApp.settingsChanged() })
 					}},
 					{Label: locales.Folding(), Submenu: currentApp.foldingMenu(currentWin.Update)},

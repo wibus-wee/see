@@ -69,7 +69,7 @@ func TestTypeHierarchyUnsupported(t *testing.T) {
 	if _, err := h.a.lsp.Get(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	if h.a.commandEnabled("Show Type Hierarchy") {
+	if h.a.commandEnabled("hierarchy.types") {
 		t.Fatal("unsupported command enabled")
 	}
 	h.a.showTypeHierarchyAt(h.a.focus)

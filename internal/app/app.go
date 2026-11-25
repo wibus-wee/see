@@ -1304,21 +1304,21 @@ func (a *App) newEditor(g *group, d *doc) *editor.State {
 	st.OnCompletion = func(req editor.CompletionRequest) { a.requestCompletions(g, d, st, req) }
 	a.loadGitBase(d)
 	st.ContextMenu = func(menu *ui.Menu) {
-		if menu.Item(commandLabel("Test Regex")).Chosen() {
+		if menu.Item(commandLabel("regex.playground")).Chosen() {
 			a.openRegexPlaygroundFor(g, d, st)
 		}
 		menu.Separator()
-		if menu.Item(commandLabel("Peek Definition")).Shortcut(ui.Alt, ui.KeyF12).Disabled(!a.navigationEnabled(d.path, "peek")).Chosen() {
+		if menu.Item(commandLabel("definition.peek")).Shortcut(ui.Alt, ui.KeyF12).Disabled(!a.navigationEnabled(d.path, "peek")).Chosen() {
 			a.peekDefinition(g, d, st.Buffer.Offset(st.CursorPos()))
 		}
-		if menu.Item(commandLabel("Show Code Actions")).Disabled(!a.codeActionsEnabled(d.path)).Chosen() {
+		if menu.Item(commandLabel("codeAction.show")).Disabled(!a.codeActionsEnabled(d.path)).Chosen() {
 			a.codeActionAtPoint(g, d, st, false)
 		}
 		formatDoc, formatRange := a.formatEnabled(d.path)
-		if menu.Item(commandLabel("Format Document")).Disabled(!formatDoc).Shortcut(ui.Shift|ui.Alt, ui.KeyF).Chosen() {
+		if menu.Item(commandLabel("format.document")).Disabled(!formatDoc).Shortcut(ui.Shift|ui.Alt, ui.KeyF).Chosen() {
 			a.formatAt(g, d, st, false)
 		}
-		if menu.Item(commandLabel("Format Selection")).Disabled(!formatRange || !hasSelection(st)).Chosen() {
+		if menu.Item(commandLabel("format.selection")).Disabled(!formatRange || !hasSelection(st)).Chosen() {
 			a.formatAt(g, d, st, true)
 		}
 		for _, kind := range []string{"implementation", "typeDefinition"} {
@@ -1331,7 +1331,7 @@ func (a *App) newEditor(g *group, d *doc) *editor.State {
 			}
 		}
 		if b, ok := a.lineBlame(d, st); ok && !b.Uncommitted {
-			if menu.Item(commandLabel("Show Line's Commit in Git Log")).Chosen() {
+			if menu.Item(commandLabel("git.revealLineCommit")).Chosen() {
 				a.revealLogCommit(b.Hash)
 			}
 			menu.Separator()
@@ -1344,42 +1344,42 @@ func (a *App) newEditor(g *group, d *doc) *editor.State {
 			a.focus = g
 			a.findUsagesAt(true, g.pointerAnchor, g.pointerInEditor)
 		}
-		if menu.Item(commandLabel("Show Call Hierarchy")).Chosen() {
+		if menu.Item(commandLabel("hierarchy.calls")).Chosen() {
 			a.focus = g
 			a.showCallHierarchyAt(g)
 		}
-		if menu.Item(commandLabel("Show Type Hierarchy")).Disabled(!a.navigationEnabled(d.path, "typeHierarchy")).Chosen() {
+		if menu.Item(commandLabel("hierarchy.types")).Disabled(!a.navigationEnabled(d.path, "typeHierarchy")).Chosen() {
 			a.focus = g
 			a.showTypeHierarchyAt(g)
 		}
 		if !d.untitled && menu.Item("Show File History").Chosen() {
 			a.showFileHistory(d.path)
 		}
-		localHistoryItem := menu.Item(commandLabel("Show Local History")).Disabled(!a.localHistorySupported(d))
+		localHistoryItem := menu.Item(commandLabel("history.local")).Disabled(!a.localHistorySupported(d))
 		if !a.localHistorySupported(d) {
 			localHistoryItem.Tooltip(localHistoryText("localHistoryUnsupported"))
 		}
 		if localHistoryItem.Chosen() {
 			a.showLocalHistory(g, d)
 		}
-		if menu.Item(commandLabel("Compare with Revision…")).Chosen() {
+		if menu.Item(commandLabel("history.compare")).Chosen() {
 			a.showRevision(g, d, "")
 		}
 		a.linkItems(menu, d, st)
 		menu.Separator()
 		_, _, mods, key := editAllScopeShortcut(runtime.GOOS)
-		item := menu.Item(commandLabel("Edit All in Scope")).Disabled(!a.scopeEditCommandEnabled(g, d, st)).Shortcut(mods, key)
+		item := menu.Item(commandLabel("edit.allInScope")).Disabled(!a.scopeEditCommandEnabled(g, d, st)).Shortcut(mods, key)
 		if item.Chosen() {
 			a.editAllInScopeFor(g, d, st)
 		}
 		menu.Separator()
-		if menu.Item(commandLabel("Expand Selection")).Shortcut(ui.Alt|ui.Shift, ui.KeyUp).Chosen() {
+		if menu.Item(commandLabel("selection.expand")).Shortcut(ui.Alt|ui.Shift, ui.KeyUp).Chosen() {
 			a.expandSelection()
 		}
-		if menu.Item(commandLabel("Shrink Selection")).Shortcut(ui.Alt|ui.Shift, ui.KeyDown).Chosen() {
+		if menu.Item(commandLabel("selection.shrink")).Shortcut(ui.Alt|ui.Shift, ui.KeyDown).Chosen() {
 			a.shrinkSelection()
 		}
-		renameItem := menu.Item(commandLabel("Rename Symbol")).Disabled(!a.renameEnabled(d.path)).Shortcut(0, ui.KeyF2)
+		renameItem := menu.Item(commandLabel("symbol.rename")).Disabled(!a.renameEnabled(d.path)).Shortcut(0, ui.KeyF2)
 		if renameItem.Chosen() {
 			a.renameSymbolAt(g, d, st)
 		}
