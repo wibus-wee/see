@@ -592,9 +592,9 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 			a.regexPlaygroundView(c, bounds, st, p)
 		}
 		if ch := a.choices; ch != nil && ch.g == g && ch.from.Path == d.path {
-			closeLabel := "Close References Preview"
+			closeLabel := locales.MsgCloseReferencesPreview()
 			if ch.title == "definitions" {
-				closeLabel = "Close Definitions Preview"
+				closeLabel = locales.MsgCloseDefinitionsPreview()
 			}
 			if ch.navigation != "" {
 				closeLabel = navigationText(ch.navigation, "Close")
@@ -603,7 +603,7 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 			if ch.title == "references" {
 				pin = &peekAction{icon: icPin, label: commandLabel("references.pin"), tip: commandLabel("references.pin"), do: func() { a.pinReferences(ch) }}
 			}
-			a.editorPeekAction(c, bounds, st, ch.from.Line, fmt.Sprintf("%d %s", len(ch.locs), ch.title), closeLabel, 264, false,
+			a.editorPeekAction(c, bounds, st, ch.from.Line, fmt.Sprintf("%d %s", len(ch.locs), referenceTitle(ch.title)), closeLabel, 264, false,
 				pin, func() { a.choices = nil }, func() { a.relatedView(c, ch) })
 		}
 		line := d.buf.Line(pos.Line)
@@ -812,7 +812,7 @@ func (a *App) editorPeekSizedContent(c *ui.Context, bounds ui.Rect, st *editor.S
 						act.do()
 					}
 				}
-				if glyphButton(c, icClose, closeLabel, "Close", false, false).Clicked() {
+				if glyphButton(c, icClose, closeLabel, locales.MsgClose(), false, false).Clicked() {
 					close()
 				}
 			})

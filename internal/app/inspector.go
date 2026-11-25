@@ -368,7 +368,7 @@ func (a *App) inspectorHistoryPage(c *ui.Context) {
 										TextColor(colors(c).Muted).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 								})
 								compare := ui.ButtonBase(c).Size(22, 22).Padding(0).Radius(4).Center().KeepFocus().
-									Tooltip(commandLabel("history.compare"))
+									Label(commandLabel("history.compare")).Tooltip(commandLabel("history.compare"))
 								if compare.Hovered() {
 									compare.Background(colors(c).Pill)
 								}

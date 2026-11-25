@@ -19,6 +19,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 	"github.com/egoist/mygo/ui/markdown"
@@ -451,7 +452,7 @@ func (a *App) openFolderDialog() {
 func (a *App) openWorkspace(dir string) {
 	root, err := workspace.CanonicalRoot(dir)
 	if err != nil {
-		a.welcomeNote = fmt.Sprintf("Could not open %s: %v", dir, describeErr(err))
+		a.welcomeNote = locales.Catalog.Format(i18n.Locale(), "msgCouldNotOpenSPath", map[string]any{"path": dir, "reason": describeErr(err)})
 		if errors.Is(err, fs.ErrNotExist) && slices.Contains(a.cfg.Recent, dir) {
 			a.cfg.RemoveRecent(dir)
 			a.saveConfig()
@@ -1337,11 +1338,11 @@ func (a *App) newEditor(g *group, d *doc) *editor.State {
 			}
 			menu.Separator()
 		}
-		if menu.Item("Find References").Shortcut(ui.Shift, ui.KeyF12).Chosen() {
+		if menu.Item(commandLabel("references.find")).Shortcut(ui.Shift, ui.KeyF12).Chosen() {
 			a.focus = g
 			a.findUsagesAt(false, g.pointerAnchor, g.pointerInEditor)
 		}
-		if menu.Item("Find Callers").Chosen() {
+		if menu.Item(commandLabel("references.callers")).Chosen() {
 			a.focus = g
 			a.findUsagesAt(true, g.pointerAnchor, g.pointerInEditor)
 		}
@@ -1353,7 +1354,7 @@ func (a *App) newEditor(g *group, d *doc) *editor.State {
 			a.focus = g
 			a.showTypeHierarchyAt(g)
 		}
-		if !d.untitled && menu.Item("Show File History").Chosen() {
+		if !d.untitled && menu.Item(commandLabel("history.file")).Chosen() {
 			a.showFileHistory(d.path)
 		}
 		localHistoryItem := menu.Item(commandLabel("history.local")).Disabled(!a.localHistorySupported(d))
@@ -2026,7 +2027,8 @@ func (a *App) findUsagesAt(callers bool, anchor ui.Point, validAnchor bool) {
 				if skipped > 0 {
 					a.note(locales.MsgResultsAreNotInLocalFiles(), false)
 				} else {
-					a.note("No "+name+locales.MsgFound(), false)
+					display := referenceTitle(name)
+					a.note(locales.Catalog.Format(i18n.Locale(), "msgNoSFound", map[string]any{"name": display}), false)
 				}
 				return
 			}

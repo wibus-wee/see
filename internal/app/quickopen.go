@@ -31,7 +31,7 @@ func (a *App) quickOpenPanel(c *ui.Context) {
 			panel.Children(func() {
 				ui.Row(c).Padding(4, 8).Gap(8).AlignItems(ui.Center).Children(func() {
 					symbolIcon(c, icSearch, 20, colors(c).Muted)
-					in := ui.TextInput(c, &q.query).Placeholder(locales.MsgOpenQuickly()).FontSize(20).Grow(1).AutoFocus().Background(ui.Transparent).BorderWidth(0)
+					in := ui.TextInput(c, &q.query).Label(locales.MsgOpenQuickly()).Placeholder(locales.MsgOpenQuickly()).FontSize(20).Grow(1).AutoFocus().Background(ui.Transparent).BorderWidth(0)
 					// The field has the keyboard: it takes the list's keys.
 					switch {
 					case in.Submitted():

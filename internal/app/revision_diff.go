@@ -201,10 +201,10 @@ func (a *App) revisionContent(c *ui.Context, g *group, v *gitDiffTab) {
 				target = localHistoryText("localHistoryCurrentUnsaved")
 			}
 			ui.Text(c, "→ "+target).FontSize(11).SingleLine()
-			if ui.Button(c, "‹").Tooltip(localHistoryText("revisionOlder")).Disabled(r.selected+1 >= len(r.commits)).Clicked() {
+			if ui.Button(c, "‹").Label(localHistoryText("revisionOlder")).Tooltip(localHistoryText("revisionOlder")).Disabled(r.selected+1 >= len(r.commits)).Clicked() {
 				a.selectRevision(v, r.selected+1)
 			}
-			if ui.Button(c, "›").Tooltip(localHistoryText("revisionNewer")).Disabled(r.selected <= 0).Clicked() {
+			if ui.Button(c, "›").Label(localHistoryText("revisionNewer")).Tooltip(localHistoryText("revisionNewer")).Disabled(r.selected <= 0).Clicked() {
 				a.selectRevision(v, r.selected-1)
 			}
 			ui.Box(c).Grow(1)
@@ -229,7 +229,7 @@ func (a *App) revisionTimeline(c *ui.Context, v *gitDiffTab) {
 				b := ui.ButtonBase(c.Key(struct {
 					hash string
 				}{cm.Hash})).Grow(1).Basis(0).Height(32).Padding(0).Radius(3).KeepFocus().
-					Tooltip(revisionLabel(cm))
+					Label(revisionLabel(cm)).Tooltip(revisionLabel(cm))
 				hovered := b.Hovered()
 				if hovered {
 					b.Background(palette.Pill)

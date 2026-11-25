@@ -37,9 +37,23 @@ type referenceRun struct {
 func (r *referenceRun) label() string {
 	name := r.symbol
 	if name == "" {
-		name = r.choices.title
+		name = referenceTitle(r.choices.title)
 	}
-	return fmt.Sprintf("%s — %d %s", name, len(r.choices.locs), r.choices.title)
+	return fmt.Sprintf("%s — %d %s", name, len(r.choices.locs), referenceTitle(r.choices.title))
+}
+
+// referenceTitle names a list of references or definitions in the app's
+// language; other titles are already the names the app shows.
+func referenceTitle(title string) string {
+	switch title {
+	case "references":
+		return locales.MsgReferences()
+	case "definitions":
+		return locales.MsgDefinitions()
+	case "callers":
+		return locales.InspectorCallers()
+	}
+	return title
 }
 
 // referenceList is the panel's state: the runs it remembers, the one it
@@ -447,14 +461,14 @@ func (a *App) referencesView(c *ui.Context) {
 	pal := colors(c)
 	ui.Column(c).Fill().Children(func() {
 		ui.Row(c).FillWidth().Shrink(0).Padding(6, 12).Gap(8).AlignItems(ui.Center).BorderWidth(0, 0, 1, 0).BorderColor(pal.Hairline).Children(func() {
-			clock := ui.ButtonBase(c).Label("Recent reference lists").Tooltip("Recent reference lists").Size(22, 22).Radius(6).Shrink(0).KeepFocus().Center()
+			clock := ui.ButtonBase(c).Label(locales.MsgRecentReferenceLists()).Tooltip(locales.MsgRecentReferenceLists()).Size(22, 22).Radius(6).Shrink(0).KeepFocus().Center()
 			if clock.Hovered() {
 				clock.Background(pal.Pill)
 			}
 			clock.Children(func() { symbolIcon(c, icClock, 13, pal.Muted) })
 			clock.Menu(func(m *ui.Menu) {
 				if len(rl.runs) == 0 {
-					m.Item("No recent lists").Disabled(true)
+					m.Item(locales.MsgNoRecentLists()).Disabled(true)
 					return
 				}
 				for _, r := range rl.runs {
@@ -467,7 +481,7 @@ func (a *App) referencesView(c *ui.Context) {
 					}
 				}
 			})
-			field := ui.SearchField(c, &rl.filter).Label("Filter references").Placeholder("Filter by path, symbol or line text").FillWidth().Height(26).FontSize(12).Bind(&rl.field)
+			field := ui.SearchField(c, &rl.filter).Label(locales.MsgFilterReferences()).Placeholder(locales.MsgFilterByPathSymbolOrLineText()).FillWidth().Height(26).FontSize(12).Bind(&rl.field)
 			if field.Changed() && run != nil {
 				rl.cursor = -1
 			}

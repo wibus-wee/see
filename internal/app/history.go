@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 
@@ -118,7 +119,7 @@ func (a *App) gitChangesHeader(c *ui.Context) {
 			count = len(a.git.branchPanel.files)
 		}
 	}
-	a.gitSectionHeader(c, "Changes", count, &a.git.changesClosed, func() {
+	a.gitSectionHeader(c, locales.MsgChanges(), count, &a.git.changesClosed, func() {
 		a.branchDiffModePicker(c)
 		if a.git.changesClosed || a.git.branchDiffMode == compareBaseMode {
 			return
@@ -128,13 +129,13 @@ func (a *App) gitChangesHeader(c *ui.Context) {
 			staged = staged || gitChangeInSection(ch, true)
 			unstaged = unstaged || gitChangeInSection(ch, false)
 		}
-		if staged && glyphButton(c, icMinus, "Unstage All Changes", "Unstage All Changes", false, a.git.busy).Clicked() {
+		if staged && glyphButton(c, icMinus, locales.MsgUnstageAllChanges(), locales.MsgUnstageAllChanges(), false, a.git.busy).Clicked() {
 			a.stageAllGitChanges(true)
 		}
-		if unstaged && glyphButton(c, icPlus, "Stage All Changes", "Stage All Changes", false, a.git.busy).Clicked() {
+		if unstaged && glyphButton(c, icPlus, locales.MsgStageAllChanges(), locales.MsgStageAllChanges(), false, a.git.busy).Clicked() {
 			a.stageAllGitChanges(false)
 		}
-		if len(a.git.changes) > 0 && glyphButton(c, icStash, "Stash Changes", "Stash Changes…", a.git.stashing, a.git.busy).Clicked() {
+		if len(a.git.changes) > 0 && glyphButton(c, icStash, locales.MsgStashChanges(), locales.MsgStashChanges()+"…", a.git.stashing, a.git.busy).Clicked() {
 			if a.git.stashing {
 				a.endStash()
 			} else {
@@ -145,11 +146,11 @@ func (a *App) gitChangesHeader(c *ui.Context) {
 			ui.Spinner(c).FontSize(10).Tooltip(a.git.syncing)
 		}
 		a.syncButtons(c)
-		tip := "Refresh Status"
+		tip := locales.MsgRefreshStatus()
 		if a.hasRemote() {
-			tip = "Fetch and Refresh Status"
+			tip = locales.MsgFetchAndRefreshStatus()
 		}
-		if glyphButton(c, icRefresh, "Refresh", tip, false, a.git.busy).Clicked() {
+		if glyphButton(c, icRefresh, locales.MsgRefresh(), tip, false, a.git.busy).Clicked() {
 			a.fetchAndRefresh()
 		}
 	})
@@ -159,7 +160,7 @@ func (a *App) gitChangesHeader(c *ui.Context) {
 // the choice of every branch or HEAD's at its end.
 func (a *App) gitHistoryHeader(c *ui.Context) {
 	h := &a.git.history
-	a.gitSectionHeader(c, "History", -1, &a.git.historyClosed, func() {
+	a.gitSectionHeader(c, locales.MsgHistory(), -1, &a.git.historyClosed, func() {
 		if a.git.historyClosed {
 			return
 		}
@@ -170,11 +171,11 @@ func (a *App) gitHistoryHeader(c *ui.Context) {
 		if h.all {
 			tip = fmt.Sprintf(locales.MsgShowOnlySAndUpstream(), a.git.branch)
 		}
-		if glyphButton(c, icBranches, "All Branches", tip, h.all, false).Clicked() {
+		if glyphToggle(c, icBranches, locales.MsgAllBranches(), tip, h.all, false).Clicked() {
 			h.all, h.stale = !h.all, true
 			a.syncHistory()
 		}
-		if glyphButton(c, icGit, "Show Log", "Show the Log in a Tab", false, false).Clicked() {
+		if glyphButton(c, icGit, locales.MsgShowLog(), locales.MsgShowTheLogInATab(), false, false).Clicked() {
 			a.openGitLog()
 		}
 	})
@@ -302,10 +303,10 @@ func (a *App) historyRow(c *ui.Context, i int) {
 	}
 	row.OnClick(func() { a.openCommit(cm) })
 	row.ContextMenu(func(m *ui.Menu) {
-		if m.Item("Copy Commit Hash").Chosen() {
+		if m.Item(locales.MsgCopyCommitHash()).Chosen() {
 			c.Services().WriteClipboard(cm.Hash)
 		}
-		if m.Item("Copy Subject").Chosen() {
+		if m.Item(locales.MsgCopySubject()).Chosen() {
 			c.Services().WriteClipboard(cm.Subject)
 		}
 		a.commitRowItems(m, c, cm)
@@ -350,10 +351,10 @@ func authors(cm git.Commit) string {
 	case 0:
 		return cm.Author
 	case 1:
-		return cm.Author + " and " + cm.CoAuthors[0].Name
+		return locales.Catalog.Format(i18n.Locale(), "msgAuthorAndCoAuthor", map[string]any{"author": cm.Author, "coauthor": cm.CoAuthors[0].Name})
 	}
 	n := len(cm.CoAuthors)
-	return fmt.Sprintf("%s and %d other%s", cm.Author, n, plural(n))
+	return locales.Catalog.Format(i18n.Locale(), "msgAuthorAndNOthers", map[string]any{"author": cm.Author, "count": n})
 }
 
 // shortDate is when, as short as a list has room for, as Peek's and
@@ -553,12 +554,12 @@ func (a *App) commitContent(c *ui.Context, g *group, v *commitView) {
 			ui.Column(c).FillWidth().Gap(8).Children(func() {
 				a.personLine(c, git.Person{Name: cm.Author, Email: cm.Email}, "", when)
 				for _, p := range cm.CoAuthors {
-					a.personLine(c.Key(p.Email), p, "Co-author", p.Email)
+					a.personLine(c.Key(p.Email), p, locales.MsgCoAuthor(), p.Email)
 				}
 			})
 			ui.Row(c).FillWidth().Gap(6).AlignItems(ui.Center).Wrap().Children(func() {
 				ui.Text(c, cm.Hash).FontSize(12).TextColor(colors(c).Muted).Selectable()
-				if glyphButton(c, icCopy, "Copy Commit Hash", "Copy Commit Hash", false, false).Clicked() {
+				if glyphButton(c, icCopy, locales.MsgCopyCommitHash(), locales.MsgCopyCommitHash(), false, false).Clicked() {
 					c.Services().WriteClipboard(cm.Hash)
 					a.note(locales.MsgCopied()+cm.Short+".", false)
 				}
@@ -570,7 +571,7 @@ func (a *App) commitContent(c *ui.Context, g *group, v *commitView) {
 				if link := a.commitLink(cm.Hash); link != "" {
 					ui.Box(c).Grow(1)
 					host := hostName(a.git.web)
-					if ui.Button(c, locales.MsgOpenOn()+host).FontSize(12).Tooltip(link).Clicked() {
+					if ui.Button(c, locales.Catalog.Format(i18n.Locale(), "msgOpenOnHost", map[string]any{"host": host})).FontSize(12).Tooltip(link).Clicked() {
 						c.Services().OpenURL(link)
 					}
 				}

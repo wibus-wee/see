@@ -322,7 +322,7 @@ func (a *App) inspectorHeader(c *ui.Context) {
 		if glyphButton(c, icRefresh, inspectorText("inspectorRefresh"), inspectorText("inspectorRefresh"), false, !in.hasSubject).Clicked() {
 			a.refreshInspector()
 		}
-		pin := glyphButton(c, icPin, inspectorText("inspectorPin"), inspectorText("inspectorPinTip"), in.pinned, !in.hasSubject)
+		pin := glyphToggle(c, icPin, inspectorText("inspectorPin"), inspectorText("inspectorPinTip"), in.pinned, !in.hasSubject)
 		if pin.Clicked() {
 			a.pinInspector()
 		}

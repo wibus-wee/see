@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 
 	"see/internal/git"
@@ -121,21 +122,21 @@ func (a *App) syncButtons(c *ui.Context) {
 	if a.git.upstream != "" {
 		tracks = " (" + a.git.upstream + ")"
 	}
-	pull := "Pull" + tracks
+	pull := locales.MsgPull() + tracks
 	if a.git.behind > 0 {
-		pull = fmt.Sprintf("Pull %d incoming commit%s%s", a.git.behind, plural(a.git.behind), tracks)
+		pull = locales.Catalog.Format(i18n.Locale(), "msgPullDIncomingCommits", map[string]any{"count": a.git.behind, "tracks": tracks})
 	}
-	if countButton(c, icPull, "Pull", pull, a.git.behind, a.git.busy || a.git.upstream == "").Clicked() {
+	if countButton(c, icPull, locales.MsgPull(), pull, a.git.behind, a.git.busy || a.git.upstream == "").Clicked() {
 		a.gitPull()
 	}
-	push := "Push" + tracks
+	push := locales.MsgPush() + tracks
 	switch {
 	case a.git.ahead > 0:
-		push = fmt.Sprintf("Push %d commit%s%s", a.git.ahead, plural(a.git.ahead), tracks)
+		push = locales.Catalog.Format(i18n.Locale(), "msgPushDCommits", map[string]any{"count": a.git.ahead, "tracks": tracks})
 	case a.git.upstream == "":
-		push = "Push " + a.git.branch + " to " + a.git.remotes[0]
+		push = locales.Catalog.Format(i18n.Locale(), "msgPushSToTheRemoteS", map[string]any{"branch": a.git.branch, "remote": a.git.remotes[0]})
 	}
-	if countButton(c, icPush, "Push", push, a.git.ahead, a.git.busy).Clicked() {
+	if countButton(c, icPush, locales.MsgPush(), push, a.git.ahead, a.git.busy).Clicked() {
 		a.gitPush()
 	}
 }

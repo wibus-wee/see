@@ -10,8 +10,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 	"see/internal/hexview"
+	"see/locales"
 )
 
 const maxHexCopy = 1 << 20
@@ -95,20 +97,20 @@ func (a *App) findHex(d *doc, s *hexControl, list *ui.ListState) {
 			s.cancel = nil
 			s.searching = false
 			if errors.Is(err, context.Canceled) {
-				s.message = "Search canceled."
+				s.message = locales.MsgSearchCanceled()
 				return
 			}
 			if errors.Is(err, hexview.ErrNotFound) {
-				s.message = "No match after the current byte."
+				s.message = locales.MsgNoMatchAfterTheCurrentByte()
 				return
 			}
 			if err != nil {
-				s.message = "Search failed: " + err.Error()
+				s.message = locales.MsgSearchFailed() + err.Error()
 				return
 			}
 			s.selectByte(off, false)
 			s.cursor = off + int64(len(pattern)) - 1
-			s.message = fmt.Sprintf("Match at 0x%X", off)
+			s.message = locales.Catalog.Format(i18n.Locale(), "msgMatchAtX", map[string]any{"offset": fmt.Sprintf("0x%X", off)})
 			list.ScrollTo(int(off/hexview.RowBytes), ui.Center)
 		})
 	}()
@@ -119,7 +121,7 @@ func (a *App) copyHex(d *doc, s *hexControl, services ui.Services) {
 	}
 	start, end := s.bounds()
 	if end-start > maxHexCopy {
-		s.message = "Select at most 1 MiB to copy."
+		s.message = locales.MsgSelectAtMostAMiBToCopy()
 		return
 	}
 	path, gen, version := d.path, a.gen, d.seq
@@ -136,7 +138,7 @@ func (a *App) copyHex(d *doc, s *hexControl, services ui.Services) {
 				return
 			}
 			if err != nil {
-				s.message = "Could not copy bytes: " + err.Error()
+				s.message = locales.MsgCouldNotCopyBytes() + err.Error()
 				return
 			}
 			encoded := strings.ToUpper(hex.EncodeToString(data))
@@ -149,7 +151,7 @@ func (a *App) copyHex(d *doc, s *hexControl, services ui.Services) {
 				b.WriteString(encoded[i : i+2])
 			}
 			services.WriteClipboard(b.String())
-			s.message = fmt.Sprintf("Copied %d bytes as hex.", len(data))
+			s.message = locales.Catalog.Format(i18n.Locale(), "msgCopiedDBytesAsHex", map[string]any{"count": len(data)})
 		})
 	}()
 }

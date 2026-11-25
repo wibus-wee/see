@@ -7,6 +7,7 @@ import (
 	"see/locales"
 	"strings"
 
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 
@@ -112,18 +113,18 @@ func (a *App) linkItems(menu *ui.Menu, d *doc, st *editor.State) {
 		return
 	}
 	menu.Separator()
-	if menu.Item("Copy Code Reference").Chosen() {
+	if menu.Item(locales.MsgCopyCodeReference()).Chosen() {
 		ref := a.codeReference(d, st)
 		a.services.WriteClipboard(ref)
 		a.note(locales.MsgCopied()+ref+".", false)
 	}
 	if link := a.webLink(d, st); link != "" {
 		host := hostName(a.git.web)
-		if menu.Item("Copy " + host + " Link").Chosen() {
+		if menu.Item(locales.Catalog.Format(i18n.Locale(), "msgCopySHostLink", map[string]any{"host": host})).Chosen() {
 			a.services.WriteClipboard(link)
 			a.note(locales.MsgCopiedThe()+host+locales.MsgLink(), false)
 		}
-		if menu.Item("Open on " + host).Chosen() {
+		if menu.Item(locales.Catalog.Format(i18n.Locale(), "msgOpenOnHost", map[string]any{"host": host})).Chosen() {
 			a.services.OpenURL(link)
 		}
 	}

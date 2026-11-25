@@ -18,6 +18,7 @@ import (
 	"github.com/egoist/mygo/ui/editor"
 
 	"see/internal/lsp"
+	"see/locales"
 )
 
 const scopeEditFixture = "package demo\n\nfunc render() {\n\t名字 := \"🌿\"\n\tprintln(\"🎉\", 名字)\n\t{\n\t\t名字 := \"shadow\"\n\t\tprintln(名字)\n\t}\n\tprintln(\"🎉\", 名字)\n}\n"
@@ -194,7 +195,7 @@ func TestEditAllInScopeAfterClosingBytesPreview(t *testing.T) {
 	st.GoTo(d.buf.Pos(offsets[1]))
 	h.tt.Frame()
 
-	if err := h.tt.Click("Show File Bytes"); err != nil {
+	if err := h.tt.Click(locales.MsgFileBytes()); err != nil {
 		t.Fatal(err)
 	}
 	h.tt.Frame()
@@ -205,7 +206,7 @@ func TestEditAllInScopeAfterClosingBytesPreview(t *testing.T) {
 		t.Fatal("Edit All in Scope should be disabled while the byte preview is active")
 	}
 
-	if err := h.tt.Click("Show File"); err != nil {
+	if err := h.tt.Click(locales.MsgFileText()); err != nil {
 		t.Fatal(err)
 	}
 	h.tt.Frame()
