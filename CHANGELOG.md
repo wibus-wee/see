@@ -2,6 +2,23 @@
 
 User-facing changes are grouped by release. Earlier releases are documented on the [Releases page](https://github.com/wibus-wee/see/releases).
 
+## 0.3.8
+
+### Added
+
+- Follow relative links in Markdown previews and Cmd+click links in Markdown source, opening the target file at the line or heading named by the fragment.
+
+### Changed
+
+- Use a clearer glass material for popovers and drawn picker menus, so content behind them reads through.
+- Show file-type icons in the editor language menu.
+- Configure wrapping for all languages in a single per-language list in Editor settings.
+- Flatten inspector sections into Xcode-style rows separated by hairlines instead of boxed cards.
+
+### Fixed
+
+- Keep navigator icons at fixed spacing in narrow sidebars; the selector scrolls horizontally without a visible scrollbar.
+
 ## 0.3.7
 
 ### Added
