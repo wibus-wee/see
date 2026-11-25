@@ -105,6 +105,12 @@ type gitDiffTab struct {
 	untracked bool
 	pending   bool // restored, and waiting to be read
 	change    bool // compares a repository's working tree or index
+	// lineSel is the last line range selected on the diff, in the
+	// diff's own line numbers; lineFile is the file it is of when the
+	// tab shows more than one, as a branch comparison's, "" otherwise.
+	lineSel  editor.DiffLineRange
+	lineSelOn bool
+	lineFile  string
 }
 
 // label tells what a diff compares: the commit, the index or the
