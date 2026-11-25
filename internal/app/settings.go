@@ -1229,6 +1229,7 @@ func (a *App) advancedPane(c *ui.Context) {
 				def.SetPath(a.cfg.Path())
 				def.SavedFindQueries = a.cfg.SavedFindQueries
 				*a.cfg = *def
+				a.applyEditorPrefsAll()
 				a.settingsChanged()
 			}
 		},
