@@ -122,6 +122,38 @@ func TestCallHierarchyIncoming(t *testing.T) {
 	}
 }
 
+func TestCallHierarchyRowClickPreviewsAndDoubleClickOpens(t *testing.T) {
+	h, d := callHierarchyHarness(t)
+	st := h.a.activeEditor()
+	st.GoTo(d.buf.Pos(strings.Index(d.buf.String(), "call()") + 1))
+	h.a.showCallHierarchy()
+	callRootReady(t, h, "main")
+	h.tt.Frame()
+
+	if err := h.tt.Click("main"); err != nil {
+		t.Fatalf("clicking a call row: %v", err)
+	}
+	h.tt.Frame()
+	cs := &h.a.calls
+	if cs.row != 1 || cs.preview == nil || cs.previewFor != 1 {
+		t.Fatalf("clicking a call row did not select and preview it: row=%d preview=%v for=%d", cs.row, cs.preview != nil, cs.previewFor)
+	}
+	if len(cs.preview.LineBackgrounds) != 1 || cs.preview.LineBackgrounds[0].First != 0 {
+		t.Fatalf("preview did not mark the call line: %+v", cs.preview.LineBackgrounds)
+	}
+
+	if err := h.tt.Click("main"); err != nil {
+		t.Fatalf("double-clicking a call row: %v", err)
+	}
+	if err := h.tt.Click("main"); err != nil {
+		t.Fatalf("double-clicking a call row: %v", err)
+	}
+	h.tt.Frame()
+	if pos := st.CursorPos(); pos.Line != 0 || pos.Col != 8 {
+		t.Fatalf("double-clicking a call row moved to %+v", pos)
+	}
+}
+
 func TestCallHierarchyOutgoingAndLazyExpansion(t *testing.T) {
 	h, d := callHierarchyHarness(t)
 	st := h.a.activeEditor()
