@@ -210,7 +210,7 @@ func (a *App) regexPlaygroundBody(c *ui.Context, p *regexPlayground, width, heig
 			}
 			p.refresh(c)
 			if p.pattern != "" {
-				a.regexPlaygroundDiagram(c, p, width-20, min(float32(112), max(float32(72), height*0.27)))
+				a.regexPlaygroundDiagram(c, p, width-20, regexPlaygroundDiagramMaxHeight(height))
 			}
 			if width < 580 {
 				ui.Column(c).Grow(1).FillWidth().MinHeight(0).Gap(0).BorderWidth(1, 0, 0, 0).BorderColor(colors(c).Separator).Children(func() {

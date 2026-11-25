@@ -72,7 +72,7 @@ func (a *App) regexPlaygroundDiagram(c *ui.Context, p *regexPlayground, availabl
 	viewportHeight := float32(48)
 	contentWidth, contentHeight := viewportWidth, viewportHeight
 	if p.diagramValid {
-		viewportHeight = min32(max32(layout.height, 72), maxHeight)
+		viewportHeight = regexPlaygroundDiagramViewportHeight(layout.height, maxHeight)
 		contentWidth = max32(viewportWidth, layout.width+76)
 		contentHeight = max32(viewportHeight, layout.height)
 	}
@@ -162,11 +162,22 @@ func layoutRegexRail(node regexplayground.DiagramNode, captures map[int]regexpla
 		layout.repeatLabel = regexDiagramRepeatLabel(node)
 		layout.width = max32(childWidth+28, regexRailTextWidth(layout.repeatLabel, 11)+14)
 		layout.height = childHeight + 36
+		if node.RepeatMin == 0 && node.RepeatMax == 1 {
+			layout.height = childHeight + 20
+		}
 		layout.positions = []regexRailPoint{{x: (layout.width - childWidth) / 2, y: (layout.height - childHeight) / 2}}
 	default:
 		layout.width, layout.height = 38, 28
 	}
 	return layout
+}
+
+func regexPlaygroundDiagramMaxHeight(bodyHeight float32) float32 {
+	return min32(112, max32(72, bodyHeight*0.30))
+}
+
+func regexPlaygroundDiagramViewportHeight(layoutHeight, maxHeight float32) float32 {
+	return min32(max32(layoutHeight, 72), maxHeight)
 }
 
 func regexDiagramClassLabel(class regexplayground.DiagramClass) string {
@@ -359,7 +370,7 @@ func drawRegexRailNode(paint *ui.Painter, layout regexRailLayout, x, y, scale fl
 			drawRailArrowDown(paint, left, childMid, scale, lineColor)
 		}
 		if layout.node.RepeatMin == 0 {
-			bottom := y + height - 3*scale
+			bottom := regexRailOptionalBypassBottom(y, height, scale)
 			var bypass ui.Path
 			bypass.MoveTo(x+2*scale, mid).CubeTo(x+10*scale, mid, x+10*scale, bottom, x+18*scale, bottom)
 			bypass.LineTo(x+width-18*scale, bottom).CubeTo(x+width-10*scale, bottom, x+width-10*scale, mid, x+width-2*scale, mid)
@@ -383,6 +394,10 @@ func drawRegexRailNode(paint *ui.Painter, layout regexRailLayout, x, y, scale fl
 		textWidth := regexRailTextWidth(label, 11) * scale
 		paint.Text(box.X+(box.W-textWidth)/2, box.Y+5*scale, label, 11*scale, textColor)
 	}
+}
+
+func regexRailOptionalBypassBottom(y, height, scale float32) float32 {
+	return y + height - 3*scale
 }
 
 func drawRegexRailSequenceConnections(paint *ui.Painter, layout regexRailLayout, x, y, mid, width, scale float32, color ui.Color) {

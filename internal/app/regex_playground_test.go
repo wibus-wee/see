@@ -51,6 +51,43 @@ func TestRegexDiagramRepeatLabelsPreserveBoundsAndLaziness(t *testing.T) {
 	}
 }
 
+func TestRegexDiagramOptionalBypassFitsDefaultAndEnlargedTools(t *testing.T) {
+	diagram, err := regexplayground.ParseDiagram(`(?P<word>\p{L}+)([0-9]+)?`, regexplayground.Flags{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var layout regexRailLayout
+	tt := ui.NewTester(func(c *ui.Context) {
+		layout = layoutRegexRail(diagram.Root, nil, false, c)
+	}, 680, 420)
+	tt.Frame()
+	if layout.node.Kind != regexplayground.DiagramSequence || len(layout.children) != 2 || len(layout.positions) != 2 || layout.children[1].node.Kind != regexplayground.DiagramRepeat {
+		t.Fatalf("expected sequence ending in optional repeat, got %+v", layout.node)
+	}
+	optional := layout.children[1]
+	if optional.node.RepeatMin != 0 || optional.node.RepeatMax != 1 {
+		t.Fatalf("expected optional digit branch, got %+v", optional.node)
+	}
+
+	for _, tool := range []struct {
+		name   string
+		height float32
+	}{
+		{name: "default 680x420", height: 420},
+		{name: "enlarged 920x620", height: 620},
+	} {
+		maxHeight := regexPlaygroundDiagramMaxHeight(tool.height - 40)
+		viewportHeight := regexPlaygroundDiagramViewportHeight(layout.height, maxHeight)
+		bypassBottom := regexRailOptionalBypassBottom(layout.positions[1].y, optional.height, 1) + 0.9
+		if layout.height > viewportHeight {
+			t.Errorf("%s tool clips diagram content: diagram %.1f, viewport %.1f", tool.name, layout.height, viewportHeight)
+		}
+		if bypassBottom > viewportHeight {
+			t.Errorf("%s tool clips optional bypass: bypass bottom %.1f, viewport %.1f (diagram %.1f)", tool.name, bypassBottom, viewportHeight, layout.height)
+		}
+	}
+}
+
 func TestRegexPlaygroundDiagramClearsAndRecovers(t *testing.T) {
 	const pattern = `(?P<word>\p{L}+)([0-9]+)?`
 	p := &regexPlayground{pattern: pattern}
