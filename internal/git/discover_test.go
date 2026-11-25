@@ -32,6 +32,13 @@ func TestDiscoverRepositoriesFindsWorkspaceAndDirectChildren(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := []string{workspace, frontend, backend}
+	for i, path := range want {
+		resolved, err := filepath.EvalSymlinks(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want[i] = filepath.Clean(resolved)
+	}
 	slices.Sort(want)
 	if !slices.Equal(got, want) {
 		t.Fatalf("repositories = %v, want %v", got, want)

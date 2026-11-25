@@ -15,7 +15,7 @@ import (
 	"see/locales"
 )
 
-func nestedGitRepo(t *testing.T, root, name, base, changed string) {
+func nestedGitRepo(t *testing.T, root, name, base, changed string) string {
 	t.Helper()
 	if err := os.MkdirAll(root, 0o700); err != nil {
 		t.Fatal(err)
@@ -25,6 +25,11 @@ func nestedGitRepo(t *testing.T, root, name, base, changed string) {
 	gitRun(t, root, "add", name)
 	gitRun(t, root, "commit", "-qm", filepath.Base(root)+" first")
 	writeFile(t, root, name, changed)
+	resolved, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resolved
 }
 
 func TestGitRepositoriesNavigator(t *testing.T) {
@@ -95,10 +100,8 @@ func TestGitRepositoriesTabsUseKeyboardAndSelectedState(t *testing.T) {
 
 func TestChildGitRepositoryDiscoveryIsOptInAndSelectionStaysExplicit(t *testing.T) {
 	workspace := t.TempDir()
-	frontend := filepath.Join(workspace, "frontend")
-	backend := filepath.Join(workspace, "backend")
-	nestedGitRepo(t, frontend, "frontend.txt", "frontend base\n", "frontend change\n")
-	nestedGitRepo(t, backend, "backend.txt", "backend base\n", "backend change\n")
+	frontend := nestedGitRepo(t, filepath.Join(workspace, "frontend"), "frontend.txt", "frontend base\n", "frontend change\n")
+	backend := nestedGitRepo(t, filepath.Join(workspace, "backend"), "backend.txt", "backend base\n", "backend change\n")
 
 	h := newHarnessWithConfig(t, workspace, &config.Config{ConfirmClose: true})
 	h.readGit()
@@ -151,10 +154,8 @@ func TestChildGitRepositoryDiscoveryIsOptInAndSelectionStaysExplicit(t *testing.
 
 func TestGitRepositorySelectionRejectsStaleAsyncResults(t *testing.T) {
 	workspace := t.TempDir()
-	frontend := filepath.Join(workspace, "frontend")
-	backend := filepath.Join(workspace, "backend")
-	nestedGitRepo(t, frontend, "frontend.txt", "base\n", "changed\n")
-	nestedGitRepo(t, backend, "backend.txt", "base\n", "changed\n")
+	frontend := nestedGitRepo(t, filepath.Join(workspace, "frontend"), "frontend.txt", "base\n", "changed\n")
+	backend := nestedGitRepo(t, filepath.Join(workspace, "backend"), "backend.txt", "base\n", "changed\n")
 	h := newHarnessWithConfig(t, "", &config.Config{ConfirmClose: true})
 	h.a.cfg.GitAutoDiscover = true
 	h.a.root = workspace

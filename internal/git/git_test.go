@@ -70,8 +70,12 @@ func TestSync(t *testing.T) {
 	if err != nil || s.Branch != "main" || s.Head != "" || len(s.Changes) != 1 || s.Changes[0].Index != '?' {
 		t.Fatalf("unborn: %+v %v", s, err)
 	}
-	if s.Root != filepath.Clean(root) {
-		t.Fatalf("repository root = %q, want normalized path %q", s.Root, filepath.Clean(root))
+	resolvedRoot, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if s.Root != filepath.Clean(resolvedRoot) {
+		t.Fatalf("repository root = %q, want normalized path %q", s.Root, filepath.Clean(resolvedRoot))
 	}
 
 	run("add", "new")
