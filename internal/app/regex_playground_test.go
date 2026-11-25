@@ -330,7 +330,7 @@ func TestRegexPlaygroundCaptureBackgroundsUseUnicodeRangesAndIgnoreZeroWidth(t *
 	}
 }
 
-func TestRegexPlaygroundStaysWithItsDocumentAndGroup(t *testing.T) {
+func TestRegexPlaygroundStaysVisibleAcrossTabsAndGroups(t *testing.T) {
 	h := newHarness(t, writeTree(t, map[string]string{
 		"a.go": "package a\nimport \"regexp\"\nvar re = regexp.MustCompile(`word`)\n",
 		"b.go": "package b\n",
@@ -346,19 +346,19 @@ func TestRegexPlaygroundStaysWithItsDocumentAndGroup(t *testing.T) {
 		t.Fatal("playground did not open for its source document")
 	}
 	h.open("b.go")
-	if h.tt.HasText(locales.RegexPlaygroundTitle()) {
-		t.Fatal("playground appeared over another tab")
+	if !h.tt.HasText(locales.RegexPlaygroundTitle()) {
+		t.Fatal("workspace playground disappeared after switching tabs")
 	}
 	h.a.activateIn(g, d.path)
 	h.tt.Frame()
 	if h.a.regexPlayground != p || !h.tt.HasText(locales.RegexPlaygroundTitle()) {
-		t.Fatal("returning to the source tab did not restore its playground")
+		t.Fatal("workspace playground changed when returning to the source tab")
 	}
 	h.a.splitActive(sideRight)
 	other := h.a.focus
 	h.tt.Frame()
 	if p.group != g || p.doc != d || other == g || textCount(h.tt.Texts(), locales.RegexPlaygroundTitle()) != 1 {
-		t.Fatal("playground was not isolated to its original group and document")
+		t.Fatal("playground was not rendered once across the editor workspace")
 	}
 	if d.buf.String() != "package a\nimport \"regexp\"\nvar re = regexp.MustCompile(`word`)\n" || len(h.a.dirtyDocs()) != 0 {
 		t.Fatal("tab or group changes modified source")

@@ -9550,6 +9550,110 @@ func (msgs Messages) RegexPlaygroundTitle() string {
 	return Catalog.Format(msgs.locale, "regexPlaygroundTitle", nil)
 }
 
+// RegexToolDock says "Dock to Bottom"
+// in the language the app shows.
+func RegexToolDock() string { return In(i18n.Locale()).RegexToolDock() }
+
+// RegexToolDock says "Dock to Bottom"
+// in the language of msgs.
+func (msgs Messages) RegexToolDock() string { return Catalog.Format(msgs.locale, "regexToolDock", nil) }
+
+// RegexToolUndock says "Undock"
+// in the language the app shows.
+func RegexToolUndock() string { return In(i18n.Locale()).RegexToolUndock() }
+
+// RegexToolUndock says "Undock"
+// in the language of msgs.
+func (msgs Messages) RegexToolUndock() string {
+	return Catalog.Format(msgs.locale, "regexToolUndock", nil)
+}
+
+// RegexToolDockTooltip says "Dock the Regex Playground to the bottom of the editor area"
+// in the language the app shows.
+func RegexToolDockTooltip() string { return In(i18n.Locale()).RegexToolDockTooltip() }
+
+// RegexToolDockTooltip says "Dock the Regex Playground to the bottom of the editor area"
+// in the language of msgs.
+func (msgs Messages) RegexToolDockTooltip() string {
+	return Catalog.Format(msgs.locale, "regexToolDockTooltip", nil)
+}
+
+// RegexToolUndockTooltip says "Undock the Regex Playground into a floating window"
+// in the language the app shows.
+func RegexToolUndockTooltip() string { return In(i18n.Locale()).RegexToolUndockTooltip() }
+
+// RegexToolUndockTooltip says "Undock the Regex Playground into a floating window"
+// in the language of msgs.
+func (msgs Messages) RegexToolUndockTooltip() string {
+	return Catalog.Format(msgs.locale, "regexToolUndockTooltip", nil)
+}
+
+// RegexToolWindow says "Regex Playground window" in the language the app shows.
+func RegexToolWindow() string { return In(i18n.Locale()).RegexToolWindow() }
+func (msgs Messages) RegexToolWindow() string {
+	return Catalog.Format(msgs.locale, "regexToolWindow", nil)
+}
+
+// RegexToolTitlebar says "Move Regex Playground window" in the language the app shows.
+func RegexToolTitlebar() string { return In(i18n.Locale()).RegexToolTitlebar() }
+func (msgs Messages) RegexToolTitlebar() string {
+	return Catalog.Format(msgs.locale, "regexToolTitlebar", nil)
+}
+
+// RegexToolDockDivider says "Resize docked Regex Playground" in the language the app shows.
+func RegexToolDockDivider() string { return In(i18n.Locale()).RegexToolDockDivider() }
+func (msgs Messages) RegexToolDockDivider() string {
+	return Catalog.Format(msgs.locale, "regexToolDockDivider", nil)
+}
+
+// RegexToolResizeNorth says "Resize top edge" in the language the app shows.
+func RegexToolResizeNorth() string { return In(i18n.Locale()).RegexToolResizeNorth() }
+func (msgs Messages) RegexToolResizeNorth() string {
+	return Catalog.Format(msgs.locale, "regexToolResizeNorth", nil)
+}
+
+// RegexToolResizeSouth says "Resize bottom edge" in the language the app shows.
+func RegexToolResizeSouth() string { return In(i18n.Locale()).RegexToolResizeSouth() }
+func (msgs Messages) RegexToolResizeSouth() string {
+	return Catalog.Format(msgs.locale, "regexToolResizeSouth", nil)
+}
+
+// RegexToolResizeWest says "Resize left edge" in the language the app shows.
+func RegexToolResizeWest() string { return In(i18n.Locale()).RegexToolResizeWest() }
+func (msgs Messages) RegexToolResizeWest() string {
+	return Catalog.Format(msgs.locale, "regexToolResizeWest", nil)
+}
+
+// RegexToolResizeEast says "Resize right edge" in the language the app shows.
+func RegexToolResizeEast() string { return In(i18n.Locale()).RegexToolResizeEast() }
+func (msgs Messages) RegexToolResizeEast() string {
+	return Catalog.Format(msgs.locale, "regexToolResizeEast", nil)
+}
+
+// RegexToolResizeNorthWest says "Resize top-left corner" in the language the app shows.
+func RegexToolResizeNorthWest() string { return In(i18n.Locale()).RegexToolResizeNorthWest() }
+func (msgs Messages) RegexToolResizeNorthWest() string {
+	return Catalog.Format(msgs.locale, "regexToolResizeNorthWest", nil)
+}
+
+// RegexToolResizeNorthEast says "Resize top-right corner" in the language the app shows.
+func RegexToolResizeNorthEast() string { return In(i18n.Locale()).RegexToolResizeNorthEast() }
+func (msgs Messages) RegexToolResizeNorthEast() string {
+	return Catalog.Format(msgs.locale, "regexToolResizeNorthEast", nil)
+}
+
+// RegexToolResizeSouthWest says "Resize bottom-left corner" in the language the app shows.
+func RegexToolResizeSouthWest() string { return In(i18n.Locale()).RegexToolResizeSouthWest() }
+func (msgs Messages) RegexToolResizeSouthWest() string {
+	return Catalog.Format(msgs.locale, "regexToolResizeSouthWest", nil)
+}
+
+// RegexToolResizeSouthEast says "Resize bottom-right corner" in the language the app shows.
+func RegexToolResizeSouthEast() string { return In(i18n.Locale()).RegexToolResizeSouthEast() }
+func (msgs Messages) RegexToolResizeSouthEast() string {
+	return Catalog.Format(msgs.locale, "regexToolResizeSouthEast", nil)
+}
+
 // RegexPattern says "Pattern"
 // in the language the app shows.
 func RegexPattern() string { return In(i18n.Locale()).RegexPattern() }

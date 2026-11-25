@@ -85,6 +85,11 @@ func (a *App) captureSession() {
 		a.cfg.Workspaces = make(map[string]config.Workspace)
 	}
 	workspace := config.Workspace{Layout: snapshot(a.layout), SidebarHidden: a.sidebarOff, Navigator: a.navigator, ChangesClosed: a.git.changesClosed, StashesClosed: a.git.stashesClosed, HistoryClosed: a.git.historyClosed, GitSplit: a.git.split, GitLogSplit: a.git.logSplit, WindowWidth: a.windowWidth, WindowHeight: a.windowHeight, Bookmarks: a.sessionBookmarks()}
+	workspace.RegexToolDocked, workspace.RegexToolDockHeight = a.regexToolWindow.docked, a.regexToolWindow.dockHeight
+	if a.regexToolWindow.initialized {
+		workspace.RegexToolX, workspace.RegexToolY = a.regexToolWindow.rect.X, a.regexToolWindow.rect.Y
+		workspace.RegexToolWidth, workspace.RegexToolHeight = a.regexToolWindow.rect.W, a.regexToolWindow.rect.H
+	}
 	workspace.Terminals, workspace.ActiveTerminal, workspace.PanelOpen = a.termSession()
 	if a.root == "" {
 		a.mergeStandaloneSession(workspace)
@@ -142,6 +147,9 @@ func (a *App) mergeStandaloneSession(current config.Workspace) {
 		previous.SidebarHidden, previous.Navigator = current.SidebarHidden, current.Navigator
 		previous.WindowWidth, previous.WindowHeight = current.WindowWidth, current.WindowHeight
 	}
+	previous.RegexToolX, previous.RegexToolY = current.RegexToolX, current.RegexToolY
+	previous.RegexToolWidth, previous.RegexToolHeight = current.RegexToolWidth, current.RegexToolHeight
+	previous.RegexToolDocked, previous.RegexToolDockHeight = current.RegexToolDocked, current.RegexToolDockHeight
 	a.cfg.Workspaces[""] = previous
 }
 
@@ -189,7 +197,11 @@ func (a *App) restoreSession() {
 		return
 	}
 	s, ok := a.cfg.Workspaces[a.root]
-	if !ok || s.Layout == nil {
+	if !ok {
+		return
+	}
+	a.restoreRegexToolWindow(s)
+	if s.Layout == nil {
 		return
 	}
 	a.restoringSession = true

@@ -29,7 +29,7 @@ func (a *App) editorArea(c *ui.Context) {
 	if target := a.focusGroupTarget; target != nil && (a.layout.find(target) == nil || target.focusHandle.FocusWithin(c)) {
 		a.focusGroupTarget = nil
 	}
-	ui.Column(c).Fill().Background(colors(c).Editor).Children(func() {
+	a.regexToolArea(c, a.regexPlayground, func() {
 		ui.Row(c).Fill().AlignItems(ui.Stretch).Children(func() {
 			ui.Column(c).Grow(1).FillHeight().Children(func() {
 				a.editorsAndPanel(c, func() {
@@ -588,9 +588,6 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 				a.peekView(c, p)
 			})
 		}
-		if p := a.regexPlayground; p != nil && p.group == g && p.doc == d {
-			a.regexPlaygroundView(c, bounds, st, p)
-		}
 		if ch := a.choices; ch != nil && ch.g == g && ch.from.Path == d.path {
 			closeLabel := "Close References Preview"
 			if ch.title == "definitions" {
@@ -616,8 +613,6 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 		a.renameStrip(c, bounds, st, d, gutter)
 		a.codeActionLightbulb(c, g, d, st, bounds, gutter, fontSize, lineHeight)
 		switch {
-		case a.regexPlayground != nil && a.regexPlayground.group == g && a.regexPlayground.doc == d:
-			// The sample editor owns focus while its playground is open.
 		case a.focusEditor == st || a.focusGroupTarget == g:
 			// A navigation went here: the keys read on from it.
 			ed.Focus()

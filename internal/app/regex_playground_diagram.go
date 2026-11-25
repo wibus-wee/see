@@ -51,7 +51,7 @@ func regexCapturePalette(c *ui.Context, number int) regexCaptureColor {
 	return light[index]
 }
 
-func (a *App) regexPlaygroundDiagram(c *ui.Context, p *regexPlayground, availableWidth float32) {
+func (a *App) regexPlaygroundDiagram(c *ui.Context, p *regexPlayground, availableWidth, maxHeight float32) {
 	var selected *regexplayground.Match
 	captures := map[int]regexplayground.Capture{}
 	if p.selected >= 0 && p.selected < len(p.result.Matches) {
@@ -72,7 +72,7 @@ func (a *App) regexPlaygroundDiagram(c *ui.Context, p *regexPlayground, availabl
 	viewportHeight := float32(48)
 	contentWidth, contentHeight := viewportWidth, viewportHeight
 	if p.diagramValid {
-		viewportHeight = min32(max32(layout.height, 72), 148)
+		viewportHeight = min32(max32(layout.height, 72), maxHeight)
 		contentWidth = max32(viewportWidth, layout.width+76)
 		contentHeight = max32(viewportHeight, layout.height)
 	}
