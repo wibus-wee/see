@@ -2,6 +2,21 @@
 
 User-facing changes are grouped by release. Earlier releases are documented on the [Releases page](https://github.com/wibus-wee/see/releases).
 
+## 0.3.9
+
+### Added
+
+- Hover a line's trailing inline blame to see the commit author, date, message, and hash in a quiet Quick Help-style card; choose the hash to open the commit in Git Log. The card also works in plain-text files and untrusted workspaces.
+- Find commands in the palette by their stable dotted id or English name in any UI language, and see the dotted id under each command title.
+
+### Fixed
+
+- Select and preview the chosen call when clicking a row in Call Hierarchy.
+- Show the editor's Cmd-hover link immediately while holding Cmd, rather than waiting for a language-server hover response.
+- Keep inlay type and parameter hints visible while scrolling instead of flickering off until each new language-server response.
+- Apply the editor line-height preference to row layout, including after preference resets and across workspace windows.
+- On Linux, show the launcher when See starts from the desktop and avoid quitting the app when switching projects from the titlebar menu.
+
 ## 0.3.8
 
 ### Added
