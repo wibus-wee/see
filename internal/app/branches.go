@@ -85,11 +85,11 @@ func (a *App) openBranchPicker(at ui.Rect) {
 	p.compare, p.target = false, nil
 	p.list.Selected = &p.sel
 	p.seq++
-	seq, gen, ctx, root := p.seq, a.gen, a.wsCtx, a.git.root
+	seq, gen, scopeSeq, ctx, root := p.seq, a.gen, a.git.scopeSeq, a.wsCtx, a.git.root
 	go func() {
 		bs, err := git.Branches(ctx, root)
 		a.post.Post(func() {
-			if a.gen != gen || p.seq != seq {
+			if a.gen != gen || a.git.scopeSeq != scopeSeq || p.seq != seq {
 				return
 			}
 			p.loading, p.branches = false, bs
@@ -365,11 +365,11 @@ func (a *App) runBranchJob(done string, job func() error) {
 		return
 	}
 	a.git.busy = true
-	gen := a.gen
+	gen, scopeSeq := a.gen, a.git.scopeSeq
 	go func() {
 		err := job()
 		a.post.Post(func() {
-			if a.gen != gen {
+			if a.gen != gen || a.git.scopeSeq != scopeSeq {
 				return
 			}
 			a.git.busy = false

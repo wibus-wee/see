@@ -407,11 +407,11 @@ func (a *App) syncInspectorHistory() {
 		return
 	}
 	h.loading = true
-	seq, gen, ctx, root, path := h.seq, a.gen, a.wsCtx, a.git.root, rel
+	seq, gen, scopeSeq, ctx, root, path := h.seq, a.gen, a.git.scopeSeq, a.wsCtx, a.git.root, rel
 	go func() {
 		commits, err := git.LogFile(ctx, root, false, 0, inspectorHistoryPage, path)
 		a.post.Post(func() {
-			if a.gen != gen || h.seq != seq {
+			if a.gen != gen || a.git.scopeSeq != scopeSeq || h.seq != seq {
 				return
 			}
 			h.loading = false

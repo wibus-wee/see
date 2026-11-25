@@ -143,11 +143,11 @@ func (a *App) stashRow(c *ui.Context, s git.Stash, now time.Time) {
 // openStash shows a stash's changes in a commit tab: a stash is a commit
 // whose first parent is the commit it was taken on.
 func (a *App) openStash(s git.Stash) {
-	gen, ctx, root := a.gen, a.wsCtx, a.git.root
+	gen, scopeSeq, ctx, root := a.gen, a.git.scopeSeq, a.wsCtx, a.git.root
 	go func() {
 		cm, err := git.ReadCommit(ctx, root, s.Hash)
 		a.post.Post(func() {
-			if a.gen != gen {
+			if a.gen != gen || a.git.scopeSeq != scopeSeq {
 				return
 			}
 			if err != nil {

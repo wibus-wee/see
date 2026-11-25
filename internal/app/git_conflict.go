@@ -86,11 +86,11 @@ func (a *App) loadGitConflict(v *gitDiffTab) {
 		return
 	}
 	*m = gitConflictView{loading: true}
-	ctx, root, gen, name := a.wsCtx, a.git.root, a.gen, v.name
+	ctx, root, gen, scopeSeq, name := a.wsCtx, a.git.root, a.gen, a.git.scopeSeq, v.name
 	go func() {
 		file, err := git.LoadConflict(ctx, root, name)
 		a.post.Post(func() {
-			if a.gen != gen || a.git.root != root {
+			if a.gen != gen || a.git.scopeSeq != scopeSeq || a.git.root != root {
 				return
 			}
 			m.loading, m.file, m.err = false, file, err
@@ -149,7 +149,7 @@ func (a *App) saveGitConflict(v *gitDiffTab) {
 	if a.git.busy || m.file == nil || m.err != nil || len(m.choices) == 0 || m.resolved != len(m.choices) || a.git.root == "" {
 		return
 	}
-	ctx, root, gen := a.wsCtx, a.git.root, a.gen
+	ctx, root, gen, scopeSeq := a.wsCtx, a.git.root, a.gen, a.git.scopeSeq
 	path := workspace.DocPath(a.root, a.realRoot, filepath.Join(root, filepath.FromSlash(v.name)))
 	if d := a.docs[path]; d != nil && (d.saving || d.buf != nil && d.buf.Modified()) {
 		a.note(locales.MsgSaveOrCloseTheFileSUnsavedEdits(), true)
@@ -160,7 +160,7 @@ func (a *App) saveGitConflict(v *gitDiffTab) {
 	go func() {
 		err := file.Resolve(ctx, choices)
 		a.post.Post(func() {
-			if a.gen != gen {
+			if a.gen != gen || a.git.scopeSeq != scopeSeq {
 				return
 			}
 			a.git.busy, a.git.resolvingPath, m.saving = false, "", false

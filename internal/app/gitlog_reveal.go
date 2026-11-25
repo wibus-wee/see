@@ -42,11 +42,11 @@ func (a *App) resolveLogTarget(v *gitLogView) {
 		return
 	}
 	v.reading = true
-	hash, gen, root, ctx := v.pending, a.gen, a.git.root, a.wsCtx
+	hash, gen, scopeSeq, root, ctx := v.pending, a.gen, a.git.scopeSeq, a.git.root, a.wsCtx
 	go func() {
 		cm, err := git.ReadCommit(ctx, root, hash)
 		a.post.Post(func() {
-			if a.gen != gen || v.pending != hash {
+			if a.gen != gen || a.git.scopeSeq != scopeSeq || v.pending != hash {
 				return
 			}
 			v.reading, v.pending = false, ""

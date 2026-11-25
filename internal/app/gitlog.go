@@ -140,7 +140,7 @@ func (a *App) chooseLogCommit(v *gitLogView, cm git.Commit) {
 	v.selected = cm.Hash
 	lc := &logCommit{hash: cm.Hash, commit: cm, loading: true, shown: logFilesAtOnce}
 	v.detail = lc
-	gen, ctx, root := a.gen, a.wsCtx, a.git.root
+	gen, scopeSeq, ctx, root := a.gen, a.git.scopeSeq, a.wsCtx, a.git.root
 	go func() {
 		d, err := git.Show(ctx, root, cm.Hash)
 		var patches []editor.FilePatch
@@ -151,7 +151,7 @@ func (a *App) chooseLogCommit(v *gitLogView, cm git.Commit) {
 			}
 		}
 		a.post.Post(func() {
-			if a.gen != gen || v.detail != lc {
+			if a.gen != gen || a.git.scopeSeq != scopeSeq || v.detail != lc {
 				return
 			}
 			lc.loading = false

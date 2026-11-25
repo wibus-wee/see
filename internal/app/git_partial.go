@@ -186,7 +186,7 @@ func (a *App) applyGitDiffPart(v *gitDiffTab, part gitDiffPart) {
 		return
 	}
 	a.git.busy = true
-	ctx, root, gen := a.wsCtx, a.git.root, a.gen
+	ctx, root, gen, scopeSeq := a.wsCtx, a.git.root, a.gen, a.git.scopeSeq
 	name, staged, digest := v.name, v.staged, v.partial.digest
 	go func() {
 		err := applyCurrentGitDiffPart(ctx, root, name, staged, digest, part)
@@ -201,7 +201,7 @@ func (a *App) applyGitDiffPart(v *gitDiffTab, part gitDiffPart) {
 			}
 		}
 		a.post.Post(func() {
-			if a.gen != gen {
+			if a.gen != gen || a.git.scopeSeq != scopeSeq {
 				return
 			}
 			a.git.busy = false

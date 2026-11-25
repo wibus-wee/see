@@ -462,11 +462,11 @@ func (a *App) openCommit(cm git.Commit) {
 	g.preview = key
 	a.activateIn(g, key)
 	a.term.maximized = false
-	gen, ctx, root := a.gen, a.wsCtx, a.git.root
+	gen, scopeSeq, ctx, root := a.gen, a.git.scopeSeq, a.wsCtx, a.git.root
 	go func() {
 		d, err := git.Show(ctx, root, cm.Hash)
 		a.post.Post(func() {
-			if a.gen != gen {
+			if a.gen != gen || a.git.scopeSeq != scopeSeq {
 				return
 			}
 			v.loading, v.details = false, d

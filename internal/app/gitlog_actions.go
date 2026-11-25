@@ -57,11 +57,11 @@ func (a *App) revealLogRef(revision string) {
 	if a.git.root == "" {
 		return
 	}
-	gen, ctx, root := a.gen, a.wsCtx, a.git.root
+	gen, scopeSeq, ctx, root := a.gen, a.git.scopeSeq, a.wsCtx, a.git.root
 	go func() {
 		hash := git.Resolve(ctx, root, revision)
 		a.post.Post(func() {
-			if a.gen != gen {
+			if a.gen != gen || a.git.scopeSeq != scopeSeq {
 				return
 			}
 			if hash == "" {
@@ -131,11 +131,11 @@ func (a *App) jumpLogToDate() {
 		return
 	}
 	j.loading, j.err = true, ""
-	gen, ctx, root := a.gen, a.wsCtx, a.git.root
+	gen, scopeSeq, ctx, root := a.gen, a.git.scopeSeq, a.wsCtx, a.git.root
 	go func() {
 		hash, err := git.CommitBefore(ctx, root, date)
 		a.post.Post(func() {
-			if a.gen != gen {
+			if a.gen != gen || a.git.scopeSeq != scopeSeq {
 				return
 			}
 			j.loading = false
@@ -188,11 +188,11 @@ func (a *App) copyChangedPaths(cm git.Commit) {
 	if a.git.root == "" {
 		return
 	}
-	gen, ctx, root := a.gen, a.wsCtx, a.git.root
+	gen, scopeSeq, ctx, root := a.gen, a.git.scopeSeq, a.wsCtx, a.git.root
 	go func() {
 		d, err := git.Show(ctx, root, cm.Hash)
 		a.post.Post(func() {
-			if a.gen != gen {
+			if a.gen != gen || a.git.scopeSeq != scopeSeq {
 				return
 			}
 			if err != nil {

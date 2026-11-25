@@ -33,11 +33,11 @@ func (a *App) syncBlame(d *doc) {
 	if key == "" || !ok || a.wsCtx == nil {
 		return
 	}
-	seq, gen, root := d.blameSeq, a.gen, a.git.root
+	seq, gen, scopeSeq, root := d.blameSeq, a.gen, a.git.scopeSeq, a.git.root
 	ctx, cancel := context.WithCancel(a.wsCtx)
 	d.blameCancel = cancel
 	start := func() {
-		if ctx.Err() != nil || a.gen != gen || a.docs[d.path] != d || d.blameSeq != seq || d.buf.Version() != version {
+		if ctx.Err() != nil || a.gen != gen || a.git.scopeSeq != scopeSeq || a.docs[d.path] != d || d.blameSeq != seq || d.buf.Version() != version {
 			return
 		}
 		contents := []byte(d.buf.String())
@@ -49,7 +49,7 @@ func (a *App) syncBlame(d *doc) {
 				lines, err = git.Blame(ctx, root, rel, contents)
 			}
 			a.post.Post(func() {
-				if a.gen != gen || a.docs[d.path] != d || d.blameSeq != seq || d.buf.Version() != version || a.gitBaseKey(d) != key {
+				if a.gen != gen || a.git.scopeSeq != scopeSeq || a.docs[d.path] != d || d.blameSeq != seq || d.buf.Version() != version || a.gitBaseKey(d) != key {
 					return
 				}
 				d.blameReady = true
@@ -162,7 +162,7 @@ func (a *App) blameHoverContent(c *ui.Context, b git.BlameLine) {
 			})
 		}
 		section(logText("blameSectionCommit"), func() {
-			ui.Row(c).FillWidth().Gap(6).AlignItems(ui.Center).Cursor(ui.CursorPointer).Label(commandLabel("Show Line's Commit in Git Log")+": "+b.Short).OnClick(func() { a.revealLogCommit(b.Hash) }).Children(func() {
+			ui.Row(c).FillWidth().Gap(6).AlignItems(ui.Center).Cursor(ui.CursorPointer).Label(commandLabel("Show Line's Commit in Git Log") + ": " + b.Short).OnClick(func() { a.revealLogCommit(b.Hash) }).Children(func() {
 				ui.Text(c, b.Short).FontSize(13).TextColor(c.Theme().Accent).SingleLine().Shrink(0)
 				ui.Row(c).Grow(1).AlignItems(ui.Center).Justify(ui.End).Gap(3).Children(func() {
 					ui.Text(c, logText("blameViewInGitLog")).FontSize(11).TextColor(colors(c).Muted).SingleLine()

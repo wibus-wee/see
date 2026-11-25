@@ -28,6 +28,21 @@ func TestReaderModeDefaultAndPersistence(t *testing.T) {
 	}
 }
 
+func TestGitAutoDiscoverDefaultsOffAndPersists(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "config.json")
+	c := Load(p)
+	if c.GitAutoDiscover {
+		t.Fatal("nested Git repository discovery should default off")
+	}
+	c.GitAutoDiscover = true
+	if err := c.Save(); err != nil {
+		t.Fatal(err)
+	}
+	if !Load(p).GitAutoDiscover {
+		t.Fatal("nested Git repository discovery was not persisted")
+	}
+}
+
 func TestSoftWrapByLanguageDefaultsAndPersistence(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "config.json")
 	c := Load(p)

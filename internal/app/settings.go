@@ -581,6 +581,13 @@ func (a *App) generalPane(c *ui.Context) {
 			}
 		},
 		func() {
+			labeled(c, locales.AutoDiscoverGitRepositories(), locales.AutoDiscoverGitRepositoriesDescription())
+			if ui.Switch(c, &a.cfg.GitAutoDiscover).Label(locales.AutoDiscoverGitRepositories()).Changed() {
+				a.settingsChanged()
+				a.refreshGitDiscovery()
+			}
+		},
+		func() {
 			labeled(c, locales.MsgHiddenNames(), locales.MsgHideMatchingFilesAndFoldersInTheProject())
 			if ui.TextInput(c, &a.cfg.HiddenNames).Label(locales.MsgHiddenNames()).Placeholder(".DS_Store").Width(200).Changed() {
 				a.filter.forQuery = ""

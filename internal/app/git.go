@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"see/locales"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -19,6 +20,12 @@ import (
 
 type gitState struct {
 	root, branch, message  string
+	repositories           []string
+	repositoriesLoaded     bool
+	repositoryScanLoading  bool
+	repositoryScanSeq      uint64
+	refreshSeq             uint64
+	scopeSeq               uint64
 	head                   string // HEAD's commit, so committed versions are read again only when it moves
 	refs                   string
 	repository             git.RepositoryRefs
@@ -248,7 +255,11 @@ func (a *App) startGit() {
 		return
 	}
 	a.git.autoFetch = true
-	a.refreshGit()
+	if a.cfg.GitAutoDiscover {
+		a.scanGitRepositories()
+	} else {
+		a.refreshGit()
+	}
 	ctx, gen := a.wsCtx, a.gen
 	go func() {
 		t := time.NewTicker(5 * time.Second)
@@ -260,6 +271,9 @@ func (a *App) startGit() {
 			case <-t.C:
 				a.post.Post(func() {
 					if a.gen == gen {
+						if a.cfg.GitAutoDiscover {
+							a.scanGitRepositories()
+						}
 						a.refreshGit()
 					}
 				})
@@ -272,12 +286,24 @@ func (a *App) refreshGit() {
 	if a.root == "" || a.wsCtx == nil {
 		return
 	}
+	root := a.root
+	if a.cfg.GitAutoDiscover {
+		if !a.git.repositoriesLoaded {
+			a.scanGitRepositories()
+			return
+		}
+		root = a.git.root
+		if root == "" {
+			return
+		}
+	}
 	if a.git.loading || a.git.busy && !a.git.autoFetching {
 		a.git.pending = true
 		return
 	}
 	a.git.loading = true
-	ctx, root, gen := a.wsCtx, a.root, a.gen
+	a.git.refreshSeq++
+	ctx, gen, seq := a.wsCtx, a.gen, a.git.refreshSeq
 	counting := a.navigator == navGit && !a.sidebarOff
 	go func() {
 		// One status --porcelain=v2 --branch names HEAD, the branch and
@@ -290,7 +316,7 @@ func (a *App) refreshGit() {
 			stashes, _ = git.Stashes(ctx, s.Root)
 		}
 		a.post.Post(func() {
-			if a.gen != gen {
+			if a.gen != gen || a.git.refreshSeq != seq {
 				return
 			}
 			a.git.loading = false
@@ -347,6 +373,71 @@ func (a *App) refreshGit() {
 	}()
 }
 
+func (a *App) refreshGitDiscovery() {
+	a.git.repositoryScanSeq++
+	a.git.repositoryScanLoading = false
+	a.git.scopeSeq++
+	a.git.refreshSeq++
+	a.git.loading, a.git.pending, a.git.busy = false, false, false
+	a.git.autoFetching, a.git.syncing, a.git.stashing = false, "", false
+	a.git.resolvingPath = ""
+	if a.cfg.GitAutoDiscover {
+		a.git.repositoriesLoaded = false
+		a.git.err = ""
+		a.scanGitRepositories()
+		return
+	}
+	a.git.repositories = nil
+	a.git.repositoriesLoaded = false
+	a.selectGitRepository("")
+	a.refreshGit()
+}
+
+func (a *App) scanGitRepositories() {
+	if !a.cfg.GitAutoDiscover || a.root == "" || a.wsCtx == nil || a.git.repositoryScanLoading {
+		return
+	}
+	a.git.repositoryScanSeq++
+	a.git.repositoryScanLoading = true
+	seq, gen, scopeSeq, ctx, workspaceRoot := a.git.repositoryScanSeq, a.gen, a.git.scopeSeq, a.wsCtx, a.root
+	go func() {
+		repositories, err := git.DiscoverRepositories(ctx, workspaceRoot)
+		a.post.Post(func() {
+			if a.gen != gen || a.git.repositoryScanSeq != seq || a.git.scopeSeq != scopeSeq || !a.cfg.GitAutoDiscover {
+				return
+			}
+			a.git.repositoryScanLoading = false
+			a.git.repositoriesLoaded = true
+			if err != nil {
+				a.git.repositories = nil
+				a.git.err = err.Error()
+				return
+			}
+			a.git.repositories = repositories
+			a.git.err = ""
+			selected := a.git.root
+			if !slices.Contains(repositories, selected) {
+				selected = gitRepositoryContaining(workspaceRoot, repositories)
+			}
+			if selected != a.git.root {
+				a.selectGitRepository(selected)
+			} else if selected != "" {
+				a.refreshGit()
+			}
+		})
+	}()
+}
+
+func gitRepositoryContaining(path string, repositories []string) string {
+	for _, root := range repositories {
+		rel, err := filepath.Rel(root, path)
+		if err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return root
+		}
+	}
+	return ""
+}
+
 func gitBranchFingerprint(ctx context.Context, root, head, refs string, changes []git.Change) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s\x00%s\x00%s", root, head, refs)
@@ -392,7 +483,7 @@ func (a *App) loadGitBase(d *doc) {
 	}
 	d.gitBaseSeq++
 	d.gitBaseKey = ""
-	seq, gen, root, ctx, path := d.gitBaseSeq, a.gen, a.git.root, a.wsCtx, d.path
+	seq, gen, scopeSeq, root, ctx, path := d.gitBaseSeq, a.gen, a.git.scopeSeq, a.git.root, a.wsCtx, d.path
 	if root == "" || ctx == nil || d.untitled {
 		return
 	}
@@ -423,7 +514,7 @@ func (a *App) loadGitBase(d *doc) {
 		}
 		valid := trackedErr == nil && len(base) <= 4<<20 && utf8.Valid(base) && !strings.ContainsRune(string(base), 0)
 		a.post.Post(func() {
-			if a.gen != gen || a.docs[path] != d || d.gitBaseSeq != seq {
+			if a.gen != gen || a.git.scopeSeq != scopeSeq || a.docs[path] != d || d.gitBaseSeq != seq {
 				return
 			}
 			if trackedErr != nil || err != nil {
@@ -523,11 +614,11 @@ func (a *App) gitAction(args ...string) {
 		return
 	}
 	a.git.busy = true
-	ctx, root, gen := a.wsCtx, a.git.root, a.gen
+	ctx, root, gen, scopeSeq := a.wsCtx, a.git.root, a.gen, a.git.scopeSeq
 	go func() {
 		_, err := git.Command(ctx, root, args...)
 		a.post.Post(func() {
-			if a.gen != gen {
+			if a.gen != gen || a.git.scopeSeq != scopeSeq {
 				return
 			}
 			a.git.busy = false
@@ -577,7 +668,7 @@ func (a *App) discardGitChange(ch git.Change) {
 				return
 			}
 			a.git.busy = true
-			ctx, root, gen, trash := a.wsCtx, a.git.root, a.gen, a.host.TrashItem
+			ctx, root, gen, scopeSeq, trash := a.wsCtx, a.git.root, a.gen, a.git.scopeSeq, a.host.TrashItem
 			go func() {
 				var err error
 				if ch.Index == '?' {
@@ -586,7 +677,7 @@ func (a *App) discardGitChange(ch git.Change) {
 					_, err = git.Command(ctx, root, "restore", "--worktree", "--", ch.Path)
 				}
 				a.post.Post(func() {
-					if a.gen != gen {
+					if a.gen != gen || a.git.scopeSeq != scopeSeq {
 						return
 					}
 					a.git.busy = false
@@ -636,7 +727,7 @@ func (a *App) discardGitChanges(chs []git.Change) {
 			}
 			a.deleteConfirm = nil
 			a.git.busy = true
-			ctx, root, gen, trash := a.wsCtx, a.git.root, a.gen, a.host.TrashItem
+			ctx, root, gen, scopeSeq, trash := a.wsCtx, a.git.root, a.gen, a.git.scopeSeq, a.host.TrashItem
 			go func() {
 				var firstErr error
 				for _, ch := range chs {
@@ -664,7 +755,7 @@ func (a *App) discardGitChanges(chs []git.Change) {
 					})
 				}
 				a.post.Post(func() {
-					if a.gen != gen {
+					if a.gen != gen || a.git.scopeSeq != scopeSeq {
 						return
 					}
 					a.git.busy = false
@@ -850,7 +941,7 @@ func (a *App) showGitDiffIn(ch git.Change, staged bool, target *group, placement
 }
 
 func (a *App) gitNavigator(c *ui.Context) {
-	if a.git.root == "" {
+	if a.git.root == "" && !a.cfg.GitAutoDiscover {
 		msg := "Looking for a Git repository…"
 		if a.git.err != "" {
 			msg = "No Git repository found, or Git is unavailable."
@@ -858,12 +949,23 @@ func (a *App) gitNavigator(c *ui.Context) {
 		ui.Text(c, msg).TextColor(colors(c).Muted).FontSize(12).Padding(12, 10).Tooltip(a.git.err)
 		return
 	}
-	staged, unstaged, conflicts := 0, 0, 0
 	a.gitNavigatorTabs(c)
 	if a.git.repositoryView.page == 1 {
 		a.gitRepositories(c)
 		return
 	}
+	if a.git.root == "" {
+		msg := "Looking for a Git repository…"
+		if a.cfg.GitAutoDiscover && len(a.git.repositories) > 0 {
+			msg = locales.GitSelectRepositoryToSeeChanges()
+		}
+		if a.git.err != "" {
+			msg = "No Git repository found, or Git is unavailable."
+		}
+		ui.Text(c, msg).TextColor(colors(c).Muted).FontSize(12).Padding(12, 10).Tooltip(a.git.err)
+		return
+	}
+	staged, unstaged, conflicts := 0, 0, 0
 	for _, ch := range a.git.changes {
 		if ch.Conflicted() {
 			conflicts++
