@@ -8,6 +8,12 @@ import (
 	"see/locales"
 )
 
+const (
+	regexToolWindowCornerRadius = float32(9)
+	regexToolWindowBorderWidth  = float32(1)
+	regexToolCornerGripSize     = float32(30)
+)
+
 type regexToolWindowState struct {
 	rect              ui.Rect
 	initialized       bool
@@ -77,7 +83,7 @@ func (a *App) regexToolWindowView(c *ui.Context, p *regexPlayground, bounds, sou
 	rect := a.ensureRegexToolRect(bounds, sourceBounds)
 	ui.Overlay(c, func() {
 		window := ui.Column(c.Key("regex-tool-window")).Bind(&a.regexToolWindow.handle).Absolute().Left(rect.X).Top(rect.Y).Width(rect.W).Height(rect.H)
-		window.Label(locales.RegexToolWindow()).Background(c.Theme().Surface).BorderWidth(1, 1, 1, 1).BorderColor(colors(c).Separator).Radius(9).Clip().Children(func() {
+		window.Label(locales.RegexToolWindow()).Background(c.Theme().Surface).BorderWidth(regexToolWindowBorderWidth, regexToolWindowBorderWidth, regexToolWindowBorderWidth, regexToolWindowBorderWidth).BorderColor(colors(c).Separator).Radius(regexToolWindowCornerRadius).Clip().Children(func() {
 			a.regexToolTitlebar(c, p, bounds)
 			a.regexPlaygroundBody(c, p, rect.W, max(float32(0), rect.H-40))
 			a.regexToolResizeHandles(c, bounds)
@@ -107,7 +113,32 @@ func (a *App) regexToolTitlebar(c *ui.Context, p *regexPlayground, bounds ui.Rec
 }
 
 func (a *App) regexToolResizeHandles(c *ui.Context, bounds ui.Rect) {
-	const grip = float32(10)
+	const (
+		edgeGrip          = float32(10)
+		northEastTopGrip  = float32(5)
+		northEastSideGrip = float32(8)
+	)
+	addTarget := func(key, label string, edge regexToolResizeEdge, cursor ui.Cursor, style func(ui.Element) ui.Element) {
+		target := ui.Box(c.Key(key)).Absolute().Cursor(cursor)
+		if label != "" {
+			target.Label(label)
+		}
+		target = style(target)
+		corner := edge&(regexToolResizeLeft|regexToolResizeRight) != 0 &&
+			edge&(regexToolResizeTop|regexToolResizeBottom) != 0
+		if corner && target.Hovered() {
+			gripColor := colors(c).Muted.Alpha(0.65)
+			resizeEdge := edge
+			target.DrawOver(func(p *ui.Painter, r ui.Rect) {
+				gripBounds := regexToolCornerGripBounds(r, resizeEdge, regexToolCornerGripSize)
+				drawRegexToolCornerGrip(p, gripBounds, resizeEdge, gripColor)
+			})
+		}
+		if dx, dy, dragged := target.Dragged(); dragged && (dx != 0 || dy != 0) {
+			a.regexToolWindow.rect = resizeRegexToolRectWithMinimum(a.regexToolWindow.rect, edge, dx, dy, bounds, a.regexToolWindow.minWidth, a.regexToolWindow.minHeight)
+			a.saveConfigSoon()
+		}
+	}
 	for _, handle := range []struct {
 		key    string
 		label  string
@@ -115,22 +146,83 @@ func (a *App) regexToolResizeHandles(c *ui.Context, bounds ui.Rect) {
 		cursor ui.Cursor
 		style  func(ui.Element) ui.Element
 	}{
-		{"north", locales.RegexToolResizeNorth(), regexToolResizeTop, ui.CursorResizeNS, func(e ui.Element) ui.Element { return e.Left(grip).Right(grip).Top(0).Height(grip) }},
-		{"south", locales.RegexToolResizeSouth(), regexToolResizeBottom, ui.CursorResizeNS, func(e ui.Element) ui.Element { return e.Left(grip).Right(grip).Bottom(0).Height(grip) }},
-		{"west", locales.RegexToolResizeWest(), regexToolResizeLeft, ui.CursorResizeEW, func(e ui.Element) ui.Element { return e.Left(0).Top(grip).Bottom(grip).Width(grip) }},
-		{"east", locales.RegexToolResizeEast(), regexToolResizeRight, ui.CursorResizeEW, func(e ui.Element) ui.Element { return e.Right(0).Top(grip).Bottom(grip).Width(grip) }},
-		{"north-west", locales.RegexToolResizeNorthWest(), regexToolResizeTop | regexToolResizeLeft, ui.CursorResizeNWSE, func(e ui.Element) ui.Element { return e.Left(0).Top(0).Size(grip, grip) }},
-		{"north-east", locales.RegexToolResizeNorthEast(), regexToolResizeTop | regexToolResizeRight, ui.CursorResizeNESW, func(e ui.Element) ui.Element { return e.Right(0).Top(0).Size(grip, grip) }},
-		{"south-west", locales.RegexToolResizeSouthWest(), regexToolResizeBottom | regexToolResizeLeft, ui.CursorResizeNESW, func(e ui.Element) ui.Element { return e.Left(0).Bottom(0).Size(grip, grip) }},
-		{"south-east", locales.RegexToolResizeSouthEast(), regexToolResizeBottom | regexToolResizeRight, ui.CursorResizeNWSE, func(e ui.Element) ui.Element { return e.Right(0).Bottom(0).Size(grip, grip) }},
+		{"north", locales.RegexToolResizeNorth(), regexToolResizeTop, ui.CursorResizeN, func(e ui.Element) ui.Element {
+			return e.Left(regexToolCornerGripSize).Right(regexToolCornerGripSize).Top(0).Height(edgeGrip)
+		}},
+		{"south", locales.RegexToolResizeSouth(), regexToolResizeBottom, ui.CursorResizeS, func(e ui.Element) ui.Element {
+			return e.Left(regexToolCornerGripSize).Right(regexToolCornerGripSize).Bottom(0).Height(edgeGrip)
+		}},
+		{"west", locales.RegexToolResizeWest(), regexToolResizeLeft, ui.CursorResizeW, func(e ui.Element) ui.Element {
+			return e.Left(0).Top(regexToolCornerGripSize).Bottom(regexToolCornerGripSize).Width(edgeGrip)
+		}},
+		{"east", locales.RegexToolResizeEast(), regexToolResizeRight, ui.CursorResizeE, func(e ui.Element) ui.Element {
+			return e.Right(0).Top(regexToolCornerGripSize).Bottom(regexToolCornerGripSize).Width(edgeGrip)
+		}},
+		{"north-west", locales.RegexToolResizeNorthWest(), regexToolResizeTop | regexToolResizeLeft, ui.CursorResizeNWSE, func(e ui.Element) ui.Element {
+			return e.Left(0).Top(0).Size(regexToolCornerGripSize, regexToolCornerGripSize)
+		}},
+		{"north-east", locales.RegexToolResizeNorthEast(), regexToolResizeTop | regexToolResizeRight, ui.CursorResizeNESW, func(e ui.Element) ui.Element {
+			return e.Right(0).Top(0).Width(northEastSideGrip).Height(regexToolCornerGripSize)
+		}},
+		{"south-west", locales.RegexToolResizeSouthWest(), regexToolResizeBottom | regexToolResizeLeft, ui.CursorResizeNESW, func(e ui.Element) ui.Element {
+			return e.Left(0).Bottom(0).Size(regexToolCornerGripSize, regexToolCornerGripSize)
+		}},
+		{"south-east", locales.RegexToolResizeSouthEast(), regexToolResizeBottom | regexToolResizeRight, ui.CursorResizeNWSE, func(e ui.Element) ui.Element {
+			return e.Right(0).Bottom(0).Size(regexToolCornerGripSize, regexToolCornerGripSize)
+		}},
 	} {
-		target := ui.Box(c.Key(handle.key)).Absolute().Cursor(handle.cursor).Label(handle.label)
-		target = handle.style(target)
-		if dx, dy, dragged := target.Dragged(); dragged && (dx != 0 || dy != 0) {
-			a.regexToolWindow.rect = resizeRegexToolRectWithMinimum(a.regexToolWindow.rect, handle.edge, dx, dy, bounds, a.regexToolWindow.minWidth, a.regexToolWindow.minHeight)
-			a.saveConfigSoon()
+		if handle.key == "north-east" {
+			addTarget("north-east-top", "", handle.edge, handle.cursor, func(e ui.Element) ui.Element {
+				return e.Right(0).Top(0).Width(regexToolCornerGripSize).Height(northEastTopGrip)
+			})
 		}
+		addTarget(handle.key, handle.label, handle.edge, handle.cursor, handle.style)
 	}
+}
+
+func regexToolCornerGripBounds(r ui.Rect, edge regexToolResizeEdge, size float32) ui.Rect {
+	bounds := ui.Rect{W: size, H: size}
+	bounds.X, bounds.Y = r.X, r.Y
+	if edge&regexToolResizeRight != 0 {
+		bounds.X = r.X + r.W - size
+	}
+	if edge&regexToolResizeBottom != 0 {
+		bounds.Y = r.Y + r.H - size
+	}
+	return bounds
+}
+
+func drawRegexToolCornerGrip(p *ui.Painter, r ui.Rect, edge regexToolResizeEdge, color ui.Color) {
+	cornerRadius := regexToolWindowCornerRadius - regexToolWindowBorderWidth
+	radius := cornerRadius - 2
+	path := regexToolCornerGripPath(r, edge, cornerRadius, radius)
+	p.StrokePath(&path, 1.4, color)
+}
+
+func regexToolCornerGripPath(r ui.Rect, edge regexToolResizeEdge, cornerRadius, radius float32) ui.Path {
+	sx, sy := regexToolCornerSigns(edge)
+	cornerX := r.X + r.W/2 + sx*r.W/2
+	cornerY := r.Y + r.H/2 + sy*r.H/2
+	centerX, centerY := cornerX-sx*cornerRadius, cornerY-sy*cornerRadius
+	const kappa = float32(0.5522848)
+	startX, startY := centerX, centerY+sy*radius
+	control1X, control1Y := centerX+sx*kappa*radius, startY
+	control2X, control2Y := centerX+sx*radius, centerY+sy*kappa*radius
+	endX, endY := centerX+sx*radius, centerY
+	var path ui.Path
+	path.MoveTo(startX, startY).CubeTo(control1X, control1Y, control2X, control2Y, endX, endY)
+	return path
+}
+
+func regexToolCornerSigns(edge regexToolResizeEdge) (float32, float32) {
+	sx, sy := float32(-1), float32(-1)
+	if edge&regexToolResizeRight != 0 {
+		sx = 1
+	}
+	if edge&regexToolResizeBottom != 0 {
+		sy = 1
+	}
+	return sx, sy
 }
 
 func (a *App) regexPlaygroundBody(c *ui.Context, p *regexPlayground, width, height float32) {

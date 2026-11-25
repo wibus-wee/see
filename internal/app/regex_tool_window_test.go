@@ -52,6 +52,22 @@ func dragTester(t *testing.T, h *harness, bounds ui.Rect, dx, dy float32) {
 	h.tt.Frame()
 }
 
+func regexToolPixelsDiffer(before, after []uint8, stride, width, height int, bounds ui.Rect) bool {
+	x0, y0 := max(0, int(bounds.X)), max(0, int(bounds.Y))
+	x1, y1 := min(width, int(bounds.X+bounds.W)+1), min(height, int(bounds.Y+bounds.H)+1)
+	for y := y0; y < y1; y++ {
+		for x := x0; x < x1; x++ {
+			offset := y*stride + x*4
+			if offset+3 < len(before) && offset+3 < len(after) &&
+				(before[offset] != after[offset] || before[offset+1] != after[offset+1] ||
+					before[offset+2] != after[offset+2] || before[offset+3] != after[offset+3]) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func TestRegexToolWindowTitleAndAllResizeHandles(t *testing.T) {
 	h, _, _ := openRegexToolHarness(t)
 	original := h.a.regexToolWindow.rect
@@ -70,10 +86,10 @@ func TestRegexToolWindowTitleAndAllResizeHandles(t *testing.T) {
 		dx, dy        float32
 		width, height bool
 	}{
-		{locales.RegexToolResizeNorth(), ui.CursorResizeNS, 0, -8, false, true},
-		{locales.RegexToolResizeSouth(), ui.CursorResizeNS, 0, 8, false, true},
-		{locales.RegexToolResizeWest(), ui.CursorResizeEW, -8, 0, true, false},
-		{locales.RegexToolResizeEast(), ui.CursorResizeEW, 8, 0, true, false},
+		{locales.RegexToolResizeNorth(), ui.CursorResizeN, 0, -8, false, true},
+		{locales.RegexToolResizeSouth(), ui.CursorResizeS, 0, 8, false, true},
+		{locales.RegexToolResizeWest(), ui.CursorResizeW, -8, 0, true, false},
+		{locales.RegexToolResizeEast(), ui.CursorResizeE, 8, 0, true, false},
 		{locales.RegexToolResizeNorthWest(), ui.CursorResizeNWSE, -8, -8, true, true},
 		{locales.RegexToolResizeNorthEast(), ui.CursorResizeNESW, 8, -8, true, true},
 		{locales.RegexToolResizeSouthWest(), ui.CursorResizeNESW, -8, 8, true, true},
@@ -85,9 +101,34 @@ func TestRegexToolWindowTitleAndAllResizeHandles(t *testing.T) {
 				t.Fatalf("resize hit target %q is missing: %+v %v", test.label, target, ok)
 			}
 			x, y := target.X+target.W/2, target.Y+target.H/2
+			window := h.a.regexToolWindow.rect
+			neutralX, neutralY := window.X+window.W/2, window.Y+20
+			h.tt.Move(neutralX, neutralY)
+			h.tt.Frame()
+			baselineImage := h.tt.Image()
+			baseline := append([]uint8(nil), baselineImage.Pix...)
 			h.tt.Move(x, y)
+			h.tt.Frame()
 			if got := h.tt.Cursor(); got != test.cursor {
 				t.Fatalf("cursor at %s = %v, want %v", test.label, got, test.cursor)
+			}
+			if test.cursor == ui.CursorResizeNWSE || test.cursor == ui.CursorResizeNESW {
+				corner := target
+				corner.W, corner.H = target.W/2, target.H/2
+				if test.dx > 0 {
+					corner.X += corner.W
+				}
+				if test.dy > 0 {
+					corner.Y += corner.H
+				}
+				if !regexToolPixelsDiffer(baseline, h.tt.Image().Pix, baselineImage.Stride, baselineImage.Bounds().Dx(), baselineImage.Bounds().Dy(), corner) {
+					t.Fatalf("hovering %s did not draw its curved corner grip", test.label)
+				}
+				h.tt.Move(neutralX, neutralY)
+				h.tt.Frame()
+				if regexToolPixelsDiffer(baseline, h.tt.Image().Pix, baselineImage.Stride, baselineImage.Bounds().Dx(), baselineImage.Bounds().Dy(), target) {
+					t.Fatalf("curved corner grip remained visible after leaving %s", test.label)
+				}
 			}
 			before := h.a.regexToolWindow.rect
 			h.tt.Press(x, y)
@@ -100,6 +141,56 @@ func TestRegexToolWindowTitleAndAllResizeHandles(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRegexToolCloseAndNorthEastResizeRemainReachable(t *testing.T) {
+	t.Run("close center", func(t *testing.T) {
+		h, _, _ := openRegexToolHarness(t)
+		closeBounds, ok := h.tt.Find(locales.Close())
+		if !ok {
+			t.Fatal("close button is missing")
+		}
+		x, y := closeBounds.X+closeBounds.W/2, closeBounds.Y+closeBounds.H/2
+		h.tt.Move(x, y)
+		h.tt.Frame()
+		if got := h.tt.Cursor(); got == ui.CursorResizeNESW || got == ui.CursorResizeNWSE {
+			t.Fatalf("close center shows resize cursor %v", got)
+		}
+		if err := h.tt.Click(locales.Close()); err != nil {
+			t.Fatalf("clicking close center: %v", err)
+		}
+		h.tt.Frame()
+		if h.a.regexPlayground != nil {
+			t.Fatal("close button center was intercepted by the northeast resize target")
+		}
+	})
+
+	t.Run("northeast resize", func(t *testing.T) {
+		h, _, _ := openRegexToolHarness(t)
+		closeBounds, closeFound := h.tt.Find(locales.Close())
+		target, ok := h.tt.Find(locales.RegexToolResizeNorthEast())
+		if !closeFound || !ok || target.W == 0 || target.H == 0 {
+			t.Fatalf("northeast resize region or close button is missing: resize=%+v/%v close=%+v/%v", target, ok, closeBounds, closeFound)
+		}
+		if target.X < closeBounds.X+closeBounds.W || target.Y >= closeBounds.Y+closeBounds.H {
+			t.Fatalf("northeast resize region is not adjacent to but clear of Close: resize=%+v close=%+v", target, closeBounds)
+		}
+		x, y := target.X+target.W/2, target.Y+target.H/2
+		h.tt.Move(x, y)
+		h.tt.Frame()
+		if got := h.tt.Cursor(); got != ui.CursorResizeNESW {
+			t.Fatalf("cursor next to Close = %v, want northeast diagonal resize", got)
+		}
+		before := h.a.regexToolWindow.rect
+		h.tt.Press(x, y)
+		h.tt.Move(x+8, y-8)
+		h.tt.Release(x+8, y-8)
+		h.tt.Frame()
+		after := h.a.regexToolWindow.rect
+		if after.W <= before.W || after.H <= before.H || after.Y >= before.Y {
+			t.Fatalf("northeast resize next to Close did not change the window: before=%+v after=%+v", before, after)
+		}
+	})
 }
 
 func TestRegexToolResizesAcrossThreeEditorGroupsAndBack(t *testing.T) {
