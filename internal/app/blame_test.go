@@ -3,6 +3,9 @@ package app
 import (
 	"context"
 	"fmt"
+	"image/png"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -150,6 +153,17 @@ func TestBlameHoverOnTrailingInlay(t *testing.T) {
 	if !h.tt.HasText(d.blame[0].Short) {
 		t.Fatalf("blame hover missing hash: %q", h.tt.Texts())
 	}
+	if os.Getenv("SEE_BLAME_SCREENSHOTS") == "1" {
+		writeBlameHoverScreenshots(t, h)
+		d.blame[0].Subject = "feat: a rather long commit subject that should wrap across lines to test how the card handles it"
+		h.tt.Move(caret.X-caret.H, caret.Y+caret.H/2)
+		h.tt.Advance(1500 * time.Millisecond)
+		h.tt.Frame()
+		h.tt.Move(caret.X+caret.H, caret.Y+caret.H/2)
+		h.tt.Advance(1500 * time.Millisecond)
+		h.tt.Frame()
+		writeBlameHoverScreenshot(t, h, false, "blame-hover-long.png")
+	}
 	// The hash opens the commit in the Git Log.
 	if err := h.tt.Click(commandLabel("Show Line's Commit in Git Log") + ": " + d.blame[0].Short); err != nil {
 		t.Fatalf("hash is not clickable: %v", err)
@@ -205,4 +219,31 @@ func TestBlameHoverUncommitted(t *testing.T) {
 	if !h.tt.HasText(logText("blameUncommitted")) {
 		t.Fatalf("uncommitted blame hover missing: %q", h.tt.Texts())
 	}
+}
+
+func writeBlameHoverScreenshot(t *testing.T, h *harness, dark bool, name string) {
+	t.Helper()
+	h.tt.SetDark(dark)
+	h.tt.Frame()
+	dir := os.Getenv("SEE_BLAME_SCREENSHOT_DIR")
+	if dir == "" {
+		dir = os.Getenv("HOME")
+	}
+	f, err := os.Create(filepath.Join(dir, name))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := png.Encode(f, h.tt.Image()); err != nil {
+		_ = f.Close()
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func writeBlameHoverScreenshots(t *testing.T, h *harness) {
+	t.Helper()
+	writeBlameHoverScreenshot(t, h, false, "blame-hover-light.png")
+	writeBlameHoverScreenshot(t, h, true, "blame-hover-dark.png")
 }

@@ -129,28 +129,46 @@ func (a *App) editorInlays(d *doc, st *editor.State) []editor.Inlay {
 
 // blameHoverContent is the commit card a line's trailing blame shows
 // under the pointer: who wrote it and when, its message, and the hash
-// opening it in the Git Log, as the status bar's button does.
+// opening it in the Git Log. It follows the quickhelp popover's
+// language: small muted section labels with regular-weight content,
+// sections spaced apart rather than separated by rules.
 func (a *App) blameHoverContent(c *ui.Context, b git.BlameLine) {
 	if b.Uncommitted {
 		ui.Text(c, logText("blameUncommitted")).FontSize(12).TextColor(colors(c).Muted)
 		return
 	}
-	ui.Column(c).Gap(6).MaxWidth(420).Children(func() {
-		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-			a.personAvatar(c, b.Author, b.Email, 20)
-			ui.Text(c, b.Author).FontSize(12).Bold().SingleLine().Ellipsis("…").Shrink(1)
-			ui.Text(c, blameDate(b.Date)).FontSize(11).TextColor(colors(c).Muted).SingleLine().Shrink(0)
+	section := func(label string, children func()) {
+		ui.Column(c).FillWidth().Gap(4).Children(func() {
+			ui.Text(c, label).FontSize(11).FontWeight(600).TextColor(colors(c).Muted).SingleLine()
+			ui.Column(c).FillWidth().Children(children)
+		})
+	}
+	ui.Column(c).MaxWidth(360).FillWidth().Gap(12).Children(func() {
+		section(logText("blameSectionAuthor"), func() {
+			ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Center).Children(func() {
+				a.personAvatar(c, b.Author, b.Email, 20)
+				ui.Column(c).Grow(1).Shrink(1).Gap(1).Children(func() {
+					ui.Row(c).Gap(6).AlignItems(ui.Baseline).Children(func() {
+						ui.Text(c, b.Author).FontSize(12).SingleLine().Ellipsis("…").Shrink(1)
+						ui.Text(c, blameDate(b.Date)).FontSize(11).TextColor(colors(c).Muted).SingleLine().Shrink(0)
+					})
+					ui.Text(c, b.Date.Local().Format("Mon, Jan 2, 2006 at 15:04")).FontSize(11).TextColor(colors(c).Dim).SingleLine().Ellipsis("…")
+				})
+			})
 		})
 		if b.Subject != "" {
-			ui.Text(c, b.Subject).FontSize(12).TextColor(colors(c).Text)
-		}
-		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-			link := ui.ButtonBase(c).Label(commandLabel("Show Line's Commit in Git Log")+": "+b.Short).Cursor(ui.CursorPointer)
-			link.OnClick(func() { a.revealLogCommit(b.Hash) })
-			link.Children(func() {
-				ui.Text(c, b.Short).FontSize(11).TextColor(a.colors().Link).SingleLine()
+			section(logText("blameSectionMessage"), func() {
+				ui.Text(c, b.Subject).FontSize(13).TextColor(colors(c).Text)
 			})
-			ui.Text(c, b.Date.Local().Format("2006-01-02 15:04:05 MST")).FontSize(11).TextColor(colors(c).Muted).SingleLine().Shrink(0)
+		}
+		section(logText("blameSectionCommit"), func() {
+			ui.Row(c).FillWidth().Gap(6).AlignItems(ui.Center).Cursor(ui.CursorPointer).Label(commandLabel("Show Line's Commit in Git Log")+": "+b.Short).OnClick(func() { a.revealLogCommit(b.Hash) }).Children(func() {
+				ui.Text(c, b.Short).FontSize(13).TextColor(c.Theme().Accent).SingleLine().Shrink(0)
+				ui.Row(c).Grow(1).AlignItems(ui.Center).Justify(ui.End).Gap(3).Children(func() {
+					ui.Text(c, logText("blameViewInGitLog")).FontSize(11).TextColor(colors(c).Muted).SingleLine()
+					symbolIcon(c, icChevron, 8, colors(c).Muted)
+				})
+			})
 		})
 	})
 }

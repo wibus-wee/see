@@ -201,8 +201,8 @@ func (a *App) renderHover(st *editor.State, c *ui.Context, panel ui.Element, h *
 		panel.Width(500).MaxWidth(500).MaxWidthPercent(100).
 			Shadow(0, 2, 8, 0, ui.RGBA(0, 0, 0, 0.1))
 	} else {
-		panel.MaxWidth(620).
-			Shadow(0, 3, 12, 0, ui.RGBA(0, 0, 0, 0.14))
+		panel.MaxWidth(620).Padding(10).
+			Shadow(0, 1, 4, 0, ui.RGBA(0, 0, 0, 0.08))
 	}
 	panel.Radius(8).Background(colors(c).Popover).Border(1, colors(c).PopoverEdge)
 }

@@ -916,6 +916,46 @@ func (msgs Messages) BlameRevealFailed() string {
 	return Catalog.Format(msgs.locale, "blameRevealFailed", nil)
 }
 
+// BlameSectionAuthor says "Author"
+// in the language the app shows.
+func BlameSectionAuthor() string { return In(i18n.Locale()).BlameSectionAuthor() }
+
+// BlameSectionAuthor says "Author"
+// in the language of msgs.
+func (msgs Messages) BlameSectionAuthor() string {
+	return Catalog.Format(msgs.locale, "blameSectionAuthor", nil)
+}
+
+// BlameSectionMessage says "Message"
+// in the language the app shows.
+func BlameSectionMessage() string { return In(i18n.Locale()).BlameSectionMessage() }
+
+// BlameSectionMessage says "Message"
+// in the language of msgs.
+func (msgs Messages) BlameSectionMessage() string {
+	return Catalog.Format(msgs.locale, "blameSectionMessage", nil)
+}
+
+// BlameSectionCommit says "Commit"
+// in the language the app shows.
+func BlameSectionCommit() string { return In(i18n.Locale()).BlameSectionCommit() }
+
+// BlameSectionCommit says "Commit"
+// in the language of msgs.
+func (msgs Messages) BlameSectionCommit() string {
+	return Catalog.Format(msgs.locale, "blameSectionCommit", nil)
+}
+
+// BlameViewInGitLog says "View in Git Log"
+// in the language the app shows.
+func BlameViewInGitLog() string { return In(i18n.Locale()).BlameViewInGitLog() }
+
+// BlameViewInGitLog says "View in Git Log"
+// in the language of msgs.
+func (msgs Messages) BlameViewInGitLog() string {
+	return Catalog.Format(msgs.locale, "blameViewInGitLog", nil)
+}
+
 // CommandShowLineCommit says "Show Line's Commit in Git Log"
 // in the language the app shows.
 func CommandShowLineCommit() string { return In(i18n.Locale()).CommandShowLineCommit() }
@@ -5310,16 +5350,68 @@ func (msgs Messages) MsgWrapLines() string {
 	return Catalog.Format(msgs.locale, "msgWrapLines", nil)
 }
 
-// MsgLongLinesWrapAtTheEditorSWidth says "Long lines wrap at the editor's width rather than scrolling sideways."
+// MsgLongLinesWrapAtTheEditorSWidth says "Long lines wrap at the editor's width rather than scrolling sideways. This is the default unless a language overrides…"
 // in the language the app shows.
 func MsgLongLinesWrapAtTheEditorSWidth() string {
 	return In(i18n.Locale()).MsgLongLinesWrapAtTheEditorSWidth()
 }
 
-// MsgLongLinesWrapAtTheEditorSWidth says "Long lines wrap at the editor's width rather than scrolling sideways."
+// MsgLongLinesWrapAtTheEditorSWidth says "Long lines wrap at the editor's width rather than scrolling sideways. This is the default unless a language overrides…"
 // in the language of msgs.
 func (msgs Messages) MsgLongLinesWrapAtTheEditorSWidth() string {
 	return Catalog.Format(msgs.locale, "msgLongLinesWrapAtTheEditorSWidth", nil)
+}
+
+// MsgWrapLinesByLanguage says "Wrap Lines by Language"
+// in the language the app shows.
+func MsgWrapLinesByLanguage() string { return In(i18n.Locale()).MsgWrapLinesByLanguage() }
+
+// MsgWrapLinesByLanguage says "Wrap Lines by Language"
+// in the language of msgs.
+func (msgs Messages) MsgWrapLinesByLanguage() string {
+	return Catalog.Format(msgs.locale, "msgWrapLinesByLanguage", nil)
+}
+
+// MsgLanguageSoftWrapDescription says "Set how each language wraps lines. Default follows the global Wrap Lines setting."
+// in the language the app shows.
+func MsgLanguageSoftWrapDescription() string {
+	return In(i18n.Locale()).MsgLanguageSoftWrapDescription()
+}
+
+// MsgLanguageSoftWrapDescription says "Set how each language wraps lines. Default follows the global Wrap Lines setting."
+// in the language of msgs.
+func (msgs Messages) MsgLanguageSoftWrapDescription() string {
+	return Catalog.Format(msgs.locale, "msgLanguageSoftWrapDescription", nil)
+}
+
+// MsgWrapDefault says "Default"
+// in the language the app shows.
+func MsgWrapDefault() string { return In(i18n.Locale()).MsgWrapDefault() }
+
+// MsgWrapDefault says "Default"
+// in the language of msgs.
+func (msgs Messages) MsgWrapDefault() string {
+	return Catalog.Format(msgs.locale, "msgWrapDefault", nil)
+}
+
+// MsgWrapEnabled says "Wrap"
+// in the language the app shows.
+func MsgWrapEnabled() string { return In(i18n.Locale()).MsgWrapEnabled() }
+
+// MsgWrapEnabled says "Wrap"
+// in the language of msgs.
+func (msgs Messages) MsgWrapEnabled() string {
+	return Catalog.Format(msgs.locale, "msgWrapEnabled", nil)
+}
+
+// MsgWrapDisabled says "Don't Wrap"
+// in the language the app shows.
+func MsgWrapDisabled() string { return In(i18n.Locale()).MsgWrapDisabled() }
+
+// MsgWrapDisabled says "Don't Wrap"
+// in the language of msgs.
+func (msgs Messages) MsgWrapDisabled() string {
+	return Catalog.Format(msgs.locale, "msgWrapDisabled", nil)
 }
 
 // EditorDisplay says "Display"
