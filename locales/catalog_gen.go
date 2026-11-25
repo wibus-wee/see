@@ -2608,6 +2608,16 @@ func (msgs Messages) InspectorQuickHelpTip() string {
 	return Catalog.Format(msgs.locale, "inspectorQuickHelpTip", nil)
 }
 
+// InspectorQuickHelpShort says "Quick Help"
+// in the language the app shows.
+func InspectorQuickHelpShort() string { return In(i18n.Locale()).InspectorQuickHelpShort() }
+
+// InspectorQuickHelpShort says "Quick Help"
+// in the language of msgs.
+func (msgs Messages) InspectorQuickHelpShort() string {
+	return Catalog.Format(msgs.locale, "inspectorQuickHelpShort", nil)
+}
+
 // InspectorFileTip says "File Inspector"
 // in the language the app shows.
 func InspectorFileTip() string { return In(i18n.Locale()).InspectorFileTip() }
@@ -2618,6 +2628,16 @@ func (msgs Messages) InspectorFileTip() string {
 	return Catalog.Format(msgs.locale, "inspectorFileTip", nil)
 }
 
+// InspectorFileShort says "File"
+// in the language the app shows.
+func InspectorFileShort() string { return In(i18n.Locale()).InspectorFileShort() }
+
+// InspectorFileShort says "File"
+// in the language of msgs.
+func (msgs Messages) InspectorFileShort() string {
+	return Catalog.Format(msgs.locale, "inspectorFileShort", nil)
+}
+
 // InspectorHistoryTip says "History Inspector"
 // in the language the app shows.
 func InspectorHistoryTip() string { return In(i18n.Locale()).InspectorHistoryTip() }
@@ -2626,6 +2646,16 @@ func InspectorHistoryTip() string { return In(i18n.Locale()).InspectorHistoryTip
 // in the language of msgs.
 func (msgs Messages) InspectorHistoryTip() string {
 	return Catalog.Format(msgs.locale, "inspectorHistoryTip", nil)
+}
+
+// InspectorHistoryShort says "History"
+// in the language the app shows.
+func InspectorHistoryShort() string { return In(i18n.Locale()).InspectorHistoryShort() }
+
+// InspectorHistoryShort says "History"
+// in the language of msgs.
+func (msgs Messages) InspectorHistoryShort() string {
+	return Catalog.Format(msgs.locale, "inspectorHistoryShort", nil)
 }
 
 // InspectorFilePane says "File Inspector"
@@ -9154,14 +9184,24 @@ func (msgs Messages) TrashQuestion(name string) string {
 	return Catalog.Format(msgs.locale, "trashQuestion", map[string]any{"name": name})
 }
 
-// TrustBanner says "Go to Definition and symbol help run language servers in “{name}”. Servers may run project tools and download dep…"
+// TrustBannerLead says "Trust “{name}” to run language servers?"
 // in the language the app shows.
-func TrustBanner(name string) string { return In(i18n.Locale()).TrustBanner(name) }
+func TrustBannerLead(name string) string { return In(i18n.Locale()).TrustBannerLead(name) }
 
-// TrustBanner says "Go to Definition and symbol help run language servers in “{name}”. Servers may run project tools and download dep…"
+// TrustBannerLead says "Trust “{name}” to run language servers?"
 // in the language of msgs.
-func (msgs Messages) TrustBanner(name string) string {
-	return Catalog.Format(msgs.locale, "trustBanner", map[string]any{"name": name})
+func (msgs Messages) TrustBannerLead(name string) string {
+	return Catalog.Format(msgs.locale, "trustBannerLead", map[string]any{"name": name})
+}
+
+// TrustBannerDetail says "Go to Definition, symbol help and diagnostics need them. Servers may run project tools and download dependencies or t…"
+// in the language the app shows.
+func TrustBannerDetail() string { return In(i18n.Locale()).TrustBannerDetail() }
+
+// TrustBannerDetail says "Go to Definition, symbol help and diagnostics need them. Servers may run project tools and download dependencies or t…"
+// in the language of msgs.
+func (msgs Messages) TrustBannerDetail() string {
+	return Catalog.Format(msgs.locale, "trustBannerDetail", nil)
 }
 
 // DiscardFileQuestion says "Discard working tree changes to “{name}”? This cannot be undone."

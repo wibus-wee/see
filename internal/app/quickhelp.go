@@ -304,15 +304,19 @@ func (a *App) inspectorHeader(c *ui.Context) {
 		if !has {
 			name = inspectorText("inspectorNoSymbol")
 		}
-		kind := inspectorSymbolKind(a)
-		letter, color := symbolKind(c, kind)
-		ui.Box(c).Width(20).Height(20).Radius(5).Shrink(0).Background(color.Alpha(0.16)).Center().Children(func() {
-			ui.Text(c, letter).FontSize(10).Bold().TextColor(color).SingleLine()
-		})
+		// The kind badge only means something once it colors a real
+		// symbol's kind; a bare "v" next to "No Symbol" read as noise.
+		if has {
+			kind := inspectorSymbolKind(a)
+			letter, color := symbolKind(c, kind)
+			ui.Box(c).Width(20).Height(20).Radius(5).Shrink(0).Background(color.Alpha(0.16)).Center().Children(func() {
+				ui.Text(c, letter).FontSize(10).Bold().TextColor(color).SingleLine()
+			})
+		}
 		ui.Column(c).Shrink(1).Gap(1).Children(func() {
 			ui.Text(c, name).FontSize(12).FontWeight(600).SingleLine().Ellipsis("…")
 			if has {
-				ui.Text(c, outlineKindName(kind)).FontSize(10).TextColor(colors(c).Muted).SingleLine()
+				ui.Text(c, outlineKindName(inspectorSymbolKind(a))).FontSize(10).TextColor(colors(c).Muted).SingleLine()
 			}
 		})
 		if in.hasResult && in.subject.doc != nil && in.subject.doc.buf != nil && in.subject.doc.buf.Version() != in.subject.version {
@@ -353,9 +357,15 @@ func (a *App) inspectorBody(c *ui.Context) {
 	in := &a.inspector
 	switch {
 	case !a.cfg.IsTrusted(a.root):
-		ui.Row(c).FillWidth().Gap(8).AlignItems(ui.Center).Padding(8, 12).Children(func() {
-			ui.Text(c, locales.TrustBanner(filepath.Base(a.root))).FontSize(12).TextColor(colors(c).Muted).FillWidth().Shrink(1)
-			ui.Button(c, locales.TrustFolder()).OnClick(a.trust)
+		// Symbol help needs the servers; the editor's banner already
+		// explains what they may do, so the pane carries only the decision
+		// and its button rather than repeating the detail.
+		ui.Column(c).FillWidth().Gap(8).Padding(10, 12).Children(func() {
+			ui.Text(c, locales.TrustBannerLead(filepath.Base(a.root))).FontSize(12).FontWeight(600).FillWidth()
+			ui.Row(c).Gap(8).Children(func() {
+				ui.Button(c, locales.TrustFolder()).OnClick(a.trust)
+				ui.Button(c, locales.NotNow()).OnClick(func() { a.trustAsk, a.afterTrust = false, nil; a.trustDismissed = true })
+			})
 		})
 	case !in.hasSubject:
 		a.inspectorEmpty(c, inspectorText("inspectorEmpty"))
