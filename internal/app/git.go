@@ -53,6 +53,12 @@ type gitState struct {
 	autoFetch     bool
 	autoFetching  bool
 	lastFetch     time.Time
+	fetchFailures int // background fetches in a row that could not reach a remote
+	// offline is what the last network command's outcome proved: one that
+	// could not reach its remote, whatever started it. While it holds,
+	// auto-fetch stands down; the fetches the user asks for still run,
+	// and theirs are the outcomes that lift it.
+	offline bool
 	// notifiedBehind is the incoming count a background fetch last
 	// announced, so the next one tells only when it grew; fetchNotified
 	// marks the status read following one.

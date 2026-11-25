@@ -861,6 +861,7 @@
   "msgDCommitS": "{count, plural, one {# commit} other {# commits}}",
   "msgDOfTheFirstDCommits": "%d of the first %d commits",
   "msgDPlusCommits": "%d+ commits",
+  "msgDOfDCommits": "%d of %d commits",
   "msgDFileSChanged": "{count, plural, one {# file changed} other {# files changed}}",
   "msgShowDMoreFileS": "{count, plural, one {Show # More File} other {Show # More Files}}",
   "msgOpen2": "Open ",

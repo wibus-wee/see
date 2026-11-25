@@ -861,6 +861,7 @@
   "msgDCommitS": "{count, plural, other {# 个提交}}",
   "msgDOfTheFirstDCommits": "前 %d 个提交中的 %d 个",
   "msgDPlusCommits": "%d+ 个提交",
+  "msgDOfDCommits": "%[2]d 个提交中的 %[1]d 个",
   "msgDFileSChanged": "已更改 {count} 个文件",
   "msgShowDMoreFileS": "再显示 {count} 个文件",
   "msgOpen2": "打开 ",

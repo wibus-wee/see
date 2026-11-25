@@ -22,20 +22,22 @@ import (
 const historyPage = 200
 
 type gitHistory struct {
-	commits  []git.Commit
-	lanes    []string // the lanes the commits read leave for the next page
-	lanesW   int      // the most lanes a row has, for the graph's width
-	all      bool     // every branch, not only HEAD's
-	path     string   // only commits that changed it, as the log's file scope
-	head     string   // HEAD when the history was read
-	loading  bool
-	done     bool // no commits are left to read
-	stale    bool // to be read again
-	err      string
-	seq      uint64
-	list     ui.ListState
-	unpushed map[string]bool // HEAD's commits the branch it tracks has not
-	incoming map[string]bool
+	commits   []git.Commit
+	lanes     []string // the lanes the commits read leave for the next page
+	lanesW    int      // the most lanes a row has, for the graph's width
+	all       bool     // every branch, not only HEAD's
+	path      string   // only commits that changed it, as the log's file scope
+	head      string   // HEAD when the history was read
+	loading   bool
+	done      bool // no commits are left to read
+	stale     bool // to be read again
+	err       string
+	seq       uint64
+	list      ui.ListState
+	total     int // how many commits the walk has, -1 while unknown
+	mainline  map[string]bool // commits the unpushed and incoming counts are of
+	unpushed  map[string]bool // HEAD's commits the branch it tracks has not
+	incoming  map[string]bool
 }
 
 // commitView is a commit open in an editor.
@@ -81,10 +83,21 @@ func (a *App) loadHistory(reset bool) {
 	go func() {
 		commits, err := git.LogFile(ctx, root, all, skip, historyPage, path)
 		lanes = git.Graph(commits, lanes)
-		var unpushed, incoming map[string]bool
+		var unpushed, incoming, mainline map[string]bool
+		total := -1
 		if reset {
 			unpushed = git.Unpushed(ctx, root)
 			incoming = git.Incoming(ctx, root)
+			mainline = map[string]bool{}
+			for hash := range unpushed {
+				mainline[hash] = true
+			}
+			for hash := range incoming {
+				mainline[hash] = true
+			}
+			if path == "" {
+				total = git.CountCommits(ctx, root, all)
+			}
 		}
 		a.post.Post(func() {
 			if a.gen != gen || h.seq != seq {
@@ -97,7 +110,7 @@ func (a *App) loadHistory(reset bool) {
 			}
 			if reset {
 				h.commits, h.lanesW, h.unpushed = nil, 0, unpushed
-				h.incoming = incoming
+				h.incoming, h.mainline, h.total = incoming, mainline, total
 			}
 			h.commits = append(h.commits, commits...)
 			h.lanes, h.head, h.done = lanes, head, len(commits) < historyPage
@@ -283,12 +296,16 @@ func (a *App) historyRow(c *ui.Context, i int) {
 	}
 	cm := h.commits[i]
 	open := a.focus.active == commitTab(cm.Hash)
-	unpushed := h.unpushed[cm.Hash]
+	// The arrows belong to HEAD's lane alone: of every branch, a commit
+	// that is also unpushed or incoming is not one to push or pull here.
+	mainline := h.mainline == nil || h.mainline[cm.Hash]
+	unpushed := mainline && h.unpushed[cm.Hash]
+	incoming := mainline && h.incoming[cm.Hash]
 	tip := cm.Short + " " + cm.Subject
 	if unpushed {
 		tip += "\n\nNot pushed yet"
 	}
-	if h.incoming[cm.Hash] {
+	if incoming {
 		tip += "\n\n" + logText("gitIncomingCommit")
 	}
 	row := ui.Row(c.Key(cm.Hash)).FillWidth().Height(historyRowHeight).Padding(0, 8, 0, 0).Gap(historyGap).AlignItems(ui.Center).Radius(6).
@@ -322,7 +339,7 @@ func (a *App) historyRow(c *ui.Context, i int) {
 				if unpushed {
 					ui.Text(c, "↑").FontSize(11).Bold().TextColor(c.Theme().Accent).Shrink(0)
 				}
-				if h.incoming[cm.Hash] {
+				if incoming {
 					ui.Text(c, "↓").FontSize(11).Bold().TextColor(c.Theme().Accent).Shrink(0)
 				}
 			})
@@ -381,7 +398,10 @@ func refBadge(c *ui.Context, name string, current bool) {
 	if current {
 		bg, fg = c.Theme().Accent.Alpha(0.18), c.Theme().Accent
 	}
-	ui.Text(c, name).FontSize(10).Bold().TextColor(fg).Background(bg).Padding(0, 5).Radius(4).SingleLine().Shrink(2)
+	// MinWidth(0) lets the badge give way inside its column: without it
+	// the text keeps its full width and the column's clip cuts it
+	// mid-glyph, without even the ellipsis.
+	ui.Text(c, name).FontSize(10).Bold().TextColor(fg).Background(bg).Padding(0, 5).Radius(4).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(2)
 }
 
 // drawGraphRow draws a commit's row of the graph: the lanes passing by,

@@ -26,6 +26,44 @@ func Network(ctx context.Context, dir string, args ...string) ([]byte, error) {
 	return out, nil
 }
 
+// Reachable reports whether err leaves the network's reach in doubt: a
+// command that cannot reach its remote is the truest reachability signal
+// there is, while one the remote answers — even to refuse, as a missing
+// repository or a denied key does — proves the way to it. Anything that
+// is not clearly either counts as reachable, so that a local slip, as a
+// corrupted object, does not silence the fetches that would report it.
+func Reachable(err error) bool {
+	if err == nil {
+		return true
+	}
+	s := strings.ToLower(err.Error())
+	unreachable := []string{
+		"could not resolve host",
+		"couldn't resolve host",
+		"temporary failure in name resolution",
+		"name or service not known",
+		"no address associated with hostname",
+		"nodename nor servname provided",
+		"network is unreachable",
+		"no route to host",
+		"connection timed out",
+		"operation timed out",
+		"failed to connect",
+		"couldn't connect",
+		"could not connect",
+		"connection refused",
+		"connection reset",
+		"ssl_connect",
+		"proxy CONNECT aborted",
+	}
+	for _, u := range unreachable {
+		if strings.Contains(s, u) {
+			return false
+		}
+	}
+	return true
+}
+
 // Tracking is the branch HEAD's branch tracks, and how many commits HEAD
 // has that it has not (ahead) and it has that HEAD has not (behind); ""
 // without one.

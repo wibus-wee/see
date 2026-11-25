@@ -240,6 +240,11 @@ func (a *App) gitLogContent(c *ui.Context, g *group, v *gitLogView) {
 				count = fmt.Sprintf(locales.MsgDOfTheFirstDCommits(), len(rows), len(h.commits))
 				if v.query == "" {
 					count = fmt.Sprintf(locales.MsgDPlusCommits(), len(h.commits))
+					// rev-list counts the whole walk ahead: say how many
+					// there are, not how many are read so far.
+					if h.total > len(h.commits) {
+						count = fmt.Sprintf(locales.MsgDOfDCommits(), len(h.commits), h.total)
+					}
 				}
 			}
 			ui.Text(c, count).FontSize(11).TextColor(colors(c).Muted).SingleLine()
@@ -308,7 +313,11 @@ func (a *App) gitLogContent(c *ui.Context, g *group, v *gitLogView) {
 						})
 					}
 					if !h.done && !h.loading {
-						ui.Button(c, logText("gitLogLoadMore")).OnClick(func() { a.loadHistory(false) })
+						ui.Row(c).Shrink(0).FillWidth().Padding(6, 12).BorderWidth(1, 0, 0, 0).BorderColor(colors(c).Separator).Children(func() {
+							if ui.Button(c, logText("gitLogLoadMore")).FontSize(12).Clicked() {
+								a.loadHistory(false)
+							}
+						})
 					}
 				})
 			})
@@ -423,10 +432,12 @@ func (a *App) logRow(c *ui.Context, v *gitLogView, cm git.Commit, columns logTab
 		}
 		ui.Row(c).Grow(1).Shrink(1).Basis(0).Gap(5).AlignItems(ui.Center).Children(func() {
 			ui.Text(c, cm.Subject).FontSize(12).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
-			if a.git.history.unpushed[cm.Hash] {
+			h := &a.git.history
+			mainline := h.mainline == nil || h.mainline[cm.Hash]
+			if mainline && h.unpushed[cm.Hash] {
 				ui.Text(c, "↑").FontSize(11).Bold().TextColor(c.Theme().Accent).Shrink(0).Tooltip(locales.MsgNotPushedYet())
 			}
-			if a.git.history.incoming[cm.Hash] {
+			if mainline && h.incoming[cm.Hash] {
 				ui.Text(c, "↓").FontSize(11).Bold().TextColor(c.Theme().Accent).Shrink(0).Tooltip(logText("gitIncomingCommit"))
 			}
 		})
