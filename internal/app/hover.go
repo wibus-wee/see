@@ -91,8 +91,26 @@ func (a *App) hoverAt(d *doc, st *editor.State, r editor.HoverRequest) {
 	if a.quickHelpRequest != nil {
 		a.cancelQuickHelpRequest()
 	}
+	if d.buf == nil {
+		return
+	}
+	snap := d.buf.Snapshot()
+	pos := snap.Pos(r.Offset)
+	line := snap.Line(pos.Line)
+	// Past the line's end the pointer is on its trailing decoration,
+	// which is blame: answer with the commit, whatever a server says.
+	if pos.Col >= len(line) {
+		if a.cfg.HideInlineBlame {
+			return
+		}
+		if b, ok := a.lineBlameAt(d, pos.Line); ok {
+			end := snap.LineStart(pos.Line) + len(line)
+			st.ShowHover(end, end, "", func(c *ui.Context) { a.blameHoverContent(c, b) })
+		}
+		return
+	}
 	m := a.serverFor(d.path)
-	if m == nil || d.buf == nil || !a.cfg.IsTrusted(a.root) {
+	if m == nil || !a.cfg.IsTrusted(a.root) {
 		return
 	}
 	if s, _ := m.Status(); s == langserver.Failed {
@@ -103,9 +121,6 @@ func (a *App) hoverAt(d *doc, st *editor.State, r editor.HoverRequest) {
 	}
 	a.hover.seq++
 	seq, gen, cmd, epoch := a.hover.seq, a.gen, a.hover.cmd, a.hover.epoch
-	snap := d.buf.Snapshot()
-	pos := snap.Pos(r.Offset)
-	line := snap.Line(pos.Line)
 	ws, we := wordAt(line, pos.Col)
 	if ws == we {
 		return // not on a word
