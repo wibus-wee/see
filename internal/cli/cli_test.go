@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -48,7 +49,7 @@ func TestOpenableResolves(t *testing.T) {
 }
 
 func TestInvocationRecognizesTheCommand(t *testing.T) {
-	for _, name := range []string{"see", "/usr/local/bin/see", filepath.Join(".local", "bin", "see")} {
+	for _, name := range []string{"see", filepath.Join(".local", "bin", "see")} {
 		if _, ok := Invocation(name, nil); !ok {
 			t.Errorf("Invocation(%q) = false", name)
 		}
@@ -57,6 +58,48 @@ func TestInvocationRecognizesTheCommand(t *testing.T) {
 		if _, ok := Invocation(name, nil); ok {
 			t.Errorf("Invocation(%q) = true", name)
 		}
+	}
+}
+
+func TestInvocationDistinguishesDesktopLaunchFromLinuxShellCommand(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("Linux desktop entry")
+	}
+	dir := t.TempDir()
+	desktopExecutable := filepath.Join(dir, "see")
+	if err := os.WriteFile(desktopExecutable, nil, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := Invocation(desktopExecutable, nil); ok {
+		t.Fatal("desktop launch was treated as a CLI invocation")
+	}
+	for _, tc := range []struct {
+		name string
+		args []string
+		want []string
+	}{
+		{"explicit path", []string{"/project"}, []string{"/project"}},
+		{"RunArg without path", []string{RunArg}, nil},
+		{"RunArg with path", []string{RunArg, "/project"}, []string{"/project"}},
+	} {
+		got, ok := Invocation(desktopExecutable, tc.args)
+		if !ok || !slices.Equal(got, tc.want) {
+			t.Errorf("Invocation(%q, %q) = %q, %v; want %q, true", desktopExecutable, tc.args, got, ok, tc.want)
+		}
+	}
+	cliExecutable := filepath.Join(dir, "see-cli")
+	if err := os.WriteFile(cliExecutable, nil, 0755); err != nil {
+		t.Fatal(err)
+	}
+	cliLink := filepath.Join(dir, "see")
+	if err := os.Remove(cliLink); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(cliExecutable, cliLink); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := Invocation(cliLink, nil); !ok {
+		t.Fatal("the installed CLI symlink was not treated as a CLI invocation")
 	}
 }
 

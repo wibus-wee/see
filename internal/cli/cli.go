@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"see/internal/proc"
@@ -238,7 +239,15 @@ func Invocation(arg0 string, args []string) ([]string, bool) {
 			return nil, false
 		}
 	}
-	return args, filepath.Base(arg0) == "see"
+	command := filepath.Base(arg0) == "see"
+	if command && runtime.GOOS == "linux" && len(args) == 0 && filepath.IsAbs(arg0) {
+		// Linux desktop entries invoke the absolute executable; the installed
+		// shell command is a symlink. This distinguishes GUI launch without
+		// changing generated desktop entries or shell command behavior.
+		info, err := os.Lstat(arg0)
+		command = err == nil && info.Mode()&os.ModeSymlink != 0
+	}
+	return args, command
 }
 
 // OpenPath is the path an app process is asked to open by its arguments:
