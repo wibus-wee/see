@@ -23,3 +23,5 @@ require (
 )
 
 tool github.com/egoist/mygo/cmd/mygo
+
+replace github.com/egoist/mygo => github.com/wibus-wee/mygo v0.7.5-0.20261125120531-d964000eea21

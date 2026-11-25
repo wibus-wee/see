@@ -571,7 +571,7 @@ func (a *App) commitContent(c *ui.Context, g *group, v *commitView) {
 				if link := a.commitLink(cm.Hash); link != "" {
 					ui.Box(c).Grow(1)
 					host := hostName(a.git.web)
-					if ui.Button(c, locales.Catalog.Format(i18n.Locale(), "msgOpenOnHost", map[string]any{"host": host})).FontSize(12).Tooltip(link).Clicked() {
+					if ui.Button(c, locales.Catalog.Format(i18n.Locale(), "editorContextOpenOnHost", map[string]any{"host": host})).FontSize(12).Tooltip(link).Clicked() {
 						c.Services().OpenURL(link)
 					}
 				}

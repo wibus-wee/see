@@ -10,7 +10,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"runtime"
 	"see/internal/languages"
 	"see/locales"
 	"slices"
@@ -136,7 +135,7 @@ type App struct {
 	navCancel           context.CancelFunc
 	finding             bool // a navigation request is on its way
 	findingLabel        string
-	navigationMenuState [6]bool
+	navigationMenuState [8]bool
 	scopeSeq            uint64
 	scopeCancel         context.CancelFunc
 	scopePendingState   *editor.State
@@ -1305,87 +1304,8 @@ func (a *App) newEditor(g *group, d *doc) *editor.State {
 	st.OnDefinition = func(offset int) { a.goToDefinition(g, d, offset) }
 	st.OnCompletion = func(req editor.CompletionRequest) { a.requestCompletions(g, d, st, req) }
 	a.loadGitBase(d)
-	st.ContextMenu = func(menu *ui.Menu) {
-		if menu.Item(commandLabel("regex.playground")).Chosen() {
-			a.openRegexPlaygroundFor(g, d, st)
-		}
-		menu.Separator()
-		if menu.Item(commandLabel("definition.peek")).Shortcut(ui.Alt, ui.KeyF12).Disabled(!a.navigationEnabled(d.path, "peek")).Chosen() {
-			a.peekDefinition(g, d, st.Buffer.Offset(st.CursorPos()))
-		}
-		if menu.Item(commandLabel("codeAction.show")).Disabled(!a.codeActionsEnabled(d.path)).Chosen() {
-			a.codeActionAtPoint(g, d, st, false)
-		}
-		formatDoc, formatRange := a.formatEnabled(d.path)
-		if menu.Item(commandLabel("format.document")).Disabled(!formatDoc).Shortcut(ui.Shift|ui.Alt, ui.KeyF).Chosen() {
-			a.formatAt(g, d, st, false)
-		}
-		if menu.Item(commandLabel("format.selection")).Disabled(!formatRange || !hasSelection(st)).Chosen() {
-			a.formatAt(g, d, st, true)
-		}
-		for _, kind := range []string{"implementation", "typeDefinition"} {
-			item := menu.Item(commandLabel(navigationCommand(kind))).Disabled(!a.navigationEnabled(d.path, kind))
-			if kind == "implementation" {
-				item.Shortcut(ui.Cmd, ui.KeyF12)
-			}
-			if item.Chosen() {
-				a.goToLocation(g, d, st.Buffer.Offset(st.CursorPos()), kind)
-			}
-		}
-		if b, ok := a.lineBlame(d, st); ok && !b.Uncommitted {
-			if menu.Item(commandLabel("git.revealLineCommit")).Chosen() {
-				a.revealLogCommit(b.Hash)
-			}
-			menu.Separator()
-		}
-		if menu.Item(commandLabel("references.find")).Shortcut(ui.Shift, ui.KeyF12).Chosen() {
-			a.focus = g
-			a.findUsagesAt(false, g.pointerAnchor, g.pointerInEditor)
-		}
-		if menu.Item(commandLabel("references.callers")).Chosen() {
-			a.focus = g
-			a.findUsagesAt(true, g.pointerAnchor, g.pointerInEditor)
-		}
-		if menu.Item(commandLabel("hierarchy.calls")).Chosen() {
-			a.focus = g
-			a.showCallHierarchyAt(g)
-		}
-		if menu.Item(commandLabel("hierarchy.types")).Disabled(!a.navigationEnabled(d.path, "typeHierarchy")).Chosen() {
-			a.focus = g
-			a.showTypeHierarchyAt(g)
-		}
-		if !d.untitled && menu.Item(commandLabel("history.file")).Chosen() {
-			a.showFileHistory(d.path)
-		}
-		localHistoryItem := menu.Item(commandLabel("history.local")).Disabled(!a.localHistorySupported(d))
-		if !a.localHistorySupported(d) {
-			localHistoryItem.Tooltip(localHistoryText("localHistoryUnsupported"))
-		}
-		if localHistoryItem.Chosen() {
-			a.showLocalHistory(g, d)
-		}
-		if menu.Item(commandLabel("history.compare")).Chosen() {
-			a.showRevision(g, d, "")
-		}
-		a.linkItems(menu, d, st)
-		menu.Separator()
-		_, _, mods, key := editAllScopeShortcut(runtime.GOOS)
-		item := menu.Item(commandLabel("edit.allInScope")).Disabled(!a.scopeEditCommandEnabled(g, d, st)).Shortcut(mods, key)
-		if item.Chosen() {
-			a.editAllInScopeFor(g, d, st)
-		}
-		menu.Separator()
-		if menu.Item(commandLabel("selection.expand")).Shortcut(ui.Alt|ui.Shift, ui.KeyUp).Chosen() {
-			a.expandSelection()
-		}
-		if menu.Item(commandLabel("selection.shrink")).Shortcut(ui.Alt|ui.Shift, ui.KeyDown).Chosen() {
-			a.shrinkSelection()
-		}
-		renameItem := menu.Item(commandLabel("symbol.rename")).Disabled(!a.renameEnabled(d.path)).Shortcut(0, ui.KeyF2)
-		if renameItem.Chosen() {
-			a.renameSymbolAt(g, d, st)
-		}
-	}
+	st.ReplaceContextMenu = true
+	st.ContextMenu = func(menu *ui.Menu) { a.editorContextMenu(menu, g, d, st) }
 	st.OnHover = func(r editor.HoverRequest) { a.hoverAt(d, st, r) }
 	st.RenderHover = func(c *ui.Context, panel ui.Element, h *editor.HoverCard) {
 		a.renderHover(st, c, panel, h)

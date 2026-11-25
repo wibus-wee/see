@@ -6974,36 +6974,6 @@ func (msgs Messages) MsgOpenInExternalTerminalHere() string {
 	return Catalog.Format(msgs.locale, "msgOpenInExternalTerminalHere", nil)
 }
 
-// MsgCopyCodeReference says "Copy Code Reference"
-// in the language the app shows.
-func MsgCopyCodeReference() string { return In(i18n.Locale()).MsgCopyCodeReference() }
-
-// MsgCopyCodeReference says "Copy Code Reference"
-// in the language of msgs.
-func (msgs Messages) MsgCopyCodeReference() string {
-	return Catalog.Format(msgs.locale, "msgCopyCodeReference", nil)
-}
-
-// MsgCopySHostLink says "Copy {host} Link"
-// in the language the app shows.
-func MsgCopySHostLink(host string) string { return In(i18n.Locale()).MsgCopySHostLink(host) }
-
-// MsgCopySHostLink says "Copy {host} Link"
-// in the language of msgs.
-func (msgs Messages) MsgCopySHostLink(host string) string {
-	return Catalog.Format(msgs.locale, "msgCopySHostLink", map[string]any{"host": host})
-}
-
-// MsgOpenOnHost says "Open on {host}"
-// in the language the app shows.
-func MsgOpenOnHost(host string) string { return In(i18n.Locale()).MsgOpenOnHost(host) }
-
-// MsgOpenOnHost says "Open on {host}"
-// in the language of msgs.
-func (msgs Messages) MsgOpenOnHost(host string) string {
-	return Catalog.Format(msgs.locale, "msgOpenOnHost", map[string]any{"host": host})
-}
-
 // MsgPull says "Pull"
 // in the language the app shows.
 func MsgPull() string { return In(i18n.Locale()).MsgPull() }
@@ -10554,6 +10524,186 @@ func (msgs Messages) CommandShrinkSelection() string {
 	return Catalog.Format(msgs.locale, "commandShrinkSelection", nil)
 }
 
+// CommandSelectionMenu says "Selection"
+// in the language the app shows.
+func CommandSelectionMenu() string { return In(i18n.Locale()).CommandSelectionMenu() }
+
+// CommandSelectionMenu says "Selection"
+// in the language of msgs.
+func (msgs Messages) CommandSelectionMenu() string {
+	return Catalog.Format(msgs.locale, "commandSelectionMenu", nil)
+}
+
+// CommandTransformMenu says "Transform Text"
+// in the language the app shows.
+func CommandTransformMenu() string { return In(i18n.Locale()).CommandTransformMenu() }
+
+// CommandTransformMenu says "Transform Text"
+// in the language of msgs.
+func (msgs Messages) CommandTransformMenu() string {
+	return Catalog.Format(msgs.locale, "commandTransformMenu", nil)
+}
+
+// CommandSelectAll says "Select All"
+// in the language the app shows.
+func CommandSelectAll() string { return In(i18n.Locale()).CommandSelectAll() }
+
+// CommandSelectAll says "Select All"
+// in the language of msgs.
+func (msgs Messages) CommandSelectAll() string {
+	return Catalog.Format(msgs.locale, "commandSelectAll", nil)
+}
+
+// CommandSelectNextOccurrence says "Select Next Occurrence"
+// in the language the app shows.
+func CommandSelectNextOccurrence() string { return In(i18n.Locale()).CommandSelectNextOccurrence() }
+
+// CommandSelectNextOccurrence says "Select Next Occurrence"
+// in the language of msgs.
+func (msgs Messages) CommandSelectNextOccurrence() string {
+	return Catalog.Format(msgs.locale, "commandSelectNextOccurrence", nil)
+}
+
+// CommandSelectAllOccurrences says "Select All Occurrences"
+// in the language the app shows.
+func CommandSelectAllOccurrences() string { return In(i18n.Locale()).CommandSelectAllOccurrences() }
+
+// CommandSelectAllOccurrences says "Select All Occurrences"
+// in the language of msgs.
+func (msgs Messages) CommandSelectAllOccurrences() string {
+	return Catalog.Format(msgs.locale, "commandSelectAllOccurrences", nil)
+}
+
+// CommandSplitIntoLines says "Split into Lines"
+// in the language the app shows.
+func CommandSplitIntoLines() string { return In(i18n.Locale()).CommandSplitIntoLines() }
+
+// CommandSplitIntoLines says "Split into Lines"
+// in the language of msgs.
+func (msgs Messages) CommandSplitIntoLines() string {
+	return Catalog.Format(msgs.locale, "commandSplitIntoLines", nil)
+}
+
+// CommandUpperCase says "Upper Case"
+// in the language the app shows.
+func CommandUpperCase() string { return In(i18n.Locale()).CommandUpperCase() }
+
+// CommandUpperCase says "Upper Case"
+// in the language of msgs.
+func (msgs Messages) CommandUpperCase() string {
+	return Catalog.Format(msgs.locale, "commandUpperCase", nil)
+}
+
+// CommandLowerCase says "Lower Case"
+// in the language the app shows.
+func CommandLowerCase() string { return In(i18n.Locale()).CommandLowerCase() }
+
+// CommandLowerCase says "Lower Case"
+// in the language of msgs.
+func (msgs Messages) CommandLowerCase() string {
+	return Catalog.Format(msgs.locale, "commandLowerCase", nil)
+}
+
+// CommandTitleCase says "Title Case"
+// in the language the app shows.
+func CommandTitleCase() string { return In(i18n.Locale()).CommandTitleCase() }
+
+// CommandTitleCase says "Title Case"
+// in the language of msgs.
+func (msgs Messages) CommandTitleCase() string {
+	return Catalog.Format(msgs.locale, "commandTitleCase", nil)
+}
+
+// CommandSnakeCase says "Snake Case"
+// in the language the app shows.
+func CommandSnakeCase() string { return In(i18n.Locale()).CommandSnakeCase() }
+
+// CommandSnakeCase says "Snake Case"
+// in the language of msgs.
+func (msgs Messages) CommandSnakeCase() string {
+	return Catalog.Format(msgs.locale, "commandSnakeCase", nil)
+}
+
+// CommandKebabCase says "Kebab Case"
+// in the language the app shows.
+func CommandKebabCase() string { return In(i18n.Locale()).CommandKebabCase() }
+
+// CommandKebabCase says "Kebab Case"
+// in the language of msgs.
+func (msgs Messages) CommandKebabCase() string {
+	return Catalog.Format(msgs.locale, "commandKebabCase", nil)
+}
+
+// CommandCamelCase says "Camel Case"
+// in the language the app shows.
+func CommandCamelCase() string { return In(i18n.Locale()).CommandCamelCase() }
+
+// CommandCamelCase says "Camel Case"
+// in the language of msgs.
+func (msgs Messages) CommandCamelCase() string {
+	return Catalog.Format(msgs.locale, "commandCamelCase", nil)
+}
+
+// CommandPascalCase says "Pascal Case"
+// in the language the app shows.
+func CommandPascalCase() string { return In(i18n.Locale()).CommandPascalCase() }
+
+// CommandPascalCase says "Pascal Case"
+// in the language of msgs.
+func (msgs Messages) CommandPascalCase() string {
+	return Catalog.Format(msgs.locale, "commandPascalCase", nil)
+}
+
+// CommandSortLines says "Sort Lines"
+// in the language the app shows.
+func CommandSortLines() string { return In(i18n.Locale()).CommandSortLines() }
+
+// CommandSortLines says "Sort Lines"
+// in the language of msgs.
+func (msgs Messages) CommandSortLines() string {
+	return Catalog.Format(msgs.locale, "commandSortLines", nil)
+}
+
+// CommandReverseLines says "Reverse Lines"
+// in the language the app shows.
+func CommandReverseLines() string { return In(i18n.Locale()).CommandReverseLines() }
+
+// CommandReverseLines says "Reverse Lines"
+// in the language of msgs.
+func (msgs Messages) CommandReverseLines() string {
+	return Catalog.Format(msgs.locale, "commandReverseLines", nil)
+}
+
+// CommandUniqueLines says "Unique Lines"
+// in the language the app shows.
+func CommandUniqueLines() string { return In(i18n.Locale()).CommandUniqueLines() }
+
+// CommandUniqueLines says "Unique Lines"
+// in the language of msgs.
+func (msgs Messages) CommandUniqueLines() string {
+	return Catalog.Format(msgs.locale, "commandUniqueLines", nil)
+}
+
+// CommandJoinLines says "Join Lines"
+// in the language the app shows.
+func CommandJoinLines() string { return In(i18n.Locale()).CommandJoinLines() }
+
+// CommandJoinLines says "Join Lines"
+// in the language of msgs.
+func (msgs Messages) CommandJoinLines() string {
+	return Catalog.Format(msgs.locale, "commandJoinLines", nil)
+}
+
+// CommandTrimTrailingWhitespace says "Trim Trailing Whitespace"
+// in the language the app shows.
+func CommandTrimTrailingWhitespace() string { return In(i18n.Locale()).CommandTrimTrailingWhitespace() }
+
+// CommandTrimTrailingWhitespace says "Trim Trailing Whitespace"
+// in the language of msgs.
+func (msgs Messages) CommandTrimTrailingWhitespace() string {
+	return Catalog.Format(msgs.locale, "commandTrimTrailingWhitespace", nil)
+}
+
 // CommandRenameSymbol says "Rename Symbol"
 // in the language the app shows.
 func CommandRenameSymbol() string { return In(i18n.Locale()).CommandRenameSymbol() }
@@ -10754,6 +10904,102 @@ func CommandTestRegex() string { return In(i18n.Locale()).CommandTestRegex() }
 // in the language of msgs.
 func (msgs Messages) CommandTestRegex() string {
 	return Catalog.Format(msgs.locale, "commandTestRegex", nil)
+}
+
+// EditorContextHistoryCompare says "History & Compare"
+// in the language the app shows.
+func EditorContextHistoryCompare() string { return In(i18n.Locale()).EditorContextHistoryCompare() }
+
+// EditorContextHistoryCompare says "History & Compare"
+// in the language of msgs.
+func (msgs Messages) EditorContextHistoryCompare() string {
+	return Catalog.Format(msgs.locale, "editorContextHistoryCompare", nil)
+}
+
+// EditorContextCopyShare says "Copy & Share"
+// in the language the app shows.
+func EditorContextCopyShare() string { return In(i18n.Locale()).EditorContextCopyShare() }
+
+// EditorContextCopyShare says "Copy & Share"
+// in the language of msgs.
+func (msgs Messages) EditorContextCopyShare() string {
+	return Catalog.Format(msgs.locale, "editorContextCopyShare", nil)
+}
+
+// EditorContextCut says "Cut"
+// in the language the app shows.
+func EditorContextCut() string { return In(i18n.Locale()).EditorContextCut() }
+
+// EditorContextCut says "Cut"
+// in the language of msgs.
+func (msgs Messages) EditorContextCut() string {
+	return Catalog.Format(msgs.locale, "editorContextCut", nil)
+}
+
+// EditorContextCopy says "Copy"
+// in the language the app shows.
+func EditorContextCopy() string { return In(i18n.Locale()).EditorContextCopy() }
+
+// EditorContextCopy says "Copy"
+// in the language of msgs.
+func (msgs Messages) EditorContextCopy() string {
+	return Catalog.Format(msgs.locale, "editorContextCopy", nil)
+}
+
+// EditorContextPaste says "Paste"
+// in the language the app shows.
+func EditorContextPaste() string { return In(i18n.Locale()).EditorContextPaste() }
+
+// EditorContextPaste says "Paste"
+// in the language of msgs.
+func (msgs Messages) EditorContextPaste() string {
+	return Catalog.Format(msgs.locale, "editorContextPaste", nil)
+}
+
+// EditorContextToggleComment says "Toggle Comment"
+// in the language the app shows.
+func EditorContextToggleComment() string { return In(i18n.Locale()).EditorContextToggleComment() }
+
+// EditorContextToggleComment says "Toggle Comment"
+// in the language of msgs.
+func (msgs Messages) EditorContextToggleComment() string {
+	return Catalog.Format(msgs.locale, "editorContextToggleComment", nil)
+}
+
+// EditorContextCopyCodeReference says "Copy Code Reference"
+// in the language the app shows.
+func EditorContextCopyCodeReference() string {
+	return In(i18n.Locale()).EditorContextCopyCodeReference()
+}
+
+// EditorContextCopyCodeReference says "Copy Code Reference"
+// in the language of msgs.
+func (msgs Messages) EditorContextCopyCodeReference() string {
+	return Catalog.Format(msgs.locale, "editorContextCopyCodeReference", nil)
+}
+
+// EditorContextCopyHostLink says "Copy {host} Link"
+// in the language the app shows.
+func EditorContextCopyHostLink(host string) string {
+	return In(i18n.Locale()).EditorContextCopyHostLink(host)
+}
+
+// EditorContextCopyHostLink says "Copy {host} Link"
+// in the language of msgs.
+func (msgs Messages) EditorContextCopyHostLink(host string) string {
+	return Catalog.Format(msgs.locale, "editorContextCopyHostLink", map[string]any{"host": host})
+}
+
+// EditorContextOpenOnHost says "Open on {host}"
+// in the language the app shows.
+func EditorContextOpenOnHost(host string) string {
+	return In(i18n.Locale()).EditorContextOpenOnHost(host)
+}
+
+// EditorContextOpenOnHost says "Open on {host}"
+// in the language of msgs.
+func (msgs Messages) EditorContextOpenOnHost(host string) string {
+	return Catalog.Format(msgs.locale, "editorContextOpenOnHost", map[string]any{"host": host})
 }
 
 // RegexPlaygroundTitle says "Regex Playground"
