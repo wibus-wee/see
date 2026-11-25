@@ -11,6 +11,8 @@ func TestResetSettingsReappliesEditorLineHeight(t *testing.T) {
 	h := newHarness(t, writeTree(t, map[string]string{"a.go": "package a\npackage b\n"}))
 	h.open("a.go")
 	st := h.a.activeEditor()
+	h.tt.Frame()
+	defaultRowHeight := st.LineTop(1) - st.LineTop(0)
 	diff := &editor.DiffState{}
 	h.a.focus.diffs = map[string]*gitDiffTab{"line-height-reset": {state: diff}}
 
@@ -24,7 +26,7 @@ func TestResetSettingsReappliesEditorLineHeight(t *testing.T) {
 	}
 	h.tt.Frame()
 
-	if got, want := st.LineTop(1)-st.LineTop(0), float64(20); got != want {
+	if got, want := st.LineTop(1)-st.LineTop(0), defaultRowHeight; got != want {
 		t.Fatalf("editor row height after reset = %g, want %g", got, want)
 	}
 	if diff.LineHeight != 0 {

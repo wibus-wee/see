@@ -16,13 +16,33 @@ func TestEditorLineHeightPreferenceUpdatesOtherWorkspace(t *testing.T) {
 	second.open("b.go")
 	diff := &editor.DiffState{}
 	second.a.focus.diffs = map[string]*gitDiffTab{"line-height-other-window": {state: diff}}
+	otherEditor := second.a.activeEditor()
+	projects := []*projectWindow{{app: first.a}, {app: second.a}}
+	refreshEditorPrefs := func() { applyEditorPrefsToProjects(projects) }
+	first.a.editorPrefsChanged = refreshEditorPrefs
+	second.a.editorPrefsChanged = refreshEditorPrefs
+
+	first.settle(func() bool { return len(first.q) == 0 })
+	second.settle(func() bool { return len(second.q) == 0 })
+	if otherEditor.LineHeight != 0 || diff.LineHeight != 0 {
+		t.Fatal("other workspace editor preferences changed before the shared line-height update")
+	}
 
 	cfg.EditorLineHeight = 2
 	first.a.applyEditorPrefsAcrossWindows()
-	first.settle(func() bool { return first.a.activeEditor().LineHeight == 2 })
-	second.settle(func() bool { return second.a.activeEditor().LineHeight == 2 })
+	if otherEditor.LineHeight != 0 || diff.LineHeight != 0 {
+		t.Fatal("other workspace editor preferences changed before its scheduled refresh")
+	}
+	first.settle(func() bool { return len(first.q) == 0 })
+	second.settle(func() bool { return len(second.q) == 0 })
+	if second.a.activeEditor() != otherEditor {
+		t.Fatal("other workspace editor was replaced during the line-height update")
+	}
+	if otherEditor.LineHeight != 2 {
+		t.Fatalf("other workspace editor line height = %g, want 2", otherEditor.LineHeight)
+	}
 
-	st := second.a.activeEditor()
+	st := otherEditor
 	if got, want := st.LineTop(1)-st.LineTop(0), float64(st.Font.Size*2); got != want {
 		t.Fatalf("other workspace editor row height = %g, want %g", got, want)
 	}
