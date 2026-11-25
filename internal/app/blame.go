@@ -73,6 +73,18 @@ func (a *App) lineBlame(d *doc, st *editor.State) (git.BlameLine, bool) {
 	return d.blame[line], true
 }
 
+// lineBlameAt is the blame of line, valid or not, wherever the pointer
+// is: hover reads it as lineBlame does the caret's.
+func (a *App) lineBlameAt(d *doc, line int) (git.BlameLine, bool) {
+	if d == nil || d.buf == nil || !d.blameReady || d.blameVersion != d.buf.Version() || d.blameKey != a.gitBaseKey(d) {
+		return git.BlameLine{}, false
+	}
+	if line < 0 || line >= len(d.blame) {
+		return git.BlameLine{}, false
+	}
+	return d.blame[line], true
+}
+
 func blameInlineText(b git.BlameLine) string {
 	if b.Uncommitted {
 		return logText("blameUncommitted")
@@ -113,6 +125,34 @@ func (a *App) editorInlays(d *doc, st *editor.State) []editor.Inlay {
 		inlays = append(inlays, editor.Inlay{Offset: offset, Text: "    " + blameInlineText(b), Trailing: true, Ellipsis: "…"})
 	}
 	return inlays
+}
+
+// blameHoverContent is the commit card a line's trailing blame shows
+// under the pointer: who wrote it and when, its message, and the hash
+// opening it in the Git Log, as the status bar's button does.
+func (a *App) blameHoverContent(c *ui.Context, b git.BlameLine) {
+	if b.Uncommitted {
+		ui.Text(c, logText("blameUncommitted")).FontSize(12).TextColor(colors(c).Muted)
+		return
+	}
+	ui.Column(c).Gap(6).MaxWidth(420).Children(func() {
+		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+			a.personAvatar(c, b.Author, b.Email, 20)
+			ui.Text(c, b.Author).FontSize(12).Bold().SingleLine().Ellipsis("…").Shrink(1)
+			ui.Text(c, blameDate(b.Date)).FontSize(11).TextColor(colors(c).Muted).SingleLine().Shrink(0)
+		})
+		if b.Subject != "" {
+			ui.Text(c, b.Subject).FontSize(12).TextColor(colors(c).Text)
+		}
+		ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+			link := ui.ButtonBase(c).Label(commandLabel("Show Line's Commit in Git Log")+": "+b.Short).Cursor(ui.CursorPointer)
+			link.OnClick(func() { a.revealLogCommit(b.Hash) })
+			link.Children(func() {
+				ui.Text(c, b.Short).FontSize(11).TextColor(a.colors().Link).SingleLine()
+			})
+			ui.Text(c, b.Date.Local().Format("2006-01-02 15:04:05 MST")).FontSize(11).TextColor(colors(c).Muted).SingleLine().Shrink(0)
+		})
+	})
 }
 
 func (a *App) blameStatus(c *ui.Context, d *doc, st *editor.State) {
