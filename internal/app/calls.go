@@ -583,7 +583,7 @@ func (a *App) callRow(c *ui.Context, k int) {
 			a.openCallRow(k)
 		})
 	}
-	if row.DoubleClicked() {
+	if row.RowDoubleClicked() {
 		a.openCallRow(k)
 	}
 	row.ContextMenu(func(m *ui.Menu) {
