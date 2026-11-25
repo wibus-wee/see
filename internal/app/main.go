@@ -60,6 +60,14 @@ func Main() {
 	)
 	refreshEditorPrefs := func() { applyEditorPrefsToProjects(projects) }
 	a.editorPrefsChanged = refreshEditorPrefs
+	refreshGitDiscovery := func() {
+		for _, p := range projects {
+			if p.win != nil && !p.win.IsDestroyed() {
+				p.app.refreshGitDiscovery()
+			}
+		}
+	}
+	a.gitDiscoveryChanged = refreshGitDiscovery
 	// Files and folders opened with the application, as by a drop on its
 	// Dock icon: they wait for the windows to exist when the app starts
 	// with one, and open in the windows that fit them after.
@@ -177,6 +185,7 @@ func Main() {
 			child := newApp(cfg)
 			child.trustChanged = a.trustChanged
 			child.editorPrefsChanged = refreshEditorPrefs
+			child.gitDiscoveryChanged = refreshGitDiscovery
 			child.ownsStandaloneSession = false
 			child.version = a.version
 			child.hasWelcome = true

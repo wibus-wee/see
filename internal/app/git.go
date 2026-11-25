@@ -484,6 +484,20 @@ func gitBranchFingerprint(ctx context.Context, root, head, refs string, changes 
 	return b.String()
 }
 
+func (a *App) clearGitBase(d *doc) {
+	d.gitBaseSeq++
+	d.gitBaseKey = ""
+	d.gitBase, d.gitChanges = nil, nil
+	for _, g := range a.groups() {
+		if st := g.eds[d.path]; st != nil {
+			st.DiffBase = nil
+		}
+	}
+	if a.git.peek != nil && a.git.peek.doc == d {
+		a.git.peek = nil
+	}
+}
+
 // loadGitBase reads the committed version off the UI thread. A tracked file
 // added to the index has an empty committed version. It is read again only
 // when the repository, HEAD, the file's path or its status changed: git's
@@ -493,8 +507,7 @@ func (a *App) loadGitBase(d *doc) {
 	if key := a.gitBaseKey(d); key != "" && key == d.gitBaseKey {
 		return
 	}
-	d.gitBaseSeq++
-	d.gitBaseKey = ""
+	a.clearGitBase(d)
 	seq, gen, scopeSeq, root, ctx, path := d.gitBaseSeq, a.gen, a.git.scopeSeq, a.git.root, a.wsCtx, d.path
 	if root == "" || ctx == nil || d.untitled {
 		return

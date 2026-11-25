@@ -173,10 +173,13 @@ func (a *App) selectGitRepository(root string) {
 	if root != "" && (!a.cfg.GitAutoDiscover || !slices.Contains(a.git.repositories, root)) {
 		return
 	}
-	if a.cfg.GitAutoDiscover && a.git.root == "" && gitRepositoryContaining(a.root, []string{root}) == "" {
+	initialContaining := a.cfg.GitAutoDiscover && a.git.root == "" && root != "" && gitRepositoryContaining(a.root, []string{root}) != ""
+	if a.cfg.GitAutoDiscover && a.git.root == "" && !initialContaining {
 		a.git.pendingTabs = nil
 	}
-	a.closeGitRepositoryTabs()
+	if !initialContaining {
+		a.closeGitRepositoryTabs()
+	}
 	if a.git.picker.open {
 		a.closeBranchPicker()
 	}
@@ -190,6 +193,11 @@ func (a *App) selectGitRepository(root string) {
 	a.git.autoFetching, a.git.syncing, a.git.stashing = false, "", false
 	a.git.resolvingPath, a.jumpDate = "", jumpToDate{}
 	a.git.root = root
+	for _, d := range a.docs {
+		if d != nil {
+			a.clearGitBase(d)
+		}
+	}
 	a.git.branch, a.git.message, a.git.head, a.git.refs = "", "", "", ""
 	a.git.repository = git.RepositoryRefs{}
 	a.git.changes, a.git.stashes, a.git.remotes = nil, nil, nil
