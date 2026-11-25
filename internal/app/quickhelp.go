@@ -387,7 +387,7 @@ func (a *App) inspectorEmpty(c *ui.Context, text string) {
 func (a *App) inspectorContent(c *ui.Context) {
 	in := &a.inspector
 	sections := splitQuickHelp(in.markdown)
-	ui.Column(c).FillWidth().Padding(6).Gap(14).Children(func() {
+	ui.Column(c).FillWidth().Padding(6, 6, 14, 6).Gap(20).Children(func() {
 		render := func(label, body string) {
 			if body == "" {
 				return
@@ -471,11 +471,12 @@ func (a *App) openDocLink(dest string) {
 }
 
 // inspectorSection is a labeled group of the pane, as Xcode's
-// "Summary" and "Declared In" blocks: a muted title over a card.
+// "Summary" and "Declared In" blocks: a muted title over flat rows,
+// which only hairlines divide.
 func inspectorSection(c *ui.Context, label string, children func()) {
-	ui.Column(c).FillWidth().Gap(5).Children(func() {
-		ui.Text(c, label).FontSize(12).FontWeight(600).TextColor(colors(c).Muted).SingleLine()
-		ui.Column(c).FillWidth().Background(colors(c).Card).Border(1, colors(c).Separator).Radius(8).Clip().Children(children)
+	ui.Column(c).FillWidth().Gap(3).Children(func() {
+		ui.Text(c, label).FontSize(12).FontWeight(600).TextColor(colors(c).Muted).SingleLine().Padding(0, 10)
+		ui.Column(c).FillWidth().Children(children)
 	})
 }
 

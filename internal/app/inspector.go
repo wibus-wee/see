@@ -160,7 +160,7 @@ func (a *App) inspectorFilePage(c *ui.Context) {
 	}
 	ui.Scroll(c).Grow(1).FillWidth().TrackScroll(&a.inspector.fileScroll).
 		Label(inspectorText("inspectorFilePane")).Children(func() {
-		ui.Column(c).FillWidth().Padding(6).Gap(14).Children(func() {
+		ui.Column(c).FillWidth().Padding(6, 6, 14, 6).Gap(20).Children(func() {
 			inspectorSection(c, inspectorText("inspectorIdentity"), func() {
 				row := ui.Row(c).FillWidth().Padding(10).Gap(10).AlignItems(ui.Center)
 				row.Children(func() {
@@ -227,20 +227,21 @@ func (a *App) inspectorFilePage(c *ui.Context) {
 	})
 }
 
-// inspectorField is one label–value row of a section card, as Xcode's
+// inspectorField is one label–value row of a section, as Xcode's
 // property rows: the name muted, its value at the end.
 func inspectorField(c *ui.Context, label, value string) {
-	ui.Row(c).FillWidth().Padding(6, 10).Gap(8).AlignItems(ui.Center).Children(func() {
+	ui.Row(c).FillWidth().Padding(4, 10).Gap(8).AlignItems(ui.Center).Children(func() {
 		ui.Text(c, label).FontSize(12).TextColor(colors(c).Muted).SingleLine().Shrink(0)
 		ui.Box(c).Grow(1)
 		ui.Text(c, value).FontSize(12).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(1)
 	})
 }
 
-// inspectorHairline is the separator between a card's rows.
+// inspectorHairline is the separator between a section's rows, fainter
+// than the pane's dividers.
 func inspectorHairline(c *ui.Context) {
 	ui.Row(c).FillWidth().Padding(0, 0, 0, 10).Children(func() {
-		ui.Box(c).FillWidth().Height(1).Background(colors(c).Hairline)
+		ui.Box(c).FillWidth().Height(1).Background(colors(c).Hairline.Alpha(0.6))
 	})
 }
 
@@ -346,7 +347,7 @@ func (a *App) inspectorHistoryPage(c *ui.Context) {
 	default:
 		ui.Scroll(c).Grow(1).FillWidth().TrackScroll(&h.scroll).
 			Label(inspectorText("inspectorHistoryPane")).Children(func() {
-			ui.Column(c).FillWidth().Padding(6).Gap(14).Children(func() {
+			ui.Column(c).FillWidth().Padding(6, 6, 14, 6).Gap(20).Children(func() {
 				inspectorSection(c, inspectorText("inspectorRecent"), func() {
 					for i, cm := range h.commits {
 						cm := cm
