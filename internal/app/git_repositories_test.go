@@ -289,6 +289,7 @@ func TestGitAutoDiscoverSettingRefreshesEveryOpenWindow(t *testing.T) {
 	first := newHarnessWithConfig(t, root, cfg)
 	second := newHarnessWithConfig(t, root, cfg)
 	apps := []*App{first.a, second.a}
+	realRoot := first.a.realRoot
 	for _, a := range apps {
 		a.git.repositories = []string{root, child}
 		a.git.repositoriesLoaded = true
@@ -303,10 +304,10 @@ func TestGitAutoDiscoverSettingRefreshesEveryOpenWindow(t *testing.T) {
 	second.a.gitDiscoveryChanged = refreshAll
 	cfg.GitAutoDiscover = false
 	first.a.gitAutoDiscoverSettingChanged()
-	first.settle(func() bool { return !first.a.git.loading && first.a.git.root == root })
-	second.settle(func() bool { return !second.a.git.loading && second.a.git.root == root })
+	first.settle(func() bool { return !first.a.git.loading && first.a.git.root == realRoot })
+	second.settle(func() bool { return !second.a.git.loading && second.a.git.root == realRoot })
 	for i, a := range apps {
-		if a.git.root != root || len(a.git.repositories) != 0 || a.git.repositoriesLoaded {
+		if a.git.root != realRoot || len(a.git.repositories) != 0 || a.git.repositoriesLoaded {
 			t.Fatalf("window %d did not reset to its workspace repository: root=%q repositories=%v loaded=%v", i, a.git.root, a.git.repositories, a.git.repositoriesLoaded)
 		}
 	}
@@ -333,8 +334,8 @@ func TestAutoDiscoveryPreservesRestoredContainingRepositoryGitTab(t *testing.T) 
 
 	h.a.scanGitRepositories()
 	queuedGitResult(t, h)()
-	if h.a.git.root != root {
-		t.Fatalf("initial discovery selected %q, want containing repository %q", h.a.git.root, root)
+	if h.a.git.root != h.a.realRoot {
+		t.Fatalf("initial discovery selected %q, want containing repository %q", h.a.git.root, h.a.realRoot)
 	}
 	if g.diffs[key] != v || !g.has(key) {
 		t.Fatal("initial repository activation closed the restorable Git tab")

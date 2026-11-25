@@ -173,7 +173,7 @@ func (a *App) selectGitRepository(root string) {
 	if root != "" && (!a.cfg.GitAutoDiscover || !slices.Contains(a.git.repositories, root)) {
 		return
 	}
-	initialContaining := a.cfg.GitAutoDiscover && a.git.root == "" && root != "" && gitRepositoryContaining(a.root, []string{root}) != ""
+	initialContaining := a.cfg.GitAutoDiscover && a.git.root == "" && root != "" && gitRepositoryContaining(a.realRoot, []string{root}) != ""
 	if a.cfg.GitAutoDiscover && a.git.root == "" && !initialContaining {
 		a.git.pendingTabs = nil
 	}

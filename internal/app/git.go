@@ -412,7 +412,7 @@ func (a *App) scanGitRepositories() {
 	}
 	a.git.repositoryScanSeq++
 	a.git.repositoryScanLoading = true
-	seq, gen, scopeSeq, ctx, workspaceRoot := a.git.repositoryScanSeq, a.gen, a.git.scopeSeq, a.wsCtx, a.root
+	seq, gen, scopeSeq, ctx, workspaceRoot := a.git.repositoryScanSeq, a.gen, a.git.scopeSeq, a.wsCtx, a.realRoot
 	go func() {
 		repositories, err := git.DiscoverRepositories(ctx, workspaceRoot)
 		a.post.Post(func() {
