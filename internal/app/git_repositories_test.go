@@ -271,6 +271,65 @@ func TestDiscoveredRepositoryChangesStayGroupedAndScoped(t *testing.T) {
 	}
 }
 
+func TestDiscoveredRepositoryCommitComposersShowForUnstagedChanges(t *testing.T) {
+	workspace := t.TempDir()
+	frontend := nestedGitRepo(t, filepath.Join(workspace, "frontend"), "readme.md", "base\n", "frontend edit\n")
+	backend := nestedGitRepo(t, filepath.Join(workspace, "backend"), "readme.md", "base\n", "backend edit\n")
+	cfg := config.Load(filepath.Join(t.TempDir(), "settings.json"))
+	cfg.GitAutoDiscover = true
+	h := newHarnessWithConfig(t, workspace, cfg)
+	h.a.cfg.GitAutoDiscover = true
+	h.a.refreshGitDiscovery()
+	h.settle(func() bool {
+		return h.a.git.repositoriesLoaded && len(h.a.git.repositories) == 2 && len(h.a.git.workingCopies) == 2
+	})
+	h.a.git.branchDiffMode = uncommittedMode
+	h.a.refreshGitWorkingCopies()
+	h.settle(func() bool {
+		for _, root := range []string{frontend, backend} {
+			wc := h.a.git.workingCopies[root]
+			if wc == nil || wc.loading || len(wc.changes) != 1 || wc.changes[0].Index != ' ' || wc.changes[0].Work != 'M' {
+				return false
+			}
+		}
+		return true
+	})
+	h.a.navigator = navGit
+	h.tt.Frame()
+	var fields, buttons []ui.AccessInfo
+	for _, access := range h.tt.AccessAll() {
+		if access.Role == ui.RoleTextField && access.Name == locales.MsgCommitMessage() {
+			fields = append(fields, access)
+		}
+		if access.Role == ui.RoleButton && access.Name == locales.MsgCommit() {
+			buttons = append(buttons, access)
+		}
+	}
+	if len(fields) != 2 || len(buttons) != 2 {
+		t.Fatalf("unstaged-only groups should both show their commit composer: fields=%+v buttons=%+v texts=%q", fields, buttons, h.tt.Texts())
+	}
+	for _, button := range buttons {
+		if !button.Disabled {
+			t.Fatalf("commit became enabled without staged changes: %+v", button)
+		}
+	}
+	frontCopy, backCopy := h.a.git.workingCopies[frontend], h.a.git.workingCopies[backend]
+	frontCopy.message, backCopy.message = "frontend draft", "backend draft"
+	h.tt.Frame()
+	values := map[string]bool{}
+	for _, access := range h.tt.AccessAll() {
+		if access.Role == ui.RoleTextField && access.Name == locales.MsgCommitMessage() {
+			values[access.Value] = true
+		}
+		if access.Role == ui.RoleButton && access.Name == locales.MsgCommit() && !access.Disabled {
+			t.Fatalf("draft enabled commit without staged changes: %+v", access)
+		}
+	}
+	if !values["frontend draft"] || !values["backend draft"] {
+		t.Fatalf("repository commit drafts are not independent: fields=%+v", values)
+	}
+}
+
 func TestGitWorkingCopyRefreshRejectsReplacedRepositoryState(t *testing.T) {
 	root := gitRepo(t, map[string]string{"shared.txt": "base\n"})
 	cfg := config.Load(filepath.Join(t.TempDir(), "settings.json"))

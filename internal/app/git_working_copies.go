@@ -189,9 +189,7 @@ func (a *App) gitWorkingCopyGroup(c *ui.Context, root string, workingCopy *gitWo
 				conflicts++
 			}
 		}
-		if staged > 0 || workingCopy.message != "" || workingCopy.merging {
-			a.gitWorkingCopyCommitBar(c, root, workingCopy, staged, conflicts > 0)
-		}
+		a.gitWorkingCopyCommitBar(c, root, workingCopy, staged, conflicts > 0)
 		if root == a.git.root {
 			a.stashRows(c)
 		}
