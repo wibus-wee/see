@@ -136,7 +136,9 @@ func (a *App) gitWorkingCopyGroup(c *ui.Context, root string, workingCopy *gitWo
 		label = filepath.ToSlash(rel)
 	}
 	ui.Column(c.Key("changes-repository:" + root)).FillWidth().Children(func() {
-		a.gitSectionHeader(c, label, len(workingCopy.changes), &workingCopy.closed, func() {
+		repoDisclosure(c.Key("repository-header"), 0, label, icGit, workingCopy.closed, func() {
+			workingCopy.closed = !workingCopy.closed
+		}, func() {
 			if workingCopy.closed {
 				return
 			}
@@ -184,12 +186,12 @@ func (a *App) gitWorkingCopyGroup(c *ui.Context, root string, workingCopy *gitWo
 		}
 		if staged > 0 {
 			a.gitSection(c, locales.MsgStagedChanges(), staged)
+			a.gitWorkingCopyRows(c, root, workingCopy, true)
 		}
-		a.gitWorkingCopyRows(c, root, workingCopy, true)
-		if unstaged > 0 && staged > 0 {
+		if unstaged > 0 {
 			a.gitSection(c, locales.MsgChanges(), unstaged)
+			a.gitWorkingCopyRows(c, root, workingCopy, false)
 		}
-		a.gitWorkingCopyRows(c, root, workingCopy, false)
 		if root == a.git.root {
 			a.stashRows(c)
 		}

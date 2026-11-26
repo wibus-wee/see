@@ -222,6 +222,41 @@ func TestDiscoveredRepositoryChangesStayGroupedAndScoped(t *testing.T) {
 	if err != nil || len(frontendState.Changes) != 1 || frontendState.Changes[0].Index != ' ' || frontendState.Changes[0].Work != 'M' {
 		t.Fatalf("staging backend group changed frontend: state=%+v err=%v", frontendState.Changes, err)
 	}
+	writeFile(t, backend, "shared.txt", "backend staged plus worktree change\n")
+	h.a.refreshGit()
+	h.settle(func() bool {
+		wc := h.a.git.workingCopies[backend]
+		return !wc.loading && !wc.busy && len(wc.changes) == 1 && wc.changes[0].Index == 'M' && wc.changes[0].Work == 'M'
+	})
+	backendState, err = git.Sync(context.Background(), backend, false)
+	if err != nil || len(backendState.Changes) != 1 || backendState.Changes[0].Index != 'M' || backendState.Changes[0].Work != 'M' {
+		t.Fatalf("backend staged and worktree changes were not kept distinct: state=%+v err=%v", backendState.Changes, err)
+	}
+	h.tt.Frame()
+	var backendHeader, frontendHeader ui.AccessInfo
+	var backendSections, backendRows []ui.AccessInfo
+	for _, access := range h.tt.AccessAll() {
+		if access.Role == ui.RoleButton && access.Name == "backend" {
+			backendHeader = access
+		}
+		if access.Role == ui.RoleButton && access.Name == "frontend" {
+			frontendHeader = access
+		}
+	}
+	for _, access := range h.tt.AccessAll() {
+		if access.Bounds.Y <= backendHeader.Bounds.Y || access.Bounds.Y >= frontendHeader.Bounds.Y {
+			continue
+		}
+		if access.Role == ui.RoleText && (access.Name == locales.MsgChanges() || access.Name == locales.MsgStagedChanges()) {
+			backendSections = append(backendSections, access)
+		}
+		if access.Role == ui.RoleButton && strings.HasSuffix(access.Name, "shared.txt") {
+			backendRows = append(backendRows, access)
+		}
+	}
+	if backendHeader.Bounds.Y >= frontendHeader.Bounds.Y || len(backendSections) != 2 || len(backendRows) != 2 {
+		t.Fatalf("backend should show peer Staged Changes and Changes sections, each with a flat file row: headers=%+v/%+v sections=%+v rows=%+v", backendHeader, frontendHeader, backendSections, backendRows)
+	}
 	stagedKey := h.a.gitChangeTabKey(backend, backendState.Changes[0], true)
 	h.a.showGitWorkingCopyDiff(backend, backendState.Changes[0], true, h.a.focus, sideNone, len(h.a.focus.order), backCopy)
 	h.settle(func() bool {
@@ -297,7 +332,7 @@ func TestDiscoveredRepositoryCommitComposersShowForUnstagedChanges(t *testing.T)
 	})
 	h.a.navigator = navGit
 	h.tt.Frame()
-	var fields, buttons, headers, fileRows []ui.AccessInfo
+	var fields, buttons, headers, sections, fileRows []ui.AccessInfo
 	for _, access := range h.tt.AccessAll() {
 		if access.Role == ui.RoleTextField && access.Name == locales.MsgCommitMessage() {
 			if access.Disabled || !access.Focusable {
@@ -311,22 +346,44 @@ func TestDiscoveredRepositoryCommitComposersShowForUnstagedChanges(t *testing.T)
 		if access.Role == ui.RoleButton && (access.Name == "backend" || access.Name == "frontend") {
 			headers = append(headers, access)
 		}
+		if access.Role == ui.RoleText && access.Name == locales.MsgChanges() {
+			sections = append(sections, access)
+		}
 		if access.Role == ui.RoleButton && (strings.HasSuffix(access.Name, "backend.md") || strings.HasSuffix(access.Name, "frontend.md")) {
 			fileRows = append(fileRows, access)
 		}
 	}
-	if len(fields) != 2 || len(buttons) != 2 || len(headers) != 2 || len(fileRows) != 2 {
-		t.Fatalf("unstaged-only groups should show their composers between repository headers and file rows: fields=%+v buttons=%+v headers=%+v file rows=%+v texts=%q", fields, buttons, headers, fileRows, h.tt.Texts())
+	if len(fields) != 2 || len(buttons) != 2 || len(headers) != 2 || len(sections) != 2 || len(fileRows) != 2 {
+		t.Fatalf("unstaged-only groups should show Changes sections between composers and file rows: fields=%+v buttons=%+v headers=%+v sections=%+v file rows=%+v texts=%q", fields, buttons, headers, sections, fileRows, h.tt.Texts())
 	}
 	byY := func(items []ui.AccessInfo) {
 		sort.Slice(items, func(i, j int) bool { return items[i].Bounds.Y < items[j].Bounds.Y })
 	}
 	byY(headers)
 	byY(fields)
+	byY(sections)
 	byY(fileRows)
 	for i := range headers {
-		if !(headers[i].Bounds.Y < fields[i].Bounds.Y && fields[i].Bounds.Y < fileRows[i].Bounds.Y) {
-			t.Fatalf("repository group %d is not ordered header -> composer -> files: header=%+v composer=%+v file=%+v", i, headers[i], fields[i], fileRows[i])
+		if !(headers[i].Bounds.Y < fields[i].Bounds.Y && fields[i].Bounds.Y < sections[i].Bounds.Y && sections[i].Bounds.Y < fileRows[i].Bounds.Y) {
+			t.Fatalf("repository group %d is not ordered header -> composer -> Changes -> files: header=%+v composer=%+v Changes=%+v file=%+v", i, headers[i], fields[i], sections[i], fileRows[i])
+		}
+		path := []string{"backend.md", "frontend.md"}[i]
+		file, ok := h.tt.Find(path)
+		if !ok || sections[i].Bounds.X < file.X-1 || sections[i].Bounds.X > file.X+1 {
+			t.Fatalf("repository group %d section should align with its file names: Changes=%+v file=%+v found=%v", i, sections[i], file, ok)
+		}
+	}
+	for _, section := range sections {
+		countVisible := false
+		for _, access := range h.tt.AccessAll() {
+			if access.Role == ui.RoleText && access.Name == "1" &&
+				access.Bounds.Y <= section.Bounds.Y+section.Bounds.H && access.Bounds.Y+access.Bounds.H >= section.Bounds.Y {
+				countVisible = true
+				break
+			}
+		}
+		if !countVisible {
+			t.Fatalf("repository Changes section is missing its count: %+v", section)
 		}
 	}
 	for _, button := range buttons {
