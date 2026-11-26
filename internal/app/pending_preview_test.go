@@ -3,6 +3,7 @@ package app
 import (
 	"errors"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
@@ -15,20 +16,21 @@ import (
 func TestPreviewReplacementKeepsOutgoingVisibleUntilReady(t *testing.T) {
 	h, a := newPreviewHarness(t)
 	g := h.a.focus
+	beforeTabs := slices.Clone(g.order)
 	b := pendingPreviewDoc(h, "b.txt")
 	h.a.previewOpen(b.path)
 	h.tt.Frame()
-	if g.active != a.path || g.pendingPreview == nil || g.pendingPreview.doc != b || h.a.activeEditor() != g.eds[a.path] || a.buf.String() != "A-visible-marker\n" {
-		t.Fatalf("pending preview displaced the outgoing document: active=%q pending=%+v editor=%p want=%p focus=%p buffer=%q", g.active, g.pendingPreview, h.a.activeEditor(), g.eds[a.path], h.a.focusEditor, a.buf.String())
+	if g.active != a.path || g.pendingPreview == nil || g.pendingPreview.doc != b || g.preview != a.path || !slices.Equal(g.order, beforeTabs) || g.has(b.path) || h.a.activeEditor() != g.eds[a.path] || a.buf.String() != "A-visible-marker\n" {
+		t.Fatalf("pending preview changed the visible preview slot: active=%q preview=%q pending=%+v tabs=%v editor=%p want=%p focus=%p buffer=%q", g.active, g.preview, g.pendingPreview, g.order, h.a.activeEditor(), g.eds[a.path], h.a.focusEditor, a.buf.String())
 	}
-	if b.loadingVisible {
-		t.Fatal("pending target showed its tab spinner before the delay")
+	if b.loadingVisible || h.tt.HasText(loadingText(b)) {
+		t.Fatal("pending target showed loading feedback before the delay")
 	}
 	h.a.scheduleLoadingIndicator(b, b.seq, 40*time.Millisecond)
 	waitForLoadingIndicator(t, h, b)
 	h.tt.Frame()
 	h.tt.Frame()
-	if !b.loadingVisible || g.active != a.path || h.a.activeEditor() != g.eds[a.path] || a.buf.String() != "A-visible-marker\n" || h.tt.HasText(loadingText(b)) {
+	if !b.loadingVisible || !h.tt.HasText(loadingText(b)) || g.active != a.path || !slices.Equal(g.order, beforeTabs) || g.has(b.path) || h.a.activeEditor() != g.eds[a.path] || a.buf.String() != "A-visible-marker\n" {
 		t.Fatalf("delayed pending feedback disrupted the outgoing editor: active=%q visible=%v texts=%q", g.active, b.loadingVisible, h.tt.Texts())
 	}
 
@@ -36,7 +38,7 @@ func TestPreviewReplacementKeepsOutgoingVisibleUntilReady(t *testing.T) {
 	h.a.loaded(b, workspace.File{Kind: workspace.Text, Text: ready}, editor.NewBuffer(ready), false, nil)
 	h.tt.Frame()
 	h.tt.Frame()
-	if g.active != b.path || g.has(a.path) || h.a.activeEditor() != g.eds[b.path] || b.buf.String() != ready {
+	if g.active != b.path || g.has(a.path) || len(g.order) != len(beforeTabs) || h.a.activeEditor() != g.eds[b.path] || b.buf.String() != ready {
 		t.Fatalf("ready preview did not replace the outgoing tab atomically: active=%q tabs=%v texts=%q", g.active, g.order, h.tt.Texts())
 	}
 }
@@ -44,12 +46,13 @@ func TestPreviewReplacementKeepsOutgoingVisibleUntilReady(t *testing.T) {
 func TestPreviewReplacementLatestTargetWins(t *testing.T) {
 	h, a := newPreviewHarness(t)
 	g := h.a.focus
+	beforeTabs := slices.Clone(g.order)
 	b := pendingPreviewDoc(h, "b.txt")
 	h.a.previewOpen(b.path)
 	c := pendingPreviewDoc(h, "c.txt")
 	h.a.previewOpen(c.path)
 	h.tt.Frame()
-	if g.active != a.path || g.pendingPreview == nil || g.pendingPreview.doc != c || h.a.docs[b.path] != nil || a.buf.String() != "A-visible-marker\n" {
+	if g.active != a.path || g.pendingPreview == nil || g.pendingPreview.doc != c || !slices.Equal(g.order, beforeTabs) || g.has(c.path) || h.a.docs[b.path] != nil || a.buf.String() != "A-visible-marker\n" {
 		t.Fatalf("newer preview did not supersede the pending target: active=%q pending=%+v tabs=%v docs=%v", g.active, g.pendingPreview, g.order, h.a.docs)
 	}
 	h.a.finishPendingPreview(b)
@@ -90,10 +93,11 @@ func TestPinnedOutgoingTabStaysUntilNewPreviewReady(t *testing.T) {
 	h, a := newPreviewHarness(t)
 	g := h.a.focus
 	g.preview = ""
+	beforeTabs := slices.Clone(g.order)
 	b := pendingPreviewDoc(h, "b.txt")
 	h.a.previewOpen(b.path)
 	h.tt.Frame()
-	if g.active != a.path || g.pendingPreview == nil || g.pendingPreview.replaceable || g.pendingPreview.replaced != "" || !g.has(a.path) || h.a.activeEditor() != g.eds[a.path] {
+	if g.active != a.path || g.pendingPreview == nil || g.pendingPreview.replaceable || g.pendingPreview.replaced != "" || !slices.Equal(g.order, beforeTabs) || g.has(b.path) || !g.has(a.path) || h.a.activeEditor() != g.eds[a.path] {
 		t.Fatalf("new preview displaced the pinned outgoing tab: active=%q pending=%+v tabs=%v", g.active, g.pendingPreview, g.order)
 	}
 
@@ -108,6 +112,7 @@ func TestPinnedOutgoingTabStaysUntilNewPreviewReady(t *testing.T) {
 func TestPreviewSwitchKeepsPathAndFirstLinePositions(t *testing.T) {
 	h, a := newPreviewHarness(t)
 	g := h.a.focus
+	beforeTabs := slices.Clone(g.order)
 	h.tt.Frame()
 	h.tt.Advance(300 * time.Millisecond)
 
@@ -139,38 +144,64 @@ func TestPreviewSwitchKeepsPathAndFirstLinePositions(t *testing.T) {
 	b := pendingPreviewDoc(h, "b.txt")
 	h.a.previewOpen(b.path)
 	h.tt.Frame()
-	if g.pendingPreview == nil || g.active != a.path {
-		t.Fatalf("preview target did not remain pending: active=%q pending=%+v", g.active, g.pendingPreview)
+	if g.pendingPreview == nil || g.active != a.path || !slices.Equal(g.order, beforeTabs) || g.has(b.path) {
+		t.Fatalf("preview target changed visible tabs while pending: active=%q pending=%+v tabs=%v", g.active, g.pendingPreview, g.order)
 	}
 	during := position(a)
+	h.a.scheduleLoadingIndicator(b, b.seq, 40*time.Millisecond)
+	waitForLoadingIndicator(t, h, b)
+	h.tt.Frame()
+	loading := position(a)
+	if !h.tt.HasText(loadingText(b)) || !slices.Equal(g.order, beforeTabs) || g.has(b.path) {
+		t.Fatalf("delayed preview feedback changed the visible tab slot: tabs=%v texts=%q", g.order, h.tt.Texts())
+	}
 
 	const ready = "B-ready-marker"
 	h.a.loaded(b, workspace.File{Kind: workspace.Text, Text: ready}, editor.NewBuffer(ready), false, nil)
 	h.tt.Frame()
 	after := position(b)
-	for phase, got := range map[string]positions{"during": during, "after": after} {
+	for phase, got := range map[string]positions{"during": during, "loading": loading, "after": after} {
 		if got != before {
 			t.Errorf("%s preview switch shifted path/first-line layout: before=%+v got=%+v", phase, before, got)
 		}
 	}
 }
 
-func TestSelectingPendingPreviewPreservesPreviousPreview(t *testing.T) {
+func TestDirectActivationCannotSelectHiddenPendingPreview(t *testing.T) {
 	h, a := newPreviewHarness(t)
 	g := h.a.focus
 	b := pendingPreviewDoc(h, "b.txt")
 	h.a.previewOpen(b.path)
 	h.a.userActivateIn(g, b.path)
 	h.tt.Frame()
-	if g.active != b.path || g.pendingPreview != nil || !g.has(a.path) || g.preview != b.path {
-		t.Fatalf("selecting pending target lost the previous preview or retained stale ownership: active=%q preview=%q pending=%+v tabs=%v", g.active, g.preview, g.pendingPreview, g.order)
+	if g.active != a.path || g.pendingPreview == nil || g.pendingPreview.doc != b || g.has(b.path) || g.preview != a.path || !g.has(a.path) {
+		t.Fatalf("hidden pending preview was directly activated: active=%q preview=%q pending=%+v tabs=%v", g.active, g.preview, g.pendingPreview, g.order)
 	}
 
 	const ready = "B-ready-marker"
 	h.a.loaded(b, workspace.File{Kind: workspace.Text, Text: ready}, editor.NewBuffer(ready), false, nil)
 	h.tt.Frame()
-	if g.active != b.path || !g.has(a.path) || b.buf.String() != ready || g.pendingPreview != nil {
-		t.Fatalf("selected target completion lost the previous preview: active=%q tabs=%v pending=%+v", g.active, g.order, g.pendingPreview)
+	if g.active != b.path || g.has(a.path) || !g.has(b.path) || g.preview != b.path || b.buf.String() != ready || g.pendingPreview != nil {
+		t.Fatalf("ready pending preview did not replace the old slot: active=%q tabs=%v pending=%+v", g.active, g.order, g.pendingPreview)
+	}
+}
+
+func TestExplicitOpenPinsPendingPreviewWithoutDroppingOldPreview(t *testing.T) {
+	h, a := newPreviewHarness(t)
+	g := h.a.focus
+	b := pendingPreviewDoc(h, "b.txt")
+	h.a.previewOpen(b.path)
+	h.a.userOpen(b.path)
+	h.tt.Frame()
+	if g.active != b.path || g.pendingPreview != nil || !g.has(a.path) || !g.has(b.path) || g.preview != a.path {
+		t.Fatalf("explicit open did not promote pending preview: active=%q preview=%q pending=%+v tabs=%v", g.active, g.preview, g.pendingPreview, g.order)
+	}
+
+	const ready = "B-explicit-open-marker"
+	h.a.loaded(b, workspace.File{Kind: workspace.Text, Text: ready}, editor.NewBuffer(ready), false, nil)
+	h.tt.Frame()
+	if g.active != b.path || !g.has(a.path) || !g.has(b.path) || g.preview != a.path || b.buf.String() != ready || h.a.activeEditor() != g.eds[b.path] {
+		t.Fatalf("explicitly opened pending document did not load in its tab: active=%q tabs=%v", g.active, g.order)
 	}
 }
 
@@ -183,7 +214,7 @@ func TestClickingActiveTabCancelsPendingPreview(t *testing.T) {
 	b := pendingPreviewDoc(h, "b.txt")
 	h.a.previewOpen(b.path)
 	h.tt.Frame()
-	if g.active != a.path || g.pendingPreview == nil || !g.has(b.path) {
+	if g.active != a.path || g.pendingPreview == nil || g.has(b.path) {
 		t.Fatalf("preview was not pending before clicking active tab: active=%q pending=%+v tabs=%v", g.active, g.pendingPreview, g.order)
 	}
 
@@ -203,23 +234,22 @@ func TestClickingActiveTabCancelsPendingPreview(t *testing.T) {
 	}
 }
 
-func TestPinningPendingPreviewPreservesPreviousPreview(t *testing.T) {
+func TestPinningOutgoingPreviewDuringPendingReplacementKeepsIt(t *testing.T) {
 	h, a := newPreviewHarness(t)
 	g := h.a.focus
 	b := pendingPreviewDoc(h, "b.txt")
 	h.a.previewOpen(b.path)
-	h.a.pinPreview(g, b.path)
-	h.a.userActivateIn(g, b.path)
+	h.a.pinPreview(g, a.path)
 	h.tt.Frame()
-	if g.active != b.path || g.pendingPreview != nil || g.preview != "" || !g.has(a.path) || !g.has(b.path) {
-		t.Fatalf("pinning pending target lost the previous preview or retained stale ownership: active=%q preview=%q pending=%+v tabs=%v", g.active, g.preview, g.pendingPreview, g.order)
+	if g.active != a.path || g.pendingPreview == nil || g.preview != "" || !g.has(a.path) || g.has(b.path) {
+		t.Fatalf("pinning outgoing preview changed visible tabs or canceled the target: active=%q preview=%q pending=%+v tabs=%v", g.active, g.preview, g.pendingPreview, g.order)
 	}
 
 	const ready = "B-ready-marker"
 	h.a.loaded(b, workspace.File{Kind: workspace.Text, Text: ready}, editor.NewBuffer(ready), false, nil)
 	h.tt.Frame()
-	if g.active != b.path || g.pendingPreview != nil || g.preview != "" || !g.has(a.path) || b.buf.String() != ready {
-		t.Fatalf("pinned target completion lost the previous preview: active=%q preview=%q tabs=%v", g.active, g.preview, g.order)
+	if g.active != b.path || g.pendingPreview != nil || g.preview != b.path || !g.has(a.path) || !g.has(b.path) || b.buf.String() != ready {
+		t.Fatalf("pinning outgoing preview lost it during replacement: active=%q preview=%q tabs=%v", g.active, g.preview, g.order)
 	}
 }
 
@@ -339,6 +369,32 @@ func TestClosingWorkspaceCancelsPendingPreview(t *testing.T) {
 	h.tt.Frame()
 	if g.pendingPreview != nil || h.a.docs[b.path] != nil || len(h.a.docs) != 0 {
 		t.Fatalf("workspace close retained the pending preview: pending=%+v docs=%v active=%q", g.pendingPreview, h.a.docs, a.path)
+	}
+}
+
+func TestRenamingPendingTargetReleasesHiddenDoc(t *testing.T) {
+	h, a := newPreviewHarness(t)
+	g := h.a.focus
+	b := pendingPreviewDoc(h, "b.txt")
+	h.a.previewOpen(b.path)
+	next := filepath.Join(h.a.root, "renamed-b.txt")
+	h.a.renamed(b.path, next)
+	h.tt.Frame()
+	if g.pendingPreview != nil || g.active != a.path || !g.has(a.path) || g.has(b.path) || h.a.docs[b.path] != nil || h.a.docs[next] != nil {
+		t.Fatalf("renaming hidden pending target left stale ownership: active=%q pending=%+v tabs=%v docs=%v", g.active, g.pendingPreview, g.order, h.a.docs)
+	}
+}
+
+func TestRenamingOutgoingPreviewCancelsHiddenTarget(t *testing.T) {
+	h, a := newPreviewHarness(t)
+	g := h.a.focus
+	b := pendingPreviewDoc(h, "b.txt")
+	h.a.previewOpen(b.path)
+	next := filepath.Join(h.a.root, "renamed-a.txt")
+	h.a.renamed(a.path, next)
+	h.tt.Frame()
+	if g.pendingPreview != nil || g.active != next || !g.has(next) || g.has(b.path) || h.a.docs[b.path] != nil {
+		t.Fatalf("renaming outgoing preview retained a stale target: active=%q pending=%+v tabs=%v docs=%v", g.active, g.pendingPreview, g.order, h.a.docs)
 	}
 }
 

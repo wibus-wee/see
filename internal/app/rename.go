@@ -111,7 +111,7 @@ func (a *App) renamed(old, dst string) {
 		}
 		rel, _ := filepath.Rel(old, path)
 		next := filepath.Join(dst, rel)
-		a.cancelPendingPreviewForRename(d, path)
+		pendingTarget := a.cancelPendingPreviewForRename(d, path)
 		if m := a.serverFor(path); m != nil {
 			m.Close(d.uri)
 		}
@@ -187,6 +187,12 @@ func (a *App) renamed(old, dst string) {
 			if v, ok := g.markdownPreview[path]; ok {
 				delete(g.markdownPreview, path)
 				g.markdownPreview[next] = v
+			}
+		}
+		if pendingTarget {
+			a.releaseIfUnused(next)
+			if a.docs[next] != d {
+				continue
 			}
 		}
 		if d.buf == nil || mediaChanged && !d.buf.Modified() {

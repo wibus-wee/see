@@ -523,11 +523,17 @@ func (a *App) jumpBar(c *ui.Context, g *group) {
 	if showMarkdown {
 		rightControls++
 	}
+	pendingLoading := g.pendingPreview != nil && g.pendingPreview.doc.loadingVisible
 	gapCount := rightControls + 2
 	if showSymbols {
 		gapCount++
 	}
-	bodyWidth := paneWidth - 12 - 22 - float32(rightControls*19) - float32(gapCount*2)
+	pendingLoadingWidth := float32(0)
+	if pendingLoading {
+		gapCount++
+		pendingLoadingWidth = 140
+	}
+	bodyWidth := paneWidth - 12 - 22 - float32(rightControls*19) - float32(gapCount*2) - pendingLoadingWidth
 	modified := false
 	if d := a.docs[p]; d != nil && d.buf != nil {
 		modified = d.buf.Modified()
@@ -640,6 +646,13 @@ func (a *App) jumpBar(c *ui.Context, g *group) {
 						}
 						a.jumpBarOverflowMenu(m, g, p, parts, filesMenu, showSymbols)
 					})
+				})
+			}
+			if pendingLoading {
+				loading := locales.MsgLoading2() + g.pendingPreview.doc.name + "…"
+				ui.Row(c.Key("pending-preview-loading")).Gap(4).Shrink(1).MinWidth(0).AlignItems(ui.Center).Children(func() {
+					ui.Spinner(c).FontSize(10)
+					ui.Text(c, loading).FontSize(11).TextColor(colors(c).Muted).SingleLine().Ellipsis("…").MaxWidth(120).MinWidth(0).Shrink(1)
 				})
 			}
 			if showSymbols {

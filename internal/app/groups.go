@@ -136,27 +136,12 @@ func (a *App) setFocusedGroup(g *group) {
 	a.observeFocusedGroup(g)
 }
 
-func (a *App) restorePendingPreview(g *group, p *previewTransition) {
-	if g.preview != p.doc.path {
-		return
-	}
-	if !p.replaceable || !g.has(p.replaced) {
-		g.preview = ""
-		return
-	}
-	if d := a.docs[tabPath(p.replaced)]; d != nil && d.buf != nil && d.buf.Modified() {
-		g.preview = ""
-		return
-	}
-	g.preview = p.replaced
-}
-
 func (a *App) pinPreview(g *group, path string) {
 	if g.preview == path {
 		g.preview = ""
 	}
 	if p := g.pendingPreview; p != nil && p.doc.path == path {
-		g.pendingPreview = nil
+		a.cancelPendingPreview(g)
 	}
 }
 
@@ -166,13 +151,11 @@ func (a *App) cancelPendingPreview(g *group) {
 		return
 	}
 	g.pendingPreview = nil
-	a.restorePendingPreview(g, p)
-	if g.has(p.doc.path) {
-		a.closeTab(g, p.doc.path)
-	}
+	a.releaseIfUnused(p.doc.path)
 }
 
-func (a *App) cancelPendingPreviewForRename(d *doc, path string) {
+func (a *App) cancelPendingPreviewForRename(d *doc, path string) bool {
+	pendingTarget := false
 	for _, g := range a.groups() {
 		p := g.pendingPreview
 		if p == nil {
@@ -180,11 +163,12 @@ func (a *App) cancelPendingPreviewForRename(d *doc, path string) {
 		}
 		if p.doc == d {
 			g.pendingPreview = nil
-			a.restorePendingPreview(g, p)
+			pendingTarget = true
 		} else if p.outgoing == path || p.replaced == path {
 			a.cancelPendingPreview(g)
 		}
 	}
+	return pendingTarget
 }
 
 func (a *App) finishPendingPreview(d *doc) {
@@ -193,25 +177,32 @@ func (a *App) finishPendingPreview(d *doc) {
 		if p == nil || p.doc != d {
 			continue
 		}
-		if a.docs[d.path] != d || !g.has(d.path) || !g.has(p.outgoing) || g.active != p.outgoing || a.focus != g || g.focusSeq != p.focusSeq {
+		if a.docs[d.path] != d || g.has(d.path) || !g.has(p.outgoing) || g.active != p.outgoing || a.focus != g || g.focusSeq != p.focusSeq {
 			a.cancelPendingPreview(g)
 			return
 		}
-		g.pendingPreview = nil
-		if g.preview == d.path && p.replaceable {
-			at := slices.Index(g.order, p.replaced)
-			replaced := a.docs[tabPath(p.replaced)]
-			if replaced == nil || replaced.buf == nil || !replaced.buf.Modified() {
-				if g.has(p.replaced) {
-					a.closeTab(g, p.replaced)
+		replace := p.replaceable && g.preview == p.replaced && g.has(p.replaced)
+		at := -1
+		if replace {
+			at = slices.Index(g.order, p.replaced)
+			if replaced := a.docs[tabPath(p.replaced)]; at < 0 || replaced != nil && replaced.buf != nil && replaced.buf.Modified() {
+				replace = false
+				if g.preview == p.replaced {
+					g.preview = ""
 				}
-				if at >= 0 {
-					g.addTab(d.path, at)
-				}
-			} else if at >= 0 {
-				g.addTab(d.path, at+1)
 			}
 		}
+		if replace {
+			g.addTab(d.path, at)
+			g.pendingPreview = nil
+			a.closeTab(g, p.replaced)
+		} else {
+			at = slices.Index(g.order, p.outgoing) + 1
+			g.pendingPreview = nil
+			g.addTab(d.path, at)
+		}
+		g.preview = d.path
+		a.showLoaded(g, d)
 		a.activateIn(g, d.path)
 		if st := g.eds[d.path]; st != nil {
 			a.focusEditor = st
@@ -603,8 +594,7 @@ func (a *App) closeTab(g *group, path string) {
 	if p := g.pendingPreview; p != nil {
 		switch path {
 		case p.doc.path:
-			g.pendingPreview = nil
-			a.restorePendingPreview(g, p)
+			a.cancelPendingPreview(g)
 		case p.outgoing, p.replaced:
 			a.cancelPendingPreview(g)
 		}

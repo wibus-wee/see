@@ -994,6 +994,10 @@ func (a *App) openFileAt(path string, to goTo) *doc {
 
 // openIn shows path in g, at the place to says, if any.
 func (a *App) openIn(g *group, path string, to goTo) *doc {
+	return a.openInMode(g, path, to, true)
+}
+
+func (a *App) openInMode(g *group, path string, to goTo, addTab bool) *doc {
 	if a.root == "" && len(a.docs) == 0 {
 		a.host.SetWorkspaceSize(config.DefaultWindowWidth, config.DefaultWindowHeight)
 	}
@@ -1021,7 +1025,7 @@ func (a *App) openIn(g *group, path string, to goTo) *doc {
 		a.docs[path] = d
 		a.loadDoc(d)
 	}
-	if !g.has(path) {
+	if addTab && !g.has(path) {
 		// Open to the right of the active tab, as Xcode and VS Code do.
 		at := len(g.order)
 		if i := slices.Index(g.order, g.active); i >= 0 {
@@ -1029,12 +1033,14 @@ func (a *App) openIn(g *group, path string, to goTo) *doc {
 		}
 		g.addTab(path, at)
 	}
-	if to.pos != nil || to.lsp != nil {
+	if addTab && (to.pos != nil || to.lsp != nil) {
 		delete(g.markdownPreview, path)
 		g.pending[path] = to
 	}
-	a.activateIn(g, path)
-	a.showLoaded(g, d)
+	if addTab {
+		a.activateIn(g, path)
+		a.showLoaded(g, d)
+	}
 	return d
 }
 
@@ -1406,6 +1412,13 @@ func (a *App) userOpen(path string) {
 func (a *App) previewOpen(path string) {
 	g := a.focus
 	path = workspace.DocPath(a.root, a.realRoot, path)
+	if d := a.docs[path]; d != nil {
+		path = d.path
+	} else if a.root == "" {
+		if d := standaloneDocForPath(a, path); d != nil {
+			path = d.path
+		}
+	}
 	if p := g.pendingPreview; p != nil {
 		if p.doc.path == path {
 			return
@@ -1417,6 +1430,13 @@ func (a *App) previewOpen(path string) {
 		a.focusImage = ""
 		return
 	}
+	for _, other := range a.groups() {
+		if other != g && other.hasDocument(path) {
+			a.userOpen(path)
+			a.focusImage = ""
+			return
+		}
+	}
 	old := g.preview
 	replaceable := old != ""
 	if d := a.docs[tabPath(old)]; d != nil && d.buf != nil && d.buf.Modified() {
@@ -1426,46 +1446,60 @@ func (a *App) previewOpen(path string) {
 	at := -1
 	if replaceable {
 		at = slices.Index(g.order, old)
+		if at < 0 {
+			replaceable = false
+		}
 	}
 	outgoing := g.active
-	a.userOpen(path)
+	a.cancelNav()
+	d := a.openInMode(g, path, goTo{}, false)
 	a.focusImage = "" // a single-click preview keeps focus in the tree
 	if a.focus != g {
 		return
 	}
-	d := a.docs[path]
-	if st := a.activeEditor(); st != nil {
-		a.focusEditor = st
-	}
 	if d == nil {
-		if g.has(outgoing) {
-			a.activateIn(g, outgoing)
-		}
 		return
 	}
+	path = d.path
 	if d.loading && d.buf == nil && g.has(outgoing) {
-		a.activateIn(g, outgoing)
-		g.preview = path
+		if st := g.eds[outgoing]; st != nil {
+			a.focusEditor = st
+		}
 		g.pendingPreview = &previewTransition{doc: d, outgoing: outgoing, replaced: old, replaceable: replaceable, focusSeq: g.focusSeq}
 		return
 	}
 	if replaceable {
+		g.addTab(path, at)
 		a.closeTab(g, old)
+	} else {
+		at = len(g.order)
+		if i := slices.Index(g.order, outgoing); i >= 0 {
+			at = i + 1
+		}
 		g.addTab(path, at)
 	}
 	g.preview = path
+	a.activateIn(g, path)
+	a.showLoaded(g, d)
+	if st := g.eds[path]; st != nil {
+		a.focusEditor = st
+	}
 }
 
 // userActivate switches tabs of the focused group because the user asked.
 func (a *App) userActivate(path string) { a.userActivateIn(a.focus, path) }
 
 func (a *App) userActivateIn(g *group, path string) {
+	if p := g.pendingPreview; p != nil && p.doc.path == path && !g.has(path) {
+		return
+	}
 	a.term.maximized = false
 	a.git.diffSeq++
 	a.git.peek = nil
 	if p := g.pendingPreview; p != nil {
 		if p.doc.path == path {
 			g.pendingPreview = nil
+			g.preview = path
 		} else {
 			a.cancelPendingPreview(g)
 		}
