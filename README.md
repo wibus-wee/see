@@ -77,7 +77,7 @@ Opening another folder while a project is open shows it in a separate window. Us
 
 Open Quickly matches names and relative paths. Separate terms with spaces to require all of them in any order: `runtime package` finds files under `packages/runtime` as well as `runtime` files elsewhere under `packages`. Include `/` to match a path in directory order, such as `packages/runtime`. Append `:line` or `:line:column` to jump to a position.
 
-Clicking a file opens it as a preview, and opening another file replaces that preview. Double-click the file, its tab, or its name in the path bar, or use **Keep Preview Tab** in the command palette, to keep it. Tabs appear once more than one file is open.
+Clicking a file opens it as a preview, and opening another file replaces that preview. Double-click the file, its tab, or its name in the path bar, or use **Keep Preview Tab** in the command palette, to keep it. The active file always has a tab, including when it is the only open file.
 
 Use **F6** / **Shift+F6** to cycle editor groups in layout order, keeping each group’s cursor position. **Move Tab to Next Editor** in the command palette moves the active tab to the next group, wrapping at the end.
 

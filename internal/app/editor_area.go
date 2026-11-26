@@ -92,7 +92,7 @@ func (a *App) groupView(c *ui.Context, g *group) {
 		})
 	}
 	col.Children(func() {
-		if len(g.order) > 1 || len(a.groups()) > 1 {
+		if len(g.order) > 0 || len(a.groups()) > 1 {
 			a.tabBar(c, g)
 		}
 		if len(g.order) > 0 {

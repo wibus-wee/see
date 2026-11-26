@@ -18,7 +18,16 @@ func useEnglishEditorMenu(t *testing.T) {
 }
 
 func focusEditorForContextMenu(h *harness) {
-	h.tt.ClickAt(400, 140)
+	h.t.Helper()
+	d := h.a.docs[tabPath(h.a.focus.active)]
+	if d == nil {
+		h.t.Fatal("active file is not open")
+	}
+	field, ok := h.tt.AccessByRole(ui.RoleTextField, d.name)
+	if !ok {
+		h.t.Fatal("editor is not accessible")
+	}
+	h.tt.ClickAt(field.Bounds.X+139, field.Bounds.Y+5)
 	h.tt.Frame()
 }
 

@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 
 	"see/internal/workspace"
@@ -101,6 +102,56 @@ func TestPinnedOutgoingTabStaysUntilNewPreviewReady(t *testing.T) {
 	h.tt.Frame()
 	if g.active != b.path || !g.has(a.path) || g.preview != b.path || h.a.activeEditor() != g.eds[b.path] || b.buf.String() != ready {
 		t.Fatalf("ready preview did not preserve the pinned outgoing tab: active=%q preview=%q tabs=%v", g.active, g.preview, g.order)
+	}
+}
+
+func TestPreviewSwitchKeepsPathAndFirstLinePositions(t *testing.T) {
+	h, a := newPreviewHarness(t)
+	g := h.a.focus
+	h.tt.Frame()
+	h.tt.Advance(300 * time.Millisecond)
+
+	type positions struct{ path, firstLine float32 }
+	position := func(d *doc) positions {
+		t.Helper()
+		if _, ok := h.tt.AccessByRole(ui.RoleTabList, ""); !ok {
+			t.Fatal("single-file tab bar is not visible")
+		}
+		path, ok := h.tt.AccessByRole(ui.RoleMenuButton, d.name)
+		if !ok {
+			t.Fatalf("path bar crumb %q is not accessible", d.name)
+		}
+		field, ok := h.tt.AccessByRole(ui.RoleTextField, d.name)
+		if !ok {
+			t.Fatalf("editor %q is not accessible", d.name)
+		}
+		st := g.eds[d.path]
+		if st == nil {
+			t.Fatalf("editor state for %q is missing", d.name)
+		}
+		return positions{
+			path:      path.Bounds.Y,
+			firstLine: field.Bounds.Y + float32(st.LineTop(0)-st.ScrollY()),
+		}
+	}
+
+	before := position(a)
+	b := pendingPreviewDoc(h, "b.txt")
+	h.a.previewOpen(b.path)
+	h.tt.Frame()
+	if g.pendingPreview == nil || g.active != a.path {
+		t.Fatalf("preview target did not remain pending: active=%q pending=%+v", g.active, g.pendingPreview)
+	}
+	during := position(a)
+
+	const ready = "B-ready-marker"
+	h.a.loaded(b, workspace.File{Kind: workspace.Text, Text: ready}, editor.NewBuffer(ready), false, nil)
+	h.tt.Frame()
+	after := position(b)
+	for phase, got := range map[string]positions{"during": during, "after": after} {
+		if got != before {
+			t.Errorf("%s preview switch shifted path/first-line layout: before=%+v got=%+v", phase, before, got)
+		}
 	}
 }
 
