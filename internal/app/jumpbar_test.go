@@ -516,11 +516,20 @@ func TestJumpBarOmitsUnreadableFileCrumbAt510DIP(t *testing.T) {
 	}
 	t.Logf("510-DIP pane geometry: current=%+v pill=%+v middle=%+v; file crumb omitted", currentBounds, pillBounds, middleBounds)
 	saveJumpBarScreenshot(t, "SEE_JUMPBAR_510_LIGHT_SCREENSHOT", h.tt.Image())
-	if jumpBarPillHasChromaticPaint(h.tt.Image(), pillBounds) {
+	icon := fileIconSVG(fileIconTheme.fileIconOf(fileName), false).Image(13, 13, nil)
+	if jumpBarPillHasFileIconPaint(h.tt.Image(), pillBounds, icon) {
 		t.Fatal("colored file icon paints over the overflow pill")
 	}
 	h.tt.SetDark(true)
 	h.tt.Frame()
+	darkPillBounds, ok := h.tt.Find("Jump Bar overflow")
+	if !ok {
+		t.Fatal("missing overflow pill in Dark appearance")
+	}
+	darkIcon := fileIconSVG(fileIconTheme.fileIconOf(fileName), true).Image(13, 13, nil)
+	if jumpBarPillHasFileIconPaint(h.tt.Image(), darkPillBounds, darkIcon) {
+		t.Fatal("dark file icon paints over the overflow pill")
+	}
 	saveJumpBarScreenshot(t, "SEE_JUMPBAR_510_DARK_SCREENSHOT", h.tt.Image())
 	h.tt.SetDark(false)
 	h.tt.Frame()
@@ -697,17 +706,27 @@ func newSplitJumpBarHarnessWithSize(t *testing.T, windowWidth int, current strin
 	return h, current, parent, fileName
 }
 
-func jumpBarPillHasChromaticPaint(img *image.RGBA, bounds ui.Rect) bool {
+func jumpBarPillHasFileIconPaint(img *image.RGBA, bounds ui.Rect, icon *image.RGBA) bool {
 	x, y := int(bounds.X+0.5), int(bounds.Y+0.5)
 	if x < 0 || y < 0 || x+int(bounds.W) > img.Bounds().Max.X || y+int(bounds.H) > img.Bounds().Max.Y {
 		return true
 	}
-	for py := 2; py < int(bounds.H)-2; py++ {
-		for px := 2; px < int(bounds.W)-2; px++ {
+	iconColors := make(map[[3]uint8]struct{})
+	for py := 0; py < icon.Bounds().Dy(); py++ {
+		for px := 0; px < icon.Bounds().Dx(); px++ {
+			pixel := icon.RGBAAt(px, py)
+			if pixel.A == 255 && max(pixel.R, pixel.G, pixel.B)-min(pixel.R, pixel.G, pixel.B) > 30 {
+				iconColors[[3]uint8{pixel.R, pixel.G, pixel.B}] = struct{}{}
+			}
+		}
+	}
+	if len(iconColors) == 0 {
+		return true
+	}
+	for py := 0; py < int(bounds.H); py++ {
+		for px := 0; px < int(bounds.W); px++ {
 			pixel := img.RGBAAt(x+px, y+py)
-			r, g, b := pixel.R, pixel.G, pixel.B
-			max, min := max(r, g, b), min(r, g, b)
-			if max-min > 30 {
+			if _, ok := iconColors[[3]uint8{pixel.R, pixel.G, pixel.B}]; ok {
 				return true
 			}
 		}
