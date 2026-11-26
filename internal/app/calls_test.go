@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/egoist/mygo/ui"
+
 	"see/internal/lsp"
 	"see/internal/uri"
 )
@@ -119,6 +121,31 @@ func TestCallHierarchyIncoming(t *testing.T) {
 	h.tt.Frame()
 	if !h.tt.HasText("main") || !h.tt.HasText("a.go") {
 		t.Fatalf("texts=%q", h.tt.Texts())
+	}
+}
+
+func TestCallHierarchyPanesResize(t *testing.T) {
+	h, d := callHierarchyHarness(t)
+	h.a.activeEditor().GoTo(d.buf.Pos(strings.Index(d.buf.String(), "call()") + 1))
+	h.a.showCallHierarchy()
+	callRootReady(t, h, "main")
+
+	cs := &h.a.calls
+	tt := ui.NewTester(h.a.callsPanel, harnessWidth, harnessHeight)
+	tt.Frame()
+	divider, ok := tt.AccessByRole(ui.RoleSplitter, "Divider")
+	if !ok {
+		t.Fatal("call hierarchy panes have no splitter")
+	}
+	if cs.split != 40 {
+		t.Fatalf("initial preview share = %v%%, want 40%%", cs.split)
+	}
+	x, y := divider.Bounds.X+0.5, divider.Bounds.Y+divider.Bounds.H/2
+	tt.Press(x, y)
+	tt.Move(x+80, y)
+	tt.Release(x+80, y)
+	if cs.split <= 40 {
+		t.Fatalf("dragging the divider right did not widen the preview: %v%%", cs.split)
 	}
 }
 
