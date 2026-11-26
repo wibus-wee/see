@@ -274,8 +274,8 @@ func TestDiscoveredRepositoryChangesStayGroupedAndScoped(t *testing.T) {
 
 func TestDiscoveredRepositoryCommitComposersShowForUnstagedChanges(t *testing.T) {
 	workspace := t.TempDir()
-	frontend := nestedGitRepo(t, filepath.Join(workspace, "frontend"), "readme.md", "base\n", "frontend edit\n")
-	backend := nestedGitRepo(t, filepath.Join(workspace, "backend"), "readme.md", "base\n", "backend edit\n")
+	frontend := nestedGitRepo(t, filepath.Join(workspace, "frontend"), "frontend.md", "base\n", "frontend edit\n")
+	backend := nestedGitRepo(t, filepath.Join(workspace, "backend"), "backend.md", "base\n", "backend edit\n")
 	cfg := config.Load(filepath.Join(t.TempDir(), "settings.json"))
 	cfg.GitAutoDiscover = true
 	h := newHarnessWithConfig(t, workspace, cfg)
@@ -300,6 +300,9 @@ func TestDiscoveredRepositoryCommitComposersShowForUnstagedChanges(t *testing.T)
 	var fields, buttons, headers, fileRows []ui.AccessInfo
 	for _, access := range h.tt.AccessAll() {
 		if access.Role == ui.RoleTextField && access.Name == locales.MsgCommitMessage() {
+			if access.Disabled || !access.Focusable {
+				t.Fatalf("commit composer should remain editable: %+v", access)
+			}
 			fields = append(fields, access)
 		}
 		if access.Role == ui.RoleButton && access.Name == locales.MsgCommit() {
@@ -308,7 +311,7 @@ func TestDiscoveredRepositoryCommitComposersShowForUnstagedChanges(t *testing.T)
 		if access.Role == ui.RoleButton && (access.Name == "backend" || access.Name == "frontend") {
 			headers = append(headers, access)
 		}
-		if access.Role == ui.RoleButton && strings.HasSuffix(access.Name, "readme.md") {
+		if access.Role == ui.RoleButton && (strings.HasSuffix(access.Name, "backend.md") || strings.HasSuffix(access.Name, "frontend.md")) {
 			fileRows = append(fileRows, access)
 		}
 	}
@@ -331,13 +334,18 @@ func TestDiscoveredRepositoryCommitComposersShowForUnstagedChanges(t *testing.T)
 			t.Fatalf("commit became enabled without staged changes: %+v", button)
 		}
 	}
-	frontCopy, backCopy := h.a.git.workingCopies[frontend], h.a.git.workingCopies[backend]
-	frontCopy.message, backCopy.message = "frontend draft", "backend draft"
+	for i, draft := range []string{"backend draft", "frontend draft"} {
+		field := fields[i]
+		h.tt.ClickAt(field.Bounds.X+field.Bounds.W/2, field.Bounds.Y+field.Bounds.H/2)
+		h.tt.Type(draft)
+	}
 	h.tt.Frame()
 	values := map[string]bool{}
+	focused := false
 	for _, access := range h.tt.AccessAll() {
 		if access.Role == ui.RoleTextField && access.Name == locales.MsgCommitMessage() {
 			values[access.Value] = true
+			focused = focused || access.Focused
 		}
 		if access.Role == ui.RoleButton && access.Name == locales.MsgCommit() && !access.Disabled {
 			t.Fatalf("draft enabled commit without staged changes: %+v", access)
@@ -345,6 +353,19 @@ func TestDiscoveredRepositoryCommitComposersShowForUnstagedChanges(t *testing.T)
 	}
 	if !values["frontend draft"] || !values["backend draft"] {
 		t.Fatalf("repository commit drafts are not independent: fields=%+v", values)
+	}
+	if !focused {
+		t.Fatal("typing in a repository commit draft did not retain input focus")
+	}
+	for _, access := range h.tt.AccessAll() {
+		if access.Role != ui.RoleTextField || access.Name != locales.MsgCommitMessage() {
+			continue
+		}
+		path := strings.TrimSuffix(access.Value, " draft") + ".md"
+		file, ok := h.tt.Find(path)
+		if !ok || access.Bounds.X < file.X-1 || access.Bounds.X > file.X+1 {
+			t.Fatalf("%q input text should align with %q: input=%+v file=%+v found=%v", access.Value, path, access.Bounds, file, ok)
+		}
 	}
 }
 
