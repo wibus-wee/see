@@ -2,7 +2,9 @@ package app
 
 import (
 	"path/filepath"
+	"slices"
 	"strings"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 
@@ -55,6 +57,27 @@ func (a *App) gitRepositories(c *ui.Context) {
 	v, repo := &a.git.repositoryView, a.git.repository
 	ui.Scroll(c).Grow(1).FillWidth().Children(func() {
 		ui.Column(c).FillWidth().Padding(0, sidebarInset, 6, sidebarInset).Children(func() {
+			if a.cfg.GitAutoDiscover {
+				if !a.git.repositoriesLoaded {
+					ui.Text(c, locales.GitScanningRepositories()).FontSize(11).TextColor(colors(c).Muted).Padding(4, 8)
+				} else if len(a.git.repositories) == 0 {
+					ui.Text(c, locales.GitNoRepositoriesFound()).FontSize(11).TextColor(colors(c).Muted).Padding(4, 8)
+				} else {
+					for _, root := range a.git.repositories {
+						a.gitRepositoryChoice(c, root)
+					}
+				}
+				if a.git.root == "" {
+					if len(a.git.repositories) > 0 {
+						ui.Text(c, locales.GitSelectRepositoryToSeeChanges()).FontSize(11).TextColor(colors(c).Muted).Padding(4, 8)
+					}
+					return
+				}
+			}
+			if a.git.root == "" {
+				ui.Text(c, "No Git repository found, or Git is unavailable.").FontSize(11).TextColor(colors(c).Muted).Padding(4, 8)
+				return
+			}
 			repoDisclosure(c.Key("root"), 0, filepath.Base(a.git.root), icGit, v.rootClosed,
 				func() { v.rootClosed = !v.rootClosed }, nil)
 			if v.rootClosed {
@@ -121,9 +144,98 @@ func (a *App) gitRepositories(c *ui.Context) {
 	})
 }
 
+func (a *App) gitRepositoryChoice(c *ui.Context, root string) {
+	label := filepath.Base(root)
+	if rel, err := filepath.Rel(a.root, root); err == nil && rel != "." && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		label = rel
+	}
+	selected := root == a.git.root
+	row := ui.ButtonBase(c.Key("repository:"+root)).FillWidth().Height(24).Shrink(0).AlignItems(ui.Center).
+		Label(label).Tooltip(root).Gap(5).Radius(5).Padding(0, 6).KeepFocus().OnClick(func() { a.selectGitRepository(root) })
+	if selected {
+		row.Background(c.Theme().Accent.Alpha(0.12))
+	} else if row.Hovered() {
+		row.Background(colors(c).Pill)
+	}
+	row.Children(func() {
+		symbolIcon(c, icGit, 13, colors(c).Muted)
+		ui.Text(c, label).Grow(1).MinWidth(0).FontSize(12).SingleLine().Ellipsis("…")
+		if selected {
+			symbolIcon(c, icGitCurrent, 13, c.Theme().Accent)
+		}
+	})
+}
+
+func (a *App) selectGitRepository(root string) {
+	if root == a.git.root {
+		return
+	}
+	if root != "" && (!a.cfg.GitAutoDiscover || !slices.Contains(a.git.repositories, root)) {
+		return
+	}
+	initialContaining := a.cfg.GitAutoDiscover && a.git.root == "" && root != "" && gitRepositoryContaining(a.realRoot, []string{root}) != ""
+	if a.cfg.GitAutoDiscover && a.git.root == "" && !initialContaining {
+		a.git.pendingTabs = nil
+	}
+	if !initialContaining {
+		a.closeGitRepositoryTabs()
+	}
+	if a.git.picker.open {
+		a.closeBranchPicker()
+	}
+	history := a.git.history
+	a.git.repositoryScanSeq++
+	a.git.repositoryScanLoading = false
+	a.git.scopeSeq++
+	a.git.refreshSeq++
+	a.git.diffSeq++
+	a.git.loading, a.git.pending, a.git.busy = false, false, false
+	a.git.autoFetching, a.git.syncing, a.git.stashing = false, "", false
+	a.git.resolvingPath, a.jumpDate = "", jumpToDate{}
+	a.git.root = root
+	for _, d := range a.docs {
+		if d != nil {
+			a.clearGitBase(d)
+		}
+	}
+	a.git.branch, a.git.message, a.git.head, a.git.refs = "", "", "", ""
+	a.git.repository = git.RepositoryRefs{}
+	a.git.changes, a.git.stashes, a.git.remotes = nil, nil, nil
+	a.git.selected, a.git.decor = nil, nil
+	a.git.selectionAnchor = ""
+	a.git.err, a.git.web, a.git.upstream = "", "", ""
+	a.git.ahead, a.git.behind, a.git.notifiedBehind = 0, 0, 0
+	a.git.merging, a.git.fetchNotified = false, false
+	a.git.branchFingerprint = ""
+	a.git.lastFetch = time.Time{}
+	a.git.counts = [2]map[string]git.FileStat{}
+	a.git.peek, a.git.branchPanel = nil, nil
+	a.git.stashMessage = ""
+	a.git.repositoryView.tag = nil
+	a.deleteConfirm = nil
+	a.git.history = gitHistory{all: history.all, seq: history.seq + 1, list: history.list, stale: true}
+	if root != "" {
+		a.refreshGit()
+	}
+}
+
+func (a *App) closeGitRepositoryTabs() {
+	for _, g := range a.groups() {
+		var keys []string
+		for key, tab := range g.diffs {
+			if tab != nil && (tab.change || tab.rev != "" || tab.commit != nil || tab.log != nil || tab.branch != nil || tab.search != nil || tab.localHistory != nil || tab.conflict != nil || tab.revision != nil) {
+				keys = append(keys, key)
+			}
+		}
+		for _, key := range keys {
+			a.closeTab(g, key)
+		}
+	}
+}
+
 func repoDisclosure(c *ui.Context, depth float32, title string, icon *ui.SVG, closed bool, toggle func(), actions func()) {
-	ui.Row(c).FillWidth().Height(24).Shrink(0).AlignItems(ui.Center).Children(func() {
-		b := ui.ButtonBase(c).Grow(1).MinWidth(0).Height(24).Label(title).Tooltip(title).AlignItems(ui.Center).Justify(ui.Start).
+	ui.Row(c).FillWidth().Height(gitSidebarRowHeight).Shrink(0).AlignItems(ui.Center).Children(func() {
+		b := ui.ButtonBase(c).Grow(1).MinWidth(0).Height(gitSidebarRowHeight).Label(title).Tooltip(title).AlignItems(ui.Center).Justify(ui.Start).
 			Padding(0, 4, 0, 4+depth*12).Gap(5).Radius(5).KeepFocus().OnClick(toggle)
 		if b.Hovered() {
 			b.Background(colors(c).Pill)
@@ -238,11 +350,11 @@ func (a *App) submitTag(q *gitTagDialog) {
 		return
 	}
 	q.saving, q.err, a.git.busy = true, "", true
-	ctx, root, gen, hash, message := a.wsCtx, a.git.root, a.gen, q.hash, q.message
+	ctx, root, gen, scopeSeq, hash, message := a.wsCtx, a.git.root, a.gen, a.git.scopeSeq, q.hash, q.message
 	go func() {
 		err := git.CreateTag(ctx, root, name, message, hash)
 		a.post.Post(func() {
-			if a.gen != gen {
+			if a.gen != gen || a.git.scopeSeq != scopeSeq {
 				return
 			}
 			q.saving, a.git.busy = false, false
@@ -262,7 +374,7 @@ func (a *App) cherryPick(cm git.Commit) {
 		return
 	}
 	a.git.busy = true
-	ctx, root, gen := a.wsCtx, a.git.root, a.gen
+	ctx, root, gen, scopeSeq := a.wsCtx, a.git.root, a.gen, a.git.scopeSeq
 	go func() {
 		err := git.CherryPick(ctx, root, cm.Hash)
 		head, paused := "", false
@@ -272,7 +384,7 @@ func (a *App) cherryPick(cm git.Commit) {
 			paused = git.Resolve(ctx, root, "CHERRY_PICK_HEAD") != ""
 		}
 		a.post.Post(func() {
-			if a.gen != gen {
+			if a.gen != gen || a.git.scopeSeq != scopeSeq {
 				return
 			}
 			a.git.busy = false

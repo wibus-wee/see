@@ -60,7 +60,7 @@ func (a *App) runSyncGit(doing, done string, background bool, args ...string) {
 	a.git.busy, a.git.syncing = true, doing
 	a.git.autoFetching = background
 	a.git.lastFetch = time.Now()
-	ctx, root, gen := a.wsCtx, a.git.root, a.gen
+	ctx, root, gen, scopeSeq := a.wsCtx, a.git.root, a.gen, a.git.scopeSeq
 	go func() {
 		if background {
 			var cancel context.CancelFunc
@@ -69,7 +69,7 @@ func (a *App) runSyncGit(doing, done string, background bool, args ...string) {
 		}
 		_, err := git.Network(ctx, root, args...)
 		a.post.Post(func() {
-			if a.gen != gen {
+			if a.gen != gen || a.git.scopeSeq != scopeSeq {
 				return
 			}
 			a.git.busy, a.git.syncing = false, ""
@@ -106,6 +106,7 @@ func (a *App) runSyncGit(doing, done string, background bool, args ...string) {
 				}
 			}
 			a.refreshGit()
+			a.refreshGitWorkingCopies()
 		})
 	}()
 }

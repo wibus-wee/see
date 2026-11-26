@@ -23,13 +23,17 @@ func discardBufferChange(diff *editor.DiffState, line int) bool {
 	return true
 }
 
+func (a *App) hasCurrentGitBase(d *doc) bool {
+	return d != nil && d.gitBase != nil && d.gitBaseKey != "" && d.gitBaseKey == a.gitBaseKey(d)
+}
+
 func (a *App) canDiscardChange() bool {
 	st := a.activeEditor()
 	if a.focus == nil || st == nil || st.ReadOnly {
 		return false
 	}
 	d := a.docs[a.focus.active]
-	return d != nil && gitHunkAt(d.gitChanges, st.CursorPos().Line) >= 0
+	return a.hasCurrentGitBase(d) && gitHunkAt(d.gitChanges, st.CursorPos().Line) >= 0
 }
 
 func (a *App) discardChange() {
@@ -39,7 +43,7 @@ func (a *App) discardChange() {
 }
 
 func (a *App) discardChangeAt(d *doc, st *editor.State, line int) {
-	if !st.ReadOnly && discardBufferChange(d.gitChanges, line) {
+	if st != nil && !st.ReadOnly && a.hasCurrentGitBase(d) && discardBufferChange(d.gitChanges, line) {
 		a.git.peek = nil
 	}
 }

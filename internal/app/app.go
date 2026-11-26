@@ -77,14 +77,15 @@ func (p *poster) load() platform.Scheduler {
 // App is the reader's state. It lives on the UI thread: background work
 // hands its results back through post, which runs them there.
 type App struct {
-	post               *poster // runs fn on the UI thread, then redraws
-	trustChanged       func()
-	editorPrefsChanged func()
-	host               platform.Desktop // the window and the desktop around it
-	windowWidth        int
-	windowHeight       int
-	startLSP           func(logf func(string, ...any)) langserver.Starter
-	cfg                *config.Config
+	post                *poster // runs fn on the UI thread, then redraws
+	trustChanged        func()
+	editorPrefsChanged  func()
+	gitDiscoveryChanged func()
+	host                platform.Desktop // the window and the desktop around it
+	windowWidth         int
+	windowHeight        int
+	startLSP            func(logf func(string, ...any)) langserver.Starter
+	cfg                 *config.Config
 
 	diffWhitespaceHidden bool
 

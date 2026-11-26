@@ -24,6 +24,18 @@ import (
 	"see/internal/workspace"
 )
 
+const gtkUsePortalEnv = "GTK_USE_PORTAL"
+
+func setGTKUsePortalDefault(portalAvailable func() bool) error {
+	if _, ok := os.LookupEnv(gtkUsePortalEnv); ok {
+		return nil
+	}
+	if !portalAvailable() {
+		return nil
+	}
+	return os.Setenv(gtkUsePortalEnv, "1")
+}
+
 func Main() {
 	if args, command := cli.Invocation(os.Args[0], os.Args[1:]); command {
 		if err := cli.Run(args, os.Stderr); err != nil {
@@ -37,6 +49,11 @@ func Main() {
 	// folder to the app that runs, which opens it (OnSecondInstance).
 	if !mygo.App.RequestSingleInstanceLock() {
 		return
+	}
+	if runtime.GOOS == "linux" {
+		if err := setGTKUsePortalDefault(gtkPortalFileChooserAvailable); err != nil {
+			log.Printf("see: set %s: %v", gtkUsePortalEnv, err)
+		}
 	}
 	shellpath.Start()
 	mygo.Use(native.Plugin)
@@ -60,6 +77,14 @@ func Main() {
 	)
 	refreshEditorPrefs := func() { applyEditorPrefsToProjects(projects) }
 	a.editorPrefsChanged = refreshEditorPrefs
+	refreshGitDiscovery := func() {
+		for _, p := range projects {
+			if p.win != nil && !p.win.IsDestroyed() {
+				p.app.refreshGitDiscovery()
+			}
+		}
+	}
+	a.gitDiscoveryChanged = refreshGitDiscovery
 	// Files and folders opened with the application, as by a drop on its
 	// Dock icon: they wait for the windows to exist when the app starts
 	// with one, and open in the windows that fit them after.
@@ -177,6 +202,7 @@ func Main() {
 			child := newApp(cfg)
 			child.trustChanged = a.trustChanged
 			child.editorPrefsChanged = refreshEditorPrefs
+			child.gitDiscoveryChanged = refreshGitDiscovery
 			child.ownsStandaloneSession = false
 			child.version = a.version
 			child.hasWelcome = true

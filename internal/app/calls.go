@@ -34,6 +34,7 @@ type calls struct {
 	tree       ui.OutlineState[int]
 	row        int
 	sel        int // direction the segmented control shows
+	split      float32
 	dir        callDir
 	items      []lsp.CallItem // items prepared at the anchor
 	roots      []int
@@ -91,6 +92,7 @@ var callNodeID atomic.Int64
 func (a *App) callsInit() {
 	cs := &a.calls
 	cs.row = -1
+	cs.split = 40
 	cs.tree.List.Selected = &cs.row
 }
 
@@ -413,9 +415,8 @@ func (a *App) callsPanel(c *ui.Context) {
 		return
 	}
 	cs.tree.Indent = 12
-	split := ui.Row(c).Grow(1).FillWidth().AlignItems(ui.Stretch)
-	split.Children(func() {
-		ui.Column(c).Grow(2).Basis(0).MinWidth(0).FillHeight().Clip().Children(func() {
+	ui.SplitPercent(c.Key("call-hierarchy-panes"), &cs.split, func() {
+		ui.Column(c).FillHeight().Clip().Children(func() {
 			if cs.preview != nil {
 				editor.View(c.Key("call-code"), cs.preview).Grow(1).FillWidth()
 			} else {
@@ -424,7 +425,8 @@ func (a *App) callsPanel(c *ui.Context) {
 				})
 			}
 		})
-		ui.Column(c).Grow(3).Basis(0).MinWidth(0).FillHeight().BorderWidth(0, 0, 0, 1).BorderColor(colors(c).Separator).Children(func() {
+	}, func() {
+		ui.Column(c).FillHeight().BorderWidth(0, 0, 0, 1).BorderColor(colors(c).Separator).Children(func() {
 			outline := ui.Outline(c, &cs.tree, cs.roots, a.callsChildren, func(k int) { a.callRow(c, k) }).Grow(1).FillWidth().Label(a.hierarchyText(""))
 			if outline.Submitted() && cs.row >= 0 && cs.row < cs.tree.Rows() {
 				a.openCallRow(cs.tree.Item(cs.row))
@@ -437,7 +439,7 @@ func (a *App) callsPanel(c *ui.Context) {
 				}
 			}
 		})
-	})
+	}).Grow(1).FillHeight()
 	a.callSelection()
 }
 

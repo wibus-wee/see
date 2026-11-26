@@ -182,11 +182,33 @@ func (a *App) setGitChangeView(v *gitDiffTab, view gitChangeView, hunk int) {
 }
 
 func (a *App) applyGitDiffPart(v *gitDiffTab, part gitDiffPart) {
-	if a.git.busy || a.git.root == "" || v.partial == nil {
+	root := v.root
+	if root == "" {
+		root = a.git.root
+	}
+	workingCopy := a.git.workingCopies[root]
+	groupScoped := workingCopy != nil
+	busy := a.git.busy
+	if groupScoped {
+		busy = workingCopy.busy || root == a.git.root && a.git.busy
+	}
+	if busy || root == "" || v.partial == nil {
 		return
 	}
-	a.git.busy = true
-	ctx, root, gen := a.wsCtx, a.git.root, a.gen
+	if groupScoped {
+		workingCopy.busy = true
+		if root == a.git.root {
+			a.git.busy = true
+		}
+	} else {
+		a.git.busy = true
+	}
+	if workingCopy != nil {
+		workingCopy.refreshSeq++
+		workingCopy.loading = false
+		workingCopy.diffSeq++
+	}
+	ctx, gen, scopeSeq := a.wsCtx, a.gen, a.git.scopeSeq
 	name, staged, digest := v.name, v.staged, v.partial.digest
 	go func() {
 		err := applyCurrentGitDiffPart(ctx, root, name, staged, digest, part)
@@ -201,17 +223,31 @@ func (a *App) applyGitDiffPart(v *gitDiffTab, part gitDiffPart) {
 			}
 		}
 		a.post.Post(func() {
-			if a.gen != gen {
+			if a.gen != gen || groupScoped && a.git.workingCopies[root] != workingCopy ||
+				!groupScoped && (a.git.scopeSeq != scopeSeq || a.git.root != root) {
 				return
 			}
-			a.git.busy = false
+			if groupScoped {
+				workingCopy.busy = false
+				if root == a.git.root {
+					a.git.busy = false
+				}
+			} else {
+				a.git.busy = false
+			}
 			if err != nil {
 				a.note(locales.MsgGit()+gitErrLine(err), true)
 			}
-			if a.git.root == root && refreshErr == nil {
-				a.updateGitChangeViews(name, working, index)
+			if refreshErr == nil {
+				a.updateGitChangeViews(root, name, working, index)
 			}
-			a.refreshGit()
+			if root == a.git.root {
+				a.refreshGit()
+			} else {
+				workingCopy.refreshSeq++
+				workingCopy.loading = false
+				a.refreshGitWorkingCopy(root)
+			}
 		})
 	}()
 }
@@ -233,14 +269,14 @@ func applyCurrentGitDiffPart(ctx context.Context, root, name string, staged bool
 	return errors.New(gitPartialText("gitPartialDiffChanged"))
 }
 
-func (a *App) updateGitChangeViews(name string, working, index gitChangeView) {
+func (a *App) updateGitChangeViews(root, name string, working, index gitChangeView) {
 	for _, g := range a.groups() {
 		for _, view := range []struct {
 			staged bool
 			patch  gitChangeView
 		}{{false, working}, {true, index}} {
-			v := g.diffs[diffTab(name, view.staged)]
-			if v == nil || v.state == nil || !v.change {
+			v := g.diffs[a.gitChangeTabKey(root, git.Change{Path: name}, view.staged)]
+			if v == nil || v.state == nil || !v.change || v.root != root && !(v.root == "" && root == a.git.root) {
 				continue
 			}
 			if v.partial != nil && view.patch.partial != nil && v.partial.digest == view.patch.partial.digest {
@@ -248,6 +284,47 @@ func (a *App) updateGitChangeViews(name string, working, index gitChangeView) {
 			}
 			hunk, _ := v.state.CurrentHunk()
 			a.setGitChangeView(v, view.patch, hunk)
+		}
+	}
+}
+
+func (a *App) refreshGitWorkingDiffs(root string, changes []git.Change) {
+	if root == "" || a.wsCtx == nil {
+		return
+	}
+	byPath := make(map[string]git.Change, len(changes))
+	for _, change := range changes {
+		byPath[change.Path] = change
+	}
+	ctx, gen := a.wsCtx, a.gen
+	workingCopy := a.git.workingCopies[root]
+	for _, g := range a.groups() {
+		for key, view := range g.diffs {
+			if view == nil || !view.change || view.state == nil || a.gitDiffRoot(view) != root {
+				continue
+			}
+			view.changeRefreshSeq++
+			seq := view.changeRefreshSeq
+			change, ok := byPath[view.name]
+			if !ok || change.Conflicted() || !gitChangeInSection(change, view.staged) {
+				a.setGitChangeView(view, gitChangeView{}, 0)
+				continue
+			}
+			go func(g *group, key string, view *gitDiffTab, seq uint64, change git.Change, staged bool) {
+				updated, err := readGitChangeView(ctx, root, change, staged)
+				a.post.Post(func() {
+					if a.gen != gen || g.diffs[key] != view || view.changeRefreshSeq != seq ||
+						a.gitDiffRoot(view) != root || workingCopy != nil && a.git.workingCopies[root] != workingCopy {
+						return
+					}
+					if err != nil {
+						a.note(locales.MsgGitDiff()+err.Error(), true)
+						updated = gitChangeView{}
+					}
+					hunk, _ := view.state.CurrentHunk()
+					a.setGitChangeView(view, updated, hunk)
+				})
+			}(g, key, view, seq, change, view.staged)
 		}
 	}
 }

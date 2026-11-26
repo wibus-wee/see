@@ -23,6 +23,7 @@ type tabDrag struct {
 	path   string
 	change *git.Change
 	staged bool
+	root   string
 }
 
 func (a *App) editorArea(c *ui.Context) {
@@ -228,7 +229,15 @@ func zoneAt(x, y, w, h float32) side {
 func (a *App) dropTab(v *tabDrag, g *group, s side, at int) {
 	a.cancelNav()
 	if v.change != nil {
-		a.showGitDiffIn(*v.change, v.staged, g, s, at)
+		root := v.root
+		if root == "" {
+			root = a.git.root
+		}
+		if workingCopy := a.git.workingCopies[root]; a.cfg.GitAutoDiscover && workingCopy != nil {
+			a.showGitWorkingCopyDiff(root, *v.change, v.staged, g, s, at, workingCopy)
+		} else {
+			a.showGitDiffInRepository(root, *v.change, v.staged, g, s, at, nil)
+		}
 		return
 	}
 	if v.from == nil || !v.from.has(v.path) {

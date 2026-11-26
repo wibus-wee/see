@@ -110,7 +110,7 @@ func Sync(ctx context.Context, dir string, counts bool) (State, error) {
 	if err != nil {
 		return s, err
 	}
-	s.Root = strings.TrimSpace(string(out))
+	s.Root = filepath.Clean(strings.TrimSpace(string(out)))
 	out, err = Command(ctx, s.Root, "status", "--porcelain=v2", "--branch", "-z", "--untracked-files=all")
 	if err != nil {
 		return s, err
