@@ -12226,26 +12226,6 @@ func (msgs Messages) MsgTreeView() string {
 	return Catalog.Format(msgs.locale, "msgTreeView", nil)
 }
 
-// MsgHideSection says "Hide {title}"
-// in the language the app shows.
-func MsgHideSection(title string) string { return In(i18n.Locale()).MsgHideSection(title) }
-
-// MsgHideSection says "Hide {title}"
-// in the language of msgs.
-func (msgs Messages) MsgHideSection(title string) string {
-	return Catalog.Format(msgs.locale, "msgHideSection", map[string]any{"title": title})
-}
-
-// MsgShowSection says "Show {title}"
-// in the language the app shows.
-func MsgShowSection(title string) string { return In(i18n.Locale()).MsgShowSection(title) }
-
-// MsgShowSection says "Show {title}"
-// in the language of msgs.
-func (msgs Messages) MsgShowSection(title string) string {
-	return Catalog.Format(msgs.locale, "msgShowSection", map[string]any{"title": title})
-}
-
 // GitCommittedBy says "committed by {name}"
 // in the language the app shows.
 func GitCommittedBy(name string) string { return In(i18n.Locale()).GitCommittedBy(name) }

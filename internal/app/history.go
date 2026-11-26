@@ -201,11 +201,7 @@ func (a *App) gitSectionHeaderStyle(c *ui.Context, title string, count int, clos
 		height, inset = float32(gitSidebarMainHeaderHeight), float32(sidebarInset)
 	}
 	ui.Row(c.Key(title)).Shrink(0).FillWidth().Height(height).Padding(0, inset).Gap(2).AlignItems(ui.Center).Children(func() {
-		tip := locales.Catalog.Format(i18n.Locale(), "msgHideSection", map[string]any{"title": title})
-		if *closed {
-			tip = locales.Catalog.Format(i18n.Locale(), "msgShowSection", map[string]any{"title": title})
-		}
-		b := ui.ButtonBase(c).Label(title).Tooltip(tip).Padding(0, 4, 0, 0).Radius(4).Gap(gitSidebarColumnGap).
+		b := ui.ButtonBase(c).Label(title).Expanded(!*closed).Padding(0, 4, 0, 0).Radius(4).Gap(gitSidebarColumnGap).
 			AlignItems(ui.Center).MinWidth(0).Shrink(1).KeepFocus()
 		if b.Hovered() {
 			b.Background(colors(c).Pill)

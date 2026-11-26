@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/egoist/mygo"
-	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 
@@ -275,34 +274,24 @@ func TestGitChangesSwitchBetweenTreeAndList(t *testing.T) {
 	}
 }
 
-func TestGitSectionToggleTooltipFollowsLocale(t *testing.T) {
-	i18n.SetLocaleFunc(func() string { return "zh-Hans" })
-	defer i18n.SetLocaleFunc(nil)
-
+func TestGitSectionHeaderExposesExpandedState(t *testing.T) {
 	root := gitRepo(t, map[string]string{"a.txt": "base\n"})
 	writeFile(t, root, "a.txt", "changed\n")
 	h := newHarness(t, root)
 	h.readGit()
 	h.a.navigator, h.a.git.historyClosed = navGit, true
 	h.tt.Frame()
-	header, ok := h.tt.Find(locales.MsgChanges())
-	if !ok {
-		t.Fatalf("changes header is missing: %q", h.tt.Texts())
+	header, ok := h.tt.AccessByRole(ui.RoleButton, locales.MsgChanges())
+	if !ok || !header.Expanded {
+		t.Fatalf("open changes header is not expanded: %+v (%v)", header, ok)
 	}
-	hover := func() {
-		h.tt.Move(header.X+header.W/2, header.Y+header.H/2)
-		h.tt.Advance(time.Second)
+	if err := h.tt.Click(locales.MsgChanges()); err != nil {
+		t.Fatal(err)
 	}
-	hover()
-	if !h.tt.HasText("隐藏 " + locales.MsgChanges()) {
-		t.Fatalf("open section tooltip is not localized: %q", h.tt.Texts())
-	}
-	h.a.git.changesClosed = true
 	h.tt.Frame()
-	h.tt.Move(0, 0)
-	hover()
-	if !h.tt.HasText("显示 " + locales.MsgChanges()) {
-		t.Fatalf("closed section tooltip is not localized: %q", h.tt.Texts())
+	header, ok = h.tt.AccessByRole(ui.RoleButton, locales.MsgChanges())
+	if !ok || header.Expanded {
+		t.Fatalf("closed changes header is still expanded: %+v (%v)", header, ok)
 	}
 }
 

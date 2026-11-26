@@ -1242,7 +1242,8 @@ func (a *App) toggleGitChangeFolder(workingCopy *gitWorkingCopy, key string) {
 func (a *App) gitFolderRow(c *ui.Context, key, name, path string, depth int, closed bool, toggle func()) {
 	row := ui.Row(c.Key(key)).FillWidth().Height(gitSidebarRowHeight).
 		PaddingStart(treeInset(gitChangesInset, depth)).
-		Gap(4).Radius(4).AlignItems(ui.Center).Label(name).Tooltip(filepath.ToSlash(path))
+		Gap(4).Radius(4).AlignItems(ui.Center).Role(ui.RoleTreeItem).Level(depth + 1).Expanded(!closed).
+		Label(name).Description(filepath.ToSlash(path))
 	if row.Hovered() {
 		row.Background(colors(c).Pill)
 	}

@@ -1205,8 +1205,6 @@
   "gitCherryPickPaused": "如有冲突，请先解决，再运行 git cherry-pick --continue。也可运行 git cherry-pick --skip 跳过提交，或运行 git cherry-pick --abort 取消。",
   "msgListView": "列表视图",
   "msgTreeView": "树形视图",
-  "msgHideSection": "隐藏 {title}",
-  "msgShowSection": "显示 {title}",
   "gitCommittedBy": "由 {name} 提交",
   "gitParent": "父提交",
   "gitParents": "父提交",
