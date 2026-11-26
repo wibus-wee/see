@@ -128,7 +128,7 @@ func (a *App) openRegexPlaygroundFor(g *group, d *doc, st *editor.State) {
 			Theme:        a.edTheme,
 		},
 	}
-	a.focus = g
+	a.observeFocusedGroup(g)
 	a.regexPlayground = playground
 	a.focusEditor = playground.sample
 	a.regexToolWindow.fitToSourceOnOpen = true
@@ -142,7 +142,7 @@ func (a *App) closeRegexPlayground(p *regexPlayground) {
 	}
 	a.regexPlayground = nil
 	if a.regexPlaygroundSourceLive(p) {
-		a.focus = p.group
+		a.observeFocusedGroup(p.group)
 		if p.group.active != p.doc.path {
 			a.activateIn(p.group, p.doc.path)
 		}
@@ -176,7 +176,7 @@ func (a *App) currentValidEditor() *editor.State {
 	}
 	for _, g := range a.groups() {
 		if st := g.eds[g.active]; st != nil {
-			a.focus = g
+			a.observeFocusedGroup(g)
 			return st
 		}
 	}

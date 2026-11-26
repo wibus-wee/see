@@ -99,7 +99,7 @@ func (a *App) renameSymbolAt(g *group, d *doc, st *editor.State) {
 	if d == nil || st == nil {
 		return
 	}
-	a.focus = g
+	a.observeFocusedGroup(g)
 	m := a.serverFor(d.path)
 	if m == nil {
 		a.note(locales.MsgNoLanguageServerIsConfiguredForThisFile(), false)

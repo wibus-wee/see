@@ -85,7 +85,7 @@ func (a *App) formatAt(g *group, d *doc, st *editor.State, selection bool) {
 	if d.buf == nil {
 		return
 	}
-	a.focus = g
+	a.observeFocusedGroup(g)
 	m := a.serverFor(d.path)
 	if m == nil {
 		a.note(locales.MsgNoLanguageServerIsConfiguredForThisFile(), false)

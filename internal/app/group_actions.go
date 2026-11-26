@@ -35,7 +35,7 @@ func (a *App) requestGroupFocus(g *group) {
 	if a.maximized != g {
 		a.maximized = nil
 	}
-	a.focus = g
+	a.setFocusedGroup(g)
 	a.focusGroupTarget = g
 	a.focusEditor = nil
 	a.focusImage = ""

@@ -314,7 +314,7 @@ func (a *App) restoreSession() {
 		if focused == nil {
 			focused = a.groups()[0]
 		}
-		a.focus = focused
+		a.observeFocusedGroup(focused)
 		if p := a.tabFile(focused, focused.active); p != "" {
 			a.revealInTree(p)
 		}

@@ -584,7 +584,7 @@ func (a *App) inspectorAction(kind string) {
 		pos := st.Buffer.Pos(min(offset, st.Buffer.Len()))
 		st.GoTo(pos)
 	}
-	a.focus = g
+	a.observeFocusedGroup(g)
 	switch kind {
 	case "callers":
 		a.findUsagesAt(true, ui.Point{}, false)

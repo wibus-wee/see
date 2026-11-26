@@ -92,7 +92,7 @@ func (a *App) groupView(c *ui.Context, g *group) {
 		})
 	}
 	col.Children(func() {
-		if len(g.order) > 1 || len(a.groups()) > 1 {
+		if len(g.order) > 0 || len(a.groups()) > 1 {
 			a.tabBar(c, g)
 		}
 		if len(g.order) > 0 {
@@ -301,7 +301,7 @@ func (a *App) groupContent(c *ui.Context, g *group) {
 					view.Focus()
 				}
 				if a.focusGroupTarget == nil && view.FocusWithin() {
-					a.focus = g
+					a.observeFocusedGroup(g)
 				}
 				a.commitFileBar(c, v)
 			})
@@ -312,7 +312,7 @@ func (a *App) groupContent(c *ui.Context, g *group) {
 			view.Focus()
 		}
 		if a.focusGroupTarget == nil && view.FocusWithin() {
-			a.focus = g
+			a.observeFocusedGroup(g)
 		}
 		return
 	}
@@ -335,7 +335,7 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 	switch {
 	case d.err != nil:
 		a.message(c, locales.MsgCouldNotOpen()+d.name, describeErr(d.err), locales.Retry(), func() { a.reloadDoc(d) })
-	case d.loading && st == nil:
+	case d.loadingVisible && st == nil:
 		ui.Row(c).Grow(1).FillWidth().Center().Gap(8).Children(func() {
 			ui.Spinner(c)
 			ui.Text(c, locales.MsgLoading2()+d.name+"…").TextColor(colors(c).Muted)
@@ -646,7 +646,7 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 			ed.AutoFocus()
 		}
 		if a.focusGroupTarget == nil && ed.FocusWithin() && a.focus != g {
-			a.focus = g
+			a.observeFocusedGroup(g)
 		}
 	}
 }

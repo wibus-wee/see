@@ -15,11 +15,11 @@ func editorContextMenuText(key string, args map[string]any) string {
 
 func (a *App) editorContextMenu(menu *ui.Menu, g *group, d *doc, st *editor.State) {
 	if menu.Item(commandLabel("definition.goto")).Shortcut(0, ui.KeyF12).Chosen() && st.OnDefinition != nil {
-		a.focus = g
+		a.observeFocusedGroup(g)
 		st.OnDefinition(st.Buffer.Offset(st.CursorPos()))
 	}
 	if menu.Item(commandLabel("references.find")).Shortcut(ui.Shift, ui.KeyF12).Chosen() {
-		a.focus = g
+		a.observeFocusedGroup(g)
 		a.findUsagesAt(false, g.pointerAnchor, g.pointerInEditor)
 	}
 	for _, kind := range []string{"implementation", "typeDefinition"} {
@@ -32,7 +32,7 @@ func (a *App) editorContextMenu(menu *ui.Menu, g *group, d *doc, st *editor.Stat
 		}
 	}
 	if menu.Item(commandLabel("hierarchy.calls")).Chosen() {
-		a.focus = g
+		a.observeFocusedGroup(g)
 		a.showCallHierarchyAt(g)
 	}
 	if menu.Item(commandLabel("definition.peek")).Shortcut(ui.Alt, ui.KeyF12).Disabled(!a.navigationEnabled(d.path, "peek")).Chosen() {

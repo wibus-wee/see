@@ -280,6 +280,9 @@ type doc struct {
 	hex             *hexState
 
 	loading           bool
+	loadingVisible    bool
+	loadingSeq        uint64
+	loadingTimer      *time.Timer
 	err               error
 	kind              workspace.Kind
 	size              int64
@@ -565,6 +568,9 @@ func (a *App) closeWorkspace() {
 	a.saveConfig()
 	a.regexPlayground = nil
 	a.regexToolWindow.resetWorkspace()
+	for _, g := range a.groups() {
+		a.cancelPendingPreview(g)
+	}
 	a.gen++
 	if a.wsCancel != nil {
 		a.wsCancel()
@@ -988,6 +994,10 @@ func (a *App) openFileAt(path string, to goTo) *doc {
 
 // openIn shows path in g, at the place to says, if any.
 func (a *App) openIn(g *group, path string, to goTo) *doc {
+	return a.openInMode(g, path, to, true)
+}
+
+func (a *App) openInMode(g *group, path string, to goTo, addTab bool) *doc {
 	if a.root == "" && len(a.docs) == 0 {
 		a.host.SetWorkspaceSize(config.DefaultWindowWidth, config.DefaultWindowHeight)
 	}
@@ -1015,7 +1025,7 @@ func (a *App) openIn(g *group, path string, to goTo) *doc {
 		a.docs[path] = d
 		a.loadDoc(d)
 	}
-	if !g.has(path) {
+	if addTab && !g.has(path) {
 		// Open to the right of the active tab, as Xcode and VS Code do.
 		at := len(g.order)
 		if i := slices.Index(g.order, g.active); i >= 0 {
@@ -1023,12 +1033,14 @@ func (a *App) openIn(g *group, path string, to goTo) *doc {
 		}
 		g.addTab(path, at)
 	}
-	if to.pos != nil || to.lsp != nil {
+	if addTab && (to.pos != nil || to.lsp != nil) {
 		delete(g.markdownPreview, path)
 		g.pending[path] = to
 	}
-	a.activateIn(g, path)
-	a.showLoaded(g, d)
+	if addTab {
+		a.activateIn(g, path)
+		a.showLoaded(g, d)
+	}
 	return d
 }
 
@@ -1096,6 +1108,7 @@ func (a *App) loadDoc(d *doc) {
 	d.loading, d.err = true, nil
 	d.seq++
 	seq, gen := d.seq, a.gen
+	a.scheduleLoadingIndicator(d, seq, documentLoadingIndicatorDelay)
 	lossy, needBuf, stamp, untitled := d.lossy, d.buf == nil, d.stamp, d.untitled
 	checkStamp := !needBuf || d.video
 	path, root, name := d.path, a.root, d.name
@@ -1110,7 +1123,8 @@ func (a *App) loadDoc(d *doc) {
 			if fi, err := os.Stat(path); err == nil && (fileStamp{fi.Size(), fi.ModTime()}) == stamp {
 				a.post.Post(func() {
 					if a.gen == gen && a.docs[d.path] == d && d.seq == seq {
-						d.loading, d.gone, d.err = false, false, nil
+						a.finishDocLoading(d)
+						d.gone, d.err = false, nil
 					}
 				})
 				return
@@ -1149,7 +1163,7 @@ func (a *App) loadDoc(d *doc) {
 				return
 			}
 			if d.buf != nil && d.buf.Version() != snap.Version() {
-				d.loading = false
+				a.finishDocLoading(d)
 				a.reloadDoc(d)
 				return
 			}
@@ -1189,15 +1203,48 @@ func (a *App) loadDoc(d *doc) {
 	}()
 }
 
+const documentLoadingIndicatorDelay = 800 * time.Millisecond
+
+func (a *App) scheduleLoadingIndicator(d *doc, seq int, delay time.Duration) {
+	stopLoadingIndicator(d)
+	indicator := d.loadingSeq
+	gen := a.gen
+	d.loadingTimer = time.AfterFunc(delay, func() {
+		a.post.Post(func() {
+			if a.gen != gen || a.docs[d.path] != d || d.seq != seq || d.loadingSeq != indicator || !d.loading {
+				return
+			}
+			d.loadingVisible = true
+			d.loadingTimer = nil
+		})
+	})
+}
+
+func stopLoadingIndicator(d *doc) {
+	d.loadingSeq++
+	if d.loadingTimer != nil {
+		d.loadingTimer.Stop()
+		d.loadingTimer = nil
+	}
+	d.loadingVisible = false
+}
+
+func (a *App) finishDocLoading(d *doc) {
+	d.loading = false
+	stopLoadingIndicator(d)
+}
+
 // loaded takes a document's file as read.
 func (a *App) loaded(d *doc, f workspace.File, buf *editor.Buffer, same bool, err error) {
-	d.loading = false
+	a.finishDocLoading(d)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) && d.buf != nil {
 			d.gone = true // keep showing what it was
+			a.failPendingPreview(d)
 			return
 		}
 		d.err = err
+		a.failPendingPreview(d)
 		return
 	}
 	if d.buf != nil && d.buf.Modified() {
@@ -1212,6 +1259,7 @@ func (a *App) loaded(d *doc, f workspace.File, buf *editor.Buffer, same bool, er
 	d.video = isVideoPath(d.path) && f.Kind == workspace.Binary
 	d.stamp = fileStamp{f.Size, f.ModTime}
 	if f.Kind != workspace.Text {
+		a.finishPendingPreview(d)
 		return
 	}
 	if d.buf == nil {
@@ -1243,6 +1291,7 @@ func (a *App) loaded(d *doc, f workspace.File, buf *editor.Buffer, same bool, er
 	for _, g := range a.groups() {
 		a.showLoaded(g, d)
 	}
+	a.finishPendingPreview(d)
 }
 
 // snapEquals reports whether a snapshot holds text, a chunk at a time,
@@ -1363,32 +1412,98 @@ func (a *App) userOpen(path string) {
 func (a *App) previewOpen(path string) {
 	g := a.focus
 	path = workspace.DocPath(a.root, a.realRoot, path)
+	if d := a.docs[path]; d != nil {
+		path = d.path
+	} else if a.root == "" {
+		if d := standaloneDocForPath(a, path); d != nil {
+			path = d.path
+		}
+	}
+	if p := g.pendingPreview; p != nil {
+		if p.doc.path == path {
+			return
+		}
+		a.cancelPendingPreview(g)
+	}
 	if g.has(path) {
 		a.userActivateIn(g, path)
 		a.focusImage = ""
 		return
 	}
-	old := g.preview
-	if d := a.docs[old]; d != nil && d.buf != nil && d.buf.Modified() {
-		g.preview, old = "", ""
+	for _, other := range a.groups() {
+		if other != g && other.hasDocument(path) {
+			a.userOpen(path)
+			a.focusImage = ""
+			return
+		}
 	}
-	at := slices.Index(g.order, old)
-	a.userOpen(path)
+	old := g.preview
+	replaceable := old != ""
+	if d := a.docs[tabPath(old)]; d != nil && d.buf != nil && d.buf.Modified() {
+		g.preview = ""
+		replaceable = false
+	}
+	at := -1
+	if replaceable {
+		at = slices.Index(g.order, old)
+		if at < 0 {
+			replaceable = false
+		}
+	}
+	outgoing := g.active
+	a.cancelNav()
+	d := a.openInMode(g, path, goTo{}, false)
 	a.focusImage = "" // a single-click preview keeps focus in the tree
-	if old != "" {
+	if a.focus != g {
+		return
+	}
+	if d == nil {
+		return
+	}
+	path = d.path
+	if d.loading && d.buf == nil && g.has(outgoing) {
+		if st := g.eds[outgoing]; st != nil {
+			a.focusEditor = st
+		}
+		g.pendingPreview = &previewTransition{doc: d, outgoing: outgoing, replaced: old, replaceable: replaceable, focusSeq: g.focusSeq}
+		return
+	}
+	if replaceable {
+		g.addTab(path, at)
 		a.closeTab(g, old)
+	} else {
+		at = len(g.order)
+		if i := slices.Index(g.order, outgoing); i >= 0 {
+			at = i + 1
+		}
 		g.addTab(path, at)
 	}
 	g.preview = path
+	a.activateIn(g, path)
+	a.showLoaded(g, d)
+	if st := g.eds[path]; st != nil {
+		a.focusEditor = st
+	}
 }
 
 // userActivate switches tabs of the focused group because the user asked.
 func (a *App) userActivate(path string) { a.userActivateIn(a.focus, path) }
 
 func (a *App) userActivateIn(g *group, path string) {
+	if p := g.pendingPreview; p != nil && p.doc.path == path && !g.has(path) {
+		return
+	}
 	a.term.maximized = false
 	a.git.diffSeq++
 	a.git.peek = nil
+	if p := g.pendingPreview; p != nil {
+		if p.doc.path == path {
+			g.pendingPreview = nil
+			g.preview = path
+		} else {
+			a.cancelPendingPreview(g)
+		}
+	}
 	if path == g.active && g == a.focus {
 		return
 	}
@@ -1467,7 +1582,7 @@ func (a *App) goToLocation(g *group, d *doc, offset int, kind string) {
 	if d.buf == nil {
 		return
 	}
-	a.focus = g
+	a.observeFocusedGroup(g)
 	m := a.serverFor(d.path)
 	if m == nil {
 		a.note(locales.MsgNoLanguageServerIsConfiguredForThisFile(), false)

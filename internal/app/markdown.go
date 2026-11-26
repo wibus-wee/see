@@ -166,7 +166,7 @@ func (a *App) markdownView(c *ui.Context, g *group, d *doc) {
 		scroll.Focus()
 	}
 	if a.focusGroupTarget == nil && scroll.FocusWithin() && a.focus != g {
-		a.focus = g
+		a.observeFocusedGroup(g)
 	}
 	scroll.Children(func() {
 		ui.Column(c).FillWidth().AlignItems(ui.Center).Padding(32, 40, 64, 40).Children(func() {
