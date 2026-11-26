@@ -50,7 +50,7 @@ func commandsFor(goos string) []command {
 		{"problems.show", "Show Problems", "Cmd+Shift+", "M", ui.Cmd | ui.Shift, ui.KeyM, (*App).showProblems},
 		{"help.quick", "Show Quick Help", "Alt+Cmd+", "K", ui.Alt | ui.Cmd, ui.KeyK, func(a *App) { a.showQuickHelpAtCaret() }},
 		{"regex.playground", "Test Regex", "", "", 0, 0, func(a *App) { a.openRegexPlayground() }},
-		{"help.toggleInspector", "Toggle Quick Help Inspector", "Alt+Cmd+", "I", ui.Alt | ui.Cmd, ui.KeyI, func(a *App) { a.toggleInspector() }},
+		{"help.toggleInspector", "Quick Help Inspector", "Alt+Cmd+", "I", ui.Alt | ui.Cmd, ui.KeyI, func(a *App) { a.toggleInspector() }},
 		{"problem.next", "Next Problem", "", "F8", 0, ui.KeyF8, func(a *App) { a.goToProblem(1) }},
 		{"problem.previous", "Previous Problem", "Shift+", "F8", ui.Shift, ui.KeyF8, func(a *App) { a.goToProblem(-1) }},
 		{"line.goto", "Go to Line", "Ctrl+", "G", ui.Ctrl, ui.KeyG, func(a *App) {
@@ -58,7 +58,7 @@ func commandsFor(goos string) []command {
 				a.openQuickPanel(":")
 			}
 		}},
-		{"navigator.reveal", "Reveal in Project Navigator", "Cmd+Shift+", "J", ui.Cmd | ui.Shift, ui.KeyJ, func(a *App) {
+		{"navigator.reveal", "Reveal in Project", "Cmd+Shift+", "J", ui.Cmd | ui.Shift, ui.KeyJ, func(a *App) {
 			a.revealInProjectNavigator(a.activeProjectFile())
 		}},
 		{"symbols.file", "Search File Symbols", "Alt+Cmd+", "O", ui.Alt | ui.Cmd, ui.KeyO, func(a *App) { a.openQuickPanel("@") }},
@@ -108,7 +108,7 @@ func commandsFor(goos string) []command {
 		{"files.filter", "Filter Files", "Alt+Cmd+", "J", ui.Alt | ui.Cmd, ui.KeyJ, func(a *App) {
 			a.sidebarOff, a.navigator, a.filter.focus = false, navFiles, true
 		}},
-		{"navigator.toggle", "Show or Hide the Navigator", "Cmd+", "B", ui.Cmd, ui.KeyB, func(a *App) { a.sidebarOff = !a.sidebarOff }},
+		{"navigator.toggle", "Sidebar", "Cmd+", "B", ui.Cmd, ui.KeyB, func(a *App) { a.sidebarOff = !a.sidebarOff }},
 		{"nav.back", "Go Back", backMods, "-", 0, ui.KeyMinus, func(a *App) { a.goBack() }},
 		{"nav.forward", "Go Forward", forwardMods, "-", 0, ui.KeyMinus, func(a *App) { a.goForward() }},
 		{"editorGroup.focusNext", "Focus Next Editor", "", "F6", 0, ui.KeyF6, func(a *App) { a.cycleEditorGroup(1) }},
@@ -135,7 +135,7 @@ func commandsFor(goos string) []command {
 		{"editorGroup.addRight", "Add Editor on Right", "Cmd+", "D", ui.Cmd, ui.KeyD, func(a *App) { a.splitActive(sideRight) }},
 		{"editorGroup.addBelow", "Add Editor Below", "Cmd+Shift+", "D", ui.Cmd | ui.Shift, ui.KeyD, func(a *App) { a.splitActive(sideBottom) }},
 		{"editorGroup.maximize", "Maximize Editor", maximizeLabel, "Return", maximizeMods, ui.KeyEnter, func(a *App) { a.toggleMaximizeEditor() }},
-		{"terminal.toggle", "Show or Hide the Terminal", "Cmd+Shift+", "Y", ui.Cmd | ui.Shift, ui.KeyY, func(a *App) { a.toggleTerminal() }},
+		{"terminal.toggle", "Terminal", "Cmd+Shift+", "Y", ui.Cmd | ui.Shift, ui.KeyY, func(a *App) { a.toggleTerminal() }},
 		{"go.build", "Go: Build Workspace", "Cmd+Shift+", "B", ui.Cmd | ui.Shift, ui.KeyB, func(a *App) { a.runGoTask(tasks.Build) }},
 		{"go.test", "Go: Test Workspace", "", "", 0, 0, func(a *App) { a.runGoTask(tasks.Test) }},
 		{"tasks.show", "Tasks: Show", "", "", 0, 0, func(a *App) { a.showTasks() }},

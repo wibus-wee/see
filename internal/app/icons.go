@@ -46,6 +46,8 @@ var (
 
 var icReplaceMatch = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h17m-4-4 4 4-4 4M21 16H4m4-4-4 4 4 4"/></svg>`))
 
+var icList = ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>`))
+
 // folderGlyph draws a folder, open or closed, as files are drawn: the
 // icon theme's (fileicons.go).
 func folderGlyph(c *ui.Context, open bool, size float32) {

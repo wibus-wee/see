@@ -95,6 +95,41 @@ func TestGitRangeSelectionAndStageAll(t *testing.T) {
 	}
 }
 
+func TestGitSectionDiscardsAllUnstagedChanges(t *testing.T) {
+	root := gitRepo(t, map[string]string{"a.txt": "base a\n", "b.txt": "base b\n"})
+	writeFile(t, root, "a.txt", "staged a\n")
+	gitRun(t, root, "add", "a.txt")
+	writeFile(t, root, "a.txt", "worktree a\n")
+	writeFile(t, root, "b.txt", "worktree b\n")
+
+	h := newHarness(t, root)
+	h.readGit()
+	h.a.navigator = navGit
+	h.a.git.historyClosed = true
+	h.tt.Frame()
+	if err := h.tt.Click(locales.MsgDiscardAllChanges()); err != nil {
+		t.Fatal(err)
+	}
+	if h.a.deleteConfirm == nil {
+		t.Fatal("discarding every unstaged change did not ask for confirmation")
+	}
+	h.a.deleteConfirm.actions[0].fn()
+	h.settle(func() bool { return !h.a.git.busy && !h.a.git.loading })
+
+	state, err := git.Sync(context.Background(), root, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(state.Changes) != 1 || state.Changes[0].Path != "a.txt" || state.Changes[0].Index != 'M' || state.Changes[0].Work != ' ' {
+		t.Fatalf("discarding unstaged changes altered the index: %+v", state.Changes)
+	}
+	for name, want := range map[string]string{"a.txt": "staged a\n", "b.txt": "base b\n"} {
+		if got, err := os.ReadFile(filepath.Join(root, name)); err != nil || string(got) != want {
+			t.Fatalf("%s = %q, %v; want %q", name, got, err, want)
+		}
+	}
+}
+
 func TestGitChangeRowsAreFlatAcrossFileKinds(t *testing.T) {
 	names := []string{"main.go", "main_test.go", "README.md"}
 	root := gitRepo(t, map[string]string{"main.go": "package main\n", "main_test.go": "package main\n", "README.md": "docs\n"})
@@ -206,7 +241,39 @@ func branchDiffTextAreaWidth(t *testing.T, tt *ui.Tester, path, firstStatus stri
 	return statusBounds.X - nameBounds.X - gitSidebarColumnGap
 }
 
-func TestGitChangeRowsPrioritizeBasenamesOverPaths(t *testing.T) {
+func TestGitChangesSwitchBetweenTreeAndList(t *testing.T) {
+	const path = "internal/app/git.go"
+	root := gitRepo(t, map[string]string{path: "base\n"})
+	writeFile(t, root, path, "changed\n")
+
+	h := newHarness(t, root)
+	h.readGit()
+	h.a.navigator, h.a.git.historyClosed = navGit, true
+	exactText := func(s string) bool { return slices.Contains(h.tt.Texts(), s) }
+	h.tt.Frame()
+	if !exactText("internal") {
+		t.Fatalf("tree view is missing its folders: %q", h.tt.Texts())
+	}
+	if err := h.tt.Click(locales.MsgListView()); err != nil {
+		t.Fatal(err)
+	}
+	h.tt.Frame()
+	if !h.a.git.changesFlat {
+		t.Fatal("the changes view did not switch to a list")
+	}
+	if exactText("internal") || !h.tt.HasText("Unstaged diff: "+path) {
+		t.Fatalf("list view still shows tree folders or hides its file: %q", h.tt.Texts())
+	}
+	if err := h.tt.Click(locales.MsgTreeView()); err != nil {
+		t.Fatal(err)
+	}
+	h.tt.Frame()
+	if h.a.git.changesFlat || !exactText("internal") {
+		t.Fatalf("the changes view did not return to a tree: %q", h.tt.Texts())
+	}
+}
+
+func TestGitChangeRowsNestInCollapsibleFolders(t *testing.T) {
 	const nestedPath = "packages/web/src/features/conversations/components/MessageHistoryPanel.tsx"
 	const longBasename = "ExtremelyLongGeneratedStateMachineSidebarAvailabilityControllerConfiguration.tsx"
 	paths := []string{nestedPath, longBasename}
@@ -224,16 +291,33 @@ func TestGitChangeRowsPrioritizeBasenamesOverPaths(t *testing.T) {
 	for _, path := range paths {
 		naturalWidths[path] = filenameBounds(t, h.tt, path).W
 	}
-	naturalPathWidth := directoryBounds(t, h.tt, nestedPath).W
 	for _, width := range []float32{420, gitSidebarMinimumWidth} {
 		h.a.sidebarW = width
 		h.tt.Frame()
 		for _, path := range paths {
 			assertBasenameUsesAvailableWidth(t, h.tt, path, "Unstaged diff: "+path, naturalWidths[path], gitTextAreaWidth(t, h.tt, path))
 		}
-		if width == 420 && directoryBounds(t, h.tt, nestedPath).W >= naturalPathWidth-1 {
-			t.Fatalf("directory path did not give space back to the basename at normal width: natural %.1f, current %.1f", naturalPathWidth, directoryBounds(t, h.tt, nestedPath).W)
+	}
+	h.a.sidebarW = 420
+	h.tt.Frame()
+	for _, dir := range []string{"packages", "web", "src", "features", "conversations", "components"} {
+		if !h.tt.HasText(dir) {
+			t.Fatalf("changes tree is missing folder %q: %q", dir, h.tt.Texts())
 		}
+	}
+	if err := h.tt.Click("components"); err != nil {
+		t.Fatal(err)
+	}
+	h.tt.Frame()
+	if h.tt.HasText(filepath.Base(nestedPath)) || !h.tt.HasText("conversations") || !h.tt.HasText(longBasename) {
+		t.Fatalf("folding a folder did not hide only its children: %q", h.tt.Texts())
+	}
+	if err := h.tt.Click("components"); err != nil {
+		t.Fatal(err)
+	}
+	h.tt.Frame()
+	if !h.tt.HasText(filepath.Base(nestedPath)) {
+		t.Fatalf("unfolding a folder did not show its children: %q", h.tt.Texts())
 	}
 }
 

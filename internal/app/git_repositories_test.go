@@ -247,7 +247,7 @@ func TestDiscoveredRepositoryChangesStayGroupedAndScoped(t *testing.T) {
 		if access.Bounds.Y <= backendHeader.Bounds.Y || access.Bounds.Y >= frontendHeader.Bounds.Y {
 			continue
 		}
-		if access.Role == ui.RoleText && (access.Name == locales.MsgChanges() || access.Name == locales.MsgStagedChanges()) {
+		if access.Role == ui.RoleText && (access.Name == locales.MsgUnstagedChanges() || access.Name == locales.MsgStagedChanges()) {
 			backendSections = append(backendSections, access)
 		}
 		if access.Role == ui.RoleButton && strings.HasSuffix(access.Name, "shared.txt") {
@@ -255,7 +255,7 @@ func TestDiscoveredRepositoryChangesStayGroupedAndScoped(t *testing.T) {
 		}
 	}
 	if backendHeader.Bounds.Y >= frontendHeader.Bounds.Y || len(backendSections) != 2 || len(backendRows) != 2 {
-		t.Fatalf("backend should show peer Staged Changes and Changes sections, each with a flat file row: headers=%+v/%+v sections=%+v rows=%+v", backendHeader, frontendHeader, backendSections, backendRows)
+		t.Fatalf("backend should show peer Staged Changes and Unstaged Changes sections, each with a file row: headers=%+v/%+v sections=%+v rows=%+v", backendHeader, frontendHeader, backendSections, backendRows)
 	}
 	stagedKey := h.a.gitChangeTabKey(backend, backendState.Changes[0], true)
 	h.a.showGitWorkingCopyDiff(backend, backendState.Changes[0], true, h.a.focus, sideNone, len(h.a.focus.order), backCopy)
@@ -346,7 +346,7 @@ func TestDiscoveredRepositoryCommitComposersShowForUnstagedChanges(t *testing.T)
 		if access.Role == ui.RoleButton && (access.Name == "backend" || access.Name == "frontend") {
 			headers = append(headers, access)
 		}
-		if access.Role == ui.RoleText && access.Name == locales.MsgChanges() {
+		if access.Role == ui.RoleText && access.Name == locales.MsgUnstagedChanges() {
 			sections = append(sections, access)
 		}
 		if access.Role == ui.RoleButton && (strings.HasSuffix(access.Name, "backend.md") || strings.HasSuffix(access.Name, "frontend.md")) {
@@ -354,7 +354,7 @@ func TestDiscoveredRepositoryCommitComposersShowForUnstagedChanges(t *testing.T)
 		}
 	}
 	if len(fields) != 2 || len(buttons) != 2 || len(headers) != 2 || len(sections) != 2 || len(fileRows) != 2 {
-		t.Fatalf("unstaged-only groups should show Changes sections between composers and file rows: fields=%+v buttons=%+v headers=%+v sections=%+v file rows=%+v texts=%q", fields, buttons, headers, sections, fileRows, h.tt.Texts())
+		t.Fatalf("unstaged-only groups should show Unstaged Changes sections between composers and file rows: fields=%+v buttons=%+v headers=%+v sections=%+v file rows=%+v texts=%q", fields, buttons, headers, sections, fileRows, h.tt.Texts())
 	}
 	byY := func(items []ui.AccessInfo) {
 		sort.Slice(items, func(i, j int) bool { return items[i].Bounds.Y < items[j].Bounds.Y })
@@ -369,8 +369,8 @@ func TestDiscoveredRepositoryCommitComposersShowForUnstagedChanges(t *testing.T)
 		}
 		path := []string{"backend.md", "frontend.md"}[i]
 		file, ok := h.tt.Find(path)
-		if !ok || sections[i].Bounds.X < file.X-1 || sections[i].Bounds.X > file.X+1 {
-			t.Fatalf("repository group %d section should align with its file names: Changes=%+v file=%+v found=%v", i, sections[i], file, ok)
+		if !ok || sections[i].Bounds.X >= file.X {
+			t.Fatalf("repository group %d section should sit left of its file names: Changes=%+v file=%+v found=%v", i, sections[i], file, ok)
 		}
 	}
 	for _, section := range sections {
@@ -414,14 +414,9 @@ func TestDiscoveredRepositoryCommitComposersShowForUnstagedChanges(t *testing.T)
 	if !focused {
 		t.Fatal("typing in a repository commit draft did not retain input focus")
 	}
-	for _, access := range h.tt.AccessAll() {
-		if access.Role != ui.RoleTextField || access.Name != locales.MsgCommitMessage() {
-			continue
-		}
-		path := strings.TrimSuffix(access.Value, " draft") + ".md"
-		file, ok := h.tt.Find(path)
-		if !ok || access.Bounds.X < file.X-1 || access.Bounds.X > file.X+1 {
-			t.Fatalf("%q input text should align with %q: input=%+v file=%+v found=%v", access.Value, path, access.Bounds, file, ok)
+	for i, field := range fields {
+		if field.Bounds.X < sections[i].Bounds.X-1 || field.Bounds.X > sections[i].Bounds.X+1 {
+			t.Fatalf("repository group %d input text should align with its section label: input=%+v section=%+v", i, field, sections[i])
 		}
 	}
 }

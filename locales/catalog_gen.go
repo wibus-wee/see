@@ -2298,13 +2298,13 @@ func (msgs Messages) CommandShowQuickHelp() string {
 	return Catalog.Format(msgs.locale, "commandShowQuickHelp", nil)
 }
 
-// CommandToggleQuickHelpInspector says "Toggle Quick Help Inspector"
+// CommandToggleQuickHelpInspector says "Quick Help Inspector"
 // in the language the app shows.
 func CommandToggleQuickHelpInspector() string {
 	return In(i18n.Locale()).CommandToggleQuickHelpInspector()
 }
 
-// CommandToggleQuickHelpInspector says "Toggle Quick Help Inspector"
+// CommandToggleQuickHelpInspector says "Quick Help Inspector"
 // in the language of msgs.
 func (msgs Messages) CommandToggleQuickHelpInspector() string {
 	return Catalog.Format(msgs.locale, "commandToggleQuickHelpInspector", nil)
@@ -2522,11 +2522,11 @@ func (msgs Messages) InspectorPane() string {
 	return Catalog.Format(msgs.locale, "inspectorPane", nil)
 }
 
-// InspectorShowTip says "Show or hide the Quick Help inspector (Alt+Cmd+I)"
+// InspectorShowTip says "Quick Help inspector (Alt+Cmd+I)"
 // in the language the app shows.
 func InspectorShowTip() string { return In(i18n.Locale()).InspectorShowTip() }
 
-// InspectorShowTip says "Show or hide the Quick Help inspector (Alt+Cmd+I)"
+// InspectorShowTip says "Quick Help inspector (Alt+Cmd+I)"
 // in the language of msgs.
 func (msgs Messages) InspectorShowTip() string {
 	return Catalog.Format(msgs.locale, "inspectorShowTip", nil)
@@ -4914,11 +4914,11 @@ func (msgs Messages) MsgAskBeforeClosing() string {
 	return Catalog.Format(msgs.locale, "msgAskBeforeClosing", nil)
 }
 
-// MsgGitStatusInTheNavigator says "Git status in the navigator"
+// MsgGitStatusInTheNavigator says "Show Git status"
 // in the language the app shows.
 func MsgGitStatusInTheNavigator() string { return In(i18n.Locale()).MsgGitStatusInTheNavigator() }
 
-// MsgGitStatusInTheNavigator says "Git status in the navigator"
+// MsgGitStatusInTheNavigator says "Show Git status"
 // in the language of msgs.
 func (msgs Messages) MsgGitStatusInTheNavigator() string {
 	return Catalog.Format(msgs.locale, "msgGitStatusInTheNavigator", nil)
@@ -4956,13 +4956,13 @@ func (msgs Messages) MsgHiddenNames() string {
 	return Catalog.Format(msgs.locale, "msgHiddenNames", nil)
 }
 
-// MsgHideMatchingFilesAndFoldersInTheProject says "Hide matching files and folders in the project navigator. Separate names with commas."
+// MsgHideMatchingFilesAndFoldersInTheProject says "Hide matching files and folders in the project. Separate names with commas."
 // in the language the app shows.
 func MsgHideMatchingFilesAndFoldersInTheProject() string {
 	return In(i18n.Locale()).MsgHideMatchingFilesAndFoldersInTheProject()
 }
 
-// MsgHideMatchingFilesAndFoldersInTheProject says "Hide matching files and folders in the project navigator. Separate names with commas."
+// MsgHideMatchingFilesAndFoldersInTheProject says "Hide matching files and folders in the project. Separate names with commas."
 // in the language of msgs.
 func (msgs Messages) MsgHideMatchingFilesAndFoldersInTheProject() string {
 	return Catalog.Format(msgs.locale, "msgHideMatchingFilesAndFoldersInTheProject", nil)
@@ -6768,41 +6768,41 @@ func (msgs Messages) MsgNoFontsFound() string {
 	return Catalog.Format(msgs.locale, "msgNoFontsFound", nil)
 }
 
-// MsgNavigator says "Navigator"
+// MsgNavigator says "Sidebar"
 // in the language the app shows.
 func MsgNavigator() string { return In(i18n.Locale()).MsgNavigator() }
 
-// MsgNavigator says "Navigator"
+// MsgNavigator says "Sidebar"
 // in the language of msgs.
 func (msgs Messages) MsgNavigator() string {
 	return Catalog.Format(msgs.locale, "msgNavigator", nil)
 }
 
-// MsgProjectNavigator says "Project Navigator"
+// MsgProjectNavigator says "Project"
 // in the language the app shows.
 func MsgProjectNavigator() string { return In(i18n.Locale()).MsgProjectNavigator() }
 
-// MsgProjectNavigator says "Project Navigator"
+// MsgProjectNavigator says "Project"
 // in the language of msgs.
 func (msgs Messages) MsgProjectNavigator() string {
 	return Catalog.Format(msgs.locale, "msgProjectNavigator", nil)
 }
 
-// MsgFindNavigator says "Find Navigator"
+// MsgFindNavigator says "Find"
 // in the language the app shows.
 func MsgFindNavigator() string { return In(i18n.Locale()).MsgFindNavigator() }
 
-// MsgFindNavigator says "Find Navigator"
+// MsgFindNavigator says "Find"
 // in the language of msgs.
 func (msgs Messages) MsgFindNavigator() string {
 	return Catalog.Format(msgs.locale, "msgFindNavigator", nil)
 }
 
-// MsgGitNavigator says "Git Navigator"
+// MsgGitNavigator says "Git"
 // in the language the app shows.
 func MsgGitNavigator() string { return In(i18n.Locale()).MsgGitNavigator() }
 
-// MsgGitNavigator says "Git Navigator"
+// MsgGitNavigator says "Git"
 // in the language of msgs.
 func (msgs Messages) MsgGitNavigator() string {
 	return Catalog.Format(msgs.locale, "msgGitNavigator", nil)
@@ -6886,6 +6886,16 @@ func MsgUnstageAllChanges() string { return In(i18n.Locale()).MsgUnstageAllChang
 // in the language of msgs.
 func (msgs Messages) MsgUnstageAllChanges() string {
 	return Catalog.Format(msgs.locale, "msgUnstageAllChanges", nil)
+}
+
+// MsgDiscardAllChanges says "Discard All Changes"
+// in the language the app shows.
+func MsgDiscardAllChanges() string { return In(i18n.Locale()).MsgDiscardAllChanges() }
+
+// MsgDiscardAllChanges says "Discard All Changes"
+// in the language of msgs.
+func (msgs Messages) MsgDiscardAllChanges() string {
+	return Catalog.Format(msgs.locale, "msgDiscardAllChanges", nil)
 }
 
 // MsgStashChanges says "Stash Changes"
@@ -7222,6 +7232,16 @@ func MsgStagedChanges() string { return In(i18n.Locale()).MsgStagedChanges() }
 // in the language of msgs.
 func (msgs Messages) MsgStagedChanges() string {
 	return Catalog.Format(msgs.locale, "msgStagedChanges", nil)
+}
+
+// MsgUnstagedChanges says "Unstaged Changes"
+// in the language the app shows.
+func MsgUnstagedChanges() string { return In(i18n.Locale()).MsgUnstagedChanges() }
+
+// MsgUnstagedChanges says "Unstaged Changes"
+// in the language of msgs.
+func (msgs Messages) MsgUnstagedChanges() string {
+	return Catalog.Format(msgs.locale, "msgUnstagedChanges", nil)
 }
 
 // MsgChanges says "Changes"
@@ -8354,13 +8374,13 @@ func (msgs Messages) MsgNoEditor() string {
 	return Catalog.Format(msgs.locale, "msgNoEditor", nil)
 }
 
-// MsgChooseAFileInTheNavigatorOrPress says "Choose a file in the navigator, or press "
+// MsgChooseAFileInTheNavigatorOrPress says "Choose a file in the sidebar, or press "
 // in the language the app shows.
 func MsgChooseAFileInTheNavigatorOrPress() string {
 	return In(i18n.Locale()).MsgChooseAFileInTheNavigatorOrPress()
 }
 
-// MsgChooseAFileInTheNavigatorOrPress says "Choose a file in the navigator, or press "
+// MsgChooseAFileInTheNavigatorOrPress says "Choose a file in the sidebar, or press "
 // in the language of msgs.
 func (msgs Messages) MsgChooseAFileInTheNavigatorOrPress() string {
 	return Catalog.Format(msgs.locale, "msgChooseAFileInTheNavigatorOrPress", nil)
@@ -9128,23 +9148,23 @@ func (msgs Messages) CommandFilterFiles() string {
 	return Catalog.Format(msgs.locale, "commandFilterFiles", nil)
 }
 
-// CommandRevealInProjectNavigator says "Reveal in Project Navigator"
+// CommandRevealInProjectNavigator says "Reveal in Project"
 // in the language the app shows.
 func CommandRevealInProjectNavigator() string {
 	return In(i18n.Locale()).CommandRevealInProjectNavigator()
 }
 
-// CommandRevealInProjectNavigator says "Reveal in Project Navigator"
+// CommandRevealInProjectNavigator says "Reveal in Project"
 // in the language of msgs.
 func (msgs Messages) CommandRevealInProjectNavigator() string {
 	return Catalog.Format(msgs.locale, "commandRevealInProjectNavigator", nil)
 }
 
-// CommandShowOrHideTheNavigator says "Show or Hide the Navigator"
+// CommandShowOrHideTheNavigator says "Sidebar"
 // in the language the app shows.
 func CommandShowOrHideTheNavigator() string { return In(i18n.Locale()).CommandShowOrHideTheNavigator() }
 
-// CommandShowOrHideTheNavigator says "Show or Hide the Navigator"
+// CommandShowOrHideTheNavigator says "Sidebar"
 // in the language of msgs.
 func (msgs Messages) CommandShowOrHideTheNavigator() string {
 	return Catalog.Format(msgs.locale, "commandShowOrHideTheNavigator", nil)
@@ -9260,11 +9280,11 @@ func (msgs Messages) RestoreEditorLayout() string {
 	return Catalog.Format(msgs.locale, "restoreEditorLayout", nil)
 }
 
-// CommandShowOrHideTheTerminal says "Show or Hide the Terminal"
+// CommandShowOrHideTheTerminal says "Terminal"
 // in the language the app shows.
 func CommandShowOrHideTheTerminal() string { return In(i18n.Locale()).CommandShowOrHideTheTerminal() }
 
-// CommandShowOrHideTheTerminal says "Show or Hide the Terminal"
+// CommandShowOrHideTheTerminal says "Terminal"
 // in the language of msgs.
 func (msgs Messages) CommandShowOrHideTheTerminal() string {
 	return Catalog.Format(msgs.locale, "commandShowOrHideTheTerminal", nil)
@@ -11116,62 +11136,102 @@ func (msgs Messages) RegexPlaygroundTitle() string {
 	return Catalog.Format(msgs.locale, "regexPlaygroundTitle", nil)
 }
 
-// RegexToolWindow says "Regex Playground window" in the language the app shows.
+// RegexToolWindow says "Regex Playground window"
+// in the language the app shows.
 func RegexToolWindow() string { return In(i18n.Locale()).RegexToolWindow() }
+
+// RegexToolWindow says "Regex Playground window"
+// in the language of msgs.
 func (msgs Messages) RegexToolWindow() string {
 	return Catalog.Format(msgs.locale, "regexToolWindow", nil)
 }
 
-// RegexToolTitlebar says "Move Regex Playground window" in the language the app shows.
+// RegexToolTitlebar says "Move Regex Playground window"
+// in the language the app shows.
 func RegexToolTitlebar() string { return In(i18n.Locale()).RegexToolTitlebar() }
+
+// RegexToolTitlebar says "Move Regex Playground window"
+// in the language of msgs.
 func (msgs Messages) RegexToolTitlebar() string {
 	return Catalog.Format(msgs.locale, "regexToolTitlebar", nil)
 }
 
-// RegexToolResizeNorth says "Resize top edge" in the language the app shows.
+// RegexToolResizeNorth says "Resize top edge"
+// in the language the app shows.
 func RegexToolResizeNorth() string { return In(i18n.Locale()).RegexToolResizeNorth() }
+
+// RegexToolResizeNorth says "Resize top edge"
+// in the language of msgs.
 func (msgs Messages) RegexToolResizeNorth() string {
 	return Catalog.Format(msgs.locale, "regexToolResizeNorth", nil)
 }
 
-// RegexToolResizeSouth says "Resize bottom edge" in the language the app shows.
+// RegexToolResizeSouth says "Resize bottom edge"
+// in the language the app shows.
 func RegexToolResizeSouth() string { return In(i18n.Locale()).RegexToolResizeSouth() }
+
+// RegexToolResizeSouth says "Resize bottom edge"
+// in the language of msgs.
 func (msgs Messages) RegexToolResizeSouth() string {
 	return Catalog.Format(msgs.locale, "regexToolResizeSouth", nil)
 }
 
-// RegexToolResizeWest says "Resize left edge" in the language the app shows.
+// RegexToolResizeWest says "Resize left edge"
+// in the language the app shows.
 func RegexToolResizeWest() string { return In(i18n.Locale()).RegexToolResizeWest() }
+
+// RegexToolResizeWest says "Resize left edge"
+// in the language of msgs.
 func (msgs Messages) RegexToolResizeWest() string {
 	return Catalog.Format(msgs.locale, "regexToolResizeWest", nil)
 }
 
-// RegexToolResizeEast says "Resize right edge" in the language the app shows.
+// RegexToolResizeEast says "Resize right edge"
+// in the language the app shows.
 func RegexToolResizeEast() string { return In(i18n.Locale()).RegexToolResizeEast() }
+
+// RegexToolResizeEast says "Resize right edge"
+// in the language of msgs.
 func (msgs Messages) RegexToolResizeEast() string {
 	return Catalog.Format(msgs.locale, "regexToolResizeEast", nil)
 }
 
-// RegexToolResizeNorthWest says "Resize top-left corner" in the language the app shows.
+// RegexToolResizeNorthWest says "Resize top-left corner"
+// in the language the app shows.
 func RegexToolResizeNorthWest() string { return In(i18n.Locale()).RegexToolResizeNorthWest() }
+
+// RegexToolResizeNorthWest says "Resize top-left corner"
+// in the language of msgs.
 func (msgs Messages) RegexToolResizeNorthWest() string {
 	return Catalog.Format(msgs.locale, "regexToolResizeNorthWest", nil)
 }
 
-// RegexToolResizeNorthEast says "Resize top-right corner" in the language the app shows.
+// RegexToolResizeNorthEast says "Resize top-right corner"
+// in the language the app shows.
 func RegexToolResizeNorthEast() string { return In(i18n.Locale()).RegexToolResizeNorthEast() }
+
+// RegexToolResizeNorthEast says "Resize top-right corner"
+// in the language of msgs.
 func (msgs Messages) RegexToolResizeNorthEast() string {
 	return Catalog.Format(msgs.locale, "regexToolResizeNorthEast", nil)
 }
 
-// RegexToolResizeSouthWest says "Resize bottom-left corner" in the language the app shows.
+// RegexToolResizeSouthWest says "Resize bottom-left corner"
+// in the language the app shows.
 func RegexToolResizeSouthWest() string { return In(i18n.Locale()).RegexToolResizeSouthWest() }
+
+// RegexToolResizeSouthWest says "Resize bottom-left corner"
+// in the language of msgs.
 func (msgs Messages) RegexToolResizeSouthWest() string {
 	return Catalog.Format(msgs.locale, "regexToolResizeSouthWest", nil)
 }
 
-// RegexToolResizeSouthEast says "Resize bottom-right corner" in the language the app shows.
+// RegexToolResizeSouthEast says "Resize bottom-right corner"
+// in the language the app shows.
 func RegexToolResizeSouthEast() string { return In(i18n.Locale()).RegexToolResizeSouthEast() }
+
+// RegexToolResizeSouthEast says "Resize bottom-right corner"
+// in the language of msgs.
 func (msgs Messages) RegexToolResizeSouthEast() string {
 	return Catalog.Format(msgs.locale, "regexToolResizeSouthEast", nil)
 }
@@ -12144,4 +12204,24 @@ func GitCherryPickPaused() string { return In(i18n.Locale()).GitCherryPickPaused
 // in the language of msgs.
 func (msgs Messages) GitCherryPickPaused() string {
 	return Catalog.Format(msgs.locale, "gitCherryPickPaused", nil)
+}
+
+// MsgListView says "List View"
+// in the language the app shows.
+func MsgListView() string { return In(i18n.Locale()).MsgListView() }
+
+// MsgListView says "List View"
+// in the language of msgs.
+func (msgs Messages) MsgListView() string {
+	return Catalog.Format(msgs.locale, "msgListView", nil)
+}
+
+// MsgTreeView says "Tree View"
+// in the language the app shows.
+func MsgTreeView() string { return In(i18n.Locale()).MsgTreeView() }
+
+// MsgTreeView says "Tree View"
+// in the language of msgs.
+func (msgs Messages) MsgTreeView() string {
+	return Catalog.Format(msgs.locale, "msgTreeView", nil)
 }

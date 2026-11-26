@@ -39,27 +39,25 @@ func (a *App) gitConflictTabKey(root, path string) string {
 	return conflictTab(path)
 }
 
-func (a *App) gitConflictRow(c *ui.Context, ch git.Change) {
-	a.gitConflictRowIn(c, a.git.root, nil, ch)
-}
-
-func (a *App) gitConflictRowIn(c *ui.Context, root string, workingCopy *gitWorkingCopy, ch git.Change) {
+func (a *App) gitConflictRowIn(c *ui.Context, root string, workingCopy *gitWorkingCopy, ch git.Change, depth int, name string, showPath bool) {
 	label := fmt.Sprintf(gitConflictText("gitResolveFile"), ch.Path)
 	tabKey := a.gitConflictTabKey(root, ch.Path)
 	row := ui.ButtonBase(c.Key(tabKey)).Label(label).Tooltip(label).
-		FillWidth().Height(gitSidebarRowHeight).Padding(0, sidebarInset+gitSidebarTreeIndent).Radius(4)
+		FillWidth().Height(gitSidebarRowHeight).
+		PaddingStart(treeInset(gitChangesInset, depth)).Radius(4)
 	if a.focus.active == tabKey {
 		row.Background(colors(c).SelectedRow)
 	} else if row.Hovered() {
 		row.Background(colors(c).Pill)
 	}
 	row.Children(func() {
-		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(6).Children(func() {
-			fileIcon(c, filepath.Base(ch.Path), 15)
-			ui.Text(c, filepath.Base(ch.Path)).FontSize(gitSidebarRowLabelSize).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
-			if dir := filepath.Dir(ch.Path); dir != "." {
-				ui.Text(c, filepath.ToSlash(dir)).FontSize(10).TextColor(colors(c).Muted).
-					SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(1)
+		ui.Row(c).FillWidth().AlignItems(ui.Center).Gap(4).Children(func() {
+			if showPath {
+				fileIcon(c, name, 15)
+				gitFileNameAndPath(c, ch.Path, "", gitSidebarRowLabelSize)
+			} else {
+				treeArrowSpace(c)
+				treeLabel(c, treeLabelOptions{Name: name, IconSize: 15, FontSize: gitSidebarRowLabelSize})
 			}
 			ui.Box(c).Grow(1)
 			ui.Text(c, "!").FontSize(11).FontWeight(600).TextColor(a.gitStatusColor('!')).Padding(0, 3).Shrink(0)

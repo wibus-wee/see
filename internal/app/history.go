@@ -23,22 +23,22 @@ import (
 const historyPage = 200
 
 type gitHistory struct {
-	commits   []git.Commit
-	lanes     []string // the lanes the commits read leave for the next page
-	lanesW    int      // the most lanes a row has, for the graph's width
-	all       bool     // every branch, not only HEAD's
-	path      string   // only commits that changed it, as the log's file scope
-	head      string   // HEAD when the history was read
-	loading   bool
-	done      bool // no commits are left to read
-	stale     bool // to be read again
-	err       string
-	seq       uint64
-	list      ui.ListState
-	total     int // how many commits the walk has, -1 while unknown
-	mainline  map[string]bool // commits the unpushed and incoming counts are of
-	unpushed  map[string]bool // HEAD's commits the branch it tracks has not
-	incoming  map[string]bool
+	commits  []git.Commit
+	lanes    []string // the lanes the commits read leave for the next page
+	lanesW   int      // the most lanes a row has, for the graph's width
+	all      bool     // every branch, not only HEAD's
+	path     string   // only commits that changed it, as the log's file scope
+	head     string   // HEAD when the history was read
+	loading  bool
+	done     bool // no commits are left to read
+	stale    bool // to be read again
+	err      string
+	seq      uint64
+	list     ui.ListState
+	total    int             // how many commits the walk has, -1 while unknown
+	mainline map[string]bool // commits the unpushed and incoming counts are of
+	unpushed map[string]bool // HEAD's commits the branch it tracks has not
+	incoming map[string]bool
 }
 
 // commitView is a commit open in an editor.
@@ -137,17 +137,7 @@ func (a *App) gitChangesHeader(c *ui.Context) {
 		if a.git.changesClosed || a.git.branchDiffMode == compareBaseMode {
 			return
 		}
-		staged, unstaged := false, false
-		for _, ch := range a.git.changes {
-			staged = staged || gitChangeInSection(ch, true)
-			unstaged = unstaged || gitChangeInSection(ch, false)
-		}
-		if staged && glyphButton(c, icMinus, locales.MsgUnstageAllChanges(), locales.MsgUnstageAllChanges(), false, a.git.busy).Clicked() {
-			a.stageAllGitChanges(true)
-		}
-		if unstaged && glyphButton(c, icPlus, locales.MsgStageAllChanges(), locales.MsgStageAllChanges(), false, a.git.busy).Clicked() {
-			a.stageAllGitChanges(false)
-		}
+		a.gitChangesViewButton(c)
 		if len(a.git.changes) > 0 && glyphButton(c, icStash, locales.MsgStashChanges(), locales.MsgStashChanges()+"…", a.git.stashing, a.git.busy).Clicked() {
 			if a.git.stashing {
 				a.endStash()

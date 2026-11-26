@@ -7,12 +7,15 @@ import (
 )
 
 const (
-	gitSidebarMinimumWidth      = 260
-	gitSidebarIconColumn        = 15
-	gitSidebarColumnGap         = 6
-	gitSidebarTextOffset        = gitSidebarIconColumn + gitSidebarColumnGap
-	gitSidebarTextInset         = sidebarInset + gitSidebarTextOffset
-	gitSidebarTreeIndent        = 15
+	gitSidebarMinimumWidth = 260
+	gitSidebarIconColumn   = 15
+	gitSidebarColumnGap    = 6
+	gitSidebarTextOffset   = gitSidebarIconColumn + gitSidebarColumnGap
+	gitSidebarTextInset    = sidebarInset + gitSidebarTextOffset
+	gitSidebarTreeIndent   = 15
+	// gitChangesInset is where the changes sections' labels and their
+	// rows' arrow columns start.
+	gitChangesInset             = sidebarInset + gitSidebarTreeIndent + gitSidebarTextOffset
 	gitSidebarRepositoryGap     = 8
 	gitSidebarMainHeaderHeight  = 24
 	gitSidebarGroupHeaderHeight = 22
