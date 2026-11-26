@@ -24,6 +24,18 @@ import (
 	"see/internal/workspace"
 )
 
+const gtkUsePortalEnv = "GTK_USE_PORTAL"
+
+func setGTKUsePortalDefault(portalAvailable func() bool) error {
+	if _, ok := os.LookupEnv(gtkUsePortalEnv); ok {
+		return nil
+	}
+	if !portalAvailable() {
+		return nil
+	}
+	return os.Setenv(gtkUsePortalEnv, "1")
+}
+
 func Main() {
 	if args, command := cli.Invocation(os.Args[0], os.Args[1:]); command {
 		if err := cli.Run(args, os.Stderr); err != nil {
@@ -37,6 +49,11 @@ func Main() {
 	// folder to the app that runs, which opens it (OnSecondInstance).
 	if !mygo.App.RequestSingleInstanceLock() {
 		return
+	}
+	if runtime.GOOS == "linux" {
+		if err := setGTKUsePortalDefault(gtkPortalFileChooserAvailable); err != nil {
+			log.Printf("see: set %s: %v", gtkUsePortalEnv, err)
+		}
 	}
 	shellpath.Start()
 	mygo.Use(native.Plugin)
