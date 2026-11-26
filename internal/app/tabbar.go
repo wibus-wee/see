@@ -318,6 +318,7 @@ func (a *App) jumpBar(c *ui.Context, g *group) {
 	if g == a.focus {
 		a.refreshOutline()
 	}
+	showSymbols := a.jumpSymbolsShown(g, p)
 	ui.Row(c).FillWidth().Height(26).Padding(0, 6).Gap(2).AlignItems(ui.Center).Background(colors(c).Editor).
 		BorderWidth(0, 0, 1, 0).BorderColor(colors(c).Separator).Children(func() {
 		g.relatedBounds = g.relatedHandle.Bounds(c)
@@ -349,73 +350,75 @@ func (a *App) jumpBar(c *ui.Context, g *group) {
 		if !g.relatedOpen {
 			g.counterpartMenu = nil
 		}
-		outside := !workspace.Within(a.root, p)
-		if d := a.docs[p]; d != nil && d.untitled {
-			outside = false
-		}
-		folderGlyph(c, false, 13)
-		if outside {
-			ui.Text(c, tildePath(filepath.Dir(p))).FontSize(12).TextColor(colors(c).Muted).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(1)
-		} else {
-			ui.Text(c, filepath.Base(a.root)).FontSize(12).TextColor(colors(c).Muted).SingleLine()
-		}
-		symbolIcon(c, icChevron, 9, colors(c).Dim)
-		parts := strings.Split(workspace.RelPath(a.root, p), "/")
-		if d := a.docs[p]; d != nil && d.untitled {
-			parts = []string{d.name}
-		} else if outside {
-			parts = []string{filepath.Base(p)}
-		}
-		filesMenu := !outside && !(a.docs[p] != nil && a.docs[p].untitled)
-		for i, part := range parts {
-			if i > 0 {
-				symbolIcon(c, icChevron, 9, colors(c).Dim)
+		ui.Toolbar(c, func() {
+			outside := !workspace.Within(a.root, p)
+			if d := a.docs[p]; d != nil && d.untitled {
+				outside = false
 			}
-			last := i == len(parts)-1
-			children := func() {
-				if last {
-					fileIcon(c, part, 13)
-				} else {
-					folderGlyph(c, false, 13)
+			folderGlyph(c, false, 13)
+			if outside {
+				ui.Text(c, tildePath(filepath.Dir(p))).FontSize(12).TextColor(colors(c).Muted).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(1)
+			} else {
+				ui.Text(c, filepath.Base(a.root)).FontSize(12).TextColor(colors(c).Muted).SingleLine().Ellipsis("…").Shrink(1).MinWidth(0)
+			}
+			symbolIcon(c, icChevron, 9, colors(c).Dim)
+			parts := strings.Split(workspace.RelPath(a.root, p), "/")
+			if d := a.docs[p]; d != nil && d.untitled {
+				parts = []string{d.name}
+			} else if outside {
+				parts = []string{filepath.Base(p)}
+			}
+			filesMenu := !outside && !(a.docs[p] != nil && a.docs[p].untitled)
+			for i, part := range parts {
+				if i > 0 {
+					symbolIcon(c, icChevron, 9, colors(c).Dim)
 				}
-				t := ui.Text(c, part).FontSize(12).SingleLine().Ellipsis("…")
-				if !last {
-					t.TextColor(colors(c).Muted)
-				} else {
-					if g.preview == p {
-						t.Italic()
+				last := i == len(parts)-1
+				children := func() {
+					if last {
+						fileIcon(c, part, 13)
+					} else {
+						folderGlyph(c, false, 13)
 					}
-					if d := a.docs[p]; d != nil && d.buf != nil && d.buf.Modified() {
-						ui.Text(c, "●").FontSize(9).TextColor(c.Theme().Accent)
+					t := ui.Text(c, part).FontSize(12).SingleLine().Ellipsis("…").Shrink(1).MinWidth(0)
+					if !last {
+						t.TextColor(colors(c).Muted)
+					} else {
+						if g.preview == p {
+							t.Italic()
+						}
+						if d := a.docs[p]; d != nil && d.buf != nil && d.buf.Modified() {
+							ui.Text(c, "●").FontSize(9).TextColor(c.Theme().Accent)
+						}
 					}
+				}
+				if !filesMenu {
+					ui.Row(c.Key(i)).Gap(4).AlignItems(ui.Center).Padding(1, 3).Shrink(1).MinWidth(0).Children(children)
+					continue
+				}
+				item := filepath.Join(append([]string{a.root}, parts[:i+1]...)...)
+				var open *bool
+				if last {
+					open = &g.jumpFiles
+				}
+				crumb := jumpCrumb(c, i, part, open, 1, 0, children, func(m *ui.Menu) { a.jumpFilesMenu(m, g, filepath.Dir(item), p, false) })
+				if last && crumb.DoubleClicked() && g.preview == p {
+					g.preview = ""
 				}
 			}
 			if !filesMenu {
-				ui.Row(c.Key(i)).Gap(4).AlignItems(ui.Center).Padding(1, 3).Children(children)
-				continue
+				g.jumpFiles = false
 			}
-			item := filepath.Join(append([]string{a.root}, parts[:i+1]...)...)
-			var open *bool
-			if last {
-				open = &g.jumpFiles
+			if showSymbols {
+				a.jumpSymbolAncestors(c, g)
 			}
-			crumb := jumpCrumb(c, i, part, open, children, func(m *ui.Menu) { a.jumpFilesMenu(m, g, filepath.Dir(item), p, false) })
-			if last && crumb.DoubleClicked() && g.preview == p {
-				g.preview = ""
-			}
-		}
-		if !filesMenu {
-			g.jumpFiles = false
-		}
-		if a.jumpSymbolsShown(g, p) {
-			a.jumpSymbols(c, g)
+		}).Gap(2).Padding(0).Grow(1).Shrink(1).MinWidth(0)
+		if showSymbols {
+			a.jumpCurrentSymbol(c, g)
 		} else {
 			g.jumpSymbols = false
 		}
 		showClose := len(g.order) == 1 && len(a.groups()) == 1
-		if showClose || isMarkdown(p) || a.canViewBytes(p) {
-			ui.Box(c).Grow(1)
-		}
 		if showClose {
 			name := filepath.Base(p)
 			if d := a.docs[p]; d != nil {

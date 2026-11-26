@@ -50,13 +50,20 @@ func (a *App) jumpSymbolsShown(g *group, p string) bool {
 
 // jumpCrumb is a segment of the jump bar: a button whose menu lists the
 // items beside it, as Xcode's.
-func jumpCrumb(c *ui.Context, key any, label string, open *bool, children func(), build func(m *ui.Menu)) ui.Element {
-	b := ui.ButtonBase(c.Key(key)).Label(label).Padding(1, 3).Radius(4).Shrink(0)
+func jumpCrumb(c *ui.Context, key any, label string, open *bool, shrink, grow float32, children func(), build func(m *ui.Menu)) ui.Element {
+	b := ui.ButtonBase(c.Key(key)).Label(label).Padding(1, 3).Radius(4).Shrink(shrink).MinWidth(0)
+	if grow > 0 {
+		b.Grow(grow).Justify(ui.Start)
+	}
 	if b.Hovered() || b.Pressed() || open != nil && *open {
 		b.Background(colors(c).Pill)
 	}
 	b.Children(func() {
-		ui.Row(c).Gap(4).AlignItems(ui.Center).Children(children)
+		row := ui.Row(c).Gap(4).AlignItems(ui.Center).MinWidth(0)
+		if grow > 0 {
+			row.FillWidth()
+		}
+		row.Children(children)
 	})
 	if open == nil {
 		return b.PopoverMenuButton(build, ui.PopoverMenuButtonOptions{Panel: popoverMenuPanel})
@@ -126,7 +133,7 @@ func (a *App) jumpSymbolsMenu(m *ui.Menu, g *group, parent, current int) {
 	for _, j := range symbolChildren(o.symbols, parent) {
 		s := o.symbols[j]
 		it := m.Item(s.Name).ID(fmt.Sprint(j, ":", s.Name)).Checked(j == current).Content(func(x ui.MenuItemContent) {
-			ui.Row(x.Context).Gap(6).AlignItems(ui.Center).Children(func() { symbolCrumbContent(x.Context, s, x.Text, 13) })
+			ui.Row(x.Context).Gap(6).AlignItems(ui.Center).Children(func() { symbolCrumbContent(x.Context, s, x.Text, 13, false) })
 		})
 		if it.Chosen() {
 			a.focus = g
@@ -138,32 +145,29 @@ func (a *App) jumpSymbolsMenu(m *ui.Menu, g *group, parent, current int) {
 	}
 }
 
-func symbolCrumbContent(c *ui.Context, s lsp.DocumentSymbol, text ui.Color, size float32) {
+func symbolCrumbContent(c *ui.Context, s lsp.DocumentSymbol, text ui.Color, size float32, grow bool) {
 	kind, color := symbolKind(c, s.Kind)
 	ui.Box(c).Width(size + 1).Height(size + 1).Radius(3).Shrink(0).Background(color.Alpha(0.16)).AlignItems(ui.Center).Justify(ui.Center).Children(func() {
 		// The kind letter's line box leaves room under it for a descent
 		// that letters don't have; a small bottom margin puts the glyph
 		// back in the square's middle.
-		ui.Text(c, kind).FontSize(size - 4).Bold().TextColor(color).SingleLine().Margin(0, 0, 2, 0)
+		ui.Text(c, kind).FontSize(size-4).Bold().TextColor(color).SingleLine().Margin(0, 0, 2, 0)
 	})
-	ui.Text(c, s.Name).FontSize(size).TextColor(text).SingleLine().Ellipsis("…")
+	name := ui.Text(c, s.Name).FontSize(size).TextColor(text).SingleLine().Ellipsis("…").Shrink(1).MinWidth(0)
+	if grow {
+		name.Grow(1)
+	}
 }
 
-// jumpSymbols is the jump bar's path from the file down to the symbol
-// around the cursor, each segment listing its siblings, or No Selection
-// listing the top level when the cursor is outside every symbol.
-func (a *App) jumpSymbols(c *ui.Context, g *group) {
+// jumpSymbolAncestors lists the symbol path before the current symbol.
+func (a *App) jumpSymbolAncestors(c *ui.Context, g *group) {
 	o := &a.outline
-	current := a.currentSymbol()
-	path := symbolPath(o.symbols, current)
-	symbolIcon(c, icChevron, 9, colors(c).Dim)
-	if len(path) == 0 {
-		jumpCrumb(c, "symbol-none", outlineText("jumpNoSelection"), &g.jumpSymbols, func() {
-			ui.Text(c, outlineText("jumpNoSelection")).FontSize(12).TextColor(colors(c).Muted).SingleLine()
-		}, func(m *ui.Menu) { a.jumpSymbolsMenu(m, g, -1, -1) })
+	path := symbolPath(o.symbols, a.currentSymbol())
+	if len(path) < 2 {
 		return
 	}
-	for k, i := range path {
+	symbolIcon(c, icChevron, 9, colors(c).Dim)
+	for k, i := range path[:len(path)-1] {
 		if k > 0 {
 			symbolIcon(c, icChevron, 9, colors(c).Dim)
 		}
@@ -171,13 +175,33 @@ func (a *App) jumpSymbols(c *ui.Context, g *group) {
 		if k > 0 {
 			parent = path[k-1]
 		}
-		var open *bool
-		if k == len(path)-1 {
-			open = &g.jumpSymbols
-		}
 		s := o.symbols[i]
-		jumpCrumb(c, fmt.Sprint("symbol-", k, ":", s.Name), s.Name, open, func() {
-			symbolCrumbContent(c, s, colors(c).Text, 12)
+		jumpCrumb(c, fmt.Sprint("symbol-", k, ":", s.Name), s.Name, nil, 1, 0, func() {
+			symbolCrumbContent(c, s, colors(c).Text, 12, false)
 		}, func(m *ui.Menu) { a.jumpSymbolsMenu(m, g, parent, i) })
 	}
+}
+
+// jumpCurrentSymbol keeps the current symbol at the end of the path, after
+// the Toolbar's overflow menu, so it stays visible as the path gets narrow.
+func (a *App) jumpCurrentSymbol(c *ui.Context, g *group) {
+	o := &a.outline
+	current := a.currentSymbol()
+	path := symbolPath(o.symbols, current)
+	symbolIcon(c, icChevron, 9, colors(c).Dim)
+	if len(path) == 0 {
+		jumpCrumb(c, "symbol-none", outlineText("jumpNoSelection"), &g.jumpSymbols, 0.25, 1, func() {
+			ui.Text(c, outlineText("jumpNoSelection")).FontSize(12).TextColor(colors(c).Muted).SingleLine().Ellipsis("…").Shrink(1).MinWidth(0).Grow(1)
+		}, func(m *ui.Menu) { a.jumpSymbolsMenu(m, g, -1, -1) })
+		return
+	}
+	i := path[len(path)-1]
+	parent := -1
+	if len(path) > 1 {
+		parent = path[len(path)-2]
+	}
+	s := o.symbols[i]
+	jumpCrumb(c, fmt.Sprint("symbol-", len(path)-1, ":", s.Name), s.Name, &g.jumpSymbols, 0.25, 1, func() {
+		symbolCrumbContent(c, s, colors(c).Text, 12, true)
+	}, func(m *ui.Menu) { a.jumpSymbolsMenu(m, g, parent, i) })
 }
