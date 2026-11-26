@@ -60,6 +60,9 @@ func (a *App) captureSession() {
 				if v := g.diffs[key]; v != nil && (v.localHistory != nil || v.revision != nil) {
 					continue
 				}
+				if v := g.diffs[key]; v != nil && v.root != "" && v.root != a.git.root {
+					continue
+				}
 				if spec := diffTabSpec(g.diffs[key]); spec != nil {
 					s.Tabs = append(s.Tabs, config.Tab{Diff: spec})
 				}
@@ -406,7 +409,7 @@ func (a *App) loadPendingTabs(repo bool) {
 			continue
 		}
 		v := p.v
-		gen, ctx, root := a.gen, a.wsCtx, a.git.root
+		gen, scopeSeq, ctx, root := a.gen, a.git.scopeSeq, a.wsCtx, a.git.root
 		change := git.Change{Path: v.name, Index: ' ', Work: ' '}
 		if v.untracked {
 			change.Index = '?'
@@ -446,7 +449,7 @@ func (a *App) loadPendingTabs(repo bool) {
 				}
 			}
 			a.post.Post(func() {
-				if a.gen != gen {
+				if a.gen != gen || a.git.scopeSeq != scopeSeq {
 					return
 				}
 				if err != nil {

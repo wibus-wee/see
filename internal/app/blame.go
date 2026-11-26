@@ -33,11 +33,11 @@ func (a *App) syncBlame(d *doc) {
 	if key == "" || !ok || a.wsCtx == nil {
 		return
 	}
-	seq, gen, root := d.blameSeq, a.gen, a.git.root
+	seq, gen, scopeSeq, root := d.blameSeq, a.gen, a.git.scopeSeq, a.git.root
 	ctx, cancel := context.WithCancel(a.wsCtx)
 	d.blameCancel = cancel
 	start := func() {
-		if ctx.Err() != nil || a.gen != gen || a.docs[d.path] != d || d.blameSeq != seq || d.buf.Version() != version {
+		if ctx.Err() != nil || a.gen != gen || a.git.scopeSeq != scopeSeq || a.docs[d.path] != d || d.blameSeq != seq || d.buf.Version() != version {
 			return
 		}
 		contents := []byte(d.buf.String())
@@ -49,7 +49,7 @@ func (a *App) syncBlame(d *doc) {
 				lines, err = git.Blame(ctx, root, rel, contents)
 			}
 			a.post.Post(func() {
-				if a.gen != gen || a.docs[d.path] != d || d.blameSeq != seq || d.buf.Version() != version || a.gitBaseKey(d) != key {
+				if a.gen != gen || a.git.scopeSeq != scopeSeq || a.docs[d.path] != d || d.blameSeq != seq || d.buf.Version() != version || a.gitBaseKey(d) != key {
 					return
 				}
 				d.blameReady = true

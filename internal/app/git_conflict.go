@@ -32,11 +32,23 @@ func gitConflictText(key string) string {
 
 func conflictTab(path string) string { return diffTabPrefix + "conflict:" + path }
 
+func (a *App) gitConflictTabKey(root, path string) string {
+	if a.cfg.GitAutoDiscover && a.git.workingCopies[root] != nil && root != a.git.root {
+		return conflictTab(root + "\x00" + path)
+	}
+	return conflictTab(path)
+}
+
 func (a *App) gitConflictRow(c *ui.Context, ch git.Change) {
+	a.gitConflictRowIn(c, a.git.root, nil, ch)
+}
+
+func (a *App) gitConflictRowIn(c *ui.Context, root string, workingCopy *gitWorkingCopy, ch git.Change) {
 	label := fmt.Sprintf(gitConflictText("gitResolveFile"), ch.Path)
-	row := ui.ButtonBase(c.Key(conflictTab(ch.Path))).Label(label).Tooltip(label).
+	tabKey := a.gitConflictTabKey(root, ch.Path)
+	row := ui.ButtonBase(c.Key(tabKey)).Label(label).Tooltip(label).
 		FillWidth().Height(gitSidebarRowHeight).Padding(0, sidebarInset+gitSidebarTreeIndent).Radius(4)
-	if a.focus.active == conflictTab(ch.Path) {
+	if a.focus.active == tabKey {
 		row.Background(colors(c).SelectedRow)
 	} else if row.Hovered() {
 		row.Background(colors(c).Pill)
@@ -54,23 +66,29 @@ func (a *App) gitConflictRow(c *ui.Context, ch git.Change) {
 		})
 	})
 	row.OnClick(func() {
-		a.git.selected = nil
-		a.git.selectionAnchor = ""
-		a.showGitDiff(ch, false)
+		if workingCopy != nil {
+			workingCopy.selected = nil
+			workingCopy.selectionAnchor = ""
+			a.showGitWorkingCopyDiff(root, ch, false, a.focus, sideNone, len(a.focus.order), workingCopy)
+		} else {
+			a.git.selected = nil
+			a.git.selectionAnchor = ""
+			a.showGitDiff(ch, false)
+		}
 	})
 }
 
-func (a *App) openGitConflictIn(ch git.Change, g *group, placement side, at int) {
+func (a *App) openGitConflictInRepository(root string, ch git.Change, g *group, placement side, at int) {
 	if placement != sideNone {
 		g = a.splitBeside(g, placement)
 		at = 0
 	}
-	key := conflictTab(ch.Path)
+	key := a.gitConflictTabKey(root, ch.Path)
 	if v := g.diffs[key]; v != nil && v.conflict != nil && !v.conflict.staged {
 		a.activateIn(g, key)
 		return
 	}
-	v := &gitDiffTab{name: ch.Path, conflict: &gitConflictView{}}
+	v := &gitDiffTab{name: ch.Path, root: root, conflict: &gitConflictView{}}
 	if g.diffs == nil {
 		g.diffs = map[string]*gitDiffTab{}
 	}
@@ -82,15 +100,21 @@ func (a *App) openGitConflictIn(ch git.Change, g *group, placement side, at int)
 
 func (a *App) loadGitConflict(v *gitDiffTab) {
 	m := v.conflict
-	if m.loading || m.saving || a.git.root == "" {
+	root := v.root
+	if root == "" {
+		root = a.git.root
+	}
+	if m.loading || m.saving || root == "" {
 		return
 	}
 	*m = gitConflictView{loading: true}
-	ctx, root, gen, name := a.wsCtx, a.git.root, a.gen, v.name
+	workingCopy := a.git.workingCopies[root]
+	ctx, gen, scopeSeq, name := a.wsCtx, a.gen, a.git.scopeSeq, v.name
 	go func() {
 		file, err := git.LoadConflict(ctx, root, name)
 		a.post.Post(func() {
-			if a.gen != gen || a.git.root != root {
+			if a.gen != gen || root == a.git.root && a.git.scopeSeq != scopeSeq ||
+				root != a.git.root && (workingCopy == nil || a.git.workingCopies[root] != workingCopy) {
 				return
 			}
 			m.loading, m.file, m.err = false, file, err
@@ -146,34 +170,76 @@ func (a *App) gitConflictEditor(path, label, text string) *editor.State {
 
 func (a *App) saveGitConflict(v *gitDiffTab) {
 	m := v.conflict
-	if a.git.busy || m.file == nil || m.err != nil || len(m.choices) == 0 || m.resolved != len(m.choices) || a.git.root == "" {
+	root := v.root
+	if root == "" {
+		root = a.git.root
+	}
+	workingCopy := a.git.workingCopies[root]
+	groupScoped := workingCopy != nil
+	busy := a.git.busy
+	if groupScoped {
+		busy = workingCopy.busy || root == a.git.root && a.git.busy
+	}
+	if busy || m.file == nil || m.err != nil || len(m.choices) == 0 || m.resolved != len(m.choices) || root == "" {
 		return
 	}
-	ctx, root, gen := a.wsCtx, a.git.root, a.gen
+	ctx, gen, scopeSeq := a.wsCtx, a.gen, a.git.scopeSeq
 	path := workspace.DocPath(a.root, a.realRoot, filepath.Join(root, filepath.FromSlash(v.name)))
 	if d := a.docs[path]; d != nil && (d.saving || d.buf != nil && d.buf.Modified()) {
 		a.note(locales.MsgSaveOrCloseTheFileSUnsavedEdits(), true)
 		return
 	}
-	a.git.busy, a.git.resolvingPath, m.saving = true, path, true
+	if groupScoped {
+		workingCopy.busy = true
+		if root == a.git.root {
+			a.git.busy, a.git.resolvingPath = true, path
+		}
+	} else {
+		a.git.busy, a.git.resolvingPath = true, path
+	}
+	if workingCopy != nil {
+		workingCopy.refreshSeq++
+		workingCopy.loading = false
+		workingCopy.diffSeq++
+	}
+	m.saving = true
 	file, choices := m.file, slices.Clone(m.choices)
 	go func() {
 		err := file.Resolve(ctx, choices)
 		a.post.Post(func() {
-			if a.gen != gen {
+			if a.gen != gen || groupScoped && a.git.workingCopies[root] != workingCopy ||
+				!groupScoped && (a.git.scopeSeq != scopeSeq || a.git.root != root) {
 				return
 			}
-			a.git.busy, a.git.resolvingPath, m.saving = false, "", false
+			if groupScoped {
+				workingCopy.busy = false
+				if root == a.git.root {
+					a.git.busy, a.git.resolvingPath = false, ""
+				}
+			} else {
+				a.git.busy, a.git.resolvingPath = false, ""
+			}
+			m.saving = false
 			m.staged, m.err = err == nil, err
 			if err == nil {
 				m.file, m.choices, m.current, m.incoming, m.preview = nil, nil, nil, nil, nil
-				a.git.diffSeq++
+				if groupScoped {
+					workingCopy.diffSeq++
+				} else {
+					a.git.diffSeq++
+				}
 				a.note(gitConflictText("gitConflictStaged"), false)
 			}
 			if d := a.docs[path]; d != nil {
 				a.reloadDoc(d)
 			}
-			a.refreshGit()
+			if root == a.git.root {
+				a.refreshGit()
+			} else {
+				workingCopy.refreshSeq++
+				workingCopy.loading = false
+				a.refreshGitWorkingCopy(root)
+			}
 		})
 	}()
 }
@@ -199,7 +265,7 @@ func (a *App) gitConflictContent(c *ui.Context, g *group, v *gitDiffTab) {
 	panel.Children(func() {
 		openFile := func() {
 			a.focus = g
-			a.openGitFile(git.Change{Path: v.name})
+			a.openGitFileIn(a.gitDiffRoot(v), git.Change{Path: v.name})
 		}
 		switch {
 		case m.loading:
@@ -247,6 +313,11 @@ func (a *App) gitConflictContent(c *ui.Context, g *group, v *gitDiffTab) {
 
 func (a *App) gitConflictToolbar(c *ui.Context, v *gitDiffTab, openFile func()) {
 	m := v.conflict
+	root := a.gitDiffRoot(v)
+	busy := a.git.busy
+	if workingCopy := a.git.workingCopies[root]; workingCopy != nil {
+		busy = workingCopy.busy || root == a.git.root && a.git.busy
+	}
 	ui.Row(c).FillWidth().Height(34).Shrink(0).Padding(0, 8).Gap(5).AlignItems(ui.Center).
 		BorderWidth(0, 0, 1, 0).BorderColor(colors(c).Separator).Children(func() {
 		if len(m.choices) > 0 {
@@ -273,7 +344,7 @@ func (a *App) gitConflictToolbar(c *ui.Context, v *gitDiffTab, openFile func()) 
 			save = gitConflictText("gitConflictSaving")
 		}
 		ui.PrimaryButton(c.Key("save-resolution"), save).FontSize(11).Height(24).Padding(0, 7).
-			Disabled(a.git.busy || len(m.choices) == 0 || m.resolved != len(m.choices)).OnClick(func() { a.saveGitConflict(v) })
+			Disabled(busy || len(m.choices) == 0 || m.resolved != len(m.choices)).OnClick(func() { a.saveGitConflict(v) })
 	})
 }
 

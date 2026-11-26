@@ -70,6 +70,7 @@ type Config struct {
 	DiffUnified          bool                 `json:"diffUnified,omitempty"` // diffs inline rather than side by side
 	DiffLayout           string               `json:"diffLayout,omitempty"`  // "auto", "unified", "split"
 	GitStatus            bool                 `json:"gitStatus,omitempty"`
+	GitAutoDiscover      bool                 `json:"gitAutoDiscover,omitempty"`
 	HiddenNames          string               `json:"hiddenNames"`
 	ConfirmClose         bool                 `json:"confirmClose,omitempty"`
 	KeepAwake            string               `json:"keepAwake,omitempty"`

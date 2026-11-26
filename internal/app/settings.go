@@ -119,6 +119,15 @@ func (a *App) settingsChanged() {
 	a.post.Post(func() {})
 }
 
+func (a *App) gitAutoDiscoverSettingChanged() {
+	a.settingsChanged()
+	if a.gitDiscoveryChanged != nil {
+		a.gitDiscoveryChanged()
+	} else {
+		a.refreshGitDiscovery()
+	}
+}
+
 // applyEditorPrefs gives an editor the settings of the Editor pane.
 func (a *App) applyEditorPrefs(st *editor.State) {
 	st.Font = ui.Font{
@@ -581,6 +590,12 @@ func (a *App) generalPane(c *ui.Context) {
 			labeled(c, locales.MsgGitStatusInTheNavigator(), locales.MsgShowEachFileSStatusAndLineCounts())
 			if ui.Switch(c, &a.cfg.GitStatus).Label(locales.MsgGitStatus()).Changed() {
 				a.settingsChanged()
+			}
+		},
+		func() {
+			labeled(c, locales.AutoDiscoverGitRepositories(), locales.AutoDiscoverGitRepositoriesDescription())
+			if ui.Switch(c, &a.cfg.GitAutoDiscover).Label(locales.AutoDiscoverGitRepositories()).Changed() {
+				a.gitAutoDiscoverSettingChanged()
 			}
 		},
 		func() {

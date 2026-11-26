@@ -104,6 +104,60 @@ func (msgs Messages) RenderDocCommentsDescription() string {
 	return Catalog.Format(msgs.locale, "renderDocCommentsDescription", nil)
 }
 
+// AutoDiscoverGitRepositories says "Discover nested Git repositories"
+// in the language the app shows.
+func AutoDiscoverGitRepositories() string { return In(i18n.Locale()).AutoDiscoverGitRepositories() }
+
+// AutoDiscoverGitRepositories says "Discover nested Git repositories"
+// in the language of msgs.
+func (msgs Messages) AutoDiscoverGitRepositories() string {
+	return Catalog.Format(msgs.locale, "autoDiscoverGitRepositories", nil)
+}
+
+// AutoDiscoverGitRepositoriesDescription says "Search one folder level below the opened folder. Files and Search stay rooted at the opened folder."
+// in the language the app shows.
+func AutoDiscoverGitRepositoriesDescription() string {
+	return In(i18n.Locale()).AutoDiscoverGitRepositoriesDescription()
+}
+
+// AutoDiscoverGitRepositoriesDescription says "Search one folder level below the opened folder. Files and Search stay rooted at the opened folder."
+// in the language of msgs.
+func (msgs Messages) AutoDiscoverGitRepositoriesDescription() string {
+	return Catalog.Format(msgs.locale, "autoDiscoverGitRepositoriesDescription", nil)
+}
+
+// GitScanningRepositories says "Looking for Git repositories…"
+// in the language the app shows.
+func GitScanningRepositories() string { return In(i18n.Locale()).GitScanningRepositories() }
+
+// GitScanningRepositories says "Looking for Git repositories…"
+// in the language of msgs.
+func (msgs Messages) GitScanningRepositories() string {
+	return Catalog.Format(msgs.locale, "gitScanningRepositories", nil)
+}
+
+// GitNoRepositoriesFound says "No Git repositories found in this folder."
+// in the language the app shows.
+func GitNoRepositoriesFound() string { return In(i18n.Locale()).GitNoRepositoriesFound() }
+
+// GitNoRepositoriesFound says "No Git repositories found in this folder."
+// in the language of msgs.
+func (msgs Messages) GitNoRepositoriesFound() string {
+	return Catalog.Format(msgs.locale, "gitNoRepositoriesFound", nil)
+}
+
+// GitSelectRepositoryToSeeChanges says "Select a repository to see its changes."
+// in the language the app shows.
+func GitSelectRepositoryToSeeChanges() string {
+	return In(i18n.Locale()).GitSelectRepositoryToSeeChanges()
+}
+
+// GitSelectRepositoryToSeeChanges says "Select a repository to see its changes."
+// in the language of msgs.
+func (msgs Messages) GitSelectRepositoryToSeeChanges() string {
+	return Catalog.Format(msgs.locale, "gitSelectRepositoryToSeeChanges", nil)
+}
+
 // CommandToggleReaderMode says "Toggle Reader Mode"
 // in the language the app shows.
 func CommandToggleReaderMode() string { return In(i18n.Locale()).CommandToggleReaderMode() }
