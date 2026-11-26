@@ -1159,7 +1159,7 @@ func gitFileNameAndPath(c *ui.Context, path, oldPath string, fontSize float32) {
 }
 
 func (a *App) gitSection(c *ui.Context, name string, count int) {
-	ui.Row(c).FillWidth().Height(gitSidebarGroupHeaderHeight).Padding(0, sidebarInset+gitSidebarTreeIndent).
+	ui.Row(c).FillWidth().Height(gitSidebarRowHeight).Padding(0, sidebarInset+gitSidebarTreeIndent).
 		Gap(gitSidebarColumnGap).AlignItems(ui.Center).Children(func() {
 		ui.Box(c).Size(gitSidebarIconColumn, 1).Shrink(0)
 		gitSidebarGroupLabel(c, name)

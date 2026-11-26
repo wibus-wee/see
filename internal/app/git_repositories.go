@@ -234,8 +234,8 @@ func (a *App) closeGitRepositoryTabs() {
 }
 
 func repoDisclosure(c *ui.Context, depth float32, title string, icon *ui.SVG, closed bool, toggle func(), actions func()) {
-	ui.Row(c).FillWidth().Height(24).Shrink(0).AlignItems(ui.Center).Children(func() {
-		b := ui.ButtonBase(c).Grow(1).MinWidth(0).Height(24).Label(title).Tooltip(title).AlignItems(ui.Center).Justify(ui.Start).
+	ui.Row(c).FillWidth().Height(gitSidebarRowHeight).Shrink(0).AlignItems(ui.Center).Children(func() {
+		b := ui.ButtonBase(c).Grow(1).MinWidth(0).Height(gitSidebarRowHeight).Label(title).Tooltip(title).AlignItems(ui.Center).Justify(ui.Start).
 			Padding(0, 4, 0, 4+depth*12).Gap(5).Radius(5).KeepFocus().OnClick(toggle)
 		if b.Hovered() {
 			b.Background(colors(c).Pill)

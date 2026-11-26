@@ -226,8 +226,8 @@ func (a *App) gitWorkingCopyCommitBar(c *ui.Context, root string, workingCopy *g
 		tip = gitConflictText("gitCommitMerge")
 	}
 	ui.Column(c).Shrink(0).FillWidth().Children(func() {
-		ui.Row(c).FillWidth().Height(34).Padding(0, sidebarInset).AlignItems(ui.Center).Children(func() {
-			ui.Row(c).FillWidth().Height(28).Radius(14).Background(c.Theme().Surface).
+		ui.Row(c).FillWidth().Height(gitSidebarRowHeight).Padding(0, sidebarInset).AlignItems(ui.Center).Children(func() {
+			ui.Row(c).FillWidth().Height(gitSidebarRowHeight).Radius(gitSidebarRowHeight/2).Background(c.Theme().Surface).
 				Padding(0, 3, 0, gitSidebarTreeIndent+gitSidebarTextOffset).Gap(4).AlignItems(ui.Center).Children(func() {
 				in := ui.TextInput(c.Key("git-commit-message:"+root), &workingCopy.message).Placeholder(placeholder).Label(locales.MsgCommitMessage()).
 					FontSize(12).Grow(1).Background(ui.Transparent).BorderWidth(0).Padding(0)
