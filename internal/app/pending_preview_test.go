@@ -85,6 +85,64 @@ func TestPreviewReplacementKeepsCurrentActiveTabWhenPreviewDiffers(t *testing.T)
 	}
 }
 
+func TestPinnedOutgoingTabStaysUntilNewPreviewReady(t *testing.T) {
+	h, a := newPreviewHarness(t)
+	g := h.a.focus
+	g.preview = ""
+	b := pendingPreviewDoc(h, "b.txt")
+	h.a.previewOpen(b.path)
+	h.tt.Frame()
+	if g.active != a.path || g.pendingPreview == nil || g.pendingPreview.replaceable || g.pendingPreview.replaced != "" || !g.has(a.path) || h.a.activeEditor() != g.eds[a.path] {
+		t.Fatalf("new preview displaced the pinned outgoing tab: active=%q pending=%+v tabs=%v", g.active, g.pendingPreview, g.order)
+	}
+
+	const ready = "B-ready-marker"
+	h.a.loaded(b, workspace.File{Kind: workspace.Text, Text: ready}, editor.NewBuffer(ready), false, nil)
+	h.tt.Frame()
+	if g.active != b.path || !g.has(a.path) || g.preview != b.path || h.a.activeEditor() != g.eds[b.path] || b.buf.String() != ready {
+		t.Fatalf("ready preview did not preserve the pinned outgoing tab: active=%q preview=%q tabs=%v", g.active, g.preview, g.order)
+	}
+}
+
+func TestSelectingPendingPreviewPreservesPreviousPreview(t *testing.T) {
+	h, a := newPreviewHarness(t)
+	g := h.a.focus
+	b := pendingPreviewDoc(h, "b.txt")
+	h.a.previewOpen(b.path)
+	h.a.userActivateIn(g, b.path)
+	h.tt.Frame()
+	if g.active != b.path || g.pendingPreview != nil || !g.has(a.path) || g.preview != b.path {
+		t.Fatalf("selecting pending target lost the previous preview or retained stale ownership: active=%q preview=%q pending=%+v tabs=%v", g.active, g.preview, g.pendingPreview, g.order)
+	}
+
+	const ready = "B-ready-marker"
+	h.a.loaded(b, workspace.File{Kind: workspace.Text, Text: ready}, editor.NewBuffer(ready), false, nil)
+	h.tt.Frame()
+	if g.active != b.path || !g.has(a.path) || b.buf.String() != ready || g.pendingPreview != nil {
+		t.Fatalf("selected target completion lost the previous preview: active=%q tabs=%v pending=%+v", g.active, g.order, g.pendingPreview)
+	}
+}
+
+func TestPinningPendingPreviewPreservesPreviousPreview(t *testing.T) {
+	h, a := newPreviewHarness(t)
+	g := h.a.focus
+	b := pendingPreviewDoc(h, "b.txt")
+	h.a.previewOpen(b.path)
+	h.a.pinPreview(g, b.path)
+	h.a.userActivateIn(g, b.path)
+	h.tt.Frame()
+	if g.active != b.path || g.pendingPreview != nil || g.preview != "" || !g.has(a.path) || !g.has(b.path) {
+		t.Fatalf("pinning pending target lost the previous preview or retained stale ownership: active=%q preview=%q pending=%+v tabs=%v", g.active, g.preview, g.pendingPreview, g.order)
+	}
+
+	const ready = "B-ready-marker"
+	h.a.loaded(b, workspace.File{Kind: workspace.Text, Text: ready}, editor.NewBuffer(ready), false, nil)
+	h.tt.Frame()
+	if g.active != b.path || g.pendingPreview != nil || g.preview != "" || !g.has(a.path) || b.buf.String() != ready {
+		t.Fatalf("pinned target completion lost the previous preview: active=%q preview=%q tabs=%v", g.active, g.preview, g.order)
+	}
+}
+
 func TestReturningToOutgoingPreviewCancelsPendingTarget(t *testing.T) {
 	h, a := newPreviewHarness(t)
 	g := h.a.focus

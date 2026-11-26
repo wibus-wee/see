@@ -94,7 +94,7 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 			tab := tabs.Tab(i).Grow(1).Basis(0).MaxWidth(260).MinWidth(90).Padding(0, 8).Gap(6).
 				AlignItems(ui.Center).Justify(ui.Center).BorderWidth(0, 1, 0, 0).BorderColor(colors(c).Hairline)
 			if tab.DoubleClicked() && g.preview == p {
-				g.preview = ""
+				a.pinPreview(g, p)
 			}
 			tab.ContextMenu(func(m *ui.Menu) {
 				a.tabFileMenu(c, m, p, d, diff)
@@ -102,7 +102,7 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 					a.closeTab(g, p)
 				}
 				if g.preview == p && m.Item(commandLabel("tab.keepPreview")).Chosen() {
-					g.preview = ""
+					a.pinPreview(g, p)
 				}
 				if m.Item(commandLabel("tab.closeOthers")).Chosen() {
 					a.closeTabs(g, p, closeOtherTabs)

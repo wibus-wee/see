@@ -1442,13 +1442,11 @@ func (a *App) previewOpen(path string) {
 		}
 		return
 	}
-	if old != "" {
-		if d.loading && d.buf == nil && g.has(outgoing) {
-			a.activateIn(g, outgoing)
-			g.preview = path
-			g.pendingPreview = &previewTransition{doc: d, outgoing: outgoing, replaced: old, replaceable: replaceable, focusSeq: g.focusSeq}
-			return
-		}
+	if d.loading && d.buf == nil && g.has(outgoing) {
+		a.activateIn(g, outgoing)
+		g.preview = path
+		g.pendingPreview = &previewTransition{doc: d, outgoing: outgoing, replaced: old, replaceable: replaceable, focusSeq: g.focusSeq}
+		return
 	}
 	if replaceable {
 		a.closeTab(g, old)

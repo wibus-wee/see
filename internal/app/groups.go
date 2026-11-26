@@ -149,6 +149,15 @@ func (a *App) restorePendingPreview(g *group, p *previewTransition) {
 	g.preview = p.replaced
 }
 
+func (a *App) pinPreview(g *group, path string) {
+	if g.preview == path {
+		g.preview = ""
+	}
+	if p := g.pendingPreview; p != nil && p.doc.path == path {
+		g.pendingPreview = nil
+	}
+}
+
 func (a *App) cancelPendingPreview(g *group) {
 	p := g.pendingPreview
 	if p == nil {
