@@ -93,6 +93,9 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 			active := p == g.active
 			tab := tabs.Tab(i).Grow(1).Basis(0).MaxWidth(260).MinWidth(90).Padding(0, 8).Gap(6).
 				AlignItems(ui.Center).Justify(ui.Center).BorderWidth(0, 1, 0, 0).BorderColor(colors(c).Hairline)
+			if tab.Clicked() && p == g.active {
+				a.userActivateIn(g, p)
+			}
 			if tab.DoubleClicked() && g.preview == p {
 				a.pinPreview(g, p)
 			}

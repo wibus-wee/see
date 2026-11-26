@@ -123,6 +123,35 @@ func TestSelectingPendingPreviewPreservesPreviousPreview(t *testing.T) {
 	}
 }
 
+func TestClickingActiveTabCancelsPendingPreview(t *testing.T) {
+	h, a := newPreviewHarness(t)
+	g := h.a.focus
+	h.a.sidebarOff = true
+	h.tt.Frame()
+	h.tt.Advance(300 * time.Millisecond)
+	b := pendingPreviewDoc(h, "b.txt")
+	h.a.previewOpen(b.path)
+	h.tt.Frame()
+	if g.active != a.path || g.pendingPreview == nil || !g.has(b.path) {
+		t.Fatalf("preview was not pending before clicking active tab: active=%q pending=%+v tabs=%v", g.active, g.pendingPreview, g.order)
+	}
+
+	if err := h.tt.Click("a.txt"); err != nil {
+		t.Fatal(err)
+	}
+	h.tt.Frame()
+	if g.active != a.path || g.pendingPreview != nil || g.has(b.path) || h.a.docs[b.path] != nil || h.a.activeEditor() != g.eds[a.path] {
+		t.Fatalf("clicking active tab did not cancel pending preview: active=%q pending=%+v tabs=%v", g.active, g.pendingPreview, g.order)
+	}
+
+	const ready = "late-B-ready-marker"
+	h.a.loaded(b, workspace.File{Kind: workspace.Text, Text: ready}, editor.NewBuffer(ready), false, nil)
+	h.tt.Frame()
+	if g.active != a.path || g.pendingPreview != nil || g.has(b.path) || h.a.docs[b.path] != nil || h.a.activeEditor() != g.eds[a.path] || a.buf.String() != "A-visible-marker\n" {
+		t.Fatalf("late completion activated the canceled preview: active=%q pending=%+v tabs=%v", g.active, g.pendingPreview, g.order)
+	}
+}
+
 func TestPinningPendingPreviewPreservesPreviousPreview(t *testing.T) {
 	h, a := newPreviewHarness(t)
 	g := h.a.focus
