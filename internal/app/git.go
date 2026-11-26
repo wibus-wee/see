@@ -25,6 +25,7 @@ type gitState struct {
 	repositoriesLoaded     bool
 	repositoryScanLoading  bool
 	repositoryScanSeq      uint64
+	workingCopies          map[string]*gitWorkingCopy
 	refreshSeq             uint64
 	scopeSeq               uint64
 	head                   string // HEAD's commit, so committed versions are read again only when it moves
@@ -102,6 +103,7 @@ type gitDiffTab struct {
 	search               *searchEditView
 	oldBuffer, newBuffer *editor.Buffer // source buffers for a CLI file comparison
 	name                 string
+	root                 string
 	staged               bool
 	cli                  bool        // `see --diff`'s: it compares paths, not repository changes
 	rev                  string      // the commit's short hash, for a file of a commit
@@ -122,7 +124,7 @@ type gitDiffTab struct {
 	// lineSel is the last line range selected on the diff, in the
 	// diff's own line numbers; lineFile is the file it is of when the
 	// tab shows more than one, as a branch comparison's, "" otherwise.
-	lineSel  editor.DiffLineRange
+	lineSel   editor.DiffLineRange
 	lineSelOn bool
 	lineFile  string
 }
@@ -299,6 +301,7 @@ func (a *App) refreshGit() {
 	if a.root == "" || a.wsCtx == nil {
 		return
 	}
+	a.refreshGitWorkingCopies()
 	root := a.root
 	if a.cfg.GitAutoDiscover {
 		if !a.git.repositoriesLoaded {
@@ -342,6 +345,7 @@ func (a *App) refreshGit() {
 			}
 			a.git.root, a.git.branch, a.git.changes, a.git.head = s.Root, s.Branch, s.Changes, s.Head
 			a.git.merging = s.Merging
+			a.updateGitWorkingCopy(s.Root, s, err, counting)
 			a.git.branchFingerprint = branchFingerprint
 			a.git.stashes = stashes
 			if len(s.Changes) == 0 {
@@ -402,6 +406,7 @@ func (a *App) refreshGitDiscovery() {
 	}
 	a.git.repositories = nil
 	a.git.repositoriesLoaded = false
+	a.git.workingCopies = nil
 	a.selectGitRepository("")
 	a.refreshGit()
 }
@@ -424,9 +429,11 @@ func (a *App) scanGitRepositories() {
 			if err != nil {
 				a.git.repositories = nil
 				a.git.err = err.Error()
+				a.reconcileGitWorkingCopies()
 				return
 			}
 			a.git.repositories = repositories
+			a.reconcileGitWorkingCopies()
 			a.git.err = ""
 			selected := a.git.root
 			if !slices.Contains(repositories, selected) {
@@ -437,6 +444,7 @@ func (a *App) scanGitRepositories() {
 			} else if selected != "" {
 				a.refreshGit()
 			}
+			a.refreshGitWorkingCopies()
 		})
 	}()
 }
@@ -663,9 +671,15 @@ func (a *App) gitAction(args ...string) {
 }
 
 func (a *App) openGitFile(ch git.Change) {
-	path := filepath.Join(a.git.root, filepath.FromSlash(ch.Path))
+	a.openGitFileIn(a.git.root, ch)
+}
+
+func (a *App) openGitFileIn(root string, ch git.Change) {
+	path := filepath.Join(root, filepath.FromSlash(ch.Path))
 	a.term.maximized = false
-	a.git.diffSeq++
+	if root == a.git.root {
+		a.git.diffSeq++
+	}
 	a.userOpen(path)
 }
 
@@ -924,21 +938,50 @@ func (a *App) showGitDiff(ch git.Change, staged bool) {
 }
 
 func (a *App) showGitDiffIn(ch git.Change, staged bool, target *group, placement side, at int) {
-	if a.git.root == "" {
+	a.showGitDiffInRepository(a.git.root, ch, staged, target, placement, at, nil)
+}
+
+func (a *App) showGitWorkingCopyDiff(root string, ch git.Change, staged bool, target *group, placement side, at int, workingCopy *gitWorkingCopy) {
+	a.showGitDiffInRepository(root, ch, staged, target, placement, at, workingCopy)
+}
+
+func (a *App) gitDiffRoot(v *gitDiffTab) string {
+	if v.root != "" {
+		return v.root
+	}
+	return a.git.root
+}
+
+func (a *App) showGitDiffInRepository(root string, ch git.Change, staged bool, target *group, placement side, at int, workingCopy *gitWorkingCopy) {
+	if root == "" {
 		return
 	}
 	a.term.maximized = false
 	a.git.peek = nil
-	a.git.diffSeq++
 	if ch.Conflicted() {
-		a.openGitConflictIn(ch, target, placement, at)
+		a.openGitConflictInRepository(root, ch, target, placement, at)
 		return
 	}
-	seq, gen, root, ctx := a.git.diffSeq, a.gen, a.git.root, a.wsCtx
+	var seq uint64
+	if workingCopy != nil {
+		workingCopy.diffSeq++
+		seq = workingCopy.diffSeq
+	} else {
+		a.git.diffSeq++
+		seq = a.git.diffSeq
+	}
+	gen, ctx := a.gen, a.wsCtx
 	go func() {
 		view, err := readGitChangeView(ctx, root, ch, staged)
 		a.post.Post(func() {
-			if a.gen != gen || a.git.diffSeq != seq || a.layout.find(target) == nil {
+			if a.gen != gen || a.layout.find(target) == nil {
+				return
+			}
+			if workingCopy != nil {
+				if a.git.workingCopies[root] != workingCopy || workingCopy.diffSeq != seq {
+					return
+				}
+			} else if a.git.diffSeq != seq || a.git.root != root {
 				return
 			}
 			if err != nil {
@@ -949,9 +992,9 @@ func (a *App) showGitDiffIn(ch git.Change, staged bool, target *group, placement
 				a.note(locales.MsgNoTextDiffAvailableFor()+ch.Path, true)
 				return
 			}
-			v := &gitDiffTab{name: ch.Path, staged: staged, change: true}
+			v := &gitDiffTab{name: ch.Path, root: root, staged: staged, change: true}
 			a.setGitChangeView(v, view, 0)
-			key := diffTab(ch.Path, staged)
+			key := a.gitChangeTabKey(root, ch, staged)
 			if placement != sideNone {
 				target = a.splitBeside(target, placement)
 				at = 0
@@ -978,6 +1021,10 @@ func (a *App) gitNavigator(c *ui.Context) {
 	a.gitNavigatorTabs(c)
 	if a.git.repositoryView.page == 1 {
 		a.gitRepositories(c)
+		return
+	}
+	if a.showsRepositoryChanges() {
+		a.gitWorkingCopiesNavigator(c)
 		return
 	}
 	if a.git.root == "" {
@@ -1120,23 +1167,34 @@ func (a *App) gitSection(c *ui.Context, name string, count int) {
 }
 
 func (a *App) gitRow(c *ui.Context, ch git.Change, staged bool) {
+	a.gitRowIn(c, a.git.root, nil, ch, staged)
+}
+
+func (a *App) gitRowIn(c *ui.Context, root string, workingCopy *gitWorkingCopy, ch git.Change, staged bool) {
 	label, action := locales.MsgUnstaged(), locales.MsgStage()
 	if staged {
 		label, action = locales.MsgStaged(), locales.MsgUnstage()
 	}
+	selected, changes, busy := a.git.selected, a.git.changes, a.git.busy
+	if workingCopy != nil {
+		selected, changes = workingCopy.selected, workingCopy.changes
+		busy = workingCopy.busy || root == a.git.root && a.git.busy
+	}
+	changeKey := gitChangeKey(staged, ch.Path)
+	tabKey := a.gitChangeTabKey(root, ch, staged)
 	container := ui.Row(c.Key(fmt.Sprintf("%t:%s", staged, ch.Path))).FillWidth().Height(gitSidebarRowHeight).
 		Padding(0, sidebarInset+gitSidebarTreeIndent).Gap(2).Radius(4).AlignItems(ui.Center)
 	hovered := container.Hovered()
-	if a.git.selected[gitChangeKey(staged, ch.Path)] {
+	if selected[changeKey] {
 		container.Background(colors(c).SelectedRow)
-	} else if len(a.git.selected) == 0 && a.focus.active == diffTab(ch.Path, staged) {
+	} else if len(selected) == 0 && a.focus.active == tabKey {
 		container.Background(colors(c).SelectedRow)
 	} else if hovered {
 		container.Background(colors(c).Pill)
 	}
 	container.Children(func() {
 		row := ui.ButtonBase(c).Label(label+locales.MsgDiff()+ch.Path).Tooltip(ch.Path).Grow(1).Shrink(1).MinWidth(0).Padding(2, 0).Radius(4)
-		row.Drag(&tabDrag{change: &ch, staged: staged})
+		row.Drag(&tabDrag{change: &ch, staged: staged, root: root})
 		row.Children(func() {
 			ui.Row(c).FillWidth().Gap(6).AlignItems(ui.Center).Children(func() {
 				fileIcon(c, filepath.Base(ch.Path), 15)
@@ -1145,20 +1203,40 @@ func (a *App) gitRow(c *ui.Context, ch git.Change, staged bool) {
 		})
 		mods := row.ClickModifiers()
 		row.OnClick(func() {
-			a.git.selectChange(gitChangeKey(staged, ch.Path), mods)
+			if ch.Conflicted() {
+				if workingCopy != nil {
+					workingCopy.selected = nil
+					workingCopy.selectionAnchor = ""
+					a.showGitWorkingCopyDiff(root, ch, false, a.focus, sideNone, len(a.focus.order), workingCopy)
+				} else {
+					a.git.selected = nil
+					a.git.selectionAnchor = ""
+					a.showGitDiff(ch, false)
+				}
+				return
+			}
+			if workingCopy != nil {
+				workingCopy.selectChange(changeKey, mods)
+			} else {
+				a.git.selectChange(changeKey, mods)
+			}
 			if mods&(ui.Cmd|ui.Ctrl|ui.Shift) == 0 {
-				a.showGitDiff(ch, staged)
+				if workingCopy != nil {
+					a.showGitWorkingCopyDiff(root, ch, staged, a.focus, sideNone, len(a.focus.order), workingCopy)
+				} else {
+					a.showGitDiff(ch, staged)
+				}
 			}
 		})
 		if hovered {
 			if ch.Work != 'D' && !(ch.Index == 'D' && ch.Work == ' ') && glyphButton(c, icGitOpen, locales.Catalog.Format(i18n.Locale(), "msgOpenFileS", map[string]any{"path": ch.Path}), locales.MsgOpenFileAction(), false, false).Clicked() {
-				a.openGitFile(ch)
+				a.openGitFileIn(root, ch)
 			}
-			if !staged && glyphButton(c, icGitDiscard, locales.Catalog.Format(i18n.Locale(), "msgDiscardChangesS", map[string]any{"path": ch.Path}), locales.DiscardChanges(), false, a.git.busy).Clicked() {
-				if a.git.selected[gitChangeKey(false, ch.Path)] {
+			if !staged && !ch.Conflicted() && glyphButton(c, icGitDiscard, locales.Catalog.Format(i18n.Locale(), "msgDiscardChangesS", map[string]any{"path": ch.Path}), locales.DiscardChanges(), false, busy).Clicked() {
+				if selected[gitChangeKey(false, ch.Path)] {
 					var targets []git.Change
-					for _, c2 := range a.git.changes {
-						if a.git.selected[gitChangeKey(false, c2.Path)] {
+					for _, c2 := range changes {
+						if selected[gitChangeKey(false, c2.Path)] {
 							targets = append(targets, c2)
 						}
 					}
@@ -1172,37 +1250,51 @@ func (a *App) gitRow(c *ui.Context, ch git.Change, staged bool) {
 						uniq = append(uniq, t)
 					}
 					if len(uniq) > 1 {
-						a.discardGitChanges(uniq)
+						if workingCopy != nil {
+							a.discardGitWorkingCopyChanges(root, uniq)
+						} else {
+							a.discardGitChanges(uniq)
+						}
 						return
 					}
 				}
-				a.discardGitChange(ch)
-			}
-			icon := icPlus
-			if staged {
-				icon = icMinus
-			}
-			if glyphButton(c, icon, action+" "+ch.Path, action, false, a.git.busy).Clicked() {
-				targets := []git.Change{ch}
-				if a.git.selected[gitChangeKey(staged, ch.Path)] {
-					for _, c2 := range a.git.changes {
-						if a.git.selected[gitChangeKey(staged, c2.Path)] {
-							targets = append(targets, c2)
-						}
-					}
-					// de-duplicate
-					seen := map[string]bool{}
-					var uniq []git.Change
-					for _, t := range targets {
-						if seen[t.Path] {
-							continue
-						}
-						seen[t.Path] = true
-						uniq = append(uniq, t)
-					}
-					targets = uniq
+				if workingCopy != nil {
+					a.discardGitWorkingCopyChange(root, ch)
+				} else {
+					a.discardGitChange(ch)
 				}
-				a.stageGitChanges(staged, targets)
+			}
+			if !ch.Conflicted() {
+				icon := icPlus
+				if staged {
+					icon = icMinus
+				}
+				if glyphButton(c, icon, action+" "+ch.Path, action, false, busy).Clicked() {
+					targets := []git.Change{ch}
+					if selected[changeKey] {
+						for _, c2 := range changes {
+							if selected[gitChangeKey(staged, c2.Path)] {
+								targets = append(targets, c2)
+							}
+						}
+						// de-duplicate
+						seen := map[string]bool{}
+						var uniq []git.Change
+						for _, t := range targets {
+							if seen[t.Path] {
+								continue
+							}
+							seen[t.Path] = true
+							uniq = append(uniq, t)
+						}
+						targets = uniq
+					}
+					if workingCopy != nil {
+						a.stageGitWorkingCopyChanges(root, staged, targets)
+					} else {
+						a.stageGitChanges(staged, targets)
+					}
+				}
 			}
 		}
 		status := ch.Work
@@ -1213,7 +1305,11 @@ func (a *App) gitRow(c *ui.Context, ch git.Change, staged bool) {
 			status = 'U'
 		}
 		if !hovered {
-			a.lineCounts(c, ch.Path, staged)
+			if workingCopy != nil {
+				a.lineCountsIn(c, ch.Path, staged, workingCopy.counts)
+			} else {
+				a.lineCounts(c, ch.Path, staged)
+			}
 		}
 		ui.Text(c, string(status)).FontSize(11).TextColor(a.gitStatusColor(status)).Padding(0, 4).SingleLine().Shrink(0)
 	})
@@ -1221,9 +1317,13 @@ func (a *App) gitRow(c *ui.Context, ch git.Change, staged bool) {
 
 // lineCounts shows the lines a change adds and deletes, as Peek's list.
 func (a *App) lineCounts(c *ui.Context, path string, staged bool) {
-	m := a.git.counts[1]
+	a.lineCountsIn(c, path, staged, a.git.counts)
+}
+
+func (a *App) lineCountsIn(c *ui.Context, path string, staged bool, counts [2]map[string]git.FileStat) {
+	m := counts[1]
 	if staged {
-		m = a.git.counts[0]
+		m = counts[0]
 	}
 	f, ok := m[path]
 	if !ok || f.Added < 0 {

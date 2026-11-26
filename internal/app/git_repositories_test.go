@@ -153,6 +153,129 @@ func TestChildGitRepositoryDiscoveryIsOptInAndSelectionStaysExplicit(t *testing.
 	})
 }
 
+func TestDiscoveredRepositoryChangesStayGroupedAndScoped(t *testing.T) {
+	workspace := t.TempDir()
+	frontend := nestedGitRepo(t, filepath.Join(workspace, "frontend"), "shared.txt", "base\n", "frontend change\n")
+	backend := nestedGitRepo(t, filepath.Join(workspace, "backend"), "shared.txt", "base\n", "backend change\n")
+	cfg := config.Load(filepath.Join(t.TempDir(), "settings.json"))
+	cfg.GitAutoDiscover = true
+	h := newHarnessWithConfig(t, workspace, cfg)
+	h.a.cfg.GitAutoDiscover = true
+	h.a.refreshGitDiscovery()
+	h.settle(func() bool {
+		return h.a.git.repositoriesLoaded && len(h.a.git.repositories) == 2 && len(h.a.git.workingCopies) == 2
+	})
+	h.a.git.branchDiffMode = uncommittedMode
+	h.a.refreshGitWorkingCopies()
+	h.settle(func() bool {
+		for _, root := range []string{frontend, backend} {
+			if wc := h.a.git.workingCopies[root]; wc == nil || wc.loading || len(wc.changes) != 1 {
+				return false
+			}
+		}
+		return true
+	})
+	if h.a.git.root != "" || !h.a.showsRepositoryChanges() {
+		t.Fatalf("discovered repositories should show together without implicit selection: root=%q repositories=%v", h.a.git.root, h.a.git.repositories)
+	}
+	h.a.navigator = navGit
+	h.tt.Frame()
+	for _, label := range []string{"frontend", "backend", "shared.txt"} {
+		if !h.tt.HasText(label) {
+			t.Fatalf("grouped Changes view is missing %q: %q", label, h.tt.Texts())
+		}
+	}
+
+	h.a.selectGitRepository(frontend)
+	h.settle(func() bool { return h.a.git.root == frontend && !h.a.git.loading })
+	frontCopy, backCopy := h.a.git.workingCopies[frontend], h.a.git.workingCopies[backend]
+	frontChange, backChange := frontCopy.changes[0], backCopy.changes[0]
+	frontKey := h.a.gitChangeTabKey(frontend, frontChange, false)
+	backKey := h.a.gitChangeTabKey(backend, backChange, false)
+	if frontKey == backKey {
+		t.Fatalf("same relative paths in different repositories share a diff key: %q", frontKey)
+	}
+	h.a.showGitWorkingCopyDiff(frontend, frontChange, false, h.a.focus, sideNone, len(h.a.focus.order), frontCopy)
+	h.a.showGitWorkingCopyDiff(backend, backChange, false, h.a.focus, sideNone, len(h.a.focus.order), backCopy)
+	h.settle(func() bool {
+		front, back := h.a.focus.diffs[frontKey], h.a.focus.diffs[backKey]
+		return front != nil && front.state != nil && back != nil && back.state != nil
+	})
+	if h.a.focus.diffs[frontKey].root != frontend || h.a.focus.diffs[backKey].root != backend {
+		t.Fatalf("duplicate-name diffs lost their owning repository: frontend=%q backend=%q", h.a.focus.diffs[frontKey].root, h.a.focus.diffs[backKey].root)
+	}
+
+	h.a.stageGitWorkingCopyChanges(backend, false, []git.Change{backChange})
+	h.settle(func() bool { return !backCopy.busy && !backCopy.loading })
+	backendState, err := git.Sync(context.Background(), backend, false)
+	if err != nil || len(backendState.Changes) != 1 || backendState.Changes[0].Index != 'M' || backendState.Changes[0].Work != ' ' {
+		t.Fatalf("staging backend group targeted the wrong change: state=%+v err=%v", backendState.Changes, err)
+	}
+	frontendState, err := git.Sync(context.Background(), frontend, false)
+	if err != nil || len(frontendState.Changes) != 1 || frontendState.Changes[0].Index != ' ' || frontendState.Changes[0].Work != 'M' {
+		t.Fatalf("staging backend group changed frontend: state=%+v err=%v", frontendState.Changes, err)
+	}
+	h.a.stageGitWorkingCopyChanges(backend, true, backendState.Changes)
+	h.settle(func() bool { return !backCopy.busy && !backCopy.loading })
+	backendState, err = git.Sync(context.Background(), backend, false)
+	if err != nil || len(backendState.Changes) != 1 || backendState.Changes[0].Index != ' ' || backendState.Changes[0].Work != 'M' {
+		t.Fatalf("unstaging backend group changed the wrong repository: state=%+v err=%v", backendState.Changes, err)
+	}
+	h.a.stageGitWorkingCopyChanges(backend, false, backendState.Changes)
+	h.settle(func() bool { return !backCopy.busy && !backCopy.loading })
+	h.a.runGitWorkingCopyAction(backend, "commit", "-m", "backend grouped commit")
+	h.settle(func() bool { return !backCopy.busy && !backCopy.loading })
+	commit, err := git.Command(context.Background(), backend, "log", "-1", "--format=%s")
+	if err != nil || strings.TrimSpace(string(commit)) != "backend grouped commit" {
+		t.Fatalf("backend group's commit went to the wrong repository: commit=%q err=%v", commit, err)
+	}
+
+	h.a.discardGitWorkingCopyChange(frontend, frontChange)
+	if h.a.deleteConfirm == nil {
+		t.Fatal("discarding a group change did not ask for confirmation")
+	}
+	h.a.deleteConfirm.actions[0].fn()
+	h.settle(func() bool { return !frontCopy.busy && !h.a.git.loading && len(frontCopy.changes) == 0 })
+	frontendState, err = git.Sync(context.Background(), frontend, false)
+	if err != nil || len(frontendState.Changes) != 0 {
+		t.Fatalf("discarding frontend group did not target frontend: state=%+v err=%v", frontendState.Changes, err)
+	}
+
+	h.a.loadHistory(true)
+	h.settle(func() bool { return !h.a.git.history.loading && len(h.a.git.history.commits) > 0 })
+	h.a.openGitFileIn(backend, git.Change{Path: "shared.txt"})
+	if h.a.git.root != frontend {
+		t.Fatalf("opening backend file changed the explicitly selected History repository to %q", h.a.git.root)
+	}
+	h.a.loadHistory(true)
+	h.settle(func() bool { return !h.a.git.history.loading && len(h.a.git.history.commits) > 0 })
+	if subject := h.a.git.history.commits[0].Subject; subject != "frontend first" {
+		t.Fatalf("History followed the opened backend file: latest subject=%q", subject)
+	}
+}
+
+func TestGitWorkingCopyRefreshRejectsReplacedRepositoryState(t *testing.T) {
+	root := gitRepo(t, map[string]string{"shared.txt": "base\n"})
+	cfg := config.Load(filepath.Join(t.TempDir(), "settings.json"))
+	cfg.GitAutoDiscover = true
+	h := newHarnessWithConfig(t, "", cfg)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	h.a.wsCtx = ctx
+	h.a.git.repositories = []string{root}
+	h.a.git.repositoriesLoaded = true
+	old := &gitWorkingCopy{changes: []git.Change{{Path: "old snapshot"}}}
+	h.a.git.workingCopies = map[string]*gitWorkingCopy{root: old}
+	h.a.refreshGitWorkingCopy(root)
+	result := queuedGitResult(t, h)
+	current := &gitWorkingCopy{changes: []git.Change{{Path: "current snapshot"}}}
+	h.a.git.workingCopies[root] = current
+	result()
+	if got := h.a.git.workingCopies[root].changes[0].Path; got != "current snapshot" {
+		t.Fatalf("stale status replaced the current repository snapshot with %q", got)
+	}
+}
+
 func TestGitRepositorySelectionRejectsStaleAsyncResults(t *testing.T) {
 	workspace := t.TempDir()
 	frontend := nestedGitRepo(t, filepath.Join(workspace, "frontend"), "frontend.txt", "base\n", "changed\n")

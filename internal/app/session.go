@@ -60,6 +60,9 @@ func (a *App) captureSession() {
 				if v := g.diffs[key]; v != nil && (v.localHistory != nil || v.revision != nil) {
 					continue
 				}
+				if v := g.diffs[key]; v != nil && v.root != "" && v.root != a.git.root {
+					continue
+				}
 				if spec := diffTabSpec(g.diffs[key]); spec != nil {
 					s.Tabs = append(s.Tabs, config.Tab{Diff: spec})
 				}

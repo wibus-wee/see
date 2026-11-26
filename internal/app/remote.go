@@ -106,6 +106,7 @@ func (a *App) runSyncGit(doing, done string, background bool, args ...string) {
 				}
 			}
 			a.refreshGit()
+			a.refreshGitWorkingCopies()
 		})
 	}()
 }
