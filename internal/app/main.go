@@ -44,16 +44,16 @@ func Main() {
 		}
 		return
 	}
-	if runtime.GOOS == "linux" {
-		if err := setGTKUsePortalDefault(gtkPortalFileChooserAvailable); err != nil {
-			log.Printf("see: set %s: %v", gtkUsePortalEnv, err)
-		}
-	}
 	mygo.App.SetName("See")
 	// One See at a time, as Xcode: `see` and a second launch hand their
 	// folder to the app that runs, which opens it (OnSecondInstance).
 	if !mygo.App.RequestSingleInstanceLock() {
 		return
+	}
+	if runtime.GOOS == "linux" {
+		if err := setGTKUsePortalDefault(gtkPortalFileChooserAvailable); err != nil {
+			log.Printf("see: set %s: %v", gtkUsePortalEnv, err)
+		}
 	}
 	shellpath.Start()
 	mygo.Use(native.Plugin)
