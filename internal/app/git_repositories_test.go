@@ -186,8 +186,8 @@ func TestDiscoveredRepositoryChangesStayGroupedAndScoped(t *testing.T) {
 		}
 	}
 
-	h.a.selectGitRepository(frontend)
-	h.settle(func() bool { return h.a.git.root == frontend && !h.a.git.loading })
+	h.a.selectGitRepository(backend)
+	h.settle(func() bool { return h.a.git.root == backend && !h.a.git.loading })
 	frontCopy, backCopy := h.a.git.workingCopies[frontend], h.a.git.workingCopies[backend]
 	frontChange, backChange := frontCopy.changes[0], backCopy.changes[0]
 	frontKey := h.a.gitChangeTabKey(frontend, frontChange, false)
@@ -204,9 +204,15 @@ func TestDiscoveredRepositoryChangesStayGroupedAndScoped(t *testing.T) {
 	if h.a.focus.diffs[frontKey].root != frontend || h.a.focus.diffs[backKey].root != backend {
 		t.Fatalf("duplicate-name diffs lost their owning repository: frontend=%q backend=%q", h.a.focus.diffs[frontKey].root, h.a.focus.diffs[backKey].root)
 	}
+	frontView, backView := h.a.focus.diffs[frontKey], h.a.focus.diffs[backKey]
+	if frontView.partial == nil || backView.partial == nil {
+		t.Fatal("initial group diffs should expose partial-stageable hunks")
+	}
 
 	h.a.stageGitWorkingCopyChanges(backend, false, []git.Change{backChange})
-	h.settle(func() bool { return !backCopy.busy && !backCopy.loading })
+	h.settle(func() bool {
+		return !backCopy.busy && !backCopy.loading && backView.partial == nil && len(backView.state.Hunks()) == 0
+	})
 	backendState, err := git.Sync(context.Background(), backend, false)
 	if err != nil || len(backendState.Changes) != 1 || backendState.Changes[0].Index != 'M' || backendState.Changes[0].Work != ' ' {
 		t.Fatalf("staging backend group targeted the wrong change: state=%+v err=%v", backendState.Changes, err)
@@ -215,8 +221,17 @@ func TestDiscoveredRepositoryChangesStayGroupedAndScoped(t *testing.T) {
 	if err != nil || len(frontendState.Changes) != 1 || frontendState.Changes[0].Index != ' ' || frontendState.Changes[0].Work != 'M' {
 		t.Fatalf("staging backend group changed frontend: state=%+v err=%v", frontendState.Changes, err)
 	}
+	stagedKey := h.a.gitChangeTabKey(backend, backendState.Changes[0], true)
+	h.a.showGitWorkingCopyDiff(backend, backendState.Changes[0], true, h.a.focus, sideNone, len(h.a.focus.order), backCopy)
+	h.settle(func() bool {
+		view := h.a.focus.diffs[stagedKey]
+		return view != nil && view.state != nil && view.partial != nil
+	})
+	stagedView := h.a.focus.diffs[stagedKey]
 	h.a.stageGitWorkingCopyChanges(backend, true, backendState.Changes)
-	h.settle(func() bool { return !backCopy.busy && !backCopy.loading })
+	h.settle(func() bool {
+		return !backCopy.busy && !backCopy.loading && stagedView.partial == nil && len(stagedView.state.Hunks()) == 0 && backView.partial != nil
+	})
 	backendState, err = git.Sync(context.Background(), backend, false)
 	if err != nil || len(backendState.Changes) != 1 || backendState.Changes[0].Index != ' ' || backendState.Changes[0].Work != 'M' {
 		t.Fatalf("unstaging backend group changed the wrong repository: state=%+v err=%v", backendState.Changes, err)
@@ -235,7 +250,9 @@ func TestDiscoveredRepositoryChangesStayGroupedAndScoped(t *testing.T) {
 		t.Fatal("discarding a group change did not ask for confirmation")
 	}
 	h.a.deleteConfirm.actions[0].fn()
-	h.settle(func() bool { return !frontCopy.busy && !h.a.git.loading && len(frontCopy.changes) == 0 })
+	h.settle(func() bool {
+		return !frontCopy.busy && !frontCopy.loading && len(frontCopy.changes) == 0 && frontView.partial == nil && len(frontView.state.Hunks()) == 0
+	})
 	frontendState, err = git.Sync(context.Background(), frontend, false)
 	if err != nil || len(frontendState.Changes) != 0 {
 		t.Fatalf("discarding frontend group did not target frontend: state=%+v err=%v", frontendState.Changes, err)
@@ -243,14 +260,14 @@ func TestDiscoveredRepositoryChangesStayGroupedAndScoped(t *testing.T) {
 
 	h.a.loadHistory(true)
 	h.settle(func() bool { return !h.a.git.history.loading && len(h.a.git.history.commits) > 0 })
-	h.a.openGitFileIn(backend, git.Change{Path: "shared.txt"})
-	if h.a.git.root != frontend {
-		t.Fatalf("opening backend file changed the explicitly selected History repository to %q", h.a.git.root)
+	h.a.openGitFileIn(frontend, git.Change{Path: "shared.txt"})
+	if h.a.git.root != backend {
+		t.Fatalf("opening frontend file changed the explicitly selected History repository to %q", h.a.git.root)
 	}
 	h.a.loadHistory(true)
 	h.settle(func() bool { return !h.a.git.history.loading && len(h.a.git.history.commits) > 0 })
-	if subject := h.a.git.history.commits[0].Subject; subject != "frontend first" {
-		t.Fatalf("History followed the opened backend file: latest subject=%q", subject)
+	if subject := h.a.git.history.commits[0].Subject; subject != "backend grouped commit" {
+		t.Fatalf("History followed the opened frontend file: latest subject=%q", subject)
 	}
 }
 

@@ -287,3 +287,44 @@ func (a *App) updateGitChangeViews(root, name string, working, index gitChangeVi
 		}
 	}
 }
+
+func (a *App) refreshGitWorkingDiffs(root string, changes []git.Change) {
+	if root == "" || a.wsCtx == nil {
+		return
+	}
+	byPath := make(map[string]git.Change, len(changes))
+	for _, change := range changes {
+		byPath[change.Path] = change
+	}
+	ctx, gen := a.wsCtx, a.gen
+	workingCopy := a.git.workingCopies[root]
+	for _, g := range a.groups() {
+		for key, view := range g.diffs {
+			if view == nil || !view.change || view.state == nil || a.gitDiffRoot(view) != root {
+				continue
+			}
+			view.changeRefreshSeq++
+			seq := view.changeRefreshSeq
+			change, ok := byPath[view.name]
+			if !ok || change.Conflicted() || !gitChangeInSection(change, view.staged) {
+				a.setGitChangeView(view, gitChangeView{}, 0)
+				continue
+			}
+			go func(g *group, key string, view *gitDiffTab, seq uint64, change git.Change, staged bool) {
+				updated, err := readGitChangeView(ctx, root, change, staged)
+				a.post.Post(func() {
+					if a.gen != gen || g.diffs[key] != view || view.changeRefreshSeq != seq ||
+						a.gitDiffRoot(view) != root || workingCopy != nil && a.git.workingCopies[root] != workingCopy {
+						return
+					}
+					if err != nil {
+						a.note(locales.MsgGitDiff()+err.Error(), true)
+						updated = gitChangeView{}
+					}
+					hunk, _ := view.state.CurrentHunk()
+					a.setGitChangeView(view, updated, hunk)
+				})
+			}(g, key, view, seq, change, view.staged)
+		}
+	}
+}

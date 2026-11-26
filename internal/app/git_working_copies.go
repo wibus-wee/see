@@ -278,6 +278,8 @@ func (a *App) updateGitWorkingCopy(root string, state git.State, err error, coun
 	workingCopy.err = ""
 	if err != nil {
 		workingCopy.err = err.Error()
+	} else {
+		a.refreshGitWorkingDiffs(root, state.Changes)
 	}
 	if counting || len(state.Changes) == 0 {
 		workingCopy.counts = [2]map[string]git.FileStat{state.Staged, state.Unstaged}
@@ -318,6 +320,8 @@ func (a *App) refreshGitWorkingCopy(root string) {
 			workingCopy.err = ""
 			if err != nil {
 				workingCopy.err = err.Error()
+			} else {
+				a.refreshGitWorkingDiffs(root, state.Changes)
 			}
 			if counting || len(state.Changes) == 0 {
 				workingCopy.counts = [2]map[string]git.FileStat{state.Staged, state.Unstaged}

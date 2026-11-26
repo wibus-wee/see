@@ -104,6 +104,7 @@ type gitDiffTab struct {
 	oldBuffer, newBuffer *editor.Buffer // source buffers for a CLI file comparison
 	name                 string
 	root                 string
+	changeRefreshSeq     uint64
 	staged               bool
 	cli                  bool        // `see --diff`'s: it compares paths, not repository changes
 	rev                  string      // the commit's short hash, for a file of a commit
