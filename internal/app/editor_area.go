@@ -29,26 +29,27 @@ func (a *App) editorArea(c *ui.Context) {
 	if target := a.focusGroupTarget; target != nil && (a.layout.find(target) == nil || target.focusHandle.FocusWithin(c)) {
 		a.focusGroupTarget = nil
 	}
-	ui.Column(c).Fill().Background(colors(c).Editor).Children(func() {
-		ui.Row(c).Fill().AlignItems(ui.Stretch).Children(func() {
-			ui.Column(c).Grow(1).FillHeight().Children(func() {
-				a.editorsAndPanel(c, func() {
-					ui.Column(c).Fill().Children(func() {
-						if g := a.maximized; g != nil && a.layout.find(g) != nil && len(a.groups()) > 1 {
-							a.groupView(c, g)
-						} else {
-							a.layoutView(c, a.layout)
-						}
-					})
+	ui.Row(c).Fill().AlignItems(ui.Stretch).Children(func() {
+		ui.Column(c).Grow(1).FillHeight().Children(func() {
+			a.editorsAndPanel(c, func() {
+				ui.Column(c.Key("regex-tool-editor-workspace")).Fill().Bind(&a.regexToolWindow.workspaceHandle).Children(func() {
+					if g := a.maximized; g != nil && a.layout.find(g) != nil && len(a.groups()) > 1 {
+						a.groupView(c, g)
+					} else {
+						a.layoutView(c, a.layout)
+					}
+					if p := a.regexPlayground; a.regexToolSourceVisible(p) {
+						a.regexToolWindowView(c, p, a.regexToolWindow.workspaceHandle.Bounds(c), p.group.focusHandle.Bounds(c))
+					}
 				})
 			})
-			if a.inspectorOpen() {
-				ui.Column(c).Width(a.inspectorW()).FillHeight().Shrink(0).Children(func() {
-					a.inspectorDivider(c)
-					a.inspectorView(c)
-				})
-			}
 		})
+		if a.inspectorOpen() {
+			ui.Column(c).Width(a.inspectorW()).FillHeight().Shrink(0).Children(func() {
+				a.inspectorDivider(c)
+				a.inspectorView(c)
+			})
+		}
 	})
 }
 
@@ -603,9 +604,6 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 				a.peekView(c, p)
 			})
 		}
-		if p := a.regexPlayground; p != nil && p.group == g && p.doc == d {
-			a.regexPlaygroundView(c, bounds, st, p)
-		}
 		if ch := a.choices; ch != nil && ch.g == g && ch.from.Path == d.path {
 			closeLabel := locales.MsgCloseReferencesPreview()
 			if ch.title == "definitions" {
@@ -631,8 +629,6 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 		a.renameStrip(c, bounds, st, d, gutter)
 		a.codeActionLightbulb(c, g, d, st, bounds, gutter, fontSize, lineHeight)
 		switch {
-		case a.regexPlayground != nil && a.regexPlayground.group == g && a.regexPlayground.doc == d:
-			// The sample editor owns focus while its playground is open.
 		case a.focusEditor == st || a.focusGroupTarget == g:
 			// A navigation went here: the keys read on from it.
 			ed.Focus()

@@ -151,6 +151,7 @@ type App struct {
 	counterpartMiss     counterpartFeedback
 	peek                *peekState // a definition peeked at from an editor
 	regexPlayground     *regexPlayground
+	regexToolWindow     regexToolWindowState
 	references          referenceList
 	referencesEmpty     bool         // the last pin found no references
 	codeActions         *codeActions // the code actions a request found, for its menu
@@ -562,6 +563,8 @@ func (a *App) closeWorkspace() {
 	// Persist the session before throwing its documents away. In particular,
 	// a standalone window may own entries in the shared empty-root session.
 	a.saveConfig()
+	a.regexPlayground = nil
+	a.regexToolWindow.resetWorkspace()
 	a.gen++
 	if a.wsCancel != nil {
 		a.wsCancel()
