@@ -13,6 +13,7 @@ const (
 	gitSidebarTextOffset        = gitSidebarIconColumn + gitSidebarColumnGap
 	gitSidebarTextInset         = sidebarInset + gitSidebarTextOffset
 	gitSidebarTreeIndent        = 15
+	gitSidebarRepositoryGap     = 6
 	gitSidebarMainHeaderHeight  = 24
 	gitSidebarGroupHeaderHeight = 22
 	gitSidebarRowHeight         = 24

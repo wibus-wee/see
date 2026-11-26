@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -296,7 +297,7 @@ func TestDiscoveredRepositoryCommitComposersShowForUnstagedChanges(t *testing.T)
 	})
 	h.a.navigator = navGit
 	h.tt.Frame()
-	var fields, buttons []ui.AccessInfo
+	var fields, buttons, headers, fileRows []ui.AccessInfo
 	for _, access := range h.tt.AccessAll() {
 		if access.Role == ui.RoleTextField && access.Name == locales.MsgCommitMessage() {
 			fields = append(fields, access)
@@ -304,9 +305,26 @@ func TestDiscoveredRepositoryCommitComposersShowForUnstagedChanges(t *testing.T)
 		if access.Role == ui.RoleButton && access.Name == locales.MsgCommit() {
 			buttons = append(buttons, access)
 		}
+		if access.Role == ui.RoleButton && (access.Name == "backend" || access.Name == "frontend") {
+			headers = append(headers, access)
+		}
+		if access.Role == ui.RoleButton && strings.HasSuffix(access.Name, "readme.md") {
+			fileRows = append(fileRows, access)
+		}
 	}
-	if len(fields) != 2 || len(buttons) != 2 {
-		t.Fatalf("unstaged-only groups should both show their commit composer: fields=%+v buttons=%+v texts=%q", fields, buttons, h.tt.Texts())
+	if len(fields) != 2 || len(buttons) != 2 || len(headers) != 2 || len(fileRows) != 2 {
+		t.Fatalf("unstaged-only groups should show their composers between repository headers and file rows: fields=%+v buttons=%+v headers=%+v file rows=%+v texts=%q", fields, buttons, headers, fileRows, h.tt.Texts())
+	}
+	byY := func(items []ui.AccessInfo) {
+		sort.Slice(items, func(i, j int) bool { return items[i].Bounds.Y < items[j].Bounds.Y })
+	}
+	byY(headers)
+	byY(fields)
+	byY(fileRows)
+	for i := range headers {
+		if !(headers[i].Bounds.Y < fields[i].Bounds.Y && fields[i].Bounds.Y < fileRows[i].Bounds.Y) {
+			t.Fatalf("repository group %d is not ordered header -> composer -> files: header=%+v composer=%+v file=%+v", i, headers[i], fields[i], fileRows[i])
+		}
 	}
 	for _, button := range buttons {
 		if !button.Disabled {

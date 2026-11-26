@@ -84,7 +84,7 @@ func (a *App) gitWorkingCopiesNavigator(c *ui.Context) {
 				return
 			}
 			ui.Scroll(c.Key("git-changes-tree")).Grow(1).FillWidth().Children(func() {
-				ui.Column(c).FillWidth().Children(func() {
+				ui.Column(c).FillWidth().Gap(gitSidebarRepositoryGap).Children(func() {
 					for _, root := range a.git.repositories {
 						workingCopy := a.git.workingCopies[root]
 						if workingCopy != nil {
@@ -154,6 +154,13 @@ func (a *App) gitWorkingCopyGroup(c *ui.Context, root string, workingCopy *gitWo
 		if workingCopy.closed {
 			return
 		}
+		conflicts := 0
+		for _, change := range workingCopy.changes {
+			if change.Conflicted() {
+				conflicts++
+			}
+		}
+		a.gitWorkingCopyCommitBar(c, root, workingCopy, staged, conflicts > 0)
 		if workingCopy.err != "" {
 			ui.Text(c, workingCopy.err).FontSize(11).TextColor(colors(c).Muted).Padding(4, sidebarInset)
 		}
@@ -183,13 +190,6 @@ func (a *App) gitWorkingCopyGroup(c *ui.Context, root string, workingCopy *gitWo
 			a.gitSection(c, locales.MsgChanges(), unstaged)
 		}
 		a.gitWorkingCopyRows(c, root, workingCopy, false)
-		conflicts := 0
-		for _, change := range workingCopy.changes {
-			if change.Conflicted() {
-				conflicts++
-			}
-		}
-		a.gitWorkingCopyCommitBar(c, root, workingCopy, staged, conflicts > 0)
 		if root == a.git.root {
 			a.stashRows(c)
 		}
@@ -224,7 +224,6 @@ func (a *App) gitWorkingCopyCommitBar(c *ui.Context, root string, workingCopy *g
 		tip = gitConflictText("gitCommitMerge")
 	}
 	ui.Column(c).Shrink(0).FillWidth().Children(func() {
-		ui.Box(c).FillWidth().Height(1).Background(colors(c).Separator)
 		ui.Row(c).FillWidth().Height(34).Padding(0, sidebarInset).AlignItems(ui.Center).Children(func() {
 			ui.Row(c).FillWidth().Height(28).Radius(14).Background(colors(c).Pill).
 				Padding(0, 3, 0, 12).Gap(4).AlignItems(ui.Center).Children(func() {
