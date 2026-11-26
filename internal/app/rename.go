@@ -119,7 +119,7 @@ func (a *App) renamed(old, dst string) {
 		}
 		delete(a.docs, path)
 		d.seq++
-		d.loading = false
+		a.finishDocLoading(d)
 		mediaChanged := isVideoPath(path) != isVideoPath(next)
 		a.closeDocumentVideos(path)
 		d.path, d.uri, d.name = next, uriOf(next), filepath.Base(next)

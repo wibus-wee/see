@@ -557,6 +557,7 @@ func (a *App) releaseIfUnused(path string) {
 	if d == nil {
 		return
 	}
+	stopLoadingIndicator(d)
 	a.captureCurrentLocalHistory(d)
 	delete(a.docs, path)
 	if a.root == "" && !d.untitled {

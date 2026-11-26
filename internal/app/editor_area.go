@@ -326,7 +326,7 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 	switch {
 	case d.err != nil:
 		a.message(c, locales.MsgCouldNotOpen()+d.name, describeErr(d.err), locales.Retry(), func() { a.reloadDoc(d) })
-	case d.loading && st == nil:
+	case d.loadingVisible && st == nil:
 		ui.Row(c).Grow(1).FillWidth().Center().Gap(8).Children(func() {
 			ui.Spinner(c)
 			ui.Text(c, locales.MsgLoading2()+d.name+"…").TextColor(colors(c).Muted)

@@ -279,6 +279,9 @@ type doc struct {
 	hex             *hexState
 
 	loading           bool
+	loadingVisible    bool
+	loadingSeq        uint64
+	loadingTimer      *time.Timer
 	err               error
 	kind              workspace.Kind
 	size              int64
@@ -1095,6 +1098,7 @@ func (a *App) loadDoc(d *doc) {
 	d.loading, d.err = true, nil
 	d.seq++
 	seq, gen := d.seq, a.gen
+	a.scheduleLoadingIndicator(d, seq, documentLoadingIndicatorDelay)
 	lossy, needBuf, stamp, untitled := d.lossy, d.buf == nil, d.stamp, d.untitled
 	checkStamp := !needBuf || d.video
 	path, root, name := d.path, a.root, d.name
@@ -1109,7 +1113,8 @@ func (a *App) loadDoc(d *doc) {
 			if fi, err := os.Stat(path); err == nil && (fileStamp{fi.Size(), fi.ModTime()}) == stamp {
 				a.post.Post(func() {
 					if a.gen == gen && a.docs[d.path] == d && d.seq == seq {
-						d.loading, d.gone, d.err = false, false, nil
+						a.finishDocLoading(d)
+						d.gone, d.err = false, nil
 					}
 				})
 				return
@@ -1148,7 +1153,7 @@ func (a *App) loadDoc(d *doc) {
 				return
 			}
 			if d.buf != nil && d.buf.Version() != snap.Version() {
-				d.loading = false
+				a.finishDocLoading(d)
 				a.reloadDoc(d)
 				return
 			}
@@ -1188,9 +1193,40 @@ func (a *App) loadDoc(d *doc) {
 	}()
 }
 
+const documentLoadingIndicatorDelay = 800 * time.Millisecond
+
+func (a *App) scheduleLoadingIndicator(d *doc, seq int, delay time.Duration) {
+	stopLoadingIndicator(d)
+	indicator := d.loadingSeq
+	gen := a.gen
+	d.loadingTimer = time.AfterFunc(delay, func() {
+		a.post.Post(func() {
+			if a.gen != gen || a.docs[d.path] != d || d.seq != seq || d.loadingSeq != indicator || !d.loading {
+				return
+			}
+			d.loadingVisible = true
+			d.loadingTimer = nil
+		})
+	})
+}
+
+func stopLoadingIndicator(d *doc) {
+	d.loadingSeq++
+	if d.loadingTimer != nil {
+		d.loadingTimer.Stop()
+		d.loadingTimer = nil
+	}
+	d.loadingVisible = false
+}
+
+func (a *App) finishDocLoading(d *doc) {
+	d.loading = false
+	stopLoadingIndicator(d)
+}
+
 // loaded takes a document's file as read.
 func (a *App) loaded(d *doc, f workspace.File, buf *editor.Buffer, same bool, err error) {
-	d.loading = false
+	a.finishDocLoading(d)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) && d.buf != nil {
 			d.gone = true // keep showing what it was

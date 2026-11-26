@@ -178,7 +178,7 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 				if count[d.name] > 1 {
 					ui.Text(c, filepath.Base(filepath.Dir(path))).FontSize(11).TextColor(colors(c).Dim).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(2)
 				}
-				if d.loading {
+				if d.loadingVisible {
 					ui.Spinner(c).FontSize(10)
 				}
 				ui.Box(c).Size(16, 16).Shrink(0) // balances the close button
