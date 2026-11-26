@@ -3,7 +3,31 @@ package app
 import (
 	"testing"
 	"time"
+
+	"github.com/egoist/mygo/i18n"
 )
+
+func TestShortDateFollowsLocale(t *testing.T) {
+	i18n.SetLocaleFunc(func() string { return "zh-Hans" })
+	defer i18n.SetLocaleFunc(nil)
+
+	now := time.Date(2026, time.November, 19, 15, 0, 0, 0, time.UTC)
+	for _, tt := range []struct {
+		name string
+		date time.Time
+		want string
+	}{
+		{"today", time.Date(2026, time.November, 19, 9, 5, 0, 0, time.UTC), "09:05"},
+		{"yesterday", now.AddDate(0, 0, -1), "昨天"},
+		{"weekday", now.AddDate(0, 0, -3), "星期一"},
+		{"this year", time.Date(2026, time.January, 2, 0, 0, 0, 0, time.UTC), "1月2日"},
+		{"previous year", time.Date(2025, time.January, 2, 0, 0, 0, 0, time.UTC), "2025年1月2日"},
+	} {
+		if got := shortDate(tt.date, now); got != tt.want {
+			t.Errorf("%s: shortDate = %q, want %q", tt.name, got, tt.want)
+		}
+	}
+}
 
 func TestRelativeTimeLocales(t *testing.T) {
 	now := time.Date(2026, time.November, 19, 15, 0, 0, 0, time.UTC)

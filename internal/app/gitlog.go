@@ -73,7 +73,7 @@ func (a *App) openGitLog() {
 	if g.diffs == nil {
 		g.diffs = map[string]*gitDiffTab{}
 	}
-	g.diffs[gitLogTab] = &gitDiffTab{name: "Git Log", log: &gitLogView{}}
+	g.diffs[gitLogTab] = &gitDiffTab{name: locales.GitLogTitle(), log: &gitLogView{}}
 	g.addTab(gitLogTab, len(g.order))
 	a.activateIn(g, gitLogTab)
 	a.term.maximized = false
@@ -465,7 +465,7 @@ func (a *App) logCommitContent(c *ui.Context, g *group, lc *logCommit) {
 			})
 			ui.Row(c).FillWidth().Gap(16).AlignItems(ui.Center).Wrap().Children(func() {
 				ui.Box(c).Grow(1).Shrink(1).Basis(240).Children(func() {
-					a.personLine(c, git.Person{Name: cm.Author, Email: cm.Email}, "", cm.Date.Format("Monday, January 2, 2006 at 15:04"))
+					a.personLine(c, git.Person{Name: cm.Author, Email: cm.Email}, "", fullDate(cm.Date))
 				})
 				ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
 					ui.Text(c, cm.Short).FontSize(12).TextColor(colors(c).Muted).Selectable()

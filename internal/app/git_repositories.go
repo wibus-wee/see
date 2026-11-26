@@ -75,7 +75,7 @@ func (a *App) gitRepositories(c *ui.Context) {
 				}
 			}
 			if a.git.root == "" {
-				ui.Text(c, "No Git repository found, or Git is unavailable.").FontSize(11).TextColor(colors(c).Muted).Padding(4, 8)
+				ui.Text(c, locales.GitNoRepositoryFound()).FontSize(11).TextColor(colors(c).Muted).Padding(4, 8)
 				return
 			}
 			repoDisclosure(c.Key("root"), 0, filepath.Base(a.git.root), icGit, v.rootClosed,

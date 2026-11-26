@@ -35,7 +35,7 @@ func (a *App) stashBar(c *ui.Context) {
 			return
 		}
 		ctx, root, message := a.wsCtx, a.git.root, a.git.stashMessage
-		a.stashJob("Stashed changes.", func() error { return git.StashPush(ctx, root, message) }, func() {
+		a.stashJob(locales.GitStashedChanges(), func() error { return git.StashPush(ctx, root, message) }, func() {
 			a.git.stashesClosed = false
 			a.endStash()
 		})

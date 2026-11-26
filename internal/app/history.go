@@ -201,9 +201,9 @@ func (a *App) gitSectionHeaderStyle(c *ui.Context, title string, count int, clos
 		height, inset = float32(gitSidebarMainHeaderHeight), float32(sidebarInset)
 	}
 	ui.Row(c.Key(title)).Shrink(0).FillWidth().Height(height).Padding(0, inset).Gap(2).AlignItems(ui.Center).Children(func() {
-		tip := "Hide " + title
+		tip := locales.Catalog.Format(i18n.Locale(), "msgHideSection", map[string]any{"title": title})
 		if *closed {
-			tip = "Show " + title
+			tip = locales.Catalog.Format(i18n.Locale(), "msgShowSection", map[string]any{"title": title})
 		}
 		b := ui.ButtonBase(c).Label(title).Tooltip(tip).Padding(0, 4, 0, 0).Radius(4).Gap(gitSidebarColumnGap).
 			AlignItems(ui.Center).MinWidth(0).Shrink(1).KeepFocus()
@@ -370,17 +370,28 @@ func authors(cm git.Commit) string {
 func shortDate(t, now time.Time) string {
 	y, m, d := now.Date()
 	today := time.Date(y, m, d, 0, 0, 0, 0, now.Location())
+	text := func(key string) string { return locales.Catalog.Format(i18n.Locale(), key, nil) }
 	switch {
 	case !t.Before(today):
 		return t.Format("15:04")
 	case !t.Before(today.AddDate(0, 0, -1)):
-		return "Yesterday"
+		return text("relativeYesterday")
 	case !t.Before(today.AddDate(0, 0, -6)):
-		return t.Format("Monday")
+		return text("relative" + t.Weekday().String())
 	case t.Year() == now.Year():
-		return t.Format("Jan 2")
+		return t.Format(text("relativeDateThisYear"))
 	}
-	return t.Format("2006/1/2")
+	return t.Format(text("relativeDateWithYear"))
+}
+
+// fullDate is a commit's date and weekday in full, in the app's language.
+func fullDate(t time.Time) string {
+	text := func(key string) string { return locales.Catalog.Format(i18n.Locale(), key, nil) }
+	return locales.Catalog.Format(i18n.Locale(), "relativeFullDate", map[string]any{
+		"weekday": text("relative" + t.Weekday().String()),
+		"date":    t.Format(text("relativeDateWithYear")),
+		"time":    t.Format("15:04"),
+	})
 }
 
 // refBadge is a branch or tag pointing at a commit.
@@ -581,9 +592,9 @@ func (a *App) commitContent(c *ui.Context, g *group, v *commitView) {
 	ui.Scroll(c.Key(cm.Hash)).Grow(1).FillWidth().TrackScroll(&v.scroll).Children(func() {
 		ui.Column(c).FillWidth().Padding(20, 24).Gap(14).Children(func() {
 			ui.Text(c, cm.Subject).FontSize(18).Bold().Selectable()
-			when := cm.Date.Format("Monday, January 2, 2006 at 15:04")
+			when := fullDate(cm.Date)
 			if d.Committer != "" && d.Committer != cm.Author {
-				when += " · committed by " + d.Committer
+				when += " · " + locales.Catalog.Format(i18n.Locale(), "gitCommittedBy", map[string]any{"name": d.Committer})
 			}
 			ui.Column(c).FillWidth().Gap(8).Children(func() {
 				a.personLine(c, git.Person{Name: cm.Author, Email: cm.Email}, "", when)
@@ -612,9 +623,9 @@ func (a *App) commitContent(c *ui.Context, g *group, v *commitView) {
 			})
 			if len(cm.Parents) > 0 {
 				ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
-					label := "Parent"
+					label := locales.GitParent()
 					if len(cm.Parents) > 1 {
-						label = "Parents"
+						label = locales.GitParents()
 					}
 					ui.Text(c, label).FontSize(12).TextColor(colors(c).Muted)
 					for _, parent := range cm.Parents {

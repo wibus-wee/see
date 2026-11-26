@@ -150,10 +150,10 @@ func diffFileLines(p editor.FilePatch, full bool, r editor.DiffLineRange) (first
 // diff reads, the file's path in the repository, and the patch the
 // diff shows, for the lines' numbers in it.
 type diffLinkTarget struct {
-	hash string
-	rel  string
+	hash  string
+	rel   string
 	patch editor.FilePatch
-	full bool
+	full  bool
 }
 
 // revisionLinkTarget is the link target of a revision comparison: the
@@ -206,7 +206,7 @@ func (a *App) diffLinkButton(c *ui.Context, v *gitDiffTab, t diffLinkTarget) {
 		return
 	}
 	host := hostName(a.git.web)
-	label := "Copy " + host + " Link"
+	label := locales.EditorContextCopyHostLink(host)
 	b := ui.ButtonBase(c).Label(label).Tooltip(link).Height(22).Padding(0, 8).Radius(4).KeepFocus().Cursor(ui.CursorPointer)
 	if b.Hovered() {
 		b.Background(colors(c).Pill)
@@ -228,7 +228,7 @@ func (a *App) diffLinkButton(c *ui.Context, v *gitDiffTab, t diffLinkTarget) {
 func hostName(web string) string {
 	u, err := url.Parse(web)
 	if err != nil {
-		return "Remote"
+		return locales.GitRemote()
 	}
 	switch host := strings.TrimPrefix(u.Hostname(), "www."); host {
 	case "github.com":

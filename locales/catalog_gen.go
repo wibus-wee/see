@@ -12225,3 +12225,115 @@ func MsgTreeView() string { return In(i18n.Locale()).MsgTreeView() }
 func (msgs Messages) MsgTreeView() string {
 	return Catalog.Format(msgs.locale, "msgTreeView", nil)
 }
+
+// MsgHideSection says "Hide {title}"
+// in the language the app shows.
+func MsgHideSection(title string) string { return In(i18n.Locale()).MsgHideSection(title) }
+
+// MsgHideSection says "Hide {title}"
+// in the language of msgs.
+func (msgs Messages) MsgHideSection(title string) string {
+	return Catalog.Format(msgs.locale, "msgHideSection", map[string]any{"title": title})
+}
+
+// MsgShowSection says "Show {title}"
+// in the language the app shows.
+func MsgShowSection(title string) string { return In(i18n.Locale()).MsgShowSection(title) }
+
+// MsgShowSection says "Show {title}"
+// in the language of msgs.
+func (msgs Messages) MsgShowSection(title string) string {
+	return Catalog.Format(msgs.locale, "msgShowSection", map[string]any{"title": title})
+}
+
+// GitCommittedBy says "committed by {name}"
+// in the language the app shows.
+func GitCommittedBy(name string) string { return In(i18n.Locale()).GitCommittedBy(name) }
+
+// GitCommittedBy says "committed by {name}"
+// in the language of msgs.
+func (msgs Messages) GitCommittedBy(name string) string {
+	return Catalog.Format(msgs.locale, "gitCommittedBy", map[string]any{"name": name})
+}
+
+// GitParent says "Parent"
+// in the language the app shows.
+func GitParent() string { return In(i18n.Locale()).GitParent() }
+
+// GitParent says "Parent"
+// in the language of msgs.
+func (msgs Messages) GitParent() string {
+	return Catalog.Format(msgs.locale, "gitParent", nil)
+}
+
+// GitParents says "Parents"
+// in the language the app shows.
+func GitParents() string { return In(i18n.Locale()).GitParents() }
+
+// GitParents says "Parents"
+// in the language of msgs.
+func (msgs Messages) GitParents() string {
+	return Catalog.Format(msgs.locale, "gitParents", nil)
+}
+
+// GitLogTitle says "Git Log"
+// in the language the app shows.
+func GitLogTitle() string { return In(i18n.Locale()).GitLogTitle() }
+
+// GitLogTitle says "Git Log"
+// in the language of msgs.
+func (msgs Messages) GitLogTitle() string {
+	return Catalog.Format(msgs.locale, "gitLogTitle", nil)
+}
+
+// GitLookingForRepository says "Looking for a Git repository…"
+// in the language the app shows.
+func GitLookingForRepository() string { return In(i18n.Locale()).GitLookingForRepository() }
+
+// GitLookingForRepository says "Looking for a Git repository…"
+// in the language of msgs.
+func (msgs Messages) GitLookingForRepository() string {
+	return Catalog.Format(msgs.locale, "gitLookingForRepository", nil)
+}
+
+// GitNoRepositoryFound says "No Git repository found, or Git is unavailable."
+// in the language the app shows.
+func GitNoRepositoryFound() string { return In(i18n.Locale()).GitNoRepositoryFound() }
+
+// GitNoRepositoryFound says "No Git repository found, or Git is unavailable."
+// in the language of msgs.
+func (msgs Messages) GitNoRepositoryFound() string {
+	return Catalog.Format(msgs.locale, "gitNoRepositoryFound", nil)
+}
+
+// GitStashedChanges says "Stashed changes."
+// in the language the app shows.
+func GitStashedChanges() string { return In(i18n.Locale()).GitStashedChanges() }
+
+// GitStashedChanges says "Stashed changes."
+// in the language of msgs.
+func (msgs Messages) GitStashedChanges() string {
+	return Catalog.Format(msgs.locale, "gitStashedChanges", nil)
+}
+
+// GitRemote says "Remote"
+// in the language the app shows.
+func GitRemote() string { return In(i18n.Locale()).GitRemote() }
+
+// GitRemote says "Remote"
+// in the language of msgs.
+func (msgs Messages) GitRemote() string {
+	return Catalog.Format(msgs.locale, "gitRemote", nil)
+}
+
+// RelativeFullDate says "{weekday}, {date} at {time}"
+// in the language the app shows.
+func RelativeFullDate(weekday string, date string, time_ string) string {
+	return In(i18n.Locale()).RelativeFullDate(weekday, date, time_)
+}
+
+// RelativeFullDate says "{weekday}, {date} at {time}"
+// in the language of msgs.
+func (msgs Messages) RelativeFullDate(weekday string, date string, time_ string) string {
+	return Catalog.Format(msgs.locale, "relativeFullDate", map[string]any{"weekday": weekday, "date": date, "time": time_})
+}

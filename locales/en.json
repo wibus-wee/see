@@ -1203,5 +1203,16 @@
   "gitCherryPicked": "Cherry-picked {commit}.",
   "gitCherryPickPaused": "Resolve any conflicts and run git cherry-pick --continue. Use git cherry-pick --skip to skip the commit or git cherry-pick --abort to cancel.",
   "msgListView": "List View",
-  "msgTreeView": "Tree View"
+  "msgTreeView": "Tree View",
+  "msgHideSection": "Hide {title}",
+  "msgShowSection": "Show {title}",
+  "gitCommittedBy": "committed by {name}",
+  "gitParent": "Parent",
+  "gitParents": "Parents",
+  "gitLogTitle": "Git Log",
+  "gitLookingForRepository": "Looking for a Git repository…",
+  "gitNoRepositoryFound": "No Git repository found, or Git is unavailable.",
+  "gitStashedChanges": "Stashed changes.",
+  "gitRemote": "Remote",
+  "relativeFullDate": "{weekday}, {date} at {time}"
 }
