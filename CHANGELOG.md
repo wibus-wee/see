@@ -2,6 +2,24 @@
 
 User-facing changes are grouped by release. Earlier releases are documented on the [Releases page](https://github.com/wibus-wee/see/releases).
 
+## 0.3.10
+
+### Added
+
+- Open an editor context menu for navigation, symbol actions, formatting, editing, history and comparison, copying, and sharing.
+- Use the Regex Playground as a movable, resizable floating window that can span editor panes and remembers its geometry per workspace.
+- Copy host permalinks from commit file diffs and revision comparisons, pinned to the commit being read; lines selected on the diff's new side become the link anchor.
+
+### Changed
+
+- Lead workspace trust prompts with the decision, explain what language servers may do, and make inspector tabs and empty states clearer.
+
+### Fixed
+
+- Keep inlay type and parameter hints anchored through edits instead of letting them vanish or drift while the language server catches up.
+- Correct Git log details: show incoming and unpushed arrows only on genuine mainline commits, count the full history exactly, keep Load More clear of rows, middle-truncate long tags, and back off automatic fetches while offline.
+- Give icon-only controls, toggles, fields, placeholders, menus, and tips localized accessible names and states.
+
 ## 0.3.9
 
 ### Added
