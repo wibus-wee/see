@@ -64,8 +64,8 @@ func TestRevealInProjectNavigatorFromPaletteClearsFilter(t *testing.T) {
 
 	palette := jumpShortcut(t, "Command Palette")
 	h.tt.Key(palette.shortcutMods, palette.shortcutKey)
-	h.tt.Type("reveal in project navigator")
-	if !h.tt.HasText("Reveal in Project Navigator") {
+	h.tt.Type("reveal in project")
+	if !h.tt.HasText("Reveal in Project") {
 		t.Fatal("reveal command is missing from the palette")
 	}
 	h.tt.Key(0, ui.KeyEnter)

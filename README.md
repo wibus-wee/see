@@ -168,8 +168,8 @@ These are the macOS shortcuts; on other platforms, use Ctrl in place of Cmd. The
 | Replace in file | Option+Cmd+F (macOS), Ctrl+H (Windows/Linux) |
 | Replace in workspace | Cmd+Shift+H |
 | Go to line / column | Ctrl+G |
-| Toggle navigator | Cmd+B or Cmd+0 |
-| Reveal in Project Navigator | Cmd+Shift+J |
+| Toggle sidebar | Cmd+B or Cmd+0 |
+| Reveal in Project | Cmd+Shift+J |
 | Open Markdown preview | Cmd+Shift+V |
 | Go to definition | F12 |
 | Next / previous problem in current file | F8 / Shift+F8 |

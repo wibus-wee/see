@@ -295,7 +295,7 @@ func (a *App) fileTree(c *ui.Context, roots []string) {
 			}
 		}
 	}
-	a.tree.Indent = 12
+	a.tree.Indent = treeRowStep
 	tree := ui.Outline(c, &a.tree, roots, a.children, func(p string) { a.treeItem(c, p) }).Grow(1).FillWidth().Padding(0, sidebarInset).Label(locales.Files())
 	a.tree.List.Handle.OnShortcut(c, ui.Cmd, ui.KeyC, func() {
 		if a.treeRow >= 0 && a.treeRow < a.tree.Rows() {
@@ -402,19 +402,14 @@ func (a *App) treeItem(c *ui.Context, p string) {
 	// the disclosure arrow as a separate target.
 	row := ui.Row(c).Grow(1).AlignItems(ui.Center).Gap(6).Margin(-3, 0).MarginEnd(-(6 + sidebarInset)).Padding(3, 0)
 	row.Children(func() {
-		if e.Dir {
-			folderGlyph(c, a.tree.Open.Has(p), 16)
-		} else {
-			fileIcon(c, name, 16)
-		}
 		if a.renameEntry != nil && a.renameEntry.path == p {
+			treeIcon(c, name, e.Dir, a.tree.Open.Has(p), 16)
 			a.renameField(c, a.renameEntry)
 			return
 		}
-		t := ui.Text(c, name).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(1)
-		if dim {
-			t.TextColor(colors(c).Dim)
-		}
+		t := treeLabel(c, treeLabelOptions{
+			Name: name, Dir: e.Dir, Open: a.tree.Open.Has(p), IconSize: 16, Dim: dim,
+		})
 		if e.Link {
 			t.Italic()
 			symbolIcon(c, icLink, 11, colors(c).Dim)

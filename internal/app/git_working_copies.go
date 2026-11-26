@@ -15,6 +15,7 @@ import (
 
 type gitWorkingCopy struct {
 	changes         []git.Change
+	foldedChanges   map[string]bool // folders folded in the changes tree, keyed by section:root:path
 	counts          [2]map[string]git.FileStat
 	selected        map[string]bool
 	selectionAnchor string
@@ -63,6 +64,7 @@ func (a *App) gitWorkingCopiesNavigator(c *ui.Context) {
 						a.syncButtons(c)
 					}
 				}
+				a.gitChangesViewButton(c)
 				tip := locales.MsgRefreshStatus()
 				if a.hasRemote() {
 					tip = locales.MsgFetchAndRefreshStatus()
@@ -143,12 +145,6 @@ func (a *App) gitWorkingCopyGroup(c *ui.Context, root string, workingCopy *gitWo
 				return
 			}
 			busy := workingCopy.busy || root == a.git.root && a.git.busy
-			if staged > 0 && glyphButton(c, icMinus, locales.MsgUnstageAllChanges(), locales.MsgUnstageAllChanges(), false, busy).Clicked() {
-				a.stageAllGitWorkingCopyChanges(root, true)
-			}
-			if unstaged > 0 && glyphButton(c, icPlus, locales.MsgStageAllChanges(), locales.MsgStageAllChanges(), false, busy).Clicked() {
-				a.stageAllGitWorkingCopyChanges(root, false)
-			}
 			if root == a.git.root && len(workingCopy.changes) > 0 && glyphButton(c, icStash, locales.MsgStash(), locales.MsgStash(), false, busy || a.git.stashing).Clicked() {
 				a.beginStash()
 			}
@@ -179,17 +175,21 @@ func (a *App) gitWorkingCopyGroup(c *ui.Context, root string, workingCopy *gitWo
 			ui.Text(c, locales.MsgNoChanges()).FontSize(gitSidebarRowLabelSize).TextColor(colors(c).Muted).
 				Padding(gitSidebarEmptyInset, sidebarInset+gitSidebarTreeIndent).SingleLine().Ellipsis("…").MinWidth(0)
 		}
-		for _, change := range workingCopy.changes {
-			if change.Conflicted() {
-				a.gitConflictRowIn(c, root, workingCopy, change)
-			}
+		busy := workingCopy.busy || root == a.git.root && a.git.busy
+		if conflicts > 0 {
+			a.gitSection(c, gitConflictText("gitConflictedFiles"), conflicts, nil)
+			a.gitChangeRows(c, root, workingCopy, workingCopy.changes, gitChangeTreeSection{conflicted: true})
 		}
 		if staged > 0 {
-			a.gitSection(c, locales.MsgStagedChanges(), staged)
+			a.gitSection(c, locales.MsgStagedChanges(), staged, func() {
+				a.gitSectionActions(c, root, workingCopy, workingCopy.changes, true, busy)
+			})
 			a.gitWorkingCopyRows(c, root, workingCopy, true)
 		}
 		if unstaged > 0 {
-			a.gitSection(c, locales.MsgChanges(), unstaged)
+			a.gitSection(c, locales.MsgUnstagedChanges(), unstaged, func() {
+				a.gitSectionActions(c, root, workingCopy, workingCopy.changes, false, busy)
+			})
 			a.gitWorkingCopyRows(c, root, workingCopy, false)
 		}
 		if root == a.git.root {
@@ -199,11 +199,7 @@ func (a *App) gitWorkingCopyGroup(c *ui.Context, root string, workingCopy *gitWo
 }
 
 func (a *App) gitWorkingCopyRows(c *ui.Context, root string, workingCopy *gitWorkingCopy, staged bool) {
-	for _, change := range workingCopy.changes {
-		if gitChangeInSection(change, staged) {
-			a.gitRowIn(c, root, workingCopy, change, staged)
-		}
-	}
+	a.gitChangeRows(c, root, workingCopy, workingCopy.changes, gitChangeTreeSection{staged: staged})
 }
 
 func (a *App) gitWorkingCopyCommitBar(c *ui.Context, root string, workingCopy *gitWorkingCopy, staged int, conflicted bool) {
@@ -402,13 +398,7 @@ func (a *App) stageAllGitWorkingCopyChanges(root string, staged bool) {
 	if workingCopy == nil {
 		return
 	}
-	var changes []git.Change
-	for _, change := range workingCopy.changes {
-		if gitChangeInSection(change, staged) {
-			changes = append(changes, change)
-		}
-	}
-	a.stageGitWorkingCopyChanges(root, staged, changes)
+	a.stageGitWorkingCopyChanges(root, staged, gitChangesInSection(workingCopy.changes, staged))
 }
 
 func (a *App) discardGitWorkingCopyChange(root string, change git.Change) {

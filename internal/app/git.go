@@ -33,6 +33,8 @@ type gitState struct {
 	repository             git.RepositoryRefs
 	repositoryView         repositoryNavigator
 	changes                []git.Change
+	changesFlat            bool            // list changes flat instead of as a tree
+	foldedChanges          map[string]bool // folders folded in the changes tree, keyed by section:root:path
 	selected               map[string]bool // multi-selected changes, keyed by staged:path
 	selectionAnchor        string
 	decor                  map[string]byte
@@ -924,14 +926,19 @@ func (a *App) stageGitChanges(staged bool, changes []git.Change) {
 	}
 }
 
-func (a *App) stageAllGitChanges(staged bool) {
-	var changes []git.Change
-	for _, ch := range a.git.changes {
+// gitChangesInSection are the changes of a staged or unstaged section.
+func gitChangesInSection(changes []git.Change, staged bool) []git.Change {
+	var out []git.Change
+	for _, ch := range changes {
 		if gitChangeInSection(ch, staged) {
-			changes = append(changes, ch)
+			out = append(out, ch)
 		}
 	}
-	a.stageGitChanges(staged, changes)
+	return out
+}
+
+func (a *App) stageAllGitChanges(staged bool) {
+	a.stageGitChanges(staged, gitChangesInSection(a.git.changes, staged))
 }
 
 func (a *App) showGitDiff(ch git.Change, staged bool) {
@@ -1075,19 +1082,19 @@ func (a *App) gitNavigator(c *ui.Context) {
 									Padding(gitSidebarEmptyInset, gitSidebarTextInset).SingleLine().Ellipsis("…").MinWidth(0)
 							}
 							if conflicts > 0 {
-								a.gitSection(c, gitConflictText("gitConflictedFiles"), conflicts)
-								for _, ch := range a.git.changes {
-									if ch.Conflicted() {
-										a.gitConflictRow(c, ch)
-									}
-								}
+								a.gitSection(c, gitConflictText("gitConflictedFiles"), conflicts, nil)
+								a.gitChangeRows(c, a.git.root, nil, a.git.changes, gitChangeTreeSection{conflicted: true})
 							}
 							if staged > 0 {
-								a.gitSection(c, locales.MsgStagedChanges(), staged)
+								a.gitSection(c, locales.MsgStagedChanges(), staged, func() {
+									a.gitSectionActions(c, a.git.root, nil, a.git.changes, true, a.git.busy)
+								})
 							}
 							a.gitRows(c, true)
-							if unstaged > 0 && (staged > 0 || conflicts > 0) {
-								a.gitSection(c, locales.MsgChanges(), unstaged)
+							if unstaged > 0 {
+								a.gitSection(c, locales.MsgUnstagedChanges(), unstaged, func() {
+									a.gitSectionActions(c, a.git.root, nil, a.git.changes, false, a.git.busy)
+								})
 							}
 							a.gitRows(c, false)
 						}
@@ -1133,13 +1140,117 @@ func (a *App) gitNavigator(c *ui.Context) {
 	}
 }
 
-// gitRows lists the staged or unstaged changes in their original order.
+// gitRows lists the staged or unstaged changes as a tree of files and
+// folders, folders first and each level in name order.
 func (a *App) gitRows(c *ui.Context, staged bool) {
-	for _, ch := range a.git.changes {
-		if gitChangeInSection(ch, staged) {
-			a.gitRow(c, ch, staged)
+	a.gitChangeRows(c, a.git.root, nil, a.git.changes, gitChangeTreeSection{staged: staged})
+}
+
+// gitChangeTreeSection is the section of changes a tree shows: staged,
+// unstaged, or the conflicted files.
+type gitChangeTreeSection struct {
+	staged, conflicted bool
+}
+
+func (s gitChangeTreeSection) name() string {
+	switch {
+	case s.conflicted:
+		return "conflicted"
+	case s.staged:
+		return "staged"
+	}
+	return "unstaged"
+}
+
+func (s gitChangeTreeSection) includes(ch git.Change) bool {
+	if s.conflicted {
+		return ch.Conflicted()
+	}
+	return gitChangeInSection(ch, s.staged)
+}
+
+func (a *App) gitChangeRows(c *ui.Context, root string, workingCopy *gitWorkingCopy, changes []git.Change, section gitChangeTreeSection) {
+	if a.git.changesFlat {
+		a.gitChangeListRows(c, root, workingCopy, changes, section)
+		return
+	}
+	a.gitChangeTreeRows(c, root, workingCopy, changes, section)
+}
+
+func (a *App) gitChangeListRows(c *ui.Context, root string, workingCopy *gitWorkingCopy, changes []git.Change, section gitChangeTreeSection) {
+	for _, change := range changes {
+		if !section.includes(change) {
+			continue
+		}
+		name := filepath.Base(change.Path)
+		if section.conflicted {
+			a.gitConflictRowIn(c, root, workingCopy, change, 0, name, true)
+		} else {
+			a.gitRowIn(c, root, workingCopy, change, section.staged, 0, name, true)
 		}
 	}
+}
+
+func (a *App) gitChangeTreeRows(c *ui.Context, root string, workingCopy *gitWorkingCopy, changes []git.Change, section gitChangeTreeSection) {
+	folded := a.git.foldedChanges
+	if workingCopy != nil {
+		folded = workingCopy.foldedChanges
+	}
+	shown := make([]git.Change, 0, len(changes))
+	for _, change := range changes {
+		if section.includes(change) {
+			shown = append(shown, change)
+		}
+	}
+	key := func(path string) string {
+		return section.name() + "\x00" + root + "\x00" + path
+	}
+	walkPathTree(buildPathTree(shown, func(ch git.Change) string { return ch.Path }), func(path string) bool {
+		return folded[key(path)]
+	}, func(node *pathTreeNode[git.Change], depth int) {
+		if node.leaf {
+			if section.conflicted {
+				a.gitConflictRowIn(c, root, workingCopy, node.item, depth, node.name, false)
+			} else {
+				a.gitRowIn(c, root, workingCopy, node.item, section.staged, depth, node.name, false)
+			}
+			return
+		}
+		foldedKey := key(node.path)
+		closed := folded[foldedKey]
+		a.gitFolderRow(c, "git-folder:"+foldedKey, node.name, node.path, depth, closed, func() {
+			a.toggleGitChangeFolder(workingCopy, foldedKey)
+		})
+	})
+}
+
+func (a *App) toggleGitChangeFolder(workingCopy *gitWorkingCopy, key string) {
+	folded := &a.git.foldedChanges
+	if workingCopy != nil {
+		folded = &workingCopy.foldedChanges
+	}
+	if *folded == nil {
+		*folded = map[string]bool{}
+	}
+	if (*folded)[key] {
+		delete(*folded, key)
+	} else {
+		(*folded)[key] = true
+	}
+}
+
+func (a *App) gitFolderRow(c *ui.Context, key, name, path string, depth int, closed bool, toggle func()) {
+	row := ui.Row(c.Key(key)).FillWidth().Height(gitSidebarRowHeight).
+		PaddingStart(treeInset(gitChangesInset, depth)).
+		Gap(4).Radius(4).AlignItems(ui.Center).Label(name).Tooltip(filepath.ToSlash(path))
+	if row.Hovered() {
+		row.Background(colors(c).Pill)
+	}
+	row.OnClick(toggle)
+	row.Children(func() {
+		treeChevron(c, !closed)
+		treeLabel(c, treeLabelOptions{Name: name, Dir: true, Open: !closed, IconSize: 15, FontSize: gitSidebarRowLabelSize})
+	})
 }
 
 func gitFileNameAndPath(c *ui.Context, path, oldPath string, fontSize float32) {
@@ -1158,20 +1269,60 @@ func gitFileNameAndPath(c *ui.Context, path, oldPath string, fontSize float32) {
 	})
 }
 
-func (a *App) gitSection(c *ui.Context, name string, count int) {
-	ui.Row(c).FillWidth().Height(gitSidebarRowHeight).Padding(0, sidebarInset+gitSidebarTreeIndent).
+func (a *App) gitSection(c *ui.Context, name string, count int, actions func()) {
+	ui.Row(c).FillWidth().Height(gitSidebarRowHeight).PaddingStart(gitChangesInset).PaddingEnd(sidebarInset).
 		Gap(gitSidebarColumnGap).AlignItems(ui.Center).Children(func() {
-		ui.Box(c).Size(gitSidebarIconColumn, 1).Shrink(0)
 		gitSidebarGroupLabel(c, name)
 		gitSidebarCount(c, count)
+		if actions != nil {
+			ui.Box(c).Grow(1).MinWidth(0)
+			actions()
+		}
 	})
 }
 
-func (a *App) gitRow(c *ui.Context, ch git.Change, staged bool) {
-	a.gitRowIn(c, a.git.root, nil, ch, staged)
+// gitChangesViewButton switches the changes between a tree of folders
+// and a flat list.
+func (a *App) gitChangesViewButton(c *ui.Context) {
+	icon, label := icList, locales.MsgListView()
+	if a.git.changesFlat {
+		icon, label = icOutline, locales.MsgTreeView()
+	}
+	if glyphButton(c, icon, label, label, false, false).Clicked() {
+		a.git.changesFlat = !a.git.changesFlat
+	}
 }
 
-func (a *App) gitRowIn(c *ui.Context, root string, workingCopy *gitWorkingCopy, ch git.Change, staged bool) {
+// gitSectionActions holds a changes section's bulk actions: stage or
+// unstage all of its changes, and discard all the unstaged ones.
+func (a *App) gitSectionActions(c *ui.Context, root string, workingCopy *gitWorkingCopy, changes []git.Change, staged, busy bool) {
+	stage := func(staged bool) {
+		if workingCopy != nil {
+			a.stageAllGitWorkingCopyChanges(root, staged)
+		} else {
+			a.stageAllGitChanges(staged)
+		}
+	}
+	if staged {
+		if glyphButton(c, icMinus, locales.MsgUnstageAllChanges(), locales.MsgUnstageAllChanges(), false, busy).Clicked() {
+			stage(true)
+		}
+		return
+	}
+	if glyphButton(c, icPlus, locales.MsgStageAllChanges(), locales.MsgStageAllChanges(), false, busy).Clicked() {
+		stage(false)
+	}
+	if glyphButton(c, icGitDiscard, locales.MsgDiscardAllChanges(), locales.MsgDiscardAllChanges(), false, busy).Clicked() {
+		targets := gitChangesInSection(changes, false)
+		if workingCopy != nil {
+			a.discardGitWorkingCopyChanges(root, targets)
+		} else {
+			a.discardGitChanges(targets)
+		}
+	}
+}
+
+func (a *App) gitRowIn(c *ui.Context, root string, workingCopy *gitWorkingCopy, ch git.Change, staged bool, depth int, name string, showPath bool) {
 	label, action := locales.MsgUnstaged(), locales.MsgStage()
 	if staged {
 		label, action = locales.MsgStaged(), locales.MsgUnstage()
@@ -1184,7 +1335,7 @@ func (a *App) gitRowIn(c *ui.Context, root string, workingCopy *gitWorkingCopy, 
 	changeKey := gitChangeKey(staged, ch.Path)
 	tabKey := a.gitChangeTabKey(root, ch, staged)
 	container := ui.Row(c.Key(fmt.Sprintf("%t:%s", staged, ch.Path))).FillWidth().Height(gitSidebarRowHeight).
-		Padding(0, sidebarInset+gitSidebarTreeIndent).Gap(2).Radius(4).AlignItems(ui.Center)
+		PaddingStart(treeInset(gitChangesInset, depth)).Gap(2).Radius(4).AlignItems(ui.Center)
 	hovered := container.Hovered()
 	if selected[changeKey] {
 		container.Background(colors(c).SelectedRow)
@@ -1197,9 +1348,14 @@ func (a *App) gitRowIn(c *ui.Context, root string, workingCopy *gitWorkingCopy, 
 		row := ui.ButtonBase(c).Label(label+locales.MsgDiff()+ch.Path).Tooltip(ch.Path).Grow(1).Shrink(1).MinWidth(0).Padding(2, 0).Radius(4)
 		row.Drag(&tabDrag{change: &ch, staged: staged, root: root})
 		row.Children(func() {
-			ui.Row(c).FillWidth().Gap(6).AlignItems(ui.Center).Children(func() {
-				fileIcon(c, filepath.Base(ch.Path), 15)
-				gitFileNameAndPath(c, ch.Path, "", gitSidebarRowLabelSize)
+			ui.Row(c).FillWidth().Gap(4).AlignItems(ui.Center).Children(func() {
+				if showPath {
+					fileIcon(c, name, 15)
+					gitFileNameAndPath(c, ch.Path, "", gitSidebarRowLabelSize)
+				} else {
+					treeArrowSpace(c)
+					treeLabel(c, treeLabelOptions{Name: name, IconSize: 15, FontSize: gitSidebarRowLabelSize})
+				}
 			})
 		})
 		mods := row.ClickModifiers()
