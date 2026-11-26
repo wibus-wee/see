@@ -24,6 +24,18 @@ import (
 	"see/internal/workspace"
 )
 
+const gtkUsePortalEnv = "GTK_USE_PORTAL"
+
+func setGTKUsePortalDefault(portalAvailable func() bool) error {
+	if _, ok := os.LookupEnv(gtkUsePortalEnv); ok {
+		return nil
+	}
+	if !portalAvailable() {
+		return nil
+	}
+	return os.Setenv(gtkUsePortalEnv, "1")
+}
+
 func Main() {
 	if args, command := cli.Invocation(os.Args[0], os.Args[1:]); command {
 		if err := cli.Run(args, os.Stderr); err != nil {
@@ -31,6 +43,11 @@ func Main() {
 			os.Exit(1)
 		}
 		return
+	}
+	if runtime.GOOS == "linux" {
+		if err := setGTKUsePortalDefault(gtkPortalFileChooserAvailable); err != nil {
+			log.Printf("see: set %s: %v", gtkUsePortalEnv, err)
+		}
 	}
 	mygo.App.SetName("See")
 	// One See at a time, as Xcode: `see` and a second launch hand their
