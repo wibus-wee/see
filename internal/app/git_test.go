@@ -97,6 +97,7 @@ func TestGitRangeSelectionAndStageAll(t *testing.T) {
 
 func TestGitSectionDiscardsAllUnstagedChanges(t *testing.T) {
 	root := gitRepo(t, map[string]string{"a.txt": "base a\n", "b.txt": "base b\n"})
+	gitRun(t, root, "config", "core.autocrlf", "false")
 	writeFile(t, root, "a.txt", "staged a\n")
 	gitRun(t, root, "add", "a.txt")
 	writeFile(t, root, "a.txt", "worktree a\n")
