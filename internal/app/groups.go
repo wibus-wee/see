@@ -43,6 +43,7 @@ type group struct {
 	counterpartMenu *counterpartMenu
 	// jumpFiles and jumpSymbols open the jump bar's file and symbol menus.
 	jumpFiles, jumpSymbols bool
+	jumpFilesDirect        bool
 	closing                bool // its tabs are going away with the group
 	pointerAnchor          ui.Point
 	pointerInEditor        bool

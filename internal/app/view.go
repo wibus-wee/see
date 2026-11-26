@@ -113,7 +113,6 @@ func (a *App) view(c *ui.Context) {
 	a.modifiers = c.Modifiers()
 	a.settleTabCycles()
 	c.SetTheme(a.theme)
-	c.SetMenuPresentation(ui.PopoverMenus)
 	a.services = c.Services()
 	a.showCounterpartFeedback(c)
 	vibrant := c.Vibrancy()

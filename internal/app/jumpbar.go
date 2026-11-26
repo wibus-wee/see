@@ -51,6 +51,10 @@ func (a *App) jumpSymbolsShown(g *group, p string) bool {
 // jumpCrumb is a segment of the jump bar: a button whose menu lists the
 // items beside it, as Xcode's.
 func jumpCrumb(c *ui.Context, key any, label string, open *bool, shrink, grow float32, children func(), build func(m *ui.Menu)) ui.Element {
+	return jumpCrumbWithFill(c, key, label, open, shrink, grow, grow > 0, children, build)
+}
+
+func jumpCrumbWithFill(c *ui.Context, key any, label string, open *bool, shrink, grow float32, fillContent bool, children func(), build func(m *ui.Menu)) ui.Element {
 	b := ui.ButtonBase(c.Key(key)).Label(label).Padding(1, 3).Radius(4).Shrink(shrink).MinWidth(0)
 	if grow > 0 {
 		b.Grow(grow).Justify(ui.Start)
@@ -60,7 +64,7 @@ func jumpCrumb(c *ui.Context, key any, label string, open *bool, shrink, grow fl
 	}
 	b.Children(func() {
 		row := ui.Row(c).Gap(4).AlignItems(ui.Center).MinWidth(0)
-		if grow > 0 {
+		if fillContent {
 			row.FillWidth()
 		}
 		row.Children(children)
@@ -105,6 +109,7 @@ func (a *App) jumpFilesMenu(m *ui.Menu, g *group, dir, current string, nested bo
 		if !it.Chosen() {
 			continue
 		}
+		g.jumpFilesDirect = false
 		if e.Dir {
 			a.sidebarOff, a.navigator = false, navFiles
 			a.revealInTree(filepath.Join(p, "x"))
@@ -124,6 +129,45 @@ func (a *App) jumpToFile(g *group, p string) {
 	a.openIn(g, p, goTo{})
 	if st := a.activeEditor(); st != nil {
 		a.focusEditor = st
+	}
+}
+
+func jumpBarOverflowButton(c *ui.Context, open *bool, build func(m *ui.Menu)) {
+	b := ui.ButtonBase(c.Key("jumpbar-overflow")).Label("Jump Bar overflow").Size(26, 20).Radius(10).Center().Background(colors(c).Pill)
+	b.Children(func() {
+		ui.Text(c, "…").FontSize(13).Bold().TextColor(colors(c).Muted).SingleLine()
+	})
+	options := ui.PopoverMenuButtonOptions{Panel: popoverMenuPanel}
+	if open != nil {
+		options.Open = open
+	}
+	b.PopoverMenuButton(build, options)
+}
+
+func (a *App) jumpBarOverflowMenu(m *ui.Menu, g *group, p string, parts []string, filesMenu, showSymbols bool) {
+	if filesMenu {
+		for i, part := range parts {
+			item := filepath.Join(append([]string{a.root}, parts[:i+1]...)...)
+			m.Submenu(part, func(m *ui.Menu) { a.jumpFilesMenu(m, g, filepath.Dir(item), p, false) }).ID(item)
+		}
+	}
+	if !showSymbols {
+		return
+	}
+	path := symbolPath(a.outline.symbols, a.currentSymbol())
+	if len(path) < 2 {
+		return
+	}
+	if filesMenu && len(parts) > 0 {
+		m.Separator()
+	}
+	for k, i := range path[:len(path)-1] {
+		parent := -1
+		if k > 0 {
+			parent = path[k-1]
+		}
+		s := a.outline.symbols[i]
+		m.Submenu(s.Name, func(m *ui.Menu) { a.jumpSymbolsMenu(m, g, parent, i) }).ID(fmt.Sprintf("symbol-%d:%s", i, s.Name))
 	}
 }
 
@@ -176,32 +220,38 @@ func (a *App) jumpSymbolAncestors(c *ui.Context, g *group) {
 			parent = path[k-1]
 		}
 		s := o.symbols[i]
-		jumpCrumb(c, fmt.Sprint("symbol-", k, ":", s.Name), s.Name, nil, 1, 0, func() {
+		jumpCrumb(c, fmt.Sprint("symbol-", k, ":", s.Name), s.Name, nil, 0, 0, func() {
 			symbolCrumbContent(c, s, colors(c).Text, 12, false)
 		}, func(m *ui.Menu) { a.jumpSymbolsMenu(m, g, parent, i) })
 	}
 }
 
 // jumpCurrentSymbol keeps the current symbol at the end of the path, after
-// the Toolbar's overflow menu, so it stays visible as the path gets narrow.
-func (a *App) jumpCurrentSymbol(c *ui.Context, g *group) {
+// the centered overflow pill, so it stays visible as the path gets narrow.
+func (a *App) jumpCurrentSymbol(c *ui.Context, g *group, width float32, capped bool) {
 	o := &a.outline
 	current := a.currentSymbol()
 	path := symbolPath(o.symbols, current)
-	symbolIcon(c, icChevron, 9, colors(c).Dim)
-	if len(path) == 0 {
-		jumpCrumb(c, "symbol-none", outlineText("jumpNoSelection"), &g.jumpSymbols, 0.25, 1, func() {
-			ui.Text(c, outlineText("jumpNoSelection")).FontSize(12).TextColor(colors(c).Muted).SingleLine().Ellipsis("…").Shrink(1).MinWidth(0).Grow(1)
-		}, func(m *ui.Menu) { a.jumpSymbolsMenu(m, g, -1, -1) })
-		return
+	currentCrumb := ui.Row(c).Gap(2).Shrink(0).MinWidth(0)
+	if capped {
+		currentCrumb.MaxWidth(width)
 	}
-	i := path[len(path)-1]
-	parent := -1
-	if len(path) > 1 {
-		parent = path[len(path)-2]
-	}
-	s := o.symbols[i]
-	jumpCrumb(c, fmt.Sprint("symbol-", len(path)-1, ":", s.Name), s.Name, &g.jumpSymbols, 0.25, 1, func() {
-		symbolCrumbContent(c, s, colors(c).Text, 12, true)
-	}, func(m *ui.Menu) { a.jumpSymbolsMenu(m, g, parent, i) })
+	currentCrumb.Children(func() {
+		symbolIcon(c, icChevron, 9, colors(c).Dim)
+		if len(path) == 0 {
+			jumpCrumbWithFill(c, "symbol-none", outlineText("jumpNoSelection"), &g.jumpSymbols, 1, 0, true, func() {
+				ui.Text(c, outlineText("jumpNoSelection")).FontSize(12).TextColor(colors(c).Muted).SingleLine().Ellipsis("…").Shrink(1).MinWidth(0).Grow(1)
+			}, func(m *ui.Menu) { a.jumpSymbolsMenu(m, g, -1, -1) })
+			return
+		}
+		i := path[len(path)-1]
+		parent := -1
+		if len(path) > 1 {
+			parent = path[len(path)-2]
+		}
+		s := o.symbols[i]
+		jumpCrumbWithFill(c, fmt.Sprint("symbol-", len(path)-1, ":", s.Name), s.Name, &g.jumpSymbols, 1, 0, true, func() {
+			symbolCrumbContent(c, s, colors(c).Text, 12, true)
+		}, func(m *ui.Menu) { a.jumpSymbolsMenu(m, g, parent, i) })
+	})
 }

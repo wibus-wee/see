@@ -306,19 +306,230 @@ func (a *App) gitDiffPartButton(c *ui.Context, v *gitDiffTab, hunks []editor.Dif
 	button.OnClick(func() { a.applyGitDiffPart(v, part) })
 }
 
+func jumpBarTextWidth(c *ui.Context, text string) float32 {
+	w, _ := c.MeasureText(0, ui.Span{Text: text, Size: 12})
+	return w
+}
+
+func jumpBarFileCrumbWidth(c *ui.Context, text string, modified bool) float32 {
+	w := jumpBarTextWidth(c, text) + 23
+	if modified {
+		w += 13
+	}
+	return w
+}
+
+func jumpBarFileCrumbMinWidth(modified bool) float32 {
+	w := float32(23 + 32)
+	if modified {
+		w += 13
+	}
+	return w
+}
+
+func jumpBarSymbolCrumbWidth(c *ui.Context, text string) float32 {
+	return jumpBarTextWidth(c, text) + 23
+}
+
+type jumpBarInlinePlan struct {
+	rootVisible    bool
+	fileVisible    bool
+	firstFile      int
+	symbolsVisible bool
+	overflow       bool
+	pathWidth      float32
+	currentWidth   float32
+	currentCapped  bool
+}
+
+func jumpBarInlineLayout(c *ui.Context, width float32, root string, parts []string, modified bool, filesMenu bool, symbols []string, current string, currentIcon, showSymbols bool) jumpBarInlinePlan {
+	const separator = float32(13)
+	rootWidth := float32(15) + min(jumpBarTextWidth(c, root), 160)
+	partWidths := make([]float32, len(parts))
+	partsWidth := float32(0)
+	for i, part := range parts {
+		partWidths[i] = jumpBarFileCrumbWidth(c, part, modified && i == len(parts)-1)
+		partsWidth += partWidths[i]
+		if i > 0 {
+			partsWidth += separator
+		}
+	}
+	symbolWidths := make([]float32, len(symbols))
+	symbolsWidth := float32(0)
+	for i, symbol := range symbols {
+		symbolWidths[i] = jumpBarSymbolCrumbWidth(c, symbol)
+		symbolsWidth += symbolWidths[i]
+		if i > 0 {
+			symbolsWidth += separator
+		}
+	}
+	if len(parts) > 0 && len(symbols) > 0 {
+		symbolsWidth += separator
+	}
+	currentNaturalWidth := float32(0)
+	if showSymbols {
+		currentNaturalWidth = jumpBarTextWidth(c, current) + 21
+		if currentIcon {
+			currentNaturalWidth += 13
+		}
+	}
+	fullPathWidth := rootWidth + partsWidth + symbolsWidth
+	if len(parts) > 0 {
+		fullPathWidth += separator
+	}
+	plan := jumpBarInlinePlan{fileVisible: len(parts) > 0, symbolsVisible: true, currentWidth: currentNaturalWidth}
+	if fullPathWidth+currentNaturalWidth <= width {
+		plan.rootVisible = true
+		plan.pathWidth = fullPathWidth
+		return plan
+	}
+	withoutRootWidth := partsWidth + symbolsWidth
+	if withoutRootWidth+currentNaturalWidth <= width {
+		plan.pathWidth = withoutRootWidth
+		return plan
+	}
+	canOverflow := filesMenu && len(parts) > 1 || len(symbols) > 0
+	if !canOverflow {
+		plan.rootVisible = false
+		plan.currentWidth = min(currentNaturalWidth, width)
+		plan.currentCapped = plan.currentWidth < currentNaturalWidth
+		plan.pathWidth = min(withoutRootWidth, max(float32(0), width-plan.currentWidth))
+		if len(parts) > 0 && plan.pathWidth < jumpBarFileCrumbMinWidth(modified) {
+			plan.fileVisible = false
+			plan.pathWidth = 0
+			if filesMenu {
+				if showSymbols && plan.currentWidth+26 > width {
+					plan.currentWidth = max(float32(0), width-26)
+					plan.currentCapped = true
+				}
+				plan.overflow = true
+			}
+		}
+		return plan
+	}
+	if showSymbols && currentNaturalWidth+26 > width {
+		plan.currentWidth = max(float32(0), width-26)
+		plan.currentCapped = true
+	}
+	pathBudget := max(float32(0), width-plan.currentWidth-26)
+	plan.rootVisible = false
+	plan.symbolsVisible = false
+	if len(parts) == 0 {
+		plan.overflow = len(symbols) > 0
+		return plan
+	}
+	if pathBudget < jumpBarFileCrumbMinWidth(modified) {
+		plan.fileVisible = false
+		plan.overflow = filesMenu || len(symbols) > 0
+		return plan
+	}
+	plan.firstFile = len(parts) - 1
+	remaining := pathBudget
+	lastWidth := partWidths[plan.firstFile]
+	if rootWidth+separator+lastWidth <= remaining {
+		plan.rootVisible = true
+		remaining -= rootWidth + separator + lastWidth
+	} else {
+		remaining -= min(lastWidth, remaining)
+	}
+	if filesMenu {
+		for i := len(parts) - 2; i >= 0; i-- {
+			cost := separator + partWidths[i]
+			if plan.rootVisible {
+				cost += separator
+			}
+			if cost > remaining {
+				break
+			}
+			plan.firstFile = i
+			remaining -= cost
+		}
+	}
+	hiddenFiles := filesMenu && (!plan.fileVisible || plan.firstFile > 0)
+	hiddenSymbols := len(symbols) > 0
+	plan.overflow = hiddenFiles || hiddenSymbols
+	if plan.rootVisible {
+		plan.pathWidth += rootWidth
+	}
+	for i := plan.firstFile; i < len(parts); i++ {
+		if plan.rootVisible || i > plan.firstFile {
+			plan.pathWidth += separator
+		}
+		plan.pathWidth += partWidths[i]
+	}
+	plan.pathWidth = min(plan.pathWidth, pathBudget)
+	return plan
+}
+
 // jumpBar is Xcode's jump bar: back and forward, then the path of the
 // document, whose folders reveal themselves in the navigator.
 func (a *App) jumpBar(c *ui.Context, g *group) {
 	tab := g.active
 	p := tabPath(tab)
 	if p == "" {
-		g.jumpFiles, g.jumpSymbols = false, false
+		g.jumpFiles, g.jumpSymbols, g.jumpFilesDirect = false, false, false
 		return
 	}
 	if g == a.focus {
 		a.refreshOutline()
 	}
 	showSymbols := a.jumpSymbolsShown(g, p)
+	outside := !workspace.Within(a.root, p)
+	if d := a.docs[p]; d != nil && d.untitled {
+		outside = false
+	}
+	parts := strings.Split(workspace.RelPath(a.root, p), "/")
+	if d := a.docs[p]; d != nil && d.untitled {
+		parts = []string{d.name}
+	} else if outside {
+		parts = []string{filepath.Base(p)}
+	}
+	filesMenu := !outside && !(a.docs[p] != nil && a.docs[p].untitled)
+	root := filepath.Base(a.root)
+	if outside {
+		root = tildePath(filepath.Dir(p))
+	}
+	showClose := len(g.order) == 1 && len(a.groups()) == 1
+	showBytes := !isMarkdownTab(tab) && a.canViewBytes(p)
+	showMarkdown := isMarkdown(p)
+	symbols := []string(nil)
+	current := outlineText("jumpNoSelection")
+	currentIcon := false
+	if showSymbols {
+		path := symbolPath(a.outline.symbols, a.currentSymbol())
+		if len(path) > 0 {
+			current = a.outline.symbols[path[len(path)-1]].Name
+			currentIcon = true
+			for _, i := range path[:len(path)-1] {
+				symbols = append(symbols, a.outline.symbols[i].Name)
+			}
+		}
+	}
+	paneWidth := g.focusHandle.Bounds(c).W
+	if paneWidth <= 0 {
+		paneWidth, _ = c.Size()
+		paneWidth = min(paneWidth, float32(640))
+	}
+	rightControls := 0
+	if showClose {
+		rightControls++
+	}
+	if showBytes {
+		rightControls++
+	}
+	if showMarkdown {
+		rightControls++
+	}
+	gapCount := rightControls + 2
+	if showSymbols {
+		gapCount++
+	}
+	bodyWidth := paneWidth - 12 - 22 - float32(rightControls*19) - float32(gapCount*2)
+	modified := false
+	if d := a.docs[p]; d != nil && d.buf != nil {
+		modified = d.buf.Modified()
+	}
+	layout := jumpBarInlineLayout(c, max(float32(0), bodyWidth), root, parts, modified, filesMenu, symbols, current, currentIcon, showSymbols)
 	ui.Row(c).FillWidth().Height(26).Padding(0, 6).Gap(2).AlignItems(ui.Center).Background(colors(c).Editor).
 		BorderWidth(0, 0, 1, 0).BorderColor(colors(c).Separator).Children(func() {
 		g.relatedBounds = g.relatedHandle.Bounds(c)
@@ -350,113 +561,128 @@ func (a *App) jumpBar(c *ui.Context, g *group) {
 		if !g.relatedOpen {
 			g.counterpartMenu = nil
 		}
-		ui.Toolbar(c, func() {
-			outside := !workspace.Within(a.root, p)
-			if d := a.docs[p]; d != nil && d.untitled {
-				outside = false
-			}
-			folderGlyph(c, false, 13)
-			if outside {
-				ui.Text(c, tildePath(filepath.Dir(p))).FontSize(12).TextColor(colors(c).Muted).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(1)
-			} else {
-				ui.Text(c, filepath.Base(a.root)).FontSize(12).TextColor(colors(c).Muted).SingleLine().Ellipsis("…").Shrink(1).MinWidth(0)
-			}
-			symbolIcon(c, icChevron, 9, colors(c).Dim)
-			parts := strings.Split(workspace.RelPath(a.root, p), "/")
-			if d := a.docs[p]; d != nil && d.untitled {
-				parts = []string{d.name}
-			} else if outside {
-				parts = []string{filepath.Base(p)}
-			}
-			filesMenu := !outside && !(a.docs[p] != nil && a.docs[p].untitled)
-			for i, part := range parts {
-				if i > 0 {
-					symbolIcon(c, icChevron, 9, colors(c).Dim)
-				}
-				last := i == len(parts)-1
-				children := func() {
-					if last {
-						fileIcon(c, part, 13)
-					} else {
+		if !filesMenu {
+			g.jumpFiles = false
+		}
+		if !g.jumpFiles {
+			g.jumpFilesDirect = false
+		}
+		ui.Row(c).Gap(2).Padding(0).Grow(1).Shrink(1).MinWidth(0).Children(func() {
+			ui.Row(c).Gap(2).Padding(0).Shrink(1).MinWidth(0).MaxWidth(layout.pathWidth).Children(func() {
+				if layout.rootVisible {
+					ui.Row(c).Gap(2).AlignItems(ui.Center).Shrink(0).Children(func() {
 						folderGlyph(c, false, 13)
-					}
-					t := ui.Text(c, part).FontSize(12).SingleLine().Ellipsis("…").Shrink(1).MinWidth(0)
-					if !last {
-						t.TextColor(colors(c).Muted)
-					} else {
-						if g.preview == p {
-							t.Italic()
+						ui.Text(c, root).FontSize(12).TextColor(colors(c).Muted).SingleLine().Ellipsis("…").TruncateMiddle().MaxWidth(160).MinWidth(0).Shrink(1)
+					})
+				}
+				if layout.fileVisible {
+					for i := layout.firstFile; i < len(parts); i++ {
+						part := parts[i]
+						if layout.rootVisible || i > layout.firstFile {
+							symbolIcon(c, icChevron, 9, colors(c).Dim)
 						}
-						if d := a.docs[p]; d != nil && d.buf != nil && d.buf.Modified() {
-							ui.Text(c, "●").FontSize(9).TextColor(c.Theme().Accent)
+						last := i == len(parts)-1
+						children := func() {
+							if last {
+								fileIcon(c, part, 13)
+							} else {
+								folderGlyph(c, false, 13)
+							}
+							t := ui.Text(c, part).FontSize(12).SingleLine().Ellipsis("…").Shrink(1).MinWidth(0)
+							if !last {
+								t.TextColor(colors(c).Muted)
+							} else {
+								if g.preview == p {
+									t.Italic()
+								}
+								if modified {
+									ui.Text(c, "●").FontSize(9).TextColor(c.Theme().Accent)
+								}
+							}
+						}
+						if !filesMenu {
+							ui.Row(c.Key(i)).Gap(4).AlignItems(ui.Center).Padding(1, 3).Shrink(1).MinWidth(0).Children(children)
+							continue
+						}
+						item := filepath.Join(append([]string{a.root}, parts[:i+1]...)...)
+						var open *bool
+						if last {
+							open = &g.jumpFiles
+						}
+						shrink := float32(0)
+						if last {
+							shrink = 1
+						}
+						crumb := jumpCrumb(c, i, part, open, shrink, 0, children, func(m *ui.Menu) { a.jumpFilesMenu(m, g, filepath.Dir(item), p, false) })
+						if last && crumb.DoubleClicked() && g.preview == p {
+							g.preview = ""
 						}
 					}
 				}
-				if !filesMenu {
-					ui.Row(c.Key(i)).Gap(4).AlignItems(ui.Center).Padding(1, 3).Shrink(1).MinWidth(0).Children(children)
-					continue
+				if showSymbols && layout.symbolsVisible {
+					a.jumpSymbolAncestors(c, g)
 				}
-				item := filepath.Join(append([]string{a.root}, parts[:i+1]...)...)
+			})
+			middle := ui.Box(c.Key("jumpbar-overflow-area")).Grow(1).Shrink(1).MinWidth(0).AlignItems(ui.Center).Justify(ui.Center)
+			if layout.overflow {
 				var open *bool
-				if last {
+				if filesMenu && len(parts) > 0 && !layout.fileVisible {
 					open = &g.jumpFiles
 				}
-				crumb := jumpCrumb(c, i, part, open, 1, 0, children, func(m *ui.Menu) { a.jumpFilesMenu(m, g, filepath.Dir(item), p, false) })
-				if last && crumb.DoubleClicked() && g.preview == p {
-					g.preview = ""
-				}
-			}
-			if !filesMenu {
-				g.jumpFiles = false
+				middle.MinWidth(26).Label("Jump Bar overflow area").Children(func() {
+					jumpBarOverflowButton(c, open, func(m *ui.Menu) {
+						if g.jumpFilesDirect && filesMenu && len(parts) > 0 {
+							a.jumpFilesMenu(m, g, filepath.Dir(p), p, false)
+							return
+						}
+						a.jumpBarOverflowMenu(m, g, p, parts, filesMenu, showSymbols)
+					})
+				})
 			}
 			if showSymbols {
-				a.jumpSymbolAncestors(c, g)
+				a.jumpCurrentSymbol(c, g, layout.currentWidth, layout.currentCapped)
+			} else {
+				g.jumpSymbols = false
 			}
-		}).Gap(2).Padding(0).Grow(1).Shrink(1).MinWidth(0)
-		if showSymbols {
-			a.jumpCurrentSymbol(c, g)
-		} else {
-			g.jumpSymbols = false
-		}
-		showClose := len(g.order) == 1 && len(a.groups()) == 1
-		if showClose {
-			name := filepath.Base(p)
-			if d := a.docs[p]; d != nil {
-				name = d.name
-			}
-			if isMarkdownTab(tab) {
-				name += " " + locales.MsgPreview()
-			}
-			if glyphButton(c, icClose, locales.MsgClose()+name, locales.MsgCloseFile(), false, false).Clicked() {
-				a.closeTab(g, tab)
-			}
-		}
-		if !isMarkdownTab(tab) && a.canViewBytes(p) {
-			label, tip := locales.MsgFileBytes(), locales.MsgShowFileBytes()
-			if g.hexPreview[p] {
-				label, tip = locales.MsgFileText(), locales.MsgShowFile()
-			}
-			if glyphToggle(c, icHex, label, tip, g.hexPreview[p], false).Clicked() {
-				if g.hexPreview == nil {
-					g.hexPreview = map[string]bool{}
+			if showClose {
+				name := filepath.Base(p)
+				if d := a.docs[p]; d != nil {
+					name = d.name
 				}
-				g.hexPreview[p] = !g.hexPreview[p]
-			}
-		}
-		if isMarkdown(p) {
-			label, tip := locales.MsgMarkdownPreview(), commandLabel("markdown.preview")
-			if g.markdownPreview[p] || isMarkdownTab(tab) {
-				label, tip = locales.MsgMarkdownSource(), locales.MsgShowMarkdownSource()
-			}
-			if glyphToggle(c, icMarkdown, label, tip+" ("+keyLabel("Cmd+Shift+", "V")+")", g.markdownPreview[p] || isMarkdownTab(tab), false).Clicked() {
-				a.focus = g
-				if isMarkdownTab(tab) || g.markdownPreview[p] {
-					delete(g.markdownPreview, p)
-					a.openIn(g, p, goTo{})
-				} else {
-					a.openMarkdownTab(g)
+				if isMarkdownTab(tab) {
+					name += " " + locales.MsgPreview()
+				}
+				if glyphButton(c, icClose, locales.MsgClose()+name, locales.MsgCloseFile(), false, false).Clicked() {
+					a.closeTab(g, tab)
 				}
 			}
-		}
+			if showBytes {
+				label, tip := locales.MsgFileBytes(), locales.MsgShowFileBytes()
+				if g.hexPreview[p] {
+					label, tip = locales.MsgFileText(), locales.MsgShowFile()
+				}
+				if glyphToggle(c, icHex, label, tip, g.hexPreview[p], false).Clicked() {
+					if g.hexPreview == nil {
+						g.hexPreview = map[string]bool{}
+					}
+					g.hexPreview[p] = !g.hexPreview[p]
+				}
+			}
+			if showMarkdown {
+				label, tip := locales.MsgMarkdownPreview(), commandLabel("markdown.preview")
+				if g.markdownPreview[p] || isMarkdownTab(tab) {
+					label, tip = locales.MsgMarkdownSource(), locales.MsgShowMarkdownSource()
+				}
+				if glyphToggle(c, icMarkdown, label, tip+" ("+keyLabel("Cmd+Shift+", "V")+")", g.markdownPreview[p] || isMarkdownTab(tab), false).Clicked() {
+					a.focus = g
+					if isMarkdownTab(tab) || g.markdownPreview[p] {
+						delete(g.markdownPreview, p)
+						a.openIn(g, p, goTo{})
+					} else {
+						a.openMarkdownTab(g)
+					}
+				}
+			}
+		})
 	})
 }
