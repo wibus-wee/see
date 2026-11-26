@@ -109,7 +109,7 @@ func (a *App) jumpFilesMenu(m *ui.Menu, g *group, dir, current string, nested bo
 }
 
 func (a *App) jumpToFile(g *group, p string) {
-	a.focus = g
+	a.observeFocusedGroup(g)
 	if here, ok := a.here(); ok {
 		a.hist.Push(here)
 	}
@@ -129,7 +129,7 @@ func (a *App) jumpSymbolsMenu(m *ui.Menu, g *group, parent, current int) {
 			ui.Row(x.Context).Gap(6).AlignItems(ui.Center).Children(func() { symbolCrumbContent(x.Context, s, x.Text, 13) })
 		})
 		if it.Chosen() {
-			a.focus = g
+			a.observeFocusedGroup(g)
 			a.openOutlineSymbol(j)
 			if st := a.activeEditor(); st != nil {
 				a.focusEditor = st

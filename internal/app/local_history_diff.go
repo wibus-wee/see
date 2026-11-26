@@ -411,7 +411,7 @@ func (a *App) localHistoryContent(c *ui.Context, g *group, v *gitDiffTab) {
 					view.Focus()
 				}
 				if a.focusGroupTarget == nil && view.FocusWithin() {
-					a.focus = g
+					a.observeFocusedGroup(g)
 				}
 			} else {
 				ui.Box(c).Grow(1)

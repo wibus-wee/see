@@ -455,7 +455,7 @@ func (a *App) searchEditHeader(c *ui.Context, g *group, v *searchEditView, f *se
 		Background(colors(c).TabBar).BorderWidth(1, 0, 1, 0).BorderColor(colors(c).Hairline).
 		Cursor(ui.CursorPointer).Label(f.path).Tooltip(searchEditText("searchEditOpenFile"))
 	header.OnClick(func() {
-		a.focus = g
+		a.observeFocusedGroup(g)
 		var pos *editor.Pos
 		if len(f.excerpts) > 0 {
 			pos = &editor.Pos{Line: f.excerpts[0].first}
@@ -521,7 +521,7 @@ func (a *App) searchExcerptView(c *ui.Context, g *group, v *searchEditView, f *s
 				n := ui.Row(c).Height(rowH).FillWidth().Justify(ui.End).AlignItems(ui.Center).Cursor(ui.CursorPointer).
 					Tooltip(searchEditText("searchEditOpenLine"))
 				n.OnClick(func() {
-					a.focus = g
+					a.observeFocusedGroup(g)
 					a.openIn(g, f.path, goTo{pos: &editor.Pos{Line: line}})
 				})
 				n.Children(func() {
@@ -531,7 +531,7 @@ func (a *App) searchExcerptView(c *ui.Context, g *group, v *searchEditView, f *s
 		})
 		view := editor.View(c, st).Grow(1).Bind(&x.focus)
 		if view.FocusWithin() {
-			a.focus = g
+			a.observeFocusedGroup(g)
 		}
 	})
 }

@@ -11,6 +11,7 @@ import (
 
 	"see/internal/lsp"
 	"see/internal/workspace"
+	"see/locales"
 )
 
 // group is an editor area with tabs of its own, as Xcode's editors
@@ -25,8 +26,10 @@ type group struct {
 	cycle           []string     // the Ctrl+Tab walk left to do: tabs by recency, active first
 	cycleMod        ui.Modifiers // the modifier the walk began under; letting it go lands the walk
 	cycleActive     bool         // Ctrl+Tab is walking cycle: activating does not touch mru
+	focusSeq        uint64
 	colorPreview    *colorPreviewState
 	preview         string
+	pendingPreview  *previewTransition
 	eds             map[string]*editor.State
 	minimaps        map[string]*minimap
 	pending         map[string]goTo // where to go once a document loads
@@ -54,6 +57,14 @@ type group struct {
 	regexAction    regexActionCache
 	// pin is the reading-position pin of the editor's top line.
 	pin readingPin
+}
+
+type previewTransition struct {
+	doc         *doc
+	outgoing    string
+	replaced    string
+	replaceable bool
+	focusSeq    uint64
 }
 
 // goTo is a place to show in a document: a position of the buffer, or
@@ -106,6 +117,108 @@ func (a *App) tabFile(g *group, tab string) string {
 	return workspace.DocPath(a.root, a.realRoot, filepath.Join(a.git.root, filepath.FromSlash(v.name)))
 }
 func (g *group) hasDocument(path string) bool { return g.has(path) || g.has(markdownTab(path)) }
+
+func (a *App) observeFocusedGroup(g *group) {
+	if a.focus != g {
+		if a.focus != nil {
+			a.focus.focusSeq++
+		}
+		a.focus = g
+	}
+}
+
+func (a *App) setFocusedGroup(g *group) {
+	if a.focus != nil && a.focus != g {
+		a.cancelPendingPreview(a.focus)
+	}
+	a.observeFocusedGroup(g)
+}
+
+func (a *App) restorePendingPreview(g *group, p *previewTransition) {
+	if g.preview != p.doc.path {
+		return
+	}
+	if !p.replaceable || !g.has(p.replaced) {
+		g.preview = ""
+		return
+	}
+	if d := a.docs[tabPath(p.replaced)]; d != nil && d.buf != nil && d.buf.Modified() {
+		g.preview = ""
+		return
+	}
+	g.preview = p.replaced
+}
+
+func (a *App) cancelPendingPreview(g *group) {
+	p := g.pendingPreview
+	if p == nil {
+		return
+	}
+	g.pendingPreview = nil
+	a.restorePendingPreview(g, p)
+	if g.has(p.doc.path) {
+		a.closeTab(g, p.doc.path)
+	}
+}
+
+func (a *App) cancelPendingPreviewForRename(d *doc, path string) {
+	for _, g := range a.groups() {
+		p := g.pendingPreview
+		if p == nil {
+			continue
+		}
+		if p.doc == d {
+			g.pendingPreview = nil
+			a.restorePendingPreview(g, p)
+		} else if p.outgoing == path || p.replaced == path {
+			a.cancelPendingPreview(g)
+		}
+	}
+}
+
+func (a *App) finishPendingPreview(d *doc) {
+	for _, g := range a.groups() {
+		p := g.pendingPreview
+		if p == nil || p.doc != d {
+			continue
+		}
+		if a.docs[d.path] != d || !g.has(d.path) || !g.has(p.outgoing) || g.active != p.outgoing || a.focus != g || g.focusSeq != p.focusSeq {
+			a.cancelPendingPreview(g)
+			return
+		}
+		g.pendingPreview = nil
+		if g.preview == d.path && p.replaceable {
+			at := slices.Index(g.order, p.replaced)
+			replaced := a.docs[tabPath(p.replaced)]
+			if replaced == nil || replaced.buf == nil || !replaced.buf.Modified() {
+				if g.has(p.replaced) {
+					a.closeTab(g, p.replaced)
+				}
+				if at >= 0 {
+					g.addTab(d.path, at)
+				}
+			} else if at >= 0 {
+				g.addTab(d.path, at+1)
+			}
+		}
+		a.activateIn(g, d.path)
+		if st := g.eds[d.path]; st != nil {
+			a.focusEditor = st
+		}
+		return
+	}
+}
+
+func (a *App) failPendingPreview(d *doc) {
+	for _, g := range a.groups() {
+		if p := g.pendingPreview; p != nil && p.doc == d {
+			message := locales.MsgCouldNotOpen() + d.name + ": " + describeErr(d.err)
+			a.cancelPendingPreview(g)
+			a.note(message, true)
+			return
+		}
+	}
+}
 
 // side is where a new group goes beside another.
 type side int
@@ -180,7 +293,7 @@ func (a *App) resetLayout() {
 	}
 	g := a.newGroup()
 	a.layout = &layout{g: g}
-	a.focus = g
+	a.observeFocusedGroup(g)
 }
 
 // splitBeside puts a new, empty group at s of g.
@@ -229,9 +342,9 @@ func (a *App) removeGroup(g *group) {
 		p.a.parent, p.b.parent = p, p
 	}
 	if a.focus == g {
-		a.focus = a.groups()[0]
+		a.observeFocusedGroup(a.groups()[0])
 		if gs := p.leaves(nil); len(gs) > 0 {
-			a.focus = gs[0]
+			a.observeFocusedGroup(gs[0])
 		}
 	}
 	a.closeRegexPlaygroundForSource(g, "")
@@ -255,6 +368,13 @@ func (a *App) activateIn(g *group, path string) {
 	if !g.has(path) {
 		return
 	}
+	if p := g.pendingPreview; p != nil {
+		if p.doc.path == path {
+			g.pendingPreview = nil
+		} else {
+			a.cancelPendingPreview(g)
+		}
+	}
 	if a.maximized != g {
 		a.maximized = nil
 	}
@@ -267,7 +387,7 @@ func (a *App) activateIn(g *group, path string) {
 	if g.cycleActive && !slices.Contains(g.cycle, path) {
 		a.endTabCycle() // something else activated: the walk is over
 	}
-	a.focus = g
+	a.setFocusedGroup(g)
 	g.active = path
 	if !g.cycleActive {
 		g.mru = slices.DeleteFunc(g.mru, func(p string) bool { return p == path })
@@ -469,6 +589,15 @@ func mruOrder(g *group) []string {
 // closeTab closes a tab of g. A document no group shows any more is let
 // go; a group left without tabs goes, unless it is the last.
 func (a *App) closeTab(g *group, path string) {
+	if p := g.pendingPreview; p != nil {
+		switch path {
+		case p.doc.path:
+			g.pendingPreview = nil
+			a.restorePendingPreview(g, p)
+		case p.outgoing, p.replaced:
+			a.cancelPendingPreview(g)
+		}
+	}
 	if !g.has(path) {
 		return
 	}
@@ -747,7 +876,7 @@ func (a *App) splitActive(s side) {
 	path := g.active
 	ng := a.splitBeside(g, s)
 	if path == "" {
-		a.focus = ng
+		a.setFocusedGroup(ng)
 		a.saveConfigSoon()
 		return
 	}

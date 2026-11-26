@@ -88,7 +88,7 @@ func (a *App) codeActionAtPoint(g *group, d *doc, st *editor.State, caret bool) 
 	if d.buf == nil {
 		return
 	}
-	a.focus = g
+	a.observeFocusedGroup(g)
 	m := a.serverFor(d.path)
 	if m == nil {
 		a.note(locales.MsgNoLanguageServerIsConfiguredForThisFile(), false)

@@ -253,11 +253,11 @@ func (a *App) diffJumpBar(c *ui.Context, g *group) {
 				ui.Text(c, fmt.Sprintf("%d / %d", max(0, i)+1, len(hunks))).FontSize(11).TextColor(colors(c).Muted).SingleLine()
 			}
 			if glyphButton(c, icChangeUp, "Previous Change", "Previous Change", false, len(hunks) == 0).Clicked() {
-				a.focus = g
+				a.setFocusedGroup(g)
 				a.goToChange(-1)
 			}
 			if glyphButton(c, icChangeDown, "Next Change", "Next Change", false, len(hunks) == 0).Clicked() {
-				a.focus = g
+				a.setFocusedGroup(g)
 				a.goToChange(1)
 			}
 			if v.partial != nil && len(hunks) > 0 {
@@ -330,19 +330,19 @@ func (a *App) jumpBar(c *ui.Context, g *group) {
 			a.addCounterpartsMenu(menu, g)
 			menu.Separator()
 			if menu.Item(locales.InspectorCallers()).Chosen() {
-				a.focus = g
+				a.setFocusedGroup(g)
 				a.findUsagesAt(true, ui.Point{X: g.relatedBounds.X, Y: g.relatedBounds.Y + g.relatedBounds.H}, true)
 			}
 			if menu.Item(locales.MsgReferences()).Chosen() {
-				a.focus = g
+				a.setFocusedGroup(g)
 				a.findUsagesAt(false, ui.Point{X: g.relatedBounds.X, Y: g.relatedBounds.Y + g.relatedBounds.H}, true)
 			}
 			if menu.Item(locales.CallHierarchy()).Chosen() {
-				a.focus = g
+				a.setFocusedGroup(g)
 				a.showCallHierarchyAt(g)
 			}
 			if a.navigationEnabled(g.active, "typeHierarchy") && menu.Item(navigationText("typeHierarchy", "")).Chosen() {
-				a.focus = g
+				a.setFocusedGroup(g)
 				a.showTypeHierarchyAt(g)
 			}
 		}, ui.PopoverMenuButtonOptions{Open: &g.relatedOpen, Panel: popoverMenuPanel})
@@ -446,7 +446,7 @@ func (a *App) jumpBar(c *ui.Context, g *group) {
 				label, tip = locales.MsgMarkdownSource(), locales.MsgShowMarkdownSource()
 			}
 			if glyphToggle(c, icMarkdown, label, tip+" ("+keyLabel("Cmd+Shift+", "V")+")", g.markdownPreview[p] || isMarkdownTab(tab), false).Clicked() {
-				a.focus = g
+				a.setFocusedGroup(g)
 				if isMarkdownTab(tab) || g.markdownPreview[p] {
 					delete(g.markdownPreview, p)
 					a.openIn(g, p, goTo{})

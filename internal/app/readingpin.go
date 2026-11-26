@@ -306,7 +306,7 @@ func (a *App) openPinSymbol(g *group, pos lsp.Position) {
 	if p.requested.path == "" {
 		return
 	}
-	a.focus = g
+	a.observeFocusedGroup(g)
 	if here, ok := a.here(); ok {
 		a.hist.Push(here)
 	}

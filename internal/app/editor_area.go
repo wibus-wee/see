@@ -292,7 +292,7 @@ func (a *App) groupContent(c *ui.Context, g *group) {
 					view.Focus()
 				}
 				if a.focusGroupTarget == nil && view.FocusWithin() {
-					a.focus = g
+					a.observeFocusedGroup(g)
 				}
 				a.commitFileBar(c, v)
 			})
@@ -303,7 +303,7 @@ func (a *App) groupContent(c *ui.Context, g *group) {
 			view.Focus()
 		}
 		if a.focusGroupTarget == nil && view.FocusWithin() {
-			a.focus = g
+			a.observeFocusedGroup(g)
 		}
 		return
 	}
@@ -637,7 +637,7 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 			ed.AutoFocus()
 		}
 		if a.focusGroupTarget == nil && ed.FocusWithin() && a.focus != g {
-			a.focus = g
+			a.observeFocusedGroup(g)
 		}
 	}
 }

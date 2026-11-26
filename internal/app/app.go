@@ -567,6 +567,9 @@ func (a *App) closeWorkspace() {
 	a.saveConfig()
 	a.regexPlayground = nil
 	a.regexToolWindow.resetWorkspace()
+	for _, g := range a.groups() {
+		a.cancelPendingPreview(g)
+	}
 	a.gen++
 	if a.wsCancel != nil {
 		a.wsCancel()
@@ -1230,9 +1233,11 @@ func (a *App) loaded(d *doc, f workspace.File, buf *editor.Buffer, same bool, er
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) && d.buf != nil {
 			d.gone = true // keep showing what it was
+			a.failPendingPreview(d)
 			return
 		}
 		d.err = err
+		a.failPendingPreview(d)
 		return
 	}
 	if d.buf != nil && d.buf.Modified() {
@@ -1247,6 +1252,7 @@ func (a *App) loaded(d *doc, f workspace.File, buf *editor.Buffer, same bool, er
 	d.video = isVideoPath(d.path) && f.Kind == workspace.Binary
 	d.stamp = fileStamp{f.Size, f.ModTime}
 	if f.Kind != workspace.Text {
+		a.finishPendingPreview(d)
 		return
 	}
 	if d.buf == nil {
@@ -1278,6 +1284,7 @@ func (a *App) loaded(d *doc, f workspace.File, buf *editor.Buffer, same bool, er
 	for _, g := range a.groups() {
 		a.showLoaded(g, d)
 	}
+	a.finishPendingPreview(d)
 }
 
 // snapEquals reports whether a snapshot holds text, a chunk at a time,
@@ -1398,19 +1405,52 @@ func (a *App) userOpen(path string) {
 func (a *App) previewOpen(path string) {
 	g := a.focus
 	path = workspace.DocPath(a.root, a.realRoot, path)
+	if p := g.pendingPreview; p != nil {
+		if p.doc.path == path {
+			return
+		}
+		a.cancelPendingPreview(g)
+	}
 	if g.has(path) {
 		a.userActivateIn(g, path)
 		a.focusImage = ""
 		return
 	}
 	old := g.preview
-	if d := a.docs[old]; d != nil && d.buf != nil && d.buf.Modified() {
-		g.preview, old = "", ""
+	replaceable := old != ""
+	if d := a.docs[tabPath(old)]; d != nil && d.buf != nil && d.buf.Modified() {
+		g.preview = ""
+		replaceable = false
 	}
-	at := slices.Index(g.order, old)
+	at := -1
+	if replaceable {
+		at = slices.Index(g.order, old)
+	}
+	outgoing := g.active
 	a.userOpen(path)
 	a.focusImage = "" // a single-click preview keeps focus in the tree
+	if a.focus != g {
+		return
+	}
+	d := a.docs[path]
+	if st := a.activeEditor(); st != nil {
+		a.focusEditor = st
+	}
+	if d == nil {
+		if g.has(outgoing) {
+			a.activateIn(g, outgoing)
+		}
+		return
+	}
 	if old != "" {
+		if d.loading && d.buf == nil && g.has(outgoing) {
+			a.activateIn(g, outgoing)
+			g.preview = path
+			g.pendingPreview = &previewTransition{doc: d, outgoing: outgoing, replaced: old, replaceable: replaceable, focusSeq: g.focusSeq}
+			return
+		}
+	}
+	if replaceable {
 		a.closeTab(g, old)
 		g.addTab(path, at)
 	}
@@ -1424,6 +1464,13 @@ func (a *App) userActivateIn(g *group, path string) {
 	a.term.maximized = false
 	a.git.diffSeq++
 	a.git.peek = nil
+	if p := g.pendingPreview; p != nil {
+		if p.doc.path == path {
+			g.pendingPreview = nil
+		} else {
+			a.cancelPendingPreview(g)
+		}
+	}
 	if path == g.active && g == a.focus {
 		return
 	}
@@ -1502,7 +1549,7 @@ func (a *App) goToLocation(g *group, d *doc, offset int, kind string) {
 	if d.buf == nil {
 		return
 	}
-	a.focus = g
+	a.observeFocusedGroup(g)
 	m := a.serverFor(d.path)
 	if m == nil {
 		a.note(locales.MsgNoLanguageServerIsConfiguredForThisFile(), false)

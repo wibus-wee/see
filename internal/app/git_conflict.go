@@ -198,7 +198,7 @@ func (a *App) gitConflictContent(c *ui.Context, g *group, v *gitDiffTab) {
 	panel := ui.Column(c.Key(v)).Grow(1).FillWidth().MinHeight(0).Background(colors(c).Editor)
 	panel.Children(func() {
 		openFile := func() {
-			a.focus = g
+			a.observeFocusedGroup(g)
 			a.openGitFile(git.Change{Path: v.name})
 		}
 		switch {
@@ -241,7 +241,7 @@ func (a *App) gitConflictContent(c *ui.Context, g *group, v *gitDiffTab) {
 		}
 	})
 	if a.focusGroupTarget == nil && panel.FocusWithin() {
-		a.focus = g
+		a.observeFocusedGroup(g)
 	}
 }
 

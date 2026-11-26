@@ -111,6 +111,7 @@ func (a *App) renamed(old, dst string) {
 		}
 		rel, _ := filepath.Rel(old, path)
 		next := filepath.Join(dst, rel)
+		a.cancelPendingPreviewForRename(d, path)
 		if m := a.serverFor(path); m != nil {
 			m.Close(d.uri)
 		}

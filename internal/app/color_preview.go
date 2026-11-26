@@ -89,7 +89,7 @@ func (a *App) colorReplacements(g *group, d *doc, st *editor.State) []editor.Rep
 							dot.BorderWidth(2).BorderColor(c.Theme().Accent)
 						}
 						dot.OnClick(func() {
-							a.focus = g
+							a.observeFocusedGroup(g)
 							g.colorPreview = &colorPreviewState{
 								path:    d.path,
 								start:   r.Start,
