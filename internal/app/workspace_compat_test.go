@@ -14,6 +14,7 @@ import (
 
 	"see/internal/config"
 	"see/internal/langserver"
+	"see/internal/languages"
 	"see/internal/lsp"
 	"see/internal/search"
 	"see/internal/uri"
@@ -647,5 +648,50 @@ func TestReloadCodeWorkspaceAppliesSettingsEdits(t *testing.T) {
 	h.a.reloadCodeWorkspace(workspaceFile)
 	h.settle(func() bool {
 		return h.a.dirs[client] != nil && h.a.dirs[client].loaded && !slices.Contains(h.a.entryPaths(h.a.dirs[client]), build)
+	})
+}
+
+func TestRealGoplsMultiRootProjectProblems(t *testing.T) {
+	if os.Getenv("SEE_GOPLS") == "" {
+		t.Skip("set SEE_GOPLS to the path of gopls")
+	}
+	base := t.TempDir()
+	var paths []string
+	for _, name := range []string{"client", "server"} {
+		root := filepath.Join(base, name)
+		if err := os.MkdirAll(filepath.Join(root, "checker"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte("module example.com/"+name+"\n\ngo 1.21\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		path := filepath.Join(root, "checker", "check.go")
+		if err := os.WriteFile(path, []byte("package checker\nvar _ = missingIdentifier\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		paths = append(paths, path)
+	}
+	workspaceFile := filepath.Join(base, "multi.code-workspace")
+	if err := os.WriteFile(workspaceFile, []byte(`{"folders":[{"path":"client"},{"path":"server"}]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	h := newHarness(t, "")
+	h.a.startLSP = languages.StartGopls
+	h.a.cfg.Trust(filepath.Join(base, "client"))
+	h.a.cfg.Trust(filepath.Join(base, "server"))
+	h.a.openWorkspace(workspaceFile)
+	defer h.a.lsp.StopWait(5 * time.Second)
+	h.a.showProblems()
+	h.settle(func() bool {
+		seen := 0
+		for _, row := range h.a.problemLocations() {
+			for _, path := range paths {
+				if row.path == path && strings.Contains(row.diagnostic.Message, "undefined: missingIdentifier") {
+					seen++
+				}
+			}
+		}
+		return seen == len(paths)
 	})
 }
