@@ -221,7 +221,7 @@ func (a *App) branchPreviewOpenFiles() []branchPreviewOpenFile {
 			}
 			path := tabPath(tab)
 			d := a.docs[path]
-			if path == "" || d == nil || d.untitled || !workspace.Within(a.root, path) || !workspace.Within(root, path) {
+			if path == "" || d == nil || d.untitled || !a.withinWorkspace(path) || !workspace.Within(root, path) {
 				continue
 			}
 			path = filepath.Clean(path)

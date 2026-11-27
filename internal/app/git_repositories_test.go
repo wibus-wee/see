@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -152,6 +153,53 @@ func TestChildGitRepositoryDiscoveryIsOptInAndSelectionStaysExplicit(t *testing.
 		v := h.a.focus.diffs[diffTab(change.Path, false)]
 		return v != nil && v.state != nil
 	})
+}
+
+func TestCodeWorkspaceSelectsEachConfiguredRepositoryWithoutNestedDiscovery(t *testing.T) {
+	base := t.TempDir()
+	workspaceDir := filepath.Join(base, "comparison")
+	if err := os.MkdirAll(workspaceDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	frontend := nestedGitRepo(t, filepath.Join(base, "frontend"), "main.go", "base\n", "frontend change\n")
+	backend := nestedGitRepo(t, filepath.Join(base, "backend"), "main.go", "base\n", "backend change\n")
+	workspaceFile := filepath.Join(workspaceDir, "repositories.code-workspace")
+	if err := os.WriteFile(workspaceFile, []byte(`{"folders":[{"name":"Frontend","path":"../frontend"},{"name":"Backend","path":"../backend"}]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	h := newHarness(t, workspaceFile)
+	h.a.refreshGitDiscovery()
+	h.settle(func() bool {
+		return h.a.dirs[backend] != nil && h.a.dirs[backend].loaded && h.a.git.repositoriesLoaded && len(h.a.git.repositories) == 2 && !h.a.git.loading
+	})
+	if h.a.cfg.GitAutoDiscover || !h.a.gitRepositorySelectionEnabled() || !slices.Equal(h.a.git.repositories, []string{backend, frontend}) {
+		t.Fatalf("configured repository selection = enabled %v, repositories %v, nested discovery %v", h.a.gitRepositorySelectionEnabled(), h.a.git.repositories, h.a.cfg.GitAutoDiscover)
+	}
+
+	h.a.navigator = navGit
+	h.a.git.repositoryView.page = 1
+	h.tt.Frame()
+	if err := h.tt.Click("Backend"); err != nil {
+		t.Fatalf("select backend repository: %v; text=%q", err, h.tt.Texts())
+	}
+	h.settle(func() bool { return h.a.git.root == backend && !h.a.git.loading })
+	if len(h.a.git.changes) != 1 || h.a.git.changes[0].Path != "main.go" {
+		t.Fatalf("backend working changes = %+v", h.a.git.changes)
+	}
+	h.a.loadHistory(true)
+	h.settle(func() bool { return !h.a.git.history.loading && len(h.a.git.history.commits) > 0 })
+	if got := h.a.git.history.commits[0].Subject; got != "backend first" {
+		t.Fatalf("selected repository history = %q", got)
+	}
+	change := h.a.git.changes[0]
+	h.a.showGitDiff(change, false)
+	h.settle(func() bool {
+		view := h.a.focus.diffs[diffTab(change.Path, false)]
+		return view != nil && view.state != nil
+	})
+	if view := h.a.focus.diffs[diffTab(change.Path, false)]; view.root != backend {
+		t.Fatalf("selected repository diff root = %q, want %q", view.root, backend)
+	}
 }
 
 func TestDiscoveredRepositoryChangesStayGroupedAndScoped(t *testing.T) {

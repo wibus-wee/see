@@ -15,7 +15,6 @@ import (
 	"github.com/egoist/mygo/ui/editor"
 
 	"see/internal/search"
-	"see/internal/workspace"
 	"see/locales"
 )
 
@@ -252,7 +251,7 @@ func (a *App) newSearchExcerpt(f *searchEditFile, first int, lines []string) *se
 	buf.SetLanguage(languageFor(filepath.Base(f.path), ""))
 	x.st = &editor.State{
 		Buffer:          buf,
-		Label:           fmt.Sprintf("%s:%d", workspace.RelPath(a.root, f.path), first+1),
+		Label:           fmt.Sprintf("%s:%d", a.workspacePath(f.path), first+1),
 		Bindings:        editorBindings(),
 		Theme:           a.edTheme,
 		FitContent:      true,
@@ -465,7 +464,7 @@ func (a *App) searchEditHeader(c *ui.Context, g *group, v *searchEditView, f *se
 	header.Children(func() {
 		fileIcon(c, filepath.Base(f.path), 14)
 		ui.Text(c, filepath.Base(f.path)).FontSize(12).Bold().SingleLine().Shrink(0)
-		if dir := filepath.Dir(workspace.RelPath(a.root, f.path)); dir != "." {
+		if dir := filepath.Dir(a.workspacePath(f.path)); dir != "." {
 			ui.Text(c, filepath.ToSlash(dir)).FontSize(11).TextColor(colors(c).Dim).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(1)
 		}
 		if f.dirty() {

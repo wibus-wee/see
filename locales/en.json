@@ -11,6 +11,8 @@
   "gitScanningRepositories": "Looking for Git repositories…",
   "gitNoRepositoriesFound": "No Git repositories found in this folder.",
   "gitSelectRepositoryToSeeChanges": "Select a repository to see its changes.",
+  "workspaceAddFolder": "Add Folder to Workspace…",
+  "workspaceRemoveFolder": "Remove Folder from Workspace",
   "commandToggleReaderMode": "Toggle Reader Mode",
   "typeHierarchy": "Type Hierarchy",
   "commandShowTypeHierarchy": "Show Type Hierarchy",

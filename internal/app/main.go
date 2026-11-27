@@ -7,11 +7,13 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"runtime"
 	"see/internal/cli"
 	"see/internal/config"
 	"see/locales"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/egoist/mygo"
@@ -203,7 +205,17 @@ func Main() {
 			a.showWelcome = false
 			wins.sync(nil)
 			if path != "" && !forceNewWindow {
-				if root, err := workspace.CanonicalRoot(path); err == nil {
+				if strings.EqualFold(filepath.Ext(path), ".code-workspace") {
+					if identity, err := filepath.Abs(path); err == nil {
+						for _, p := range projects {
+							if p.app.workspaceID == filepath.Clean(identity) {
+								p.win.Show()
+								p.win.Focus()
+								return p
+							}
+						}
+					}
+				} else if root, err := workspace.CanonicalRoot(path); err == nil {
 					for _, p := range projects {
 						if p.app.root == root {
 							p.win.Show()
@@ -314,6 +326,16 @@ func Main() {
 				p.win.Show()
 				p.win.Focus()
 				p.win.Update(func() {}) // draws the file
+				return
+			}
+			if strings.EqualFold(filepath.Ext(path), ".code-workspace") {
+				if a.root == "" {
+					a.openWorkspace(path)
+					wins.sync(nil)
+					win.Focus()
+				} else {
+					openProject(path)
+				}
 				return
 			}
 			if fi, err := os.Stat(path); err == nil && fi.IsDir() {
@@ -442,6 +464,15 @@ func Main() {
 					a.openCLIPath(path)
 					wins.sync(nil)
 					win.Focus()
+					return
+				}
+				if strings.EqualFold(filepath.Ext(path), ".code-workspace") {
+					forceNewWindow = req.NewWindow
+					p := openProject(path)
+					forceNewWindow = false
+					wins.sync(nil)
+					p.win.Show()
+					p.win.Focus()
 					return
 				}
 				dir, file := cli.Split(path)
@@ -592,13 +623,15 @@ func projectHolding(projects []*projectWindow, path string) *projectWindow {
 		}
 	}
 	var best *projectWindow
+	var bestRoot string
 	for _, p := range projects {
-		root := p.app.root
-		if root == "" || (p.win != nil && p.win.IsDestroyed()) || !workspace.Within(root, path) {
+		root := p.app.workspaceRootForPath(path)
+		if root == "" || (p.win != nil && p.win.IsDestroyed()) {
 			continue
 		}
-		if best == nil || len(root) > len(best.app.root) {
+		if best == nil || len(root) > len(bestRoot) {
 			best = p
+			bestRoot = root
 		}
 	}
 	return best

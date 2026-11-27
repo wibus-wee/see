@@ -88,6 +88,9 @@ func (a *App) captureSession() {
 		a.cfg.Workspaces = make(map[string]config.Workspace)
 	}
 	workspace := config.Workspace{Layout: snapshot(a.layout), SidebarHidden: a.sidebarOff, Navigator: a.navigator, ChangesClosed: a.git.changesClosed, StashesClosed: a.git.stashesClosed, HistoryClosed: a.git.historyClosed, GitSplit: a.git.split, GitLogSplit: a.git.logSplit, WindowWidth: a.windowWidth, WindowHeight: a.windowHeight, Bookmarks: a.sessionBookmarks()}
+	if a.workspaceChanged {
+		workspace.Folders = savedWorkspaceFolders(a.workspaceFolders)
+	}
 	if a.regexToolWindow.initialized {
 		workspace.RegexToolX, workspace.RegexToolY = a.regexToolWindow.rect.X, a.regexToolWindow.rect.Y
 		workspace.RegexToolWidth, workspace.RegexToolHeight = a.regexToolWindow.rect.W, a.regexToolWindow.rect.H
@@ -97,7 +100,7 @@ func (a *App) captureSession() {
 		a.mergeStandaloneSession(workspace)
 		return
 	}
-	a.cfg.Workspaces[a.root] = workspace
+	a.cfg.Workspaces[a.workspaceID] = workspace
 }
 
 // mergeStandaloneSession merges this window's recovery tabs into the one
@@ -197,7 +200,7 @@ func (a *App) restoreSession() {
 	if a.root == "" && !a.ownsStandaloneSession {
 		return
 	}
-	s, ok := a.cfg.Workspaces[a.root]
+	s, ok := a.cfg.Workspaces[a.workspaceID]
 	if !ok {
 		return
 	}

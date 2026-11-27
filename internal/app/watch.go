@@ -33,7 +33,24 @@ func (a *App) startWatch() {
 	if watchFiles == nil {
 		return
 	}
-	root, ctx, gen := a.root, a.wsCtx, a.gen
+	for _, folder := range a.workspaceFolders {
+		a.startWatchFolder(folder.Path)
+	}
+}
+
+func (a *App) startWatchFolder(root string) {
+	if watchFiles == nil || root == "" {
+		return
+	}
+	if a.watchCancels == nil {
+		a.watchCancels = map[string]context.CancelFunc{}
+	}
+	if cancel := a.watchCancels[root]; cancel != nil {
+		cancel()
+	}
+	ctx, cancel := context.WithCancel(a.wsCtx)
+	a.watchCancels[root] = cancel
+	gen := a.gen
 	go func() {
 		// What git ignores is left out first, as build output, so that a
 		// large project stays within what a watch can follow file by file.
@@ -42,7 +59,10 @@ func (a *App) startWatch() {
 		ignored := readIgnored(ctx, root)
 		a.post.Post(func() {
 			if a.gen == gen {
-				a.ignored = ignored
+				if a.ignored == nil {
+					a.ignored = map[string]*git.Ignored{}
+				}
+				a.ignored[root] = ignored
 			}
 		})
 		ignore := func(rel string, isDir bool) bool {
@@ -79,7 +99,7 @@ func (a *App) startWatch() {
 			}
 			a.post.Post(func() {
 				if a.gen == gen {
-					a.applyEvents(evs)
+					a.applyEventsAt(root, evs)
 				}
 			})
 		}
@@ -89,6 +109,17 @@ func (a *App) startWatch() {
 // applyEvents refreshes what changes on disk touch: the loaded
 // directories they are in, and the open documents they name.
 func (a *App) applyEvents(evs []mygo.FileEvent) {
+	root := a.root
+	if root == "" {
+		return
+	}
+	a.applyEventsAt(root, evs)
+}
+
+func (a *App) applyEventsAt(root string, evs []mygo.FileEvent) {
+	if !a.withinWorkspace(root) {
+		return
+	}
 	if len(evs) > 0 {
 		a.refreshGit()
 		a.invalidateHover()
@@ -100,9 +131,9 @@ func (a *App) applyEvents(evs []mygo.FileEvent) {
 	}
 	for _, ev := range evs {
 		if path.Base(ev.Path) == ".gitignore" || path.Base(ev.Path) == "exclude" && strings.Contains(ev.Path, ".git/info") {
-			a.rereadIgnored()
+			a.rereadIgnoredAt(root, a.wsCtx, a.gen)
 		}
-		p := filepath.Join(a.root, filepath.FromSlash(ev.Path))
+		p := filepath.Join(root, filepath.FromSlash(ev.Path))
 		switch ev.Op {
 		case mygo.FileHint:
 			notify(p, lsp.FileChanged)
@@ -120,7 +151,7 @@ func (a *App) applyEvents(evs []mygo.FileEvent) {
 			}
 			continue
 		case mygo.FileRename:
-			old := filepath.Join(a.root, filepath.FromSlash(ev.OldPath))
+			old := filepath.Join(root, filepath.FromSlash(ev.OldPath))
 			dirs[filepath.Dir(old)] = true
 			a.removed(old)
 			notify(old, lsp.FileDeleted)
@@ -200,11 +231,18 @@ var readIgnored = func(ctx context.Context, root string) *git.Ignored {
 // workspace opens again.
 func (a *App) rereadIgnored() {
 	root, ctx, gen := a.root, a.wsCtx, a.gen
+	a.rereadIgnoredAt(root, ctx, gen)
+}
+
+func (a *App) rereadIgnoredAt(root string, ctx context.Context, gen int) {
 	go func() {
 		ig := readIgnored(ctx, root)
 		a.post.Post(func() {
 			if a.gen == gen {
-				a.ignored = ig
+				if a.ignored == nil {
+					a.ignored = map[string]*git.Ignored{}
+				}
+				a.ignored[root] = ig
 			}
 		})
 	}()
@@ -213,9 +251,14 @@ func (a *App) rereadIgnored() {
 // gitIgnores reports whether git ignores p, a path of the workspace,
 // which the tree dims, as VS Code does.
 func (a *App) gitIgnores(p string) bool {
-	if a.ignored == nil || !workspace.Within(a.root, p) || p == a.root {
+	root := a.workspaceRootForPath(p)
+	if root == "" {
+		root = a.root
+	}
+	ignored := a.ignored[root]
+	if ignored == nil || !workspace.Within(root, p) || p == root {
 		return false
 	}
-	rel, err := filepath.Rel(a.root, p)
-	return err == nil && a.ignored.Has(filepath.ToSlash(rel))
+	rel, err := filepath.Rel(root, p)
+	return err == nil && ignored.Has(filepath.ToSlash(rel))
 }

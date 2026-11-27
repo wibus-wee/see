@@ -27,7 +27,9 @@ func (a *App) openFileDialog() {
 			case err != nil:
 				a.note(locales.MsgCouldNotShowTheFileDialog()+err.Error(), true)
 			case p != "":
-				if a.root == "" {
+				if strings.EqualFold(filepath.Ext(p), ".code-workspace") {
+					a.openWorkspace(p)
+				} else if a.root == "" {
 					a.showWelcome = false
 					a.openFile(p, nil)
 				} else {
@@ -366,7 +368,7 @@ func (a *App) saveUntitled(d *doc, done func(bool)) {
 				done(false)
 				return
 			}
-			path = workspace.DocPath(a.root, a.realRoot, path)
+			path = a.docPath(path)
 			alreadyOpen := a.docs[path]
 			if alreadyOpen == nil && a.root == "" {
 				alreadyOpen = standaloneDocForPath(a, path)

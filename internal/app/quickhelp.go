@@ -496,12 +496,7 @@ func inspectorSection(c *ui.Context, label string, children func()) {
 func (a *App) inspectorSourceRow(c *ui.Context) {
 	in := &a.inspector
 	t := in.declared
-	path := t.path
-	if rel, err := filepath.Rel(a.root, path); err == nil && a.root != "" {
-		path = rel
-	} else {
-		path = filepath.Base(path)
-	}
+	path := a.workspacePath(t.path)
 	line := fmt.Sprintf("%s:%d", filepath.ToSlash(path), t.pos.Line+1)
 	inspectorSection(c, quickHelpText("quickHelpDeclaredIn"), func() {
 		row := ui.ButtonBase(c).Label(line).Tooltip(t.path).FillWidth().Padding(7, 10)

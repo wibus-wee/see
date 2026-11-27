@@ -92,22 +92,26 @@ type App struct {
 	logf func(string, ...any)
 
 	// The workspace.
-	root     string // as the user opened it
-	realRoot string // with symlinks resolved, as servers may report it
-	gen      int    // bumped when the workspace changes; late results of an old one are dropped
-	wsCtx    context.Context
-	wsCancel context.CancelFunc
-	dirs     map[string]*dirState
-	tree     ui.OutlineState[string]
-	outline  outlineState
-	calls    calls
-	treeRow  int
-	reveal   string // a path to choose in the tree once its row shows
-	filter   treeFilter
-	watchErr error
-	watching bool
-	ignored  *git.Ignored // what git ignores in the workspace, dimmed in the tree and not watched
-	git      gitState
+	root             string // the first folder root
+	realRoot         string // with symlinks resolved, as servers may report it
+	workspaceID      string // folder or .code-workspace path used for saved state
+	workspaceFolders []workspace.Folder
+	workspaceChanged bool
+	gen              int // bumped when the workspace changes; late results of an old one are dropped
+	wsCtx            context.Context
+	wsCancel         context.CancelFunc
+	dirs             map[string]*dirState
+	tree             ui.OutlineState[string]
+	outline          outlineState
+	calls            calls
+	treeRow          int
+	reveal           string // a path to choose in the tree once its row shows
+	filter           treeFilter
+	watchErr         error
+	watching         bool
+	watchCancels     map[string]context.CancelFunc
+	ignored          map[string]*git.Ignored // what Git ignores under each folder root
+	git              gitState
 
 	// Documents, by path, and the editor groups showing them.
 	docs              map[string]*doc
@@ -452,11 +456,123 @@ func (a *App) openFolderDialog() {
 	}()
 }
 
+func (a *App) addWorkspaceFolderDialog() {
+	if a.find.replacing {
+		return
+	}
+	pick := a.host.PickFolder
+	go func() {
+		p, err := pick()
+		a.post.Post(func() {
+			switch {
+			case err != nil:
+				a.note(locales.MsgCouldNotShowTheFolderDialog()+err.Error(), true)
+			case p != "":
+				a.addWorkspaceFolder(p)
+			}
+		})
+	}()
+}
+
+func (a *App) addWorkspaceFolder(path string) {
+	if a.find.replacing {
+		return
+	}
+	root, err := workspace.CanonicalRoot(path)
+	if err != nil {
+		a.note(locales.MsgCouldNotOpen()+path+": "+describeErr(err), true)
+		return
+	}
+	for _, folder := range a.workspaceFolders {
+		if folder.Path == root {
+			return
+		}
+	}
+	a.workspaceFolders = append(a.workspaceFolders, workspace.Folder{Path: root, Name: filepath.Base(root)})
+	a.workspaceChanged = true
+	if a.ignored == nil {
+		a.ignored = map[string]*git.Ignored{}
+	}
+	a.loadDir(root)
+	a.startWatchFolder(root)
+	if len(a.workspaceFolders) > 1 {
+		a.tree.Open.Add(root)
+	}
+	a.quick.files, a.quick.err = nil, nil
+	a.filter.forQuery, a.filter.tree, a.filter.roots = "", nil, nil
+	a.runFind()
+	a.refreshGitDiscovery()
+	a.saveConfig()
+}
+
+func (a *App) removeWorkspaceFolder(path string) {
+	if a.find.replacing || len(a.workspaceFolders) <= 1 || !a.isWorkspaceFolder(path) {
+		return
+	}
+	folders := make([]workspace.Folder, 0, len(a.workspaceFolders)-1)
+	for _, folder := range a.workspaceFolders {
+		if folder.Path != path {
+			folders = append(folders, folder)
+		}
+	}
+	if cancel := a.watchCancels[path]; cancel != nil {
+		cancel()
+		delete(a.watchCancels, path)
+	}
+	for dir := range a.dirs {
+		if workspace.Within(path, dir) {
+			delete(a.dirs, dir)
+		}
+	}
+	delete(a.ignored, path)
+	a.workspaceFolders = folders
+	a.workspaceChanged = true
+	if a.root == path {
+		a.root = folders[0].Path
+		a.realRoot = a.root
+		if resolved, err := filepath.EvalSymlinks(a.root); err == nil {
+			a.realRoot = resolved
+		}
+	}
+	a.tree.Open.Remove(path)
+	a.quick.files, a.quick.err = nil, nil
+	a.filter.forQuery, a.filter.tree, a.filter.roots = "", nil, nil
+	a.runFind()
+	a.refreshGitDiscovery()
+	a.saveConfig()
+}
+
 // openWorkspace closes the current workspace and opens dir: its first
 // level of entries loads in the background, and nothing else is read
 // until the user opens it.
 func (a *App) openWorkspace(dir string) {
-	root, err := workspace.CanonicalRoot(dir)
+	workspaceID, err := filepath.Abs(dir)
+	if err != nil {
+		a.welcomeNote = locales.Catalog.Format(i18n.Locale(), "msgCouldNotOpenSPath", map[string]any{"path": dir, "reason": describeErr(err)})
+		return
+	}
+	workspaceID = filepath.Clean(workspaceID)
+	var folders []workspace.Folder
+	if strings.EqualFold(filepath.Ext(workspaceID), ".code-workspace") {
+		folders, err = workspace.ReadCodeWorkspace(workspaceID)
+	} else {
+		var root string
+		root, err = workspace.CanonicalRoot(workspaceID)
+		if err == nil {
+			workspaceID = root
+			folders = []workspace.Folder{{Path: root, Name: filepath.Base(root)}}
+		}
+	}
+	if err == nil {
+		if saved := a.cfg.Workspaces[workspaceID]; len(saved.Folders) > 0 {
+			if persisted, folderErr := loadSavedWorkspaceFolders(saved.Folders); folderErr == nil && len(persisted) > 0 {
+				folders = persisted
+			}
+		}
+		if len(folders) == 0 {
+			err = errors.New("workspace has no folders")
+		}
+	}
 	if err != nil {
 		a.welcomeNote = locales.Catalog.Format(i18n.Locale(), "msgCouldNotOpenSPath", map[string]any{"path": dir, "reason": describeErr(err)})
 		if errors.Is(err, fs.ErrNotExist) && slices.Contains(a.cfg.Recent, dir) {
@@ -465,32 +581,40 @@ func (a *App) openWorkspace(dir string) {
 		}
 		return
 	}
-	if a.guardDirty(a.dirtyDocs(), func() { a.openWorkspace(root) }) {
+	if a.guardDirty(a.dirtyDocs(), func() { a.openWorkspace(workspaceID) }) {
 		return
 	}
 	a.closeWorkspace()
-	a.root = root
-	a.realRoot = root
-	if r, err := filepath.EvalSymlinks(root); err == nil {
+	a.workspaceID = workspaceID
+	a.workspaceFolders = folders
+	a.workspaceChanged = len(a.cfg.Workspaces[workspaceID].Folders) > 0
+	a.root = folders[0].Path
+	a.realRoot = a.root
+	if r, err := filepath.EvalSymlinks(a.root); err == nil {
 		a.realRoot = r
 	}
 	a.welcomeNote = ""
 	a.showWelcome = false
 	a.wsCtx, a.wsCancel = context.WithCancel(context.Background())
 	a.initLanguageServers()
-	a.loadDir(root)
+	for _, folder := range folders {
+		a.loadDir(folder.Path)
+		if len(folders) > 1 {
+			a.tree.Open.Add(folder.Path)
+		}
+	}
 	a.startWatch()
 	a.startGit()
 	a.restoreSession()
 	if a.navigator == navProblems && !a.sidebarOff {
 		a.startProjectDiagnostics()
 	}
-	a.windowWidth, a.windowHeight = config.WorkspaceSize(a.cfg.Workspaces[root])
+	a.windowWidth, a.windowHeight = config.WorkspaceSize(a.cfg.Workspaces[workspaceID])
 	a.host.SetWorkspaceSize(a.windowWidth, a.windowHeight)
-	a.cfg.LastWorkspace = root
-	a.cfg.AddRecent(root)
+	a.cfg.LastWorkspace = workspaceID
+	a.cfg.AddRecent(workspaceID)
 	a.saveConfig()
-	a.host.SetTitle(filepath.Base(root))
+	a.host.SetTitle(a.workspaceTitle())
 }
 
 func (a *App) initLanguageServers() {
@@ -587,7 +711,9 @@ func (a *App) closeWorkspace() {
 		}
 	}
 	a.stopLanguageServers()
-	a.root, a.realRoot = "", ""
+	a.root, a.realRoot, a.workspaceID = "", "", ""
+	a.workspaceFolders, a.workspaceChanged = nil, false
+	a.watchCancels = nil
 	a.recents = nil
 	a.dirs = map[string]*dirState{}
 	a.tree = ui.OutlineState[string]{}
@@ -775,7 +901,11 @@ func (a *App) hiddenPath(p string) bool {
 	if !filepath.IsAbs(p) {
 		p = filepath.Join(a.root, p)
 	}
-	rel, err := filepath.Rel(a.root, p)
+	root := a.workspaceRootForPath(p)
+	if root == "" {
+		return false
+	}
+	rel, err := filepath.Rel(root, p)
 	if err != nil {
 		return false
 	}
@@ -804,6 +934,9 @@ func isPlaceholder(p string) bool {
 
 // entry finds the tree entry of a path in its loaded parent.
 func (a *App) entry(p string) (workspace.Entry, bool) {
+	if a.isWorkspaceFolder(p) {
+		return workspace.Entry{Name: a.workspaceFolderLabel(p), Path: p, Dir: true}, true
+	}
 	d := a.dirs[filepath.Dir(p)]
 	if d == nil {
 		return workspace.Entry{}, false
@@ -852,10 +985,11 @@ func (a *App) refreshAll() {
 
 // revealInTree opens the directories above p and chooses its row.
 func (a *App) revealInTree(p string) {
-	if a.root == "" || !workspace.Within(a.root, p) || p == a.root {
+	if a.root == "" || !a.withinWorkspace(p) || a.isWorkspaceFolder(p) {
 		return
 	}
-	for dir := filepath.Dir(p); dir != a.root && workspace.Within(a.root, dir); dir = filepath.Dir(dir) {
+	root := a.workspaceRootForPath(p)
+	for dir := filepath.Dir(p); dir != root && workspace.Within(root, dir); dir = filepath.Dir(dir) {
 		a.tree.Open.Add(dir)
 	}
 	a.reveal = p
@@ -977,7 +1111,7 @@ func (a *App) openFile(path string, pos *editor.Pos) *doc {
 
 func (a *App) openFileAt(path string, to goTo) *doc {
 	g := a.focus
-	docPath := workspace.DocPath(a.root, a.realRoot, path)
+	docPath := a.docPath(path)
 	if d := a.docs[docPath]; d != nil {
 		docPath = d.path
 	}
@@ -1004,7 +1138,7 @@ func (a *App) openInMode(g *group, path string, to goTo, addTab bool) *doc {
 	a.term.maximized = false
 	a.git.diffSeq++
 	a.git.peek = nil
-	path = workspace.DocPath(a.root, a.realRoot, path)
+	path = a.docPath(path)
 	d := a.docs[path]
 	if d == nil && a.root == "" {
 		d = standaloneDocForPath(a, path)
@@ -1411,7 +1545,7 @@ func (a *App) userOpen(path string) {
 
 func (a *App) previewOpen(path string) {
 	g := a.focus
-	path = workspace.DocPath(a.root, a.realRoot, path)
+	path = a.docPath(path)
 	if d := a.docs[path]; d != nil {
 		path = d.path
 	} else if a.root == "" {
@@ -2095,7 +2229,7 @@ func (a *App) loadRelatedPreviews(ch *defChoices) {
 	// Snapshots preserve unsaved edits without reading editor state in a worker.
 	snapshots := make(map[string]editor.Snapshot)
 	for _, t := range ch.locs {
-		path := workspace.DocPath(a.root, a.realRoot, t.path)
+		path := a.docPath(t.path)
 		if d := a.docs[path]; d != nil && d.buf != nil {
 			snapshots[t.path] = d.buf.Snapshot()
 		}

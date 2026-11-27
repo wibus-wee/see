@@ -45,6 +45,46 @@ func BuildTree(root string, files []string, query string) (map[string][]string, 
 	return tree, tree[root], matches
 }
 
+// BuildWorkspaceTree returns matching entries grouped under each workspace
+// folder root. Files are absolute paths so duplicate names in different roots
+// remain separate rows.
+func BuildWorkspaceTree(roots, files []string, query string) (map[string][]string, []string, int) {
+	words := strings.Fields(strings.ToLower(query))
+	tree := map[string][]string{}
+	seen := map[string]bool{}
+	matches := 0
+	for _, p := range files {
+		var root string
+		for _, candidate := range roots {
+			if workspace.Within(candidate, p) && len(candidate) > len(root) {
+				root = candidate
+			}
+		}
+		if root == "" || !HoldsWords(workspace.RelPath(root, p), words) {
+			continue
+		}
+		matches++
+		for p != root {
+			parent := filepath.Dir(p)
+			if !seen[p] {
+				seen[p] = true
+				tree[parent] = append(tree[parent], p)
+			}
+			p = parent
+		}
+	}
+	var rootMatches []string
+	for _, root := range roots {
+		if len(tree[root]) > 0 {
+			rootMatches = append(rootMatches, root)
+		}
+	}
+	for _, entries := range tree {
+		sortEntries(tree, entries)
+	}
+	return tree, rootMatches, matches
+}
+
 // HoldsWords reports whether path holds every word, ignoring case.
 func HoldsWords(path string, words []string) bool {
 	path = strings.ToLower(filepath.ToSlash(path))

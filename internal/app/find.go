@@ -13,10 +13,11 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
-	"github.com/sahilm/fuzzy"
 	"github.com/egoist/mygo/ui/editor"
+	"github.com/sahilm/fuzzy"
 
 	"see/internal/config"
+	"see/internal/git"
 	"see/internal/lsp"
 	"see/internal/nav"
 	"see/internal/search"
@@ -87,11 +88,11 @@ func (f *findState) currentQuery() config.SavedFindQuery {
 }
 
 func (a *App) setSavedFindQuery(query config.SavedFindQuery, save bool) {
-	if a.root == "" || strings.TrimSpace(query.Query) == "" {
+	if a.workspaceID == "" || strings.TrimSpace(query.Query) == "" {
 		return
 	}
 	byWorkspace := a.cfg.SavedFindQueries
-	queries := byWorkspace[a.root]
+	queries := byWorkspace[a.workspaceID]
 	i := slices.Index(queries, query)
 	if save == (i >= 0) {
 		return
@@ -101,11 +102,11 @@ func (a *App) setSavedFindQuery(query config.SavedFindQuery, save bool) {
 			byWorkspace = make(map[string][]config.SavedFindQuery)
 			a.cfg.SavedFindQueries = byWorkspace
 		}
-		byWorkspace[a.root] = slices.Insert(queries, 0, query)
+		byWorkspace[a.workspaceID] = slices.Insert(queries, 0, query)
 	} else if len(queries) == 1 {
-		delete(byWorkspace, a.root)
+		delete(byWorkspace, a.workspaceID)
 	} else {
-		byWorkspace[a.root] = slices.Delete(queries, i, i+1)
+		byWorkspace[a.workspaceID] = slices.Delete(queries, i, i+1)
 	}
 	a.saveConfigSoon()
 }
@@ -168,7 +169,8 @@ func (a *App) runFind() {
 		f.running = false
 		return
 	}
-	seq, gen, opts, root, rg := f.seq, a.gen, f.opts, a.root, f.rg
+	seq, gen, opts, rg := f.seq, a.gen, f.opts, f.rg
+	roots := a.workspaceFolderPaths()
 	ctx, cancel := context.WithCancel(a.wsCtx)
 	f.cancel = cancel
 	f.running = true
@@ -191,24 +193,49 @@ func (a *App) runFind() {
 				}
 			})
 		}
-		st, err := search.Run(ctx, rg, root, opts, func(file search.File) {
-			mu.Lock()
-			batch = append(batch, file)
-			mu.Unlock()
-			if time.Since(last) > 80*time.Millisecond {
-				last = time.Now()
-				flush()
+		limit := opts.MaxMatches
+		if limit <= 0 {
+			limit = 20000
+		}
+		var total search.Stats
+		var searchErr error
+		for _, root := range roots {
+			rootOpts := opts
+			rootOpts.MaxMatches = limit - total.Matches
+			if rootOpts.MaxMatches <= 0 {
+				break
 			}
-		})
+			st, err := search.Run(ctx, rg, root, rootOpts, func(file search.File) {
+				mu.Lock()
+				batch = append(batch, file)
+				mu.Unlock()
+				if time.Since(last) > 80*time.Millisecond {
+					last = time.Now()
+					flush()
+				}
+			})
+			total.Files += st.Files
+			total.Matches += st.Matches
+			total.Truncated = total.Truncated || st.Truncated
+			if err != nil {
+				searchErr = errors.Join(searchErr, err)
+				if errors.Is(err, context.Canceled) {
+					break
+				}
+			}
+			if total.Truncated {
+				break
+			}
+		}
 		flush()
 		a.post.Post(func() {
 			if a.gen != gen || a.find.seq != seq {
 				return
 			}
 			a.find.running, a.find.cancel = false, nil
-			a.find.stats = st
-			if err != nil && !errors.Is(err, context.Canceled) {
-				a.find.err = err
+			a.find.stats = total
+			if searchErr != nil && !errors.Is(searchErr, context.Canceled) {
+				a.find.err = searchErr
 			}
 		})
 	}()
@@ -332,11 +359,46 @@ func (a *App) ensureFiles() {
 		return
 	}
 	q.listing = true
-	gen, root := a.gen, a.root
-	rg, _ := findRipgrep(root) // "" lists by walking
-	ctx, ignored := a.wsCtx, a.ignored
+	gen := a.gen
+	roots := a.workspaceFolderPaths()
+	rg, _ := findRipgrep(a.root) // "" lists by walking
+	ctx := a.wsCtx
+	ignored := make(map[string]*git.Ignored, len(a.ignored))
+	for root, ig := range a.ignored {
+		ignored[root] = ig
+	}
 	go func() {
-		files, truncated, err := search.ListFiles(ctx, rg, root, maxQuickFiles, ignored.Dir)
+		var files []string
+		var truncated bool
+		var err error
+		for _, root := range roots {
+			limit := maxQuickFiles - len(files)
+			if limit <= 0 {
+				truncated = true
+				break
+			}
+			ig := ignored[root]
+			var skipDir func(string) bool
+			if ig != nil {
+				skipDir = ig.Dir
+			}
+			var rootFiles []string
+			var rootTruncated bool
+			rootFiles, rootTruncated, err = search.ListFiles(ctx, rg, root, limit, skipDir)
+			if err != nil {
+				break
+			}
+			if len(roots) > 1 {
+				for i, rel := range rootFiles {
+					rootFiles[i] = filepath.Join(root, filepath.FromSlash(rel))
+				}
+			}
+			files = append(files, rootFiles...)
+			truncated = truncated || rootTruncated
+			if rootTruncated {
+				break
+			}
+		}
 		a.post.Post(func() {
 			if a.gen != gen {
 				return
@@ -424,7 +486,7 @@ func (a *App) rankQuick() {
 		if fileQuery != q.targetQuery || len(q.files) != len(q.targetFiles) || len(q.files) > 0 && &q.files[0] != &q.targetFiles[0] {
 			q.targetQuery, q.targetFiles, q.targetPath = fileQuery, q.files, ""
 			if files := search.Files(q.files, fileQuery, 60); len(files) > 0 {
-				q.targetPath = workspace.DocPath(a.root, a.realRoot, joinRoot(a.root, files[0].Path))
+				q.targetPath = a.docPath(a.workspaceFilePath(files[0].Path))
 			}
 		}
 		path, version, loading := q.targetPath, uint64(0), false
@@ -647,14 +709,14 @@ func (a *App) chooseQuick(i int) {
 		return
 	}
 	if q.line > 0 {
-		path := joinRoot(a.root, p)
+		path := a.workspaceFilePath(p)
 		pos := editor.Pos{Line: q.line - 1, Col: q.col}
 		if q.col > 0 {
 			pos.Col = q.col - 1
 		}
 		a.openFile(path, &pos)
 	} else {
-		a.previewOpen(joinRoot(a.root, p))
+		a.previewOpen(a.workspaceFilePath(p))
 	}
 }
 
@@ -683,13 +745,15 @@ func (a *App) recentTabs() []search.Scored {
 	var out []search.Scored
 	for i := len(a.recents) - 1; i >= 0 && len(out) < maxQuickRecents; i-- {
 		path := a.recents[i]
-		if a.root == "" || !workspace.Within(a.root, path) || path == a.activePath() {
+		if a.root == "" || !a.withinWorkspace(path) || path == a.activePath() {
 			continue
 		}
 		if fi, err := os.Stat(path); err != nil || !fi.Mode().IsRegular() {
 			continue
 		}
-		if rel := workspace.RelPath(a.root, path); rel != path {
+		if len(a.workspaceFolders) > 1 {
+			out = append(out, search.Scored{Path: path})
+		} else if rel := workspace.RelPath(a.root, path); rel != path {
 			out = append(out, search.Scored{Path: rel})
 		}
 	}

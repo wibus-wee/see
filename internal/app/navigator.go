@@ -140,6 +140,8 @@ func (a *App) projectNavigatorContent(c *ui.Context) {
 		default:
 			a.fileTree(c, a.filter.roots)
 		}
+	case len(a.workspaceFolders) > 1:
+		a.fileTree(c, a.workspaceFolderPaths())
 	default:
 		rootDir := a.dirs[a.root]
 		switch {
@@ -171,7 +173,7 @@ func (a *App) projectNavigatorContent(c *ui.Context) {
 func (a *App) treeHeading(c *ui.Context) {
 	ui.Row(c).FillWidth().Padding(4, 12, 4, sidebarInset+6).Gap(6).AlignItems(ui.Center).Children(func() {
 		folderGlyph(c, true, 15)
-		ui.Text(c, filepath.Base(a.root)).FontSize(12).Bold().SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
+		ui.Text(c, a.workspaceTitle()).FontSize(12).Bold().SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 		if a.filtering() {
 			detail := fmt.Sprintf("%d of %d", a.filter.matches, len(a.quick.files))
 			if a.quick.files == nil {
@@ -180,6 +182,9 @@ func (a *App) treeHeading(c *ui.Context) {
 			ui.Text(c, detail).FontSize(11).TextColor(colors(c).Dim).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 		}
 		ui.Box(c).Grow(1)
+		if len(a.workspaceFolders) > 0 && glyphButton(c, icFolder, workspaceAddFolderLabel(), workspaceAddFolderLabel(), false, a.find.replacing).Clicked() {
+			a.addWorkspaceFolderDialog()
+		}
 		if glyphButton(c, icAdd, commandLabel("file.new"), locales.MsgNewFileInProject(), false, false).Clicked() {
 			a.beginEntry(a.entryTarget(), false)
 		}
@@ -267,7 +272,7 @@ func (a *App) activeProjectFile() string {
 }
 
 func (a *App) canRevealInProjectNavigator(path string) bool {
-	if a.root == "" || path == "" || path == a.root || !workspace.Within(a.root, path) || a.hiddenPath(path) {
+	if a.root == "" || path == "" || a.isWorkspaceFolder(path) || !a.withinWorkspace(path) || a.hiddenPath(path) {
 		return false
 	}
 	d := a.docs[path]
@@ -319,7 +324,7 @@ func (a *App) fileTree(c *ui.Context, roots []string) {
 	// Enter renames the selected item on macOS; elsewhere it opens it.
 	if tree.Submitted() && a.treeRow >= 0 && a.treeRow < a.tree.Rows() {
 		p := a.tree.Item(a.treeRow)
-		if runtime.GOOS == "darwin" {
+		if runtime.GOOS == "darwin" && !a.isWorkspaceFolder(p) {
 			a.beginRename(p)
 		} else if a.isTreeDir(p) {
 			a.toggleDir(p)
@@ -349,6 +354,9 @@ func (a *App) openFromTree(path string, preview bool) {
 // isTreeDir reports whether a row is a folder, in the tree or in a
 // filter's tree.
 func (a *App) isTreeDir(p string) bool {
+	if a.isWorkspaceFolder(p) {
+		return true
+	}
 	if a.filtering() {
 		return a.filter.tree[p] != nil
 	}
@@ -389,8 +397,16 @@ func (a *App) treeItem(c *ui.Context, p string) {
 		return
 	}
 	e, _ := a.entry(p)
+	isWorkspaceRoot := len(a.workspaceFolders) > 1 && a.isWorkspaceFolder(p)
+	if isWorkspaceRoot {
+		e = workspace.Entry{Name: a.workspaceFolderLabel(p), Path: p, Dir: true}
+	}
 	if a.filtering() {
-		e = workspace.Entry{Name: filepath.Base(p), Path: p, Dir: a.filter.tree[p] != nil}
+		name := filepath.Base(p)
+		if isWorkspaceRoot {
+			name = a.workspaceFolderLabel(p)
+		}
+		e = workspace.Entry{Name: name, Path: p, Dir: a.filter.tree[p] != nil}
 	}
 	name := e.Name
 	if name == "" {
@@ -410,6 +426,9 @@ func (a *App) treeItem(c *ui.Context, p string) {
 		t := treeLabel(c, treeLabelOptions{
 			Name: name, Dir: e.Dir, Open: a.tree.Open.Has(p), IconSize: 16, Dim: dim,
 		})
+		if isWorkspaceRoot {
+			t.Bold()
+		}
 		if e.Link {
 			t.Italic()
 			symbolIcon(c, icLink, 11, colors(c).Dim)
@@ -417,8 +436,8 @@ func (a *App) treeItem(c *ui.Context, p string) {
 		if d := a.docs[p]; d != nil && d.gone {
 			t.Strikethrough()
 		}
-		if rel, err := filepath.Rel(a.root, p); err == nil {
-			status := a.git.decor[filepath.Join(a.realRoot, rel)]
+		if rel, err := filepath.Rel(a.git.root, p); err == nil && a.git.root != "" && !isWorkspaceRoot {
+			status := a.git.decor[filepath.Join(a.git.root, rel)]
 			if status != 0 {
 				ui.Box(c).Grow(1)
 				ui.Row(c).Padding(0, 12+sidebarInset+6, 0, 0).Shrink(0).Children(func() {
@@ -433,6 +452,15 @@ func (a *App) treeItem(c *ui.Context, p string) {
 	})
 	services := c.Services()
 	row.ContextMenu(func(m *ui.Menu) {
+		if isWorkspaceRoot {
+			if m.Item(workspaceAddFolderLabel()).Disabled(a.find.replacing).Chosen() {
+				a.addWorkspaceFolderDialog()
+			}
+			if m.Item(workspaceRemoveFolderLabel()).Disabled(len(a.workspaceFolders) <= 1 || a.find.replacing).Chosen() {
+				a.removeWorkspaceFolder(p)
+			}
+			m.Separator()
+		}
 		dir := p
 		if !e.Dir {
 			dir = filepath.Dir(p)
@@ -444,7 +472,7 @@ func (a *App) treeItem(c *ui.Context, p string) {
 			a.beginEntry(dir, true)
 		}
 		m.Separator()
-		if m.Item(locales.MsgRenameEllipsis()).Chosen() {
+		if !isWorkspaceRoot && m.Item(locales.MsgRenameEllipsis()).Chosen() {
 			a.beginRename(p)
 		}
 		if m.Item(locales.Copy()).Chosen() {
@@ -453,7 +481,7 @@ func (a *App) treeItem(c *ui.Context, p string) {
 		if m.Item(locales.MsgCopyPath()).Chosen() {
 			services.WriteClipboard(p)
 		}
-		if runtime.GOOS == "darwin" && !e.Dir && m.Item(locales.QuickLook()).Chosen() {
+		if runtime.GOOS == "darwin" && !isWorkspaceRoot && !e.Dir && m.Item(locales.QuickLook()).Chosen() {
 			if err := a.host.PreviewItem(p); err != nil {
 				a.note(locales.MsgCouldNotPreviewFile()+err.Error(), true)
 			}
@@ -483,7 +511,7 @@ func (a *App) treeItem(c *ui.Context, p string) {
 			}
 		}
 		m.Separator()
-		if m.Item(locales.MoveToTrash()).Chosen() {
+		if !isWorkspaceRoot && m.Item(locales.MoveToTrash()).Chosen() {
 			a.requestTrash(p)
 		}
 	})
@@ -598,10 +626,10 @@ func (a *App) findNavigator(c *ui.Context) {
 func (a *App) savedFindMenu(c *ui.Context) {
 	f := &a.find
 	current := f.currentQuery()
-	queries := a.cfg.SavedFindQueries[a.root]
+	queries := a.cfg.SavedFindQueries[a.workspaceID]
 	saved := slices.Contains(queries, current)
 	label := locales.MsgSavedFindQueries()
-	glyphButton(c.Key("saved-find-queries"), icBookmark, label, label, saved, a.root == "" || f.replacing).
+	glyphButton(c.Key("saved-find-queries"), icBookmark, label, label, saved, a.workspaceID == "" || f.replacing).
 		Size(24, 24).Center().PopoverMenuButton(func(m *ui.Menu) {
 		m.MaxWidth(320)
 		action := locales.MsgSaveFindQuery()
@@ -680,7 +708,7 @@ func (a *App) findRow(c *ui.Context, k findKey) {
 		ui.Row(c).Grow(1).Gap(6).AlignItems(ui.Center).Children(func() {
 			fileIcon(c, filepath.Base(k.path), 14)
 			ui.Text(c, filepath.Base(k.path)).Bold().SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(0)
-			if dir := filepath.Dir(workspace.RelPath(a.root, k.path)); dir != "." {
+			if dir := filepath.Dir(a.workspacePath(k.path)); dir != "." {
 				ui.Text(c, dir).FontSize(11).TextColor(colors(c).Dim).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(1)
 			}
 			ui.Box(c).Grow(1)

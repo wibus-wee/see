@@ -1,0 +1,178 @@
+package app
+
+import (
+	"path/filepath"
+	"strings"
+
+	"github.com/egoist/mygo/i18n"
+
+	"see/internal/config"
+	"see/internal/workspace"
+	"see/locales"
+)
+
+func (a *App) workspaceFolderPaths() []string {
+	paths := make([]string, len(a.workspaceFolders))
+	for i, folder := range a.workspaceFolders {
+		paths[i] = folder.Path
+	}
+	return paths
+}
+
+func (a *App) gitRepositorySelectionEnabled() bool {
+	return len(a.workspaceFolders) > 1 || a.cfg.GitAutoDiscover
+}
+
+func (a *App) isWorkspaceFolder(path string) bool {
+	for _, folder := range a.workspaceFolders {
+		if path == folder.Path {
+			return true
+		}
+	}
+	return false
+}
+
+func (a *App) workspaceRootForPath(path string) string {
+	var root string
+	for _, folder := range a.workspaceFolders {
+		if workspace.Within(folder.Path, path) && len(folder.Path) > len(root) {
+			root = folder.Path
+		}
+	}
+	if root == "" && len(a.workspaceFolders) == 0 && a.root != "" && workspace.Within(a.root, path) {
+		return a.root
+	}
+	return root
+}
+
+func (a *App) withinWorkspace(path string) bool {
+	return a.workspaceRootForPath(path) != ""
+}
+
+func (a *App) workspacePath(path string) string {
+	root := a.workspaceRootForPath(path)
+	if root == "" {
+		return path
+	}
+	rel := workspace.RelPath(root, path)
+	if len(a.workspaceFolders) <= 1 {
+		return rel
+	}
+	name := a.workspaceFolderLabel(root)
+	if rel == "." {
+		return name
+	}
+	return filepath.ToSlash(filepath.Join(name, filepath.FromSlash(rel)))
+}
+
+func (a *App) workspaceFilePath(path string) string {
+	if filepath.IsAbs(path) {
+		return filepath.Clean(path)
+	}
+	return filepath.Join(a.root, filepath.FromSlash(path))
+}
+
+func (a *App) workspaceFolderLabel(root string) string {
+	name := filepath.Base(root)
+	for _, folder := range a.workspaceFolders {
+		if folder.Path == root && folder.Name != "" {
+			name = folder.Name
+			break
+		}
+	}
+	duplicate := false
+	for _, folder := range a.workspaceFolders {
+		if folder.Path != root && a.workspaceFolderName(folder.Path) == name {
+			duplicate = true
+			break
+		}
+	}
+	if duplicate {
+		label := name + " · " + filepath.Base(filepath.Dir(root))
+		for _, folder := range a.workspaceFolders {
+			if folder.Path != root && a.workspaceFolderName(folder.Path)+" · "+filepath.Base(filepath.Dir(folder.Path)) == label {
+				return filepath.Clean(root)
+			}
+		}
+		return label
+	}
+	return name
+}
+
+func (a *App) workspaceFolderName(root string) string {
+	for _, folder := range a.workspaceFolders {
+		if folder.Path == root && folder.Name != "" {
+			return folder.Name
+		}
+	}
+	return filepath.Base(root)
+}
+
+func workspaceAddFolderLabel() string {
+	return locales.Catalog.Format(i18n.Locale(), "workspaceAddFolder", nil)
+}
+
+func workspaceRemoveFolderLabel() string {
+	return locales.Catalog.Format(i18n.Locale(), "workspaceRemoveFolder", nil)
+}
+
+func (a *App) docPath(path string) string {
+	root := a.workspaceRootForPath(path)
+	if root == "" {
+		return workspace.DocPath(a.root, a.realRoot, path)
+	}
+	realRoot := root
+	if resolved, err := filepath.EvalSymlinks(root); err == nil {
+		realRoot = resolved
+	}
+	return workspace.DocPath(root, realRoot, path)
+}
+
+func (a *App) codeWorkspace() bool {
+	return strings.EqualFold(filepath.Ext(a.workspaceID), ".code-workspace")
+}
+
+func (a *App) workspaceTitle() string {
+	if a.codeWorkspace() {
+		return strings.TrimSuffix(filepath.Base(a.workspaceID), filepath.Ext(a.workspaceID))
+	}
+	if len(a.workspaceFolders) > 1 {
+		return filepath.Base(a.workspaceID)
+	}
+	if len(a.workspaceFolders) == 1 {
+		return a.workspaceFolders[0].Name
+	}
+	return filepath.Base(a.root)
+}
+
+func savedWorkspaceFolders(folders []workspace.Folder) []config.WorkspaceFolder {
+	out := make([]config.WorkspaceFolder, len(folders))
+	for i, folder := range folders {
+		out[i] = config.WorkspaceFolder{Path: folder.Path, Name: folder.Name}
+	}
+	return out
+}
+
+func loadSavedWorkspaceFolders(folders []config.WorkspaceFolder) ([]workspace.Folder, error) {
+	out := make([]workspace.Folder, 0, len(folders))
+	seen := map[string]bool{}
+	for _, folder := range folders {
+		root, err := workspace.CanonicalRoot(folder.Path)
+		if err != nil {
+			return nil, err
+		}
+		if seen[root] {
+			continue
+		}
+		seen[root] = true
+		name := strings.TrimSpace(folder.Name)
+		if name == "" {
+			name = filepath.Base(root)
+		}
+		out = append(out, workspace.Folder{Path: root, Name: name})
+	}
+	if len(out) == 0 {
+		return nil, nil
+	}
+	return out, nil
+}

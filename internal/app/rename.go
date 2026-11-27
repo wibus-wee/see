@@ -20,7 +20,7 @@ type renamePrompt struct {
 }
 
 func (a *App) beginRename(path string) {
-	if path == a.root || !workspace.Within(a.root, path) || isPlaceholder(path) {
+	if a.isWorkspaceFolder(path) || !a.withinWorkspace(path) || isPlaceholder(path) {
 		return
 	}
 	a.renameEntry = &renamePrompt{path: path, name: filepath.Base(path)}

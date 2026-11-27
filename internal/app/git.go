@@ -273,7 +273,7 @@ func (a *App) startGit() {
 		return
 	}
 	a.git.autoFetch = true
-	if a.cfg.GitAutoDiscover {
+	if a.gitRepositorySelectionEnabled() {
 		a.scanGitRepositories()
 	} else {
 		a.refreshGit()
@@ -289,7 +289,7 @@ func (a *App) startGit() {
 			case <-t.C:
 				a.post.Post(func() {
 					if a.gen == gen {
-						if a.cfg.GitAutoDiscover {
+						if a.gitRepositorySelectionEnabled() {
 							a.scanGitRepositories()
 						}
 						a.refreshGit()
@@ -306,7 +306,7 @@ func (a *App) refreshGit() {
 	}
 	a.refreshGitWorkingCopies()
 	root := a.root
-	if a.cfg.GitAutoDiscover {
+	if a.gitRepositorySelectionEnabled() {
 		if !a.git.repositoriesLoaded {
 			a.scanGitRepositories()
 			return
@@ -401,7 +401,7 @@ func (a *App) refreshGitDiscovery() {
 	a.git.loading, a.git.pending, a.git.busy = false, false, false
 	a.git.autoFetching, a.git.syncing, a.git.stashing = false, "", false
 	a.git.resolvingPath = ""
-	if a.cfg.GitAutoDiscover {
+	if a.gitRepositorySelectionEnabled() {
 		a.git.repositoriesLoaded = false
 		a.git.err = ""
 		a.scanGitRepositories()
@@ -415,16 +415,38 @@ func (a *App) refreshGitDiscovery() {
 }
 
 func (a *App) scanGitRepositories() {
-	if !a.cfg.GitAutoDiscover || a.root == "" || a.wsCtx == nil || a.git.repositoryScanLoading {
+	if !a.gitRepositorySelectionEnabled() || a.root == "" || a.wsCtx == nil || a.git.repositoryScanLoading {
 		return
 	}
 	a.git.repositoryScanSeq++
 	a.git.repositoryScanLoading = true
 	seq, gen, scopeSeq, ctx, workspaceRoot := a.git.repositoryScanSeq, a.gen, a.git.scopeSeq, a.wsCtx, a.realRoot
+	roots := a.workspaceFolderPaths()
 	go func() {
-		repositories, err := git.DiscoverRepositories(ctx, workspaceRoot)
+		var repositories []string
+		var err error
+		if len(roots) > 1 {
+			seen := map[string]bool{}
+			for _, folderRoot := range roots {
+				s, syncErr := git.Sync(ctx, folderRoot, false)
+				if syncErr != nil {
+					if ctx.Err() != nil {
+						err = ctx.Err()
+						break
+					}
+					continue
+				}
+				if s.Root != "" && !seen[s.Root] {
+					seen[s.Root] = true
+					repositories = append(repositories, s.Root)
+				}
+			}
+			slices.Sort(repositories)
+		} else {
+			repositories, err = git.DiscoverRepositories(ctx, workspaceRoot)
+		}
 		a.post.Post(func() {
-			if a.gen != gen || a.git.repositoryScanSeq != seq || a.git.scopeSeq != scopeSeq || !a.cfg.GitAutoDiscover {
+			if a.gen != gen || a.git.repositoryScanSeq != seq || a.git.scopeSeq != scopeSeq || !a.gitRepositorySelectionEnabled() {
 				return
 			}
 			a.git.repositoryScanLoading = false
@@ -1018,7 +1040,7 @@ func (a *App) showGitDiffInRepository(root string, ch git.Change, staged bool, t
 }
 
 func (a *App) gitNavigator(c *ui.Context) {
-	if a.git.root == "" && !a.cfg.GitAutoDiscover {
+	if a.git.root == "" && !a.gitRepositorySelectionEnabled() {
 		msg := locales.GitLookingForRepository()
 		if a.git.err != "" {
 			msg = locales.GitNoRepositoryFound()
@@ -1037,7 +1059,7 @@ func (a *App) gitNavigator(c *ui.Context) {
 	}
 	if a.git.root == "" {
 		msg := locales.GitLookingForRepository()
-		if a.cfg.GitAutoDiscover && len(a.git.repositories) > 0 {
+		if a.gitRepositorySelectionEnabled() && len(a.git.repositories) > 0 {
 			msg = locales.GitSelectRepositoryToSeeChanges()
 		}
 		if a.git.err != "" {

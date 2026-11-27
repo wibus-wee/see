@@ -13,7 +13,6 @@ import (
 	"github.com/egoist/mygo/ui/editor"
 
 	"see/internal/git"
-	"see/internal/workspace"
 )
 
 // The Git log, as Fork's and Peek's: the history in a tab of its own,
@@ -103,7 +102,7 @@ func (a *App) openFileLog(rel string) {
 func (a *App) showFileHistory(path string) {
 	rel, ok := a.gitRelPath(path)
 	if !ok {
-		a.note(locales.MsgNoHistoryFor()+workspace.RelPath(a.root, path)+locales.MsgNotInTheRepository(), true)
+		a.note(locales.MsgNoHistoryFor()+a.workspacePath(path)+locales.MsgNotInTheRepository(), true)
 		return
 	}
 	a.openFileLog(rel)

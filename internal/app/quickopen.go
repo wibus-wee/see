@@ -9,8 +9,6 @@ import (
 
 	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
-
-	"see/internal/workspace"
 )
 
 // quickOpenPanel searches files, or commands when the query starts with >.
@@ -55,7 +53,7 @@ func (a *App) quickOpenPanel(c *ui.Context) {
 				if targeted && q.filePath != "" {
 					ui.Row(c).Padding(5, 8).Gap(8).AlignItems(ui.Center).Children(func() {
 						fileIcon(c, filepath.Base(q.filePath), 16)
-						ui.Text(c, workspace.RelPath(a.root, q.filePath)).TextColor(colors(c).Muted).SingleLine().Ellipsis("…").MinWidth(0)
+						ui.Text(c, a.workspacePath(q.filePath)).TextColor(colors(c).Muted).SingleLine().Ellipsis("…").MinWidth(0)
 					})
 				}
 				switch {
@@ -118,7 +116,7 @@ func (a *App) quickRow(c *ui.Context, i int) {
 		row.OnClick(func() { a.chooseQuick(i) })
 		row.Children(func() {
 			ui.Text(c, s.name).Grow(1).SingleLine().Ellipsis("…").MinWidth(0)
-			ui.Text(c, fmt.Sprintf("%s:%d", workspace.RelPath(a.root, s.target.path), s.target.pos.Line+1)).TextColor(colors(c).Muted).SingleLine().Ellipsis("…")
+			ui.Text(c, fmt.Sprintf("%s:%d", a.workspacePath(s.target.path), s.target.pos.Line+1)).TextColor(colors(c).Muted).SingleLine().Ellipsis("…")
 		})
 		return
 	}

@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"see/internal/config"
-	"see/internal/workspace"
 	"see/locales"
 	"slices"
 	"strconv"
@@ -409,7 +408,7 @@ func (a *App) closeTerminals() {
 // termDir is where a restored or new terminal starts: dir while it
 // still is a directory of the workspace, the workspace's root else.
 func (a *App) termDir(dir string) string {
-	if dir == "" || a.root == "" || !workspace.Within(a.root, dir) {
+	if dir == "" || a.root == "" || !a.withinWorkspace(dir) {
 		return a.root
 	}
 	if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {

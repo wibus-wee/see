@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"see/internal/proc"
-	"see/internal/workspace"
 	"see/locales"
 )
 
@@ -72,7 +71,7 @@ func (a *App) openExternalTerminal() {
 // terminalDirOK reports whether an external terminal can open at dir:
 // the folder is still on disk inside the workspace.
 func (a *App) terminalDirOK(dir string) bool {
-	if dir == "" || !workspace.Within(a.root, dir) {
+	if dir == "" || !a.withinWorkspace(dir) {
 		return false
 	}
 	st, err := os.Stat(dir)

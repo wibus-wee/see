@@ -3,9 +3,10 @@ package config
 // Workspace stores only navigation and presentation state; file contents
 // remain on disk and are loaded through the normal document pipeline.
 type Workspace struct {
-	Layout        *Layout `json:"layout,omitempty"`
-	SidebarHidden bool    `json:"sidebarHidden,omitempty"`
-	Navigator     int     `json:"navigator,omitempty"`
+	Folders       []WorkspaceFolder `json:"folders,omitempty"`
+	Layout        *Layout           `json:"layout,omitempty"`
+	SidebarHidden bool              `json:"sidebarHidden,omitempty"`
+	Navigator     int               `json:"navigator,omitempty"`
 	// ChangesClosed, StashesClosed, and HistoryClosed are the Git
 	// navigator's sections folded away.
 	ChangesClosed   bool    `json:"changesClosed,omitempty"`
@@ -27,6 +28,12 @@ type Workspace struct {
 	// Bookmarks are the waypoints the workspace keeps, in the order the
 	// user marked them.
 	Bookmarks []Bookmark `json:"bookmarks,omitempty"`
+}
+
+// WorkspaceFolder is a root in a saved multi-root workspace.
+type WorkspaceFolder struct {
+	Path string `json:"path"`
+	Name string `json:"name,omitempty"`
 }
 
 // TermTab is a terminal tab of the bottom panel: shells side by side.

@@ -8,7 +8,6 @@ import (
 	"see/internal/langserver"
 	"see/internal/lsp"
 	"see/internal/uri"
-	"see/internal/workspace"
 )
 
 func (a *App) diagnosticsHandler(gen int) langserver.DiagnosticsHandler {
@@ -26,9 +25,9 @@ func (a *App) diagnosticsHandler(gen int) langserver.DiagnosticsHandler {
 			if a.gen != gen || m.Current() != report.Client {
 				return
 			}
-			path = workspace.DocPath(a.root, a.realRoot, path)
+			path = a.docPath(path)
 			if report.Buffer == nil {
-				if !workspace.Within(a.root, path) || path == a.root || a.diagnosticsServerFor(path) != m {
+				if !a.withinWorkspace(path) || a.isWorkspaceFolder(path) || a.diagnosticsServerFor(path) != m {
 					return
 				}
 				if len(report.Items) == 0 {

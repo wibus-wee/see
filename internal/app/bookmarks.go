@@ -113,7 +113,7 @@ func (a *App) bookmarksNavigator(c *ui.Context) {
 				preview = strings.TrimSpace(snap.Line(bm.Line))
 			}
 		}
-		location := fmt.Sprintf("%s:%d", workspace.RelPath(a.root, bm.Path), bm.Line+1)
+		location := fmt.Sprintf("%s:%d", a.workspacePath(bm.Path), bm.Line+1)
 		row := ui.ButtonBase(c).FillWidth().Padding(7, 10).Label(location + " — " + preview).Tooltip(location).AlignItems(ui.Start)
 		row.OnClick(func() { a.openBookmark(bm) })
 		row.Children(func() {
@@ -148,7 +148,7 @@ func (a *App) filteredBookmarks() []nav.Bookmark {
 	out := make([]nav.Bookmark, 0, len(list))
 	for i := len(list) - 1; i >= 0; i-- {
 		bm := list[i]
-		if q == "" || strings.Contains(strings.ToLower(workspace.RelPath(a.root, bm.Path)), q) {
+		if q == "" || strings.Contains(strings.ToLower(a.workspacePath(bm.Path)), q) {
 			out = append(out, bm)
 		}
 	}

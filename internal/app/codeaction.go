@@ -16,7 +16,6 @@ import (
 	"see/internal/langserver"
 	"see/internal/lsp"
 	"see/internal/uri"
-	"see/internal/workspace"
 	"see/locales"
 )
 
@@ -435,7 +434,7 @@ func (a *App) applyWorkspaceEdit(edit *lsp.WorkspaceEdit, m *langserver.Server) 
 		if len(edits) == 0 {
 			continue
 		}
-		path = workspace.DocPath(a.root, a.realRoot, path)
+		path = a.docPath(path)
 		d := a.docs[path]
 		if d == nil || d.buf == nil {
 			if err := applyEditsToFile(path, edits); err != nil {

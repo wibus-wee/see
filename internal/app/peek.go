@@ -29,7 +29,7 @@ type peekState struct {
 // peek in the editor of d: a snapshot of an open document, which keeps
 // unsaved edits, or the file as it reads from disk.
 func (a *App) peekedDefinition(t target) *editor.State {
-	path := workspace.DocPath(a.root, a.realRoot, t.path)
+	path := a.docPath(t.path)
 	if d := a.docs[path]; d != nil && d.buf != nil {
 		return peekEditor(a, editor.NewBuffer(d.buf.Snapshot().String()), t)
 	}
@@ -98,8 +98,8 @@ func (a *App) peekDefinitionFound(g *group, from nav.Entry, t target, enc string
 // peekTitle is the header of a definition peek: the file it is in and
 // the line the definition starts on.
 func (a *App) peekTitle(t target) string {
-	name := fmt.Sprintf("%s:%d", workspace.RelPath(a.root, t.path), t.pos.Line+1)
-	if !workspace.Within(a.root, t.path) {
+	name := fmt.Sprintf("%s:%d", a.workspacePath(t.path), t.pos.Line+1)
+	if !a.withinWorkspace(t.path) {
 		name = fmt.Sprintf("%s:%d", t.path, t.pos.Line+1)
 	}
 	return fmt.Sprintf("%s — %s", filepath.Base(t.path), name)
@@ -134,8 +134,8 @@ func (a *App) peekView(c *ui.Context, p *peekState) {
 		}
 		ui.Row(c).FillWidth().Shrink(0).Padding(6, 12).Gap(8).AlignItems(ui.Center).
 			BorderWidth(1, 0, 0, 0).BorderColor(colors(c).Separator).Children(func() {
-			loc := fmt.Sprintf("%s:%d", workspace.RelPath(a.root, p.t.path), p.t.pos.Line+1)
-			if !workspace.Within(a.root, p.t.path) {
+			loc := fmt.Sprintf("%s:%d", a.workspacePath(p.t.path), p.t.pos.Line+1)
+			if !a.withinWorkspace(p.t.path) {
 				loc = fmt.Sprintf("%s:%d", p.t.path, p.t.pos.Line+1)
 			}
 			ui.Text(c, loc).FontSize(11).TextColor(colors(c).Muted).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(1)

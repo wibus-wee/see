@@ -51,10 +51,10 @@ func (a *App) problemLocations() []problemLocation {
 	}
 	query := strings.ToLower(strings.TrimSpace(a.problems.query))
 	matches := func(path, message, source string) bool {
-		return query == "" || strings.Contains(strings.ToLower(workspace.RelPath(a.root, path)+" "+message+" "+source), query)
+		return query == "" || strings.Contains(strings.ToLower(a.workspacePath(path)+" "+message+" "+source), query)
 	}
 	for path, d := range a.docs {
-		if !currentProblemBuffer(d) || !workspace.Within(a.root, path) {
+		if !currentProblemBuffer(d) || !a.withinWorkspace(path) {
 			continue
 		}
 		for i, diagnostic := range d.diagnostics {
@@ -145,7 +145,8 @@ func (a *App) startProjectDiagnostics() {
 	}
 	a.problems.started = true
 	a.problems.starting++
-	root, realRoot, gen, ctx, ignored := a.root, a.realRoot, a.gen, a.wsCtx, a.ignored
+	root, realRoot, gen, ctx := a.root, a.realRoot, a.gen, a.wsCtx
+	ignored := a.ignored[root]
 	type lane struct {
 		server *langserver.Server
 		covers func(string) bool
@@ -262,7 +263,7 @@ func (a *App) problemsNavigator(c *ui.Context) {
 		case editor.SeverityHint:
 			label, color = problemText("problemHint"), colors(c).Dim
 		}
-		location := fmt.Sprintf("%s:%d:%d", workspace.RelPath(a.root, p.path), p.pos.Line+1, p.pos.Col+1)
+		location := fmt.Sprintf("%s:%d:%d", a.workspacePath(p.path), p.pos.Line+1, p.pos.Col+1)
 		row := ui.ButtonBase(c).FillWidth().Padding(7, 10).Label(label + ": " + p.diagnostic.Message + " — " + location).Tooltip(p.diagnostic.Message).AlignItems(ui.Start)
 		row.OnClick(func() { a.openProblem(p) })
 		row.Children(func() {
