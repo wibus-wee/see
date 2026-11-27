@@ -562,7 +562,7 @@ def config_dir(home):
 
 # ---------------------------------------------------------------- scenes
 
-def hero_session(root, width=1560, height=860):
+def hero_session(root, width=1440, height=860):
     """The hero composition, dense as a reader's screen really is: three
     editor columns — a Go file, its pipeline, the compiled binary as hex
     — the readme's rendered markdown among the tabs, the terminal open
@@ -584,7 +584,7 @@ def hero_session(root, width=1560, height=860):
         "regexToolHeight": 500,
         "layout": {
             "vertical": False,
-            "percent": 55,
+            "percent": 50,
             "first": {
                 "tabs": [{"path": main, "line": 14, "column": 1},
                          {"path": store},
@@ -747,7 +747,7 @@ def write_config(home, root, scene):
 def center_window():
     """macOS opens the window wherever it likes; the wallpaper crop wants
     the same room on every side, so center it in the 1920x1080 screen."""
-    x = int((1920 - 1560) / 2)
+    x = int((1920 - 1440) / 2)
     y = int(25 + (1080 - 25 - 860) / 2)
     for proc in ("See", "see-e2e", "see"):
         script = (f'tell application "System Events" to set position of window 1 '
