@@ -621,3 +621,41 @@ func nextWorkspaceJSONToken(data []byte, i int) (byte, error) {
 	}
 	return 0, nil
 }
+
+// WriteNewCodeWorkspace creates a workspace file containing folder. It refuses
+// to overwrite an existing file; editing one is AddCodeWorkspaceFolder's work.
+func WriteNewCodeWorkspace(path string, folder Folder) error {
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return err
+	}
+	root, err := CanonicalRoot(folder.Path)
+	if err != nil {
+		return err
+	}
+	entryPath, err := filepath.Rel(filepath.Dir(absolute), root)
+	if err != nil || filepath.IsAbs(entryPath) {
+		entryPath = root
+	}
+	name := strings.TrimSpace(folder.Name)
+	if name == filepath.Base(root) {
+		name = ""
+	}
+	entry := struct {
+		Path string `json:"path"`
+		Name string `json:"name,omitempty"`
+	}{Path: filepath.ToSlash(entryPath), Name: name}
+	encoded, err := json.MarshalIndent(entry, "  ", "  ")
+	if err != nil {
+		return err
+	}
+	data := append([]byte("{\n  \"folders\": [\n  "), encoded...)
+	data = append(data, []byte("\n  ],\n  \"settings\": {}\n}\n")...)
+	f, err := os.OpenFile(absolute, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	if err != nil {
+		return err
+	}
+	_, writeErr := f.Write(data)
+	closeErr := f.Close()
+	return errors.Join(writeErr, closeErr)
+}

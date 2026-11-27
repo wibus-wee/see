@@ -499,9 +499,74 @@ func (a *App) addWorkspaceFolder(path string) {
 				return
 			}
 		}
-		folders = append(slices.Clone(a.workspaceFolders), workspace.Folder{Path: root, Name: filepath.Base(root)})
+		workspaceFile, created, convertErr := a.plainWorkspaceFile()
+		if convertErr != nil {
+			a.note(locales.MsgCouldNotOpen()+workspaceFile+": "+describeErr(convertErr), true)
+			return
+		}
+		folders, err = workspace.AddCodeWorkspaceFolder(workspaceFile, workspace.Folder{Path: root, Name: filepath.Base(root)})
+		if err != nil {
+			if created {
+				_ = os.Remove(workspaceFile)
+			}
+			a.note(workspaceUpdateFailed(workspaceFile, err), true)
+			return
+		}
+		a.adoptCodeWorkspace(workspaceFile)
 	}
 	a.syncWorkspaceFolders(folders)
+}
+
+// plainWorkspaceFile chooses or creates the VS Code workspace file a plain
+// folder becomes when it gains a second root. An existing sibling that already
+// contains the first root is reused; unrelated files are never overwritten.
+func (a *App) plainWorkspaceFile() (string, bool, error) {
+	if len(a.workspaceFolders) == 0 {
+		return "", false, errors.New("workspace has no folders")
+	}
+	first := a.workspaceFolders[0]
+	base := filepath.Base(first.Path)
+	for i := 0; i < 100; i++ {
+		name := base
+		if i > 0 {
+			name += fmt.Sprintf("-%d", i+1)
+		}
+		candidate := filepath.Join(filepath.Dir(first.Path), name+".code-workspace")
+		if _, err := os.Stat(candidate); errors.Is(err, fs.ErrNotExist) {
+			if err := workspace.WriteNewCodeWorkspace(candidate, first); err != nil {
+				return candidate, false, err
+			}
+			return candidate, true, nil
+		}
+		parsed, err := workspace.ReadCodeWorkspace(candidate)
+		if err == nil {
+			for _, folder := range parsed.Folders {
+				if folder.Path == first.Path {
+					return candidate, false, nil
+				}
+			}
+		}
+	}
+	return "", false, errors.New("no available workspace file name")
+}
+
+func (a *App) adoptCodeWorkspace(workspaceFile string) {
+	if a.workspaceID == workspaceFile {
+		return
+	}
+	old := a.workspaceID
+	a.workspaceID = workspaceFile
+	a.workspaceChanged = false
+	if a.cfg.Workspaces != nil {
+		if session, ok := a.cfg.Workspaces[old]; ok {
+			if _, exists := a.cfg.Workspaces[workspaceFile]; !exists {
+				a.cfg.Workspaces[workspaceFile] = session
+			}
+		}
+	}
+	a.cfg.AddRecent(workspaceFile)
+	a.host.SetTitle(a.workspaceTitle())
+	a.startWorkspaceFileWatch()
 }
 
 func (a *App) removeWorkspaceFolder(path string) {

@@ -695,3 +695,55 @@ func TestRealGoplsMultiRootProjectProblems(t *testing.T) {
 		return seen == len(paths)
 	})
 }
+
+func TestAddingFolderToPlainWorkspaceCreatesVSCodeWorkspace(t *testing.T) {
+	base := t.TempDir()
+	primary := filepath.Join(base, "primary")
+	secondary := filepath.Join(base, "secondary")
+	for _, dir := range []string{primary, secondary} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	h := newHarness(t, primary)
+	configPath := filepath.Join(t.TempDir(), "settings.json")
+	h.a.cfg.SetPath(configPath)
+	h.a.addWorkspaceFolder(secondary)
+	workspaceFile := filepath.Join(base, "primary.code-workspace")
+	h.settle(func() bool { return h.a.dirs[secondary] != nil && h.a.dirs[secondary].loaded })
+	if h.a.workspaceID != workspaceFile || !h.a.isCodeWorkspace() || !slices.Equal(h.a.workspaceFolderPaths(), []string{primary, secondary}) {
+		t.Fatalf("plain workspace did not become a workspace file: id=%q folders=%v notice=%q", h.a.workspaceID, h.a.workspaceFolderPaths(), h.a.notice)
+	}
+	parsed, err := workspace.ReadCodeWorkspace(workspaceFile)
+	if err != nil || len(parsed.Folders) != 2 || parsed.Folders[0].Path != primary || parsed.Folders[1].Path != secondary {
+		t.Fatalf("written workspace = %+v, error %v", parsed, err)
+	}
+	if len(h.a.cfg.Workspaces[workspaceFile].Folders) != 0 {
+		t.Fatalf("workspace file membership duplicated into See-private config: %+v", h.a.cfg.Workspaces[workspaceFile].Folders)
+	}
+}
+
+func TestPlainWorkspaceReusesExistingWorkspaceFileAndSettings(t *testing.T) {
+	base := t.TempDir()
+	primary := filepath.Join(base, "primary")
+	secondary := filepath.Join(base, "secondary")
+	for _, dir := range []string{primary, secondary} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	workspaceFile := filepath.Join(base, "primary.code-workspace")
+	initial := `{"folders":[{"path":"primary"}],"settings":{"files.exclude":{"**/build":true}}}`
+	if err := os.WriteFile(workspaceFile, []byte(initial), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	h := newHarness(t, primary)
+	h.a.addWorkspaceFolder(secondary)
+	if h.a.workspaceID != workspaceFile || len(h.a.workspaceFolders) != 2 {
+		t.Fatalf("existing workspace file was not reused: id=%q folders=%v notice=%q", h.a.workspaceID, h.a.workspaceFolders, h.a.notice)
+	}
+	data, err := os.ReadFile(workspaceFile)
+	if err != nil || !strings.Contains(string(data), "files.exclude") || !strings.Contains(string(data), "secondary") {
+		t.Fatalf("workspace file lost settings or membership: %s", data)
+	}
+}

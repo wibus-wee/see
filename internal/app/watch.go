@@ -44,7 +44,7 @@ func (a *App) startWatch() {
 // lives outside every root, so the folder watches never see VS Code adding
 // or removing a member.
 func (a *App) startWorkspaceFileWatch() {
-	if !a.isCodeWorkspace() {
+	if watchFiles == nil || !a.isCodeWorkspace() {
 		return
 	}
 	if a.workspaceFileCancel != nil {
