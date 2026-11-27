@@ -206,6 +206,7 @@ func (a *App) applyDiffPrefs(diff *editor.DiffState) {
 	}
 	diff.Wrap = a.cfg.SoftWrapForLanguage(documentLanguageName(diff.New))
 	diff.NoLineNumbers = !diff.LineSelection && a.cfg.LineNumbers == int(editor.LineNumbersOff)
+	diff.ExpandUnchanged = a.cfg.DiffShowUnchanged
 	diff.Layout = editor.DiffSplit
 	if a.cfg.DiffUnified {
 		diff.Layout = editor.DiffUnified
@@ -230,6 +231,14 @@ func (a *App) toggleDiffLayout() {
 		}
 	}
 	a.saveConfig()
+}
+
+// toggleDiffUnchanged shows every unchanged line, or folds them again,
+// in every diff and the next ones.
+func (a *App) toggleDiffUnchanged() {
+	a.cfg.DiffShowUnchanged = !a.cfg.DiffShowUnchanged
+	a.applyEditorPrefsAcrossWindows()
+	a.settingsChanged()
 }
 
 // goToChange moves the active tab's caret to the next change, or the
@@ -602,6 +611,13 @@ func (a *App) generalPane(c *ui.Context) {
 			labeled(c, locales.MsgHiddenNames(), locales.MsgHideMatchingFilesAndFoldersInTheProject())
 			if ui.TextInput(c, &a.cfg.HiddenNames).Label(locales.MsgHiddenNames()).Placeholder(".DS_Store").Width(200).Changed() {
 				a.filter.forQuery = ""
+				a.settingsChanged()
+			}
+		},
+		func() {
+			labeled(c, locales.MsgShowUnchangedDiffLines(), locales.MsgShowUnchangedDiffLinesDescription())
+			if ui.Switch(c, &a.cfg.DiffShowUnchanged).Label(locales.MsgShowUnchangedDiffLines()).Changed() {
+				a.applyEditorPrefsAcrossWindows()
 				a.settingsChanged()
 			}
 		},
@@ -1149,7 +1165,7 @@ func (a *App) toolRow(c *ui.Context, r toolRow) {
 					}
 					ui.Box(c).Size(6, 6).Radius(3).Background(dot).Shrink(0)
 					ui.Text(c, status).FontSize(12).TextColor(color).SingleLine().Shrink(0)
-					ui.Text(c, "· "+detail).FontSize(12).TextColor(theme.Of(c).Muted).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1).Tooltip(detail)
+					ui.Text(c, "· "+detail).FontSize(12).TextColor(theme.Of(c).Muted).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 				})
 			})
 			a.toolButtons(c, r)

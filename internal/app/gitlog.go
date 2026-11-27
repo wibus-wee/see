@@ -4,13 +4,11 @@ import (
 	"fmt"
 	"path/filepath"
 	"see/locales"
-	"slices"
 	"strings"
 	"time"
 
 	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
-	"github.com/egoist/mygo/ui/editor"
 
 	"see/internal/git"
 )
@@ -23,10 +21,6 @@ import (
 // gitLogTab is the log's tab. It is not kept between launches.
 const gitLogTab = diffTabPrefix + "log"
 
-// logFilesAtOnce is how many of a commit's files show as diffs before
-// the rest wait for a click, so that a large commit opens quickly.
-const logFilesAtOnce = 20
-
 type gitLogView struct {
 	pending    string
 	reading    bool
@@ -35,28 +29,7 @@ type gitLogView struct {
 	selected   string // the commit chosen, by hash
 	list       ui.ListState
 	horizontal ui.ScrollState
-	detail     *logCommit
-}
-
-// logCommit is the commit the log shows under its rows.
-type logCommit struct {
-	hash    string
-	commit  git.Commit
-	body    string
-	files   []logFile
-	shown   int // files shown as diffs
-	loading bool
-	err     string
-	scroll  ui.ScrollState
-}
-
-// logFile is a file of a commit, and its diff unless git has no lines
-// of it to show.
-type logFile struct {
-	path, oldPath  string
-	added, deleted int // -1 each for a binary file
-	diff           *editor.DiffState
-	patch          editor.FilePatch
+	detail     *commitView
 }
 
 // openGitLog shows the log in the focused group, where it is already
@@ -133,61 +106,13 @@ func logMatches(cm git.Commit, q string) bool {
 // message and its patch.
 func (a *App) chooseLogCommit(v *gitLogView, cm git.Commit) {
 	v.pending = ""
-	if v.detail != nil && v.detail.hash == cm.Hash {
+	if v.detail != nil && v.detail.commit.Hash == cm.Hash {
 		return
 	}
 	v.selected = cm.Hash
-	lc := &logCommit{hash: cm.Hash, commit: cm, loading: true, shown: logFilesAtOnce}
+	lc := newCommitView(cm)
 	v.detail = lc
-	gen, scopeSeq, ctx, root := a.gen, a.git.scopeSeq, a.wsCtx, a.git.root
-	go func() {
-		d, err := git.Show(ctx, root, cm.Hash)
-		var patches []editor.FilePatch
-		if err == nil {
-			var out []byte
-			if out, err = git.CommitPatch(ctx, root, cm.Hash); err == nil {
-				patches, _ = editor.ParsePatch(string(out))
-			}
-		}
-		a.post.Post(func() {
-			if a.gen != gen || a.git.scopeSeq != scopeSeq || v.detail != lc {
-				return
-			}
-			lc.loading = false
-			if err != nil {
-				lc.err = gitErrLine(err)
-				return
-			}
-			lc.body = d.Body
-			lc.files = a.logFiles(d.Files, patches)
-		})
-	}()
-}
-
-// logFiles are a commit's files in git's order, each with the diff of
-// its patch.
-func (a *App) logFiles(stats []git.FileStat, patches []editor.FilePatch) []logFile {
-	byName := map[string]editor.FilePatch{}
-	for _, p := range patches {
-		name := p.NewName
-		if name == "" {
-			name = p.OldName
-		}
-		byName[name] = p
-	}
-	files := make([]logFile, 0, len(stats))
-	for _, f := range stats {
-		lf := logFile{path: f.Path, oldPath: f.OldPath, added: f.Added, deleted: f.Deleted}
-		if p, ok := byName[f.Path]; ok && !p.Binary && len(p.Hunks) > 0 {
-			d := &editor.DiffState{Theme: a.edTheme, FitContent: true}
-			a.setDiffPatch(d, p, false)
-			a.applyDiffPrefs(d)
-			lf.diff = d
-			lf.patch = p
-		}
-		files = append(files, lf)
-	}
-	return files
+	a.loadCommitViewWhen(lc, func() bool { return v.detail == lc })
 }
 
 // gitLogContent is the log's tab: a filter over the rows of the
@@ -214,13 +139,17 @@ func (a *App) gitLogContent(c *ui.Context, g *group, v *gitLogView) {
 		width = 900
 	}
 	columns := logColumns(width, h.lanesW)
+	columns.refs = max(columns.refs, logRefsWidth(c, a.git.branch, h.commits, rows))
+	columns.author = max(logLabelWidth(c, "gitLogAuthor"), logAuthorWidth(c, h.commits, rows))
+	columns.date = max(logLabelWidth(c, "gitLogDate"), logDateWidth(c, h.commits, rows))
+	columns.hash = max(logLabelWidth(c, "gitLogHash"), logHashWidth(c, h.commits, rows))
 	graphVisible := strings.TrimSpace(v.query) == ""
 	ui.Column(c).Grow(1).FillWidth().Children(func() {
 		ui.Row(c).Shrink(0).FillWidth().Height(36).Padding(0, 12).Gap(8).AlignItems(ui.Center).
 			BorderWidth(0, 0, 1, 0).BorderColor(colors(c).Separator).Children(func() {
 			if v.path != "" {
 				chip := ui.Row(c).Gap(4).AlignItems(ui.Center).Padding(3, 4, 3, 7).Radius(5).Background(colors(c).Pill).Shrink(0).
-					Label(logText("gitLogFileScope") + " " + v.path).Tooltip(v.path)
+					Label(logText("gitLogFileScope") + " " + v.path)
 				chip.Children(func() {
 					fileIcon(c, filepath.Base(v.path), 13)
 					ui.Text(c, v.path).FontSize(11).TextColor(colors(c).Muted).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(1).MaxWidth(200)
@@ -339,27 +268,86 @@ const logRowHeight = 34
 type logTableColumns struct{ refs, graph, author, date, hash float32 }
 
 func logColumns(width float32, lanes int) logTableColumns {
-	columns := logTableColumns{refs: 144, graph: max(62, graphX(max(lanes, 1)-1)+graphLane), date: 92}
-	if width >= 900 {
-		columns.author = 140
-	}
-	if width >= 1100 {
-		columns.hash = 72
-	}
+	columns := logTableColumns{refs: 144, graph: max(62, graphX(max(lanes, 1)-1)+graphLane)}
 	if width < 700 {
 		columns.refs = 108
 	}
 	return columns
 }
 
+// logTextWidth is the room text takes at size, with a pixel to spare.
+func logTextWidth(c *ui.Context, text string, size float32) float32 {
+	w, _ := c.MeasureText(0, ui.Span{Text: text, Size: size})
+	return w + 2
+}
+
+// logLabelWidth is the room a column header needs at its size.
+func logLabelWidth(c *ui.Context, key string) float32 {
+	return logTextWidth(c, logText(key), 11)
+}
+
+// logRefsWidth is the room the refs column needs to show the badges of
+// the rows whole: the widest set of branches and tags one commit has, at
+// the size and padding refBadge draws them. The column takes it as its
+// width, so a long branch name is not middle-truncated.
+func logRefsWidth(c *ui.Context, branch string, commits []git.Commit, rows []int) float32 {
+	var width float32
+	for _, i := range rows {
+		cm := commits[i]
+		if len(cm.Refs) == 0 {
+			continue
+		}
+		shown, _ := visibleCommitRefs(cm, branch)
+		var w float32
+		for j, ref := range shown {
+			textW, _ := c.MeasureText(0, ui.Span{Text: ref, Size: 10, Weight: 700})
+			w += textW + 10 // the badge's padding, 5 each side
+			if j > 0 {
+				w += 4 // the gap between badges
+			}
+		}
+		width = max(width, w)
+	}
+	return width
+}
+
+// logAuthorWidth is the room the author column needs for the widest
+// byline of the rows, at the size logRow draws it.
+func logAuthorWidth(c *ui.Context, commits []git.Commit, rows []int) float32 {
+	var width float32
+	for _, i := range rows {
+		width = max(width, logTextWidth(c, authors(commits[i]), 12))
+	}
+	return width
+}
+
+// logDate is when a commit was made, to the second: the log's date
+// column has room for the whole stamp, unlike the navigator's byline.
+func logDate(t time.Time) string { return t.Format("2006-01-02 15:04:05") }
+
+// logDateWidth is the room the date column needs: a stand-in stamp of
+// the widest digits keeps the column steady as the clock ticks, and the
+// rows widen it when the font draws their own stamps wider.
+func logDateWidth(c *ui.Context, commits []git.Commit, rows []int) float32 {
+	width := logTextWidth(c, "8888-88-88 88:88:88", 11)
+	for _, i := range rows {
+		width = max(width, logTextWidth(c, logDate(commits[i].Date), 11))
+	}
+	return width + 4
+}
+
+// logHashWidth is the room the hash column needs for a commit's short
+// hash.
+func logHashWidth(c *ui.Context, commits []git.Commit, rows []int) float32 {
+	var width float32
+	for _, i := range rows {
+		width = max(width, logTextWidth(c, commits[i].Short, 11))
+	}
+	return width
+}
+
 func (columns logTableColumns) minimumWidth() float32 {
-	count := 4
-	if columns.author > 0 {
-		count++
-	}
-	if columns.hash > 0 {
-		count++
-	}
+	const count = 6
 	return columns.refs + columns.graph + columns.author + columns.date + columns.hash + 160 + 24 + float32(count-1)*12
 }
 
@@ -374,20 +362,16 @@ func logTableHeader(c *ui.Context, columns logTableColumns) {
 		label("gitLogRefs", columns.refs)
 		label("gitLogGraph", columns.graph)
 		ui.Text(c, logText("gitLogMessage")).Grow(1).Basis(0).FontSize(11).TextColor(colors(c).Muted).SingleLine()
-		if columns.author > 0 {
-			label("gitLogAuthor", columns.author)
-		}
+		label("gitLogAuthor", columns.author)
 		label("gitLogDate", columns.date)
-		if columns.hash > 0 {
-			label("gitLogHash", columns.hash)
-		}
+		label("gitLogHash", columns.hash)
 	})
 }
 
 func (a *App) logRow(c *ui.Context, v *gitLogView, cm git.Commit, columns logTableColumns, graphVisible bool) {
 	chosen := v.selected == cm.Hash
 	row := ui.Row(c.Key(cm.Hash)).FillWidth().Height(logRowHeight).Padding(0, 12).Gap(12).AlignItems(ui.Center).
-		Label(cm.Subject).Tooltip(cm.Short + " " + cm.Subject)
+		Label(cm.Subject)
 	if chosen {
 		row.Background(c.Theme().Accent.Alpha(0.18))
 	} else if row.Hovered() {
@@ -410,13 +394,7 @@ func (a *App) logRow(c *ui.Context, v *gitLogView, cm git.Commit, columns logTab
 
 	row.Children(func() {
 		ui.Row(c).Width(columns.refs).Shrink(0).Gap(4).AlignItems(ui.Center).Tooltip(strings.Join(cm.Refs, "\n")).Children(func() {
-			refs := slices.DeleteFunc(slices.Clone(cm.Refs), func(ref string) bool { return ref == "HEAD" })
-			for _, ref := range refs[:min(2, len(refs))] {
-				refBadge(c.Key(ref), ref, ref == a.git.branch)
-			}
-			if len(refs) > 2 {
-				ui.Text(c, fmt.Sprintf("+%d", len(refs)-2)).FontSize(10).TextColor(colors(c).Muted).Shrink(0)
-			}
+			a.commitRefs(c, cm)
 		})
 		graph := ui.Box(c).Size(columns.graph, logRowHeight).Shrink(0)
 		if graphVisible {
@@ -430,7 +408,7 @@ func (a *App) logRow(c *ui.Context, v *gitLogView, cm git.Commit, columns logTab
 			}
 		}
 		ui.Row(c).Grow(1).Shrink(1).Basis(0).Gap(5).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, cm.Subject).FontSize(12).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
+			commitSubject(c, cm.Subject, commitSubjectRow)
 			h := &a.git.history
 			mainline := h.mainline == nil || h.mainline[cm.Hash]
 			if mainline && h.unpushed[cm.Hash] {
@@ -440,115 +418,19 @@ func (a *App) logRow(c *ui.Context, v *gitLogView, cm git.Commit, columns logTab
 				ui.Text(c, "↓").FontSize(11).Bold().TextColor(c.Theme().Accent).Shrink(0).Tooltip(logText("gitIncomingCommit"))
 			}
 		})
-		if columns.author > 0 {
-			ui.Text(c, authors(cm)).Width(columns.author).Shrink(0).FontSize(12).TextColor(colors(c).Muted).SingleLine().Tooltip(authors(cm))
-		}
-		ui.Text(c, shortDate(cm.Date, time.Now())).Width(columns.date).Shrink(0).FontSize(11).TextColor(colors(c).Muted).SingleLine().Tooltip(cm.Date.Format(time.RFC1123))
-		if columns.hash > 0 {
-			ui.Text(c, cm.Short).Width(columns.hash).Shrink(0).FontSize(11).TextColor(colors(c).Dim).SingleLine()
-		}
+		ui.Text(c, authors(cm)).Width(columns.author).Shrink(0).FontSize(12).TextColor(colors(c).Muted).SingleLine()
+		ui.Text(c, logDate(cm.Date)).Width(columns.date).Shrink(0).FontSize(11).TextColor(colors(c).Muted).SingleLine()
+		ui.Text(c, cm.Short).Width(columns.hash).Shrink(0).FontSize(11).TextColor(colors(c).Dim).SingleLine()
 	})
 }
 
 // logCommitContent is the chosen commit: its message, who and when, and
 // its files' diffs one after another.
-func (a *App) logCommitContent(c *ui.Context, g *group, lc *logCommit) {
+func (a *App) logCommitContent(c *ui.Context, g *group, lc *commitView) {
 	cm := lc.commit
 	ui.Scroll(c.Key(cm.Hash)).Grow(1).FillWidth().TrackScroll(&lc.scroll).Label(locales.MsgCommit()).Children(func() {
 		ui.Column(c).FillWidth().Padding(16, 20).Gap(12).Children(func() {
-			ui.Row(c).FillWidth().Gap(10).AlignItems(ui.Center).Children(func() {
-				ui.Text(c, cm.Subject).FontSize(16).Bold().Selectable().Grow(1).Shrink(1)
-				if ui.Button(c, locales.MsgOpenInTab()).FontSize(12).Clicked() {
-					a.openCommit(cm)
-				}
-			})
-			ui.Row(c).FillWidth().Gap(16).AlignItems(ui.Center).Wrap().Children(func() {
-				ui.Box(c).Grow(1).Shrink(1).Basis(240).Children(func() {
-					a.personLine(c, git.Person{Name: cm.Author, Email: cm.Email}, "", fullDate(cm.Date))
-				})
-				ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
-					ui.Text(c, cm.Short).FontSize(12).TextColor(colors(c).Muted).Selectable()
-					if glyphButton(c, icCopy, locales.MsgCopyCommitHash(), locales.MsgCopyCommitHash(), false, false).Clicked() {
-						c.Services().WriteClipboard(cm.Hash)
-						a.note(locales.MsgCopied()+cm.Short+".", false)
-					}
-				})
-			})
-			if body := messageBody(lc.body, cm.Subject); body != "" {
-				ui.Text(c, body).FontSize(13).Selectable().FillWidth()
-			}
-			switch {
-			case lc.loading:
-				ui.Row(c).Gap(8).Children(func() {
-					ui.Spinner(c)
-					ui.Text(c, locales.MsgReadingTheCommit()).FontSize(12).TextColor(colors(c).Muted)
-				})
-			case lc.err != "":
-				ui.Text(c, lc.err).FontSize(12).TextColor(colors(c).Err)
-			default:
-				a.logCommitFiles(c, g, lc)
-			}
+			a.commitDetailContent(c, g, lc, true)
 		})
 	})
-}
-
-// logCommitFiles are a commit's files, each under a head with its path
-// and its lines added and deleted, the first ones as diffs.
-func (a *App) logCommitFiles(c *ui.Context, g *group, lc *logCommit) {
-	added, deleted := 0, 0
-	for _, f := range lc.files {
-		plus, minus := a.diffStats(f.diff, f.added, f.deleted)
-		added += max(plus, 0)
-		deleted += max(minus, 0)
-	}
-	ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-		ui.Text(c, locales.MsgDFileSChanged(len(lc.files))).FontSize(13).Bold()
-		ui.Text(c, fmt.Sprintf("+%d", added)).FontSize(12).TextColor(a.gitStatusColor('A'))
-		ui.Text(c, fmt.Sprintf("−%d", deleted)).FontSize(12).TextColor(a.gitStatusColor('D'))
-	})
-	for i, f := range lc.files {
-		if i >= lc.shown {
-			rest := len(lc.files) - lc.shown
-			if ui.Button(c, locales.MsgShowDMoreFileS(rest)).FontSize(12).Clicked() {
-				lc.shown += logFilesAtOnce
-			}
-			return
-		}
-		ui.Column(c.Key(f.path)).FillWidth().Radius(6).BorderWidth(1).BorderColor(colors(c).Separator).Children(func() {
-			head := ui.Row(c).FillWidth().Height(30).Padding(0, 10).Gap(8).AlignItems(ui.Center).Background(colors(c).Pill).
-				Cursor(ui.CursorPointer).Label(f.path).Tooltip(locales.MsgOpen2() + f.path + locales.MsgAsADiff())
-			head.OnClick(func() {
-				a.openCommitFile(g, lc.commit, git.FileStat{Path: f.path, OldPath: f.oldPath, Added: f.added, Deleted: f.deleted})
-			})
-			head.Children(func() {
-				fileIcon(c, filepath.Base(f.path), 14)
-				name := filepath.ToSlash(f.path)
-				if f.oldPath != "" {
-					name = filepath.ToSlash(f.oldPath) + " → " + name
-				}
-				ui.Text(c, name).FontSize(12).Bold().SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
-				ui.Box(c).Grow(1)
-				if f.added < 0 {
-					ui.Text(c, locales.MsgBinary()).FontSize(11).TextColor(colors(c).Muted)
-					return
-				}
-				added, deleted := a.diffStats(f.diff, f.added, f.deleted)
-				ui.Text(c, fmt.Sprintf("+%d", added)).FontSize(11).TextColor(a.gitStatusColor('A'))
-				ui.Text(c, fmt.Sprintf("−%d", deleted)).FontSize(11).TextColor(a.gitStatusColor('D'))
-			})
-			if f.diff == nil {
-				what := locales.MsgNoChangesToShow()
-				if f.added < 0 {
-					what = locales.MsgBinaryFileNotShown()
-				}
-				ui.Text(c, what).FontSize(12).TextColor(colors(c).Muted).Padding(10, 12)
-				return
-			}
-			if a.diffChangesHidden(f.diff) {
-				a.hiddenWhitespaceDiff(c)
-			} else {
-				editor.DiffView(c, f.diff).FillWidth()
-			}
-		})
-	}
 }

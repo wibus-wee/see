@@ -545,7 +545,7 @@ func (a *App) inspectorActions(c *ui.Context) {
 					ui.Box(c).FillWidth().Height(1).Background(colors(c).Hairline)
 				})
 			}
-			row := ui.ButtonBase(c).Label(act.label).Tooltip(act.label).FillWidth().Padding(7, 10)
+			row := ui.ButtonBase(c).Label(act.label).FillWidth().Padding(7, 10)
 			if row.Hovered() {
 				row.Background(colors(c).Pill)
 			}

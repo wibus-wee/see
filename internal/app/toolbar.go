@@ -295,7 +295,7 @@ func (a *App) activityView(c *ui.Context) {
 				a.stopGoTask()
 			}
 		case a.notice != "":
-			t := ui.Text(c, a.notice).FontSize(12).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1).Tooltip(a.notice)
+			t := ui.Text(c, a.notice).FontSize(12).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 			if a.noticeError {
 				t.TextColor(colors(c).Err)
 			}

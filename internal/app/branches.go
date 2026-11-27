@@ -580,18 +580,18 @@ func (a *App) branchPreviewPane(c *ui.Context) ui.Element {
 	pane := ui.Column(c.Key("branch-preview-pane")).FillWidth().MinWidth(0).MinHeight(0).Padding(8, 10).Gap(8)
 	pane.Children(func() {
 		ui.Row(c).FillWidth().Gap(6).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, p.previewBranch.Name).FontSize(14).Bold().SingleLine().Ellipsis("…").MinWidth(0).Shrink(1).Tooltip(p.previewBranch.Name)
+			ui.Text(c, p.previewBranch.Name).FontSize(14).Bold().SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 			if p.preview != nil && p.preview.TargetRef != branchRef(p.previewBranch) {
 				destination := strings.TrimPrefix(p.preview.TargetRef, "refs/heads/")
 				localTarget := branchPreviewLocalTarget(destination)
 				ui.Text(c, localTarget).FontSize(10).TextColor(colors(c).Muted).
-					SingleLine().Ellipsis("…").Shrink(0).Tooltip(localTarget)
+					SingleLine().Ellipsis("…").Shrink(0)
 			}
 		})
 		ui.Text(c, branchPreviewText("gitBranchPreviewBasis")).FontSize(10).TextColor(colors(c).Muted).
-			SingleLine().Ellipsis("…").Tooltip(branchPreviewText("gitBranchPreviewBasis"))
+			SingleLine().Ellipsis("…")
 		ui.Text(c, branchPreviewText("gitBranchPreviewDirtyWarning")).FontSize(10).TextColor(colors(c).Muted).
-			SingleLine().Ellipsis("…").Tooltip(branchPreviewText("gitBranchPreviewDirtyWarning"))
+			SingleLine().Ellipsis("…")
 		ui.Box(c).Height(1).FillWidth().Background(colors(c).Separator)
 		ui.Scroll(c.Key("branch-preview-scroll")).Grow(1).MinHeight(0).FillWidth().Children(func() {
 			switch {
@@ -603,7 +603,7 @@ func (a *App) branchPreviewPane(c *ui.Context) ui.Element {
 			case p.previewErr != "":
 				ui.Column(c).Padding(6, 2).Gap(5).Children(func() {
 					ui.Text(c, branchPreviewText("gitBranchPreviewError")).FontSize(12).Bold().TextColor(colors(c).Err)
-					ui.Text(c, p.previewErr).FontSize(11).TextColor(colors(c).Muted).Tooltip(p.previewErr)
+					ui.Text(c, p.previewErr).FontSize(11).TextColor(colors(c).Muted)
 				})
 			case p.preview == nil:
 				ui.Text(c, branchPreviewText("gitBranchPreviewPrompt")).FontSize(12).TextColor(colors(c).Muted).Padding(8, 2)
@@ -625,10 +625,10 @@ func (a *App) branchPreviewContents(c *ui.Context) {
 			}
 			for i, commit := range p.preview.Commits {
 				ui.Column(c.Key(fmt.Sprintf("branch-preview-commit-%d", i))).FillWidth().Gap(2).Children(func() {
-					ui.Text(c, commit.Subject).FontSize(12).SingleLine().Ellipsis("…").MinWidth(0).Tooltip(commit.Subject)
+					commitSubject(c, commit.Subject, commitSubjectRow)
 					ui.Row(c).FillWidth().Gap(6).Children(func() {
 						ui.Text(c, commit.Short).FontSize(10).TextColor(colors(c).Muted).Shrink(0)
-						ui.Text(c, commit.Author).FontSize(10).TextColor(colors(c).Muted).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1).Tooltip(commit.Author)
+						ui.Text(c, commit.Author).FontSize(10).TextColor(colors(c).Muted).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 						ui.Box(c).Grow(1)
 						if !commit.Date.IsZero() {
 							ui.Text(c, relativeTime(commit.Date, time.Now())).FontSize(10).TextColor(colors(c).Muted).SingleLine().Shrink(0)
@@ -653,7 +653,7 @@ func (a *App) branchPreviewContents(c *ui.Context) {
 					if file.OldPath != "" {
 						path = file.OldPath + " → " + file.Path
 					}
-					ui.Row(c.Key(fmt.Sprintf("branch-preview-file-%d", i))).FillWidth().Gap(6).AlignItems(ui.Center).Tooltip(path).Children(func() {
+					ui.Row(c.Key(fmt.Sprintf("branch-preview-file-%d", i))).FillWidth().Gap(6).AlignItems(ui.Center).Children(func() {
 						ui.Text(c, string(file.Status)).FontSize(10).Bold().TextColor(a.gitStatusColor(file.Status)).Shrink(0)
 						ui.Text(c, path).FontSize(11).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(1)
 						if file.unsaved {
@@ -784,7 +784,7 @@ func (a *App) branchRow(c *ui.Context, items []branchItem, i int, hoveredBranch 
 			if b.Track != "" {
 				detail = b.Track + " · " + detail
 			}
-			ui.Text(c, detail).FontSize(11).TextColor(sub).SingleLine().Ellipsis("…")
+			commitSubject(c, detail, commitSubjectCaption).TextColor(sub)
 		})
 		if !b.Date.IsZero() {
 			ui.Text(c, relativeTime(b.Date, time.Now())).FontSize(11).TextColor(sub).SingleLine().Shrink(0)

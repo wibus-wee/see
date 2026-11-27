@@ -663,10 +663,7 @@ func (a *App) savedFindMenu(c *ui.Context) {
 			}
 			item := m.Item(query.Query).Checked(query == current)
 			if len(details) > 0 {
-				subtitle := strings.Join(details, " · ")
-				item.Subtitle(subtitle).Tooltip(query.Query + "\n" + subtitle)
-			} else {
-				item.Tooltip(query.Query)
+				item.Subtitle(strings.Join(details, " · "))
 			}
 			if item.Chosen() {
 				a.rerunSavedFindQuery(query)

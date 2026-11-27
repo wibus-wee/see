@@ -358,7 +358,7 @@ func (a *App) inspectorHistoryPage(c *ui.Context) {
 						if i > 0 {
 							inspectorHairline(c)
 						}
-						row := ui.ButtonBase(c).Label(cm.Subject).Tooltip(cm.Short+" "+cm.Subject).
+						row := ui.ButtonBase(c).Label(cm.Subject).
 							FillWidth().Padding(7, 10)
 						if row.Hovered() {
 							row.Background(colors(c).Pill)
@@ -367,7 +367,7 @@ func (a *App) inspectorHistoryPage(c *ui.Context) {
 							ui.Row(c).FillWidth().Gap(9).AlignItems(ui.Center).Children(func() {
 								a.commitAvatars(c, cm, avatarSize)
 								ui.Column(c).Grow(1).Shrink(1).Gap(1).Children(func() {
-									ui.Text(c, cm.Subject).FontSize(12).FontWeight(600).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
+									commitSubject(c, cm.Subject, commitSubjectRow)
 									ui.Text(c, a.commitByline(cm)+" · "+cm.Short).FontSize(11).
 										TextColor(colors(c).Muted).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 								})
