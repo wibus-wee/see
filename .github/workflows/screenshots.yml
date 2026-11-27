@@ -67,12 +67,12 @@ jobs:
           test -f "$hero" || hero=shots/hero-light.png
           cwebp -q 90 "$hero" -o resources/screenshot.webp
           cp resources/screenshot.webp website/screenshot.webp
-          for shot in shots/*.png; do
-            name=$(basename "$shot" .png)
-            case "$name" in
-              hero-light|hero-light-wallpaper|*-screen) continue ;;
-            esac
-            cwebp -q 90 "$shot" -o "website/shots/$name.webp"
+          # The native screen crops are what the screen really shows; the
+          # automation captures stay as fallbacks.
+          for scene in hero-dark diff gitlog; do
+            png="shots/$scene-native.png"
+            test -f "$png" || png="shots/$scene.png"
+            test -f "$png" && cwebp -q 90 "$png" -o "website/shots/$scene.webp"
           done
       - name: Open the screenshots pull request
         env:
