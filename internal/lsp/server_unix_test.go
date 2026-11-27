@@ -136,8 +136,11 @@ func TestStartCrashRedactsOversizeStderrSecret(t *testing.T) {
 	secret := strings.Repeat("k", 5000) // longer than the 4 KiB digest
 	t.Setenv("SEE_TEST_KEY", secret)
 	const response = `{"jsonrpc":"2.0","id":1,"result":{"capabilities":{}}}`
+	// The second readInitialize consumes the client's initialized
+	// notification: exiting only then is what makes the crash a crash of
+	// a live session rather than a race against the handshake.
 	script := readInitialize + fmt.Sprintf(`printf 'Content-Length: %d\r\n\r\n%%s' '%s'; `, len(response), response) +
-		`echo "fatal: key rejected" >&2; i=0; while [ $i -lt 5000 ]; do printf k >&2; i=$((i+1)); done; printf '\n' >&2; echo "check the config" >&2; exit 1`
+		readInitialize + `echo "fatal: key rejected" >&2; i=0; while [ $i -lt 5000 ]; do printf k >&2; i=$((i+1)); done; printf '\n' >&2; echo "check the config" >&2; exit 1`
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 	exitErr := make(chan error, 1)
@@ -169,7 +172,7 @@ func TestStartCrashReportsRedactedStderr(t *testing.T) {
 	t.Setenv("SEE_TEST_SECRET", "testsecretvalue123")
 	const response = `{"jsonrpc":"2.0","id":1,"result":{"capabilities":{}}}`
 	script := readInitialize + fmt.Sprintf(`printf 'Content-Length: %d\r\n\r\n%%s' '%s'; `, len(response), response) +
-		`echo "fatal: token testsecretvalue123 rejected" >&2; echo "check the config" >&2; exit 1`
+		readInitialize + `echo "fatal: token testsecretvalue123 rejected" >&2; echo "check the config" >&2; exit 1`
 	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
 	defer cancel()
 	exitErr := make(chan error, 1)
