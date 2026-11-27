@@ -45,7 +45,8 @@ func (a *App) startWatch() {
 // lives outside every root, so the folder watches never see VS Code adding
 // or removing a member.
 func (a *App) startWorkspaceFileWatch() {
-	if watchFiles == nil || !a.isCodeWorkspace() {
+	watch := watchFiles
+	if watch == nil || !a.isCodeWorkspace() {
 		return
 	}
 	if a.workspaceFileCancel != nil {
@@ -58,7 +59,7 @@ func (a *App) startWorkspaceFileWatch() {
 	gen := a.gen
 	for dir, bases := range targets {
 		go func(dir string, bases map[string]bool) {
-			w, err := watchFiles(ctx, dir, mygo.FileWatchOptions{})
+			w, err := watch(ctx, dir, mygo.FileWatchOptions{})
 			if err != nil {
 				a.post.Post(func() {
 					if a.gen == gen {
@@ -134,7 +135,8 @@ func (a *App) reloadCodeWorkspace(workspaceFile string) {
 }
 
 func (a *App) startWatchFolder(root string) {
-	if watchFiles == nil || root == "" {
+	watch := watchFiles
+	if watch == nil || root == "" {
 		return
 	}
 	if a.watchCancels == nil {
@@ -167,10 +169,10 @@ func (a *App) startWatchFolder(root string) {
 		ignore := func(rel string, isDir bool) bool {
 			return excludedByRules(watchExclude, root, filepath.ToSlash(rel)) || isDir && (workspace.IgnoredRel(rel) || ignored.Dir(rel))
 		}
-		w, err := watchFiles(ctx, root, mygo.FileWatchOptions{Recursive: true, Ignore: ignore})
+		w, err := watch(ctx, root, mygo.FileWatchOptions{Recursive: true, Ignore: ignore})
 		if errors.Is(err, mygo.ErrWatchLimit) {
 			a.logf("watch: too many entries, falling back to hints")
-			w, err = watchFiles(ctx, root, mygo.FileWatchOptions{Recursive: true, Ignore: ignore, HintsOnly: true})
+			w, err = watch(ctx, root, mygo.FileWatchOptions{Recursive: true, Ignore: ignore, HintsOnly: true})
 		}
 		a.post.Post(func() {
 			if current() {
