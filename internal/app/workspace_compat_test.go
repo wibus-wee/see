@@ -747,3 +747,33 @@ func TestPlainWorkspaceReusesExistingWorkspaceFileAndSettings(t *testing.T) {
 		t.Fatalf("workspace file lost settings or membership: %s", data)
 	}
 }
+
+func TestPlainWorkspaceConversionPreservesRestoredMembership(t *testing.T) {
+	base := t.TempDir()
+	primary := filepath.Join(base, "primary")
+	second := filepath.Join(base, "second")
+	third := filepath.Join(base, "third")
+	for _, dir := range []string{primary, second, third} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cfg := &config.Config{Workspaces: map[string]config.Workspace{
+		primary: {Folders: []config.WorkspaceFolder{{Path: primary, Name: "primary"}, {Path: second, Name: "second"}}},
+	}}
+	h := newHarnessWithConfig(t, "", cfg)
+	h.a.openWorkspace(primary)
+	if !slices.Equal(h.a.workspaceFolderPaths(), []string{primary, second}) {
+		t.Fatalf("restored membership missing: %v", h.a.workspaceFolderPaths())
+	}
+	h.a.addWorkspaceFolder(third)
+	parsed, err := workspace.ReadCodeWorkspace(filepath.Join(base, "primary.code-workspace"))
+	if err != nil || len(parsed.Folders) != 3 {
+		t.Fatalf("conversion lost restored workspace members: %+v error=%v", parsed, err)
+	}
+	for i, path := range []string{primary, second, third} {
+		if parsed.Folders[i].Path != path {
+			t.Fatalf("member %d = %q, want %q in %+v", i, parsed.Folders[i].Path, path, parsed.Folders)
+		}
+	}
+}

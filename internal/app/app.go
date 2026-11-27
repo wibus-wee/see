@@ -499,12 +499,21 @@ func (a *App) addWorkspaceFolder(path string) {
 				return
 			}
 		}
-		workspaceFile, created, convertErr := a.plainWorkspaceFile()
+		workspaceFile, created, convertErr := a.plainWorkspaceFile(a.workspaceFolders)
 		if convertErr != nil {
 			a.note(locales.MsgCouldNotOpen()+workspaceFile+": "+describeErr(convertErr), true)
 			return
 		}
-		folders, err = workspace.AddCodeWorkspaceFolder(workspaceFile, workspace.Folder{Path: root, Name: filepath.Base(root)})
+		folders = nil
+		for _, existing := range a.workspaceFolders {
+			folders, err = workspace.AddCodeWorkspaceFolder(workspaceFile, existing)
+			if err != nil {
+				break
+			}
+		}
+		if err == nil {
+			folders, err = workspace.AddCodeWorkspaceFolder(workspaceFile, workspace.Folder{Path: root, Name: filepath.Base(root)})
+		}
 		if err != nil {
 			if created {
 				_ = os.Remove(workspaceFile)
@@ -520,7 +529,7 @@ func (a *App) addWorkspaceFolder(path string) {
 // plainWorkspaceFile chooses or creates the VS Code workspace file a plain
 // folder becomes when it gains a second root. An existing sibling that already
 // contains the first root is reused; unrelated files are never overwritten.
-func (a *App) plainWorkspaceFile() (string, bool, error) {
+func (a *App) plainWorkspaceFile(folders []workspace.Folder) (string, bool, error) {
 	if len(a.workspaceFolders) == 0 {
 		return "", false, errors.New("workspace has no folders")
 	}
@@ -533,7 +542,7 @@ func (a *App) plainWorkspaceFile() (string, bool, error) {
 		}
 		candidate := filepath.Join(filepath.Dir(first.Path), name+".code-workspace")
 		if _, err := os.Stat(candidate); errors.Is(err, fs.ErrNotExist) {
-			if err := workspace.WriteNewCodeWorkspace(candidate, first); err != nil {
+			if err := workspace.WriteNewCodeWorkspace(candidate, folders); err != nil {
 				return candidate, false, err
 			}
 			return candidate, true, nil

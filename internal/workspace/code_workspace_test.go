@@ -152,14 +152,14 @@ func TestWriteNewCodeWorkspaceRoundTripsWithoutOverwriting(t *testing.T) {
 		t.Fatal(err)
 	}
 	path := filepath.Join(base, "root.code-workspace")
-	if err := WriteNewCodeWorkspace(path, Folder{Path: root, Name: filepath.Base(root)}); err != nil {
+	if err := WriteNewCodeWorkspace(path, []Folder{{Path: root, Name: filepath.Base(root)}}); err != nil {
 		t.Fatal(err)
 	}
 	parsed, err := ReadCodeWorkspace(path)
 	if err != nil || len(parsed.Folders) != 1 || parsed.Folders[0].Path != root {
 		t.Fatalf("new workspace = %+v, error %v", parsed, err)
 	}
-	if err := WriteNewCodeWorkspace(path, Folder{Path: root}); err == nil {
+	if err := WriteNewCodeWorkspace(path, []Folder{{Path: root}}); err == nil {
 		t.Fatal("created over an existing workspace file")
 	}
 }
