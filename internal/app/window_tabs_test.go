@@ -12,13 +12,18 @@ import (
 type fakeProjectTabWindow struct {
 	handle    uintptr
 	destroyed bool
+	updates   int
+	vibrancy  []mygo.Vibrancy
 }
 
 func (w *fakeProjectTabWindow) Show()                 {}
 func (w *fakeProjectTabWindow) Focus()                {}
-func (w *fakeProjectTabWindow) Update(func())         {}
+func (w *fakeProjectTabWindow) Update(func())         { w.updates++ }
 func (w *fakeProjectTabWindow) IsDestroyed() bool     { return w.destroyed }
 func (w *fakeProjectTabWindow) NativeHandle() uintptr { return w.handle }
+func (w *fakeProjectTabWindow) SetVibrancy(v mygo.Vibrancy) {
+	w.vibrancy = append(w.vibrancy, v)
+}
 
 type fakeProjectWindowTabGroup struct {
 	groups   map[uintptr][]uintptr
@@ -111,10 +116,11 @@ func TestProjectWindowHandlesExcludeEmptyDestroyedAndDuplicateWindows(t *testing
 
 type fakeProjectWindowWithoutHandle struct{}
 
-func (fakeProjectWindowWithoutHandle) Show()             {}
-func (fakeProjectWindowWithoutHandle) Focus()            {}
-func (fakeProjectWindowWithoutHandle) Update(func())     {}
-func (fakeProjectWindowWithoutHandle) IsDestroyed() bool { return false }
+func (fakeProjectWindowWithoutHandle) Show()                     {}
+func (fakeProjectWindowWithoutHandle) Focus()                    {}
+func (fakeProjectWindowWithoutHandle) Update(func())             {}
+func (fakeProjectWindowWithoutHandle) IsDestroyed() bool         { return false }
+func (fakeProjectWindowWithoutHandle) SetVibrancy(mygo.Vibrancy) {}
 
 func TestProjectWindowMergeUsesActiveAnchorAndPreservesDirtyBuffer(t *testing.T) {
 	buffer := editor.NewBuffer("saved")
@@ -167,5 +173,27 @@ func TestProjectWindowMergeSkipsExistingTabsAndIsIdempotent(t *testing.T) {
 	tabs.groups[2] = []uintptr{2}
 	if !canMergeWindowHandles(windows, 2, tabs) {
 		t.Fatal("Merge All Windows did not become available after a tab was detached")
+	}
+}
+
+func TestApplyVibrancyToProjectsUpdatesEveryOpenWindow(t *testing.T) {
+	first := &fakeProjectTabWindow{handle: 1}
+	second := &fakeProjectTabWindow{handle: 2}
+	destroyed := &fakeProjectTabWindow{handle: 3, destroyed: true}
+	projects := []*projectWindow{{app: &App{}, win: first}, {app: &App{}, win: second}, {app: &App{}, win: destroyed}}
+
+	applyVibrancyToProjects(projects, true)
+	for i, window := range []*fakeProjectTabWindow{first, second} {
+		if len(window.vibrancy) != 1 || window.vibrancy[0] != mygo.VibrancySidebar || window.updates != 1 {
+			t.Fatalf("window %d vibrancy=%v updates=%d", i, window.vibrancy, window.updates)
+		}
+	}
+	if len(destroyed.vibrancy) != 0 || destroyed.updates != 0 {
+		t.Fatalf("destroyed window vibrancy=%v updates=%d", destroyed.vibrancy, destroyed.updates)
+	}
+
+	applyVibrancyToProjects(projects, false)
+	if got := first.vibrancy[1]; got != mygo.VibrancyNone {
+		t.Fatalf("disabled material = %q, want none", got)
 	}
 }

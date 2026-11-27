@@ -382,6 +382,8 @@
   "settings": "设置",
   "general": "通用",
   "appearance": "外观",
+  "sidebarVibrancy": "边栏毛玻璃",
+  "sidebarVibrancyDescription": "在边栏后方显示系统的半透明模糊材质。",
   "light": "浅色",
   "dark": "深色",
   "files": "文件",

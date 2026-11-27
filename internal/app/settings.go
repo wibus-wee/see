@@ -47,7 +47,7 @@ type settingsPane struct {
 }
 
 var settingsPanes = []settingsPane{
-	{"general", "General", icGear, ui.RGB(0x8e, 0x8e, 0x93), 0, "appearance light dark system theme reopen launch recent folders shell command install uninstall path cli"},
+	{"general", "General", icGear, ui.RGB(0x8e, 0x8e, 0x93), 0, "appearance light dark system theme vibrancy sidebar material 边栏 毛玻璃 材质 reopen launch recent folders shell command install uninstall path cli"},
 	{"editor", "Editor", icLines, ui.RGB(0x0a, 0x84, 0xff), 0, "font size line numbers relative soft wrap minimap page guide column 页面参考线"},
 	{"terminal", "Terminal", icPrompt, ui.RGB(0x2c, 0x2c, 0x2e), 0, "shell font size copy on select panel external ghostty rex seedmux"},
 	{"notifications", "Notifications", icPrompt, ui.RGB(0xff, 0x95, 0x00), 1, "notify waiting done failed sound dock badge bounce"},
@@ -125,6 +125,13 @@ func (a *App) gitAutoDiscoverSettingChanged() {
 		a.gitDiscoveryChanged()
 	} else {
 		a.refreshGitDiscovery()
+	}
+}
+
+func (a *App) vibrancySettingChanged() {
+	a.settingsChanged()
+	if a.vibrancyChanged != nil {
+		a.vibrancyChanged()
 	}
 }
 
@@ -581,6 +588,12 @@ func (a *App) generalPane(c *ui.Context) {
 			if ui.Segmented(c, &s.appearance, locales.System(), locales.Light(), locales.Dark()).Label(locales.Appearance()).Changed() {
 				a.chooseAppearance([]string{"", "light", "dark"}[s.appearance])
 				a.post.Post(func() {})
+			}
+		},
+		func() {
+			labeled(c, locales.SidebarVibrancy(), locales.SidebarVibrancyDescription())
+			if ui.Switch(c, &a.cfg.Vibrancy).Label(locales.SidebarVibrancy()).Changed() {
+				a.vibrancySettingChanged()
 			}
 		},
 		func() {
@@ -1298,7 +1311,7 @@ func (a *App) advancedPane(c *ui.Context) {
 				def.SavedFindQueries = a.cfg.SavedFindQueries
 				*a.cfg = *def
 				a.applyEditorPrefsAcrossWindows()
-				a.settingsChanged()
+				a.vibrancySettingChanged()
 			}
 		},
 	)

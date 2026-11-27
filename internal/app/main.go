@@ -79,6 +79,8 @@ func Main() {
 	)
 	refreshEditorPrefs := func() { applyEditorPrefsToProjects(projects) }
 	a.editorPrefsChanged = refreshEditorPrefs
+	refreshVibrancy := func() { applyVibrancyToProjects(projects, cfg.Vibrancy) }
+	a.vibrancyChanged = refreshVibrancy
 	refreshGitDiscovery := func() {
 		for _, p := range projects {
 			if p.win != nil && !p.win.IsDestroyed() {
@@ -122,7 +124,7 @@ func Main() {
 			MinWidth:  480,
 			MinHeight: 320,
 			// The toolbar shares a line with the window controls, and the
-			// navigator shows the desktop's material through it, as
+			// navigator can show the desktop's material through it, as
 			// Xcode's: macOS's sidebar material, Mica on Windows 11, and
 			// a plain background on Linux, which has none. A compact bar:
 			// macOS's inset style would add a toolbar 52 points high, so
@@ -130,10 +132,13 @@ func Main() {
 			TitleBarStyle:        mygo.TitleBarHidden,
 			TitleBarHeight:       toolbarHeight,
 			TrafficLightPosition: &mygo.Point{X: 20, Y: (toolbarHeight - trafficLightSize) / 2},
-			Vibrancy:             mygo.VibrancySidebar,
-			Hidden:               true, // until a folder opens (windows.sync)
-			Content:              ui.View(func(c *ui.Context) { a.view(c); wins.sync(win) }),
+			// On Windows a material can change only in a window created with
+			// one; the configured material is applied before the window shows.
+			Vibrancy: mygo.VibrancySidebar,
+			Hidden:   true, // until a folder opens (windows.sync)
+			Content:  ui.View(func(c *ui.Context) { a.view(c); wins.sync(win) }),
 		})
+		win.SetVibrancy(projectWindowVibrancy(cfg.Vibrancy))
 		configureProjectWindowTabs(win)
 		// The welcome window, as Xcode's: of its own, of one size, its
 		// buttons over its left side.
@@ -217,6 +222,7 @@ func Main() {
 			child.trustChanged = a.trustChanged
 			child.editorPrefsChanged = refreshEditorPrefs
 			child.gitDiscoveryChanged = refreshGitDiscovery
+			child.vibrancyChanged = refreshVibrancy
 			child.ownsStandaloneSession = false
 			child.version = a.version
 			child.hasWelcome = true
@@ -233,6 +239,7 @@ func Main() {
 				TrafficLightPosition: &mygo.Point{X: 20, Y: (toolbarHeight - trafficLightSize) / 2},
 				Vibrancy:             mygo.VibrancySidebar, Content: ui.View(child.view),
 			})
+			childWin.SetVibrancy(projectWindowVibrancy(cfg.Vibrancy))
 			configureProjectWindowTabs(childWin)
 			p := &projectWindow{app: child, win: childWin}
 			projects = append(projects, p)

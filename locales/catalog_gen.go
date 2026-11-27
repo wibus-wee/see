@@ -3884,6 +3884,26 @@ func (msgs Messages) Appearance() string {
 	return Catalog.Format(msgs.locale, "appearance", nil)
 }
 
+// SidebarVibrancy says "Sidebar Vibrancy"
+// in the language the app shows.
+func SidebarVibrancy() string { return In(i18n.Locale()).SidebarVibrancy() }
+
+// SidebarVibrancy says "Sidebar Vibrancy"
+// in the language of msgs.
+func (msgs Messages) SidebarVibrancy() string {
+	return Catalog.Format(msgs.locale, "sidebarVibrancy", nil)
+}
+
+// SidebarVibrancyDescription says "Show the system material behind the sidebar."
+// in the language the app shows.
+func SidebarVibrancyDescription() string { return In(i18n.Locale()).SidebarVibrancyDescription() }
+
+// SidebarVibrancyDescription says "Show the system material behind the sidebar."
+// in the language of msgs.
+func (msgs Messages) SidebarVibrancyDescription() string {
+	return Catalog.Format(msgs.locale, "sidebarVibrancyDescription", nil)
+}
+
 // Light says "Light"
 // in the language the app shows.
 func Light() string { return In(i18n.Locale()).Light() }

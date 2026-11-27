@@ -10,6 +10,7 @@ import (
 
 	"github.com/ebitengine/purego"
 	"github.com/ebitengine/purego/objc"
+	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui/editor"
 )
 
@@ -22,11 +23,12 @@ type appKitTestRect struct {
 
 type appKitTestWindow struct{ handle uintptr }
 
-func (w *appKitTestWindow) Show()                 {}
-func (w *appKitTestWindow) Focus()                {}
-func (w *appKitTestWindow) Update(func())         {}
-func (w *appKitTestWindow) IsDestroyed() bool     { return false }
-func (w *appKitTestWindow) NativeHandle() uintptr { return w.handle }
+func (w *appKitTestWindow) Show()                     {}
+func (w *appKitTestWindow) Focus()                    {}
+func (w *appKitTestWindow) Update(func())             {}
+func (w *appKitTestWindow) IsDestroyed() bool         { return false }
+func (w *appKitTestWindow) NativeHandle() uintptr     { return w.handle }
+func (w *appKitTestWindow) SetVibrancy(mygo.Vibrancy) {}
 
 func TestMergeProjectWindowsUsesAppKitTabGroup(t *testing.T) {
 	bufferA := editor.NewBuffer("saved a")
