@@ -230,15 +230,18 @@ func TestFailedSavePreservesPreviousSettingsAndCanRetry(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Block the staging file without depending on platform permission behavior.
-	staging := path + ".tmp"
-	if err := os.Mkdir(staging, 0700); err != nil {
-		t.Fatal(err)
-	}
+	// Point the configuration where its parent cannot be created: a file
+	// occupies the directory's name. The failure is independent of
+	// platform permission behavior, and the committed file is untouched.
 	c.LastWorkspace = "/replacement"
 	c.Trust("/replacement")
+	blocker := filepath.Join(filepath.Dir(path), "blocked")
+	if err := os.WriteFile(blocker, []byte("in the way"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	c.SetPath(filepath.Join(blocker, "config.json"))
 	if err := c.Save(); err == nil {
-		t.Fatal("save succeeded despite blocked staging path")
+		t.Fatal("save succeeded despite the blocked parent directory")
 	}
 	after, err := os.ReadFile(path)
 	if err != nil {
@@ -251,13 +254,13 @@ func TestFailedSavePreservesPreviousSettingsAndCanRetry(t *testing.T) {
 	if loaded.LastWorkspace != "/original" || loaded.IsTrusted("/replacement") {
 		t.Fatalf("failed save leaked new settings: %+v", loaded)
 	}
-	if err := os.Remove(staging); err != nil {
+	if err := os.Remove(blocker); err != nil {
 		t.Fatal(err)
 	}
 	if err := c.Save(); err != nil {
 		t.Fatal(err)
 	}
-	loaded = Load(path)
+	loaded = Load(c.Path())
 	if loaded.LastWorkspace != "/replacement" || !loaded.IsTrusted("/original") || !loaded.IsTrusted("/replacement") {
 		t.Fatal("save could not recover after staging failure")
 	}
