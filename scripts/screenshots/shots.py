@@ -608,6 +608,18 @@ def palette(client, text):
     client.idle()
 
 
+def regex_steps(client):
+    palette(client, "Test Regex")
+    time.sleep(0.8)
+    client.text("read 3 samples\nwrite err once\ndone")
+    time.sleep(0.3)
+    for _ in range(4):
+        client.key("Shift+Tab")
+        time.sleep(0.15)
+    client.text("err|done")
+    time.sleep(0.5)
+
+
 def terminal_steps(client):
     """Type `go test ./...` into the terminal and run it: the hero's
     panel shows real output rather than an empty prompt. The click lands
@@ -625,12 +637,12 @@ SCENES = {
     "hero-light": {
         "appearance": "light",
         "session": hero_session,
-        "steps": [("palette", "Test Regex"), ("terminal", None)],
+        "steps": [("regex", None), ("terminal", None)],
     },
     "hero-dark": {
         "appearance": "dark",
         "session": hero_session,
-        "steps": [("palette", "Test Regex"), ("terminal", None)],
+        "steps": [("regex", None), ("terminal", None)],
     },
     "diff": {
         "appearance": "light",
@@ -707,6 +719,11 @@ def run_scene(see, name, scene, out_dir, work, screencapture=False):
             kind, arg = step
             if kind == "palette":
                 palette(client, arg)
+            elif kind == "regex":
+                regex_steps(client)
+            elif kind == "text":
+                client.text(arg)
+                time.sleep(0.5)
             elif kind == "terminal":
                 terminal_steps(client)
         time.sleep(1.0)
