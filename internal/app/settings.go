@@ -1165,7 +1165,7 @@ func (a *App) toolRow(c *ui.Context, r toolRow) {
 					}
 					ui.Box(c).Size(6, 6).Radius(3).Background(dot).Shrink(0)
 					ui.Text(c, status).FontSize(12).TextColor(color).SingleLine().Shrink(0)
-					ui.Text(c, "· "+detail).FontSize(12).TextColor(theme.Of(c).Muted).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1).Tooltip(detail)
+					ui.Text(c, "· "+detail).FontSize(12).TextColor(theme.Of(c).Muted).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 				})
 			})
 			a.toolButtons(c, r)

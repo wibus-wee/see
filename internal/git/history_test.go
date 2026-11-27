@@ -41,7 +41,7 @@ func newRepo(t *testing.T, initOpts ...string) (string, func(args ...string) str
 	ctx := context.Background()
 	run := func(args ...string) string {
 		t.Helper()
-		args = append([]string{"-c", "user.name=See", "-c", "user.email=see@example.com", "-c", "commit.gpgsign=false", "-c", "init.defaultBranch=main"}, args...)
+		args = append([]string{"-c", "user.name=See", "-c", "user.email=see@example.com", "-c", "commit.gpgsign=false", "-c", "tag.gpgSign=false", "-c", "init.defaultBranch=main"}, args...)
 		out, err := Command(ctx, root, args...)
 		if err != nil {
 			t.Fatalf("git %v: %v", args, err)

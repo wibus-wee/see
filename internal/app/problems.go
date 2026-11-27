@@ -263,7 +263,7 @@ func (a *App) problemsNavigator(c *ui.Context) {
 			label, color = problemText("problemHint"), colors(c).Dim
 		}
 		location := fmt.Sprintf("%s:%d:%d", workspace.RelPath(a.root, p.path), p.pos.Line+1, p.pos.Col+1)
-		row := ui.ButtonBase(c).FillWidth().Padding(7, 10).Label(label + ": " + p.diagnostic.Message + " — " + location).Tooltip(p.diagnostic.Message).AlignItems(ui.Start)
+		row := ui.ButtonBase(c).FillWidth().Padding(7, 10).Label(label + ": " + p.diagnostic.Message + " — " + location).AlignItems(ui.Start)
 		row.OnClick(func() { a.openProblem(p) })
 		row.Children(func() {
 			ui.Column(c).FillWidth().Gap(2).Children(func() {

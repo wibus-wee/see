@@ -40,7 +40,7 @@ func TestGitLogShowsCommitsAndTheirDiffs(t *testing.T) {
 		t.Fatal(err)
 	}
 	h.settle(func() bool {
-		return v.detail != nil && v.detail.hash != h.a.git.history.commits[0].Hash && !v.detail.loading
+		return v.detail != nil && v.detail.commit.Hash != h.a.git.history.commits[0].Hash && !v.detail.loading
 	})
 	d := v.detail
 	if len(d.files) != 1 || d.files[0].path != "b.go" || d.files[0].diff == nil {

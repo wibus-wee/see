@@ -352,7 +352,7 @@ func (a *App) restoreDiffTab(g *group, spec config.DiffTab) {
 	case spec.Commit != "" && spec.Path == "":
 		key = commitTab(spec.Commit)
 		v.rev, v.name = spec.Commit[:7], "Commit "+spec.Commit[:7]
-		v.commit = &commitView{commit: git.Commit{Hash: spec.Commit, Short: v.rev, Subject: v.name}, loading: true}
+		v.commit = newCommitView(git.Commit{Hash: spec.Commit, Short: v.rev, Subject: v.name})
 	case spec.Commit != "":
 		key, v.rev = commitFileTab(spec.Commit, spec.Path), spec.Commit[:7]
 	case spec.Path != "":
@@ -424,6 +424,7 @@ func (a *App) loadPendingTabs(repo bool) {
 			var (
 				cm      git.Commit
 				details git.CommitDetails
+				message git.Message
 				out     []byte
 				view    gitChangeView
 				err     error
@@ -431,7 +432,7 @@ func (a *App) loadPendingTabs(repo bool) {
 			switch {
 			case v.commit != nil:
 				if cm, err = git.ReadCommit(ctx, root, v.hash); err == nil {
-					details, err = git.Show(ctx, root, v.hash)
+					details, message, err = a.readCommitSummary(ctx, root, v.hash, cm.Email)
 				}
 			case v.hash != "":
 				out, err = git.CommitFileDiff(ctx, root, v.hash, git.FileStat{Path: v.name, OldPath: v.oldPath})
@@ -460,6 +461,7 @@ func (a *App) loadPendingTabs(repo bool) {
 				if v.commit != nil {
 					v.name = cm.Subject
 					v.commit.commit, v.commit.details, v.commit.loading = cm, details, false
+					v.commit.message = message
 				} else if v.change {
 					a.setGitChangeView(v, view, 0)
 				} else {

@@ -899,9 +899,17 @@ func (a *App) splitActive(s side) {
 			ng.diffs = map[string]*gitDiffTab{path: {name: v.name, branch: branch}}
 			a.loadBranchDiff(branch, false)
 		} else if v != nil && v.commit != nil {
-			cv := *v.commit
-			cv.scroll = ui.ScrollState{}
-			ng.diffs = map[string]*gitDiffTab{path: {name: v.name, rev: v.rev, hash: v.hash, commit: &cv}}
+			if v.commit.loading || v.commit.err != "" || v.commit.filesLoading {
+				cv := newCommitView(v.commit.commit)
+				ng.diffs = map[string]*gitDiffTab{path: {name: v.name, rev: v.rev, hash: v.hash, commit: cv}}
+				a.loadCommitView(cv)
+			} else {
+				cv := *v.commit
+				cv.scroll = ui.ScrollState{}
+				cv.collapsed = cloneBoolMap(v.commit.collapsed)
+				cv.files = slices.Clone(v.commit.files)
+				ng.diffs = map[string]*gitDiffTab{path: {name: v.name, rev: v.rev, hash: v.hash, commit: &cv}}
+			}
 		} else if v != nil && v.revision != nil {
 			r := *v.revision
 			clone := &gitDiffTab{name: v.name, revision: &r}

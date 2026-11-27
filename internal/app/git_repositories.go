@@ -308,7 +308,7 @@ func (a *App) createTagDialog(c *ui.Context) {
 				Background(colors(c).Popover).Border(1, colors(c).PopoverEdge).
 				Shadow(0, 18, 48, 0, ui.RGBA(0, 0, 0, 0.5)).OnClick(func() {}).Children(func() {
 				ui.Text(c, locales.GitCreateTag()).FontSize(15).Bold()
-				ui.Text(c, q.target).FontSize(12).TextColor(colors(c).Muted).SingleLine().Tooltip(q.target)
+				ui.Text(c, q.target).FontSize(12).TextColor(colors(c).Muted).SingleLine()
 				name := locales.GitTagName()
 				ui.Text(c, name).FontSize(12).Padding(4, 0, 0, 0)
 				in := ui.TextInput(c, &q.name).Label(name).Placeholder("v1.0.0").FillWidth().

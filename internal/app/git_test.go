@@ -35,7 +35,7 @@ func gitRepo(t *testing.T, files map[string]string, branches ...string) string {
 		}
 		return
 	}()...) {
-		args = append([]string{"-c", "user.name=See", "-c", "user.email=see@example.com", "-c", "commit.gpgsign=false"}, args...)
+		args = append([]string{"-c", "user.name=See", "-c", "user.email=see@example.com", "-c", "commit.gpgsign=false", "-c", "tag.gpgSign=false"}, args...)
 		if _, err := git.Command(context.Background(), root, args...); err != nil {
 			t.Fatal(err)
 		}
@@ -420,7 +420,7 @@ func pinGitEnv(t *testing.T) {
 func gitRun(t *testing.T, root string, args ...string) {
 	t.Helper()
 	pinGitEnv(t)
-	args = append([]string{"-c", "user.name=See", "-c", "user.email=see@example.com", "-c", "commit.gpgsign=false"}, args...)
+	args = append([]string{"-c", "user.name=See", "-c", "user.email=see@example.com", "-c", "commit.gpgsign=false", "-c", "tag.gpgSign=false"}, args...)
 	if _, err := git.Command(context.Background(), root, args...); err != nil {
 		t.Fatal(err)
 	}
@@ -918,7 +918,8 @@ func TestGitConflictSplitDoesNotChangeSavedGitSplit(t *testing.T) {
 }
 
 // The Git navigator's history lists commits; a commit opens with its
-// files, and a file of it as a diff.
+// files' diffs, which fold and unfold, and a file can open as a diff
+// tab of its own.
 func TestHistoryOpensACommitAndItsFile(t *testing.T) {
 	h := newHarness(t, historyRepo(t))
 	h.readGit()
@@ -940,9 +941,31 @@ func TestHistoryOpensACommitAndItsFile(t *testing.T) {
 	if !h.tt.HasText("1 file changed") {
 		t.Fatalf("the commit shows %q", h.tt.Texts())
 	}
+	v := h.a.focus.diffs[h.a.focus.active]
+	if got := v.diffStates(); len(got) != 1 || got[0] != v.commit.files[0].diff {
+		t.Fatalf("commit tab diff states %d, want its file's", len(got))
+	}
+	if v.commit.collapsed["b.go"] {
+		t.Fatalf("the file is folded at first")
+	}
+	// The head folds the diff away, and unfolds it again.
 	if err := h.tt.Click("b.go"); err != nil {
 		t.Fatal(err)
 	}
+	h.tt.Frame()
+	if !v.commit.collapsed["b.go"] {
+		t.Fatalf("the head did not fold the file")
+	}
+	if err := h.tt.Click("b.go"); err != nil {
+		t.Fatal(err)
+	}
+	h.tt.Frame()
+	if v.commit.collapsed["b.go"] {
+		t.Fatalf("the head did not unfold the file")
+	}
+
+	cm := v.commit.commit
+	h.a.openCommitFile(h.a.focus, cm, git.FileStat{Path: "b.go"})
 	h.settle(func() bool { v := h.a.focus.diffs[h.a.focus.active]; return v != nil && v.state != nil })
 	if v := h.a.focus.diffs[h.a.focus.active]; v.name != "b.go" || v.rev == "" {
 		t.Fatalf("diff tab %+v", v)
@@ -1274,8 +1297,19 @@ func TestGitTabsSurviveARestart(t *testing.T) {
 	if next.a.focus.active != want[2] || next.a.focus.diffs[want[2]].state == nil {
 		t.Fatalf("active %q", next.a.focus.active)
 	}
-	if v := next.a.focus.diffs[want[1]]; v.commit.commit.Subject != "Add B on the side" || len(v.commit.details.Files) != 1 {
+	v := next.a.focus.diffs[want[1]]
+	if v.commit.commit.Subject != "Add B on the side" || len(v.commit.details.Files) != 1 {
 		t.Fatalf("commit %+v", v.commit)
+	}
+	// The tab is not active, so its patches wait.
+	if v.commit.filesLoaded || len(v.commit.files) != 0 {
+		t.Fatalf("inactive commit loaded files %+v", v.commit.files)
+	}
+	next.a.activateIn(next.a.focus, want[1])
+	next.tt.Frame()
+	next.settle(func() bool { return v.commit.filesLoaded })
+	if len(v.commit.files) != 1 || v.commit.files[0].diff == nil {
+		t.Fatalf("commit files %+v", v.commit.files)
 	}
 }
 

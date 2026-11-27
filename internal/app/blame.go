@@ -159,7 +159,7 @@ func (a *App) blameHoverContent(c *ui.Context, b git.BlameLine) {
 		})
 		if b.Subject != "" {
 			section(logText("blameSectionMessage"), func() {
-				ui.Text(c, b.Subject).FontSize(13).TextColor(colors(c).Text)
+				commitSubject(c, b.Subject, commitSubjectPreview).TextColor(colors(c).Text)
 			})
 		}
 		section(logText("blameSectionCommit"), func() {

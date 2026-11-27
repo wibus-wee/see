@@ -177,6 +177,12 @@ func (a *App) updateDiffWhitespace() {
 						a.setDiffPatch(f.diff, f.patch, false)
 					}
 				}
+			case v.commit != nil:
+				for _, f := range v.commit.files {
+					if f.diff != nil {
+						a.setDiffPatch(f.diff, f.patch, false)
+					}
+				}
 			case v.branch != nil:
 				for _, f := range v.branch.files {
 					if f.diff != nil {

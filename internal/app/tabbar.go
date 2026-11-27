@@ -240,7 +240,7 @@ func (a *App) diffJumpBar(c *ui.Context, g *group) {
 			ui.Text(c, label).FontSize(12).TextColor(colors(c).Muted).SingleLine()
 		}
 		ui.Box(c).Grow(1)
-		if v.commit == nil {
+		if v.commit == nil || len(v.commit.files) > 0 {
 			label, tip := diffWhitespaceText("msgWhitespaceChanges"), diffWhitespaceText("msgHideWhitespaceChanges")
 			if a.cfg.HideWhitespaceChanges {
 				tip = diffWhitespaceText("msgShowWhitespaceChanges")

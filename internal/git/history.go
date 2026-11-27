@@ -110,6 +110,7 @@ type Commit struct {
 	Author, Email  string
 	Date           time.Time
 	Refs           []string // branch and tag names pointing at it, HEAD's first
+	Tags           []string // the tag names at it, in Refs too
 	Subject        string
 	CoAuthors      []Person // from its Co-authored-by trailers, each once
 	Lane           int      // the column of its dot
@@ -221,8 +222,12 @@ func ParseLog(out []byte) []Commit {
 			case ref == "HEAD":
 				c.Refs = append([]string{"HEAD"}, c.Refs...)
 			case strings.HasSuffix(ref, "/HEAD"):
+			case strings.HasPrefix(ref, "tag: "):
+				tag := strings.TrimPrefix(ref, "tag: ")
+				c.Refs = append(c.Refs, tag)
+				c.Tags = append(c.Tags, tag)
 			default:
-				c.Refs = append(c.Refs, strings.TrimPrefix(ref, "tag: "))
+				c.Refs = append(c.Refs, ref)
 			}
 		}
 		if len(f) > 8 {
@@ -361,11 +366,21 @@ type FileStat struct {
 	Commit string
 }
 
+// CommitSignature is the key a commit was signed with, as %GK names
+// it. Key is empty for a commit without a signature, and reading it
+// does not verify the signature or need the public key.
+type CommitSignature struct {
+	Key string
+}
+
+func (s CommitSignature) Present() bool { return s.Key != "" }
+
 // CommitDetails is what Show tells of a commit beyond its log line.
 type CommitDetails struct {
 	Body                     string
 	Committer, CommitterMail string
 	CommitDate               time.Time
+	Signature                CommitSignature
 	Files                    []FileStat
 }
 
@@ -373,13 +388,14 @@ type CommitDetails struct {
 // first parent.
 func Show(ctx context.Context, root, hash string) (CommitDetails, error) {
 	var d CommitDetails
-	out, err := Command(ctx, root, "show", "-s", "--format=%cn%x00%ce%x00%ct%x00%B", hash)
+	out, err := Command(ctx, root, "show", "-s", "--format=%cn%x00%ce%x00%ct%x00%GK%x00%B", hash)
 	if err != nil {
 		return d, err
 	}
-	f := strings.SplitN(string(out), "\x00", 4)
-	if len(f) == 4 {
-		d.Committer, d.CommitterMail, d.Body = f[0], f[1], strings.TrimSpace(f[3])
+	f := strings.SplitN(string(out), "\x00", 5)
+	if len(f) == 5 {
+		d.Committer, d.CommitterMail, d.Body = f[0], f[1], strings.TrimSpace(f[4])
+		d.Signature = CommitSignature{Key: strings.TrimSpace(f[3])}
 		if sec, err := strconv.ParseInt(f[2], 10, 64); err == nil {
 			d.CommitDate = time.Unix(sec, 0)
 		}
