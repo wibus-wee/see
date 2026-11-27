@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strings"
 
+	"golang.org/x/text/cases"
 	"golang.org/x/text/unicode/norm"
 )
 
@@ -164,13 +165,18 @@ func ValidRel(rel string) bool {
 
 // foldKey is the key two spellings of one file share on a
 // case-insensitive, normalization-insensitive file system: Unicode NFC
-// and case-folded. It is a candidate relation only — whether two
-// spellings really are one file is the file system's to say, which is
-// why lookups probe with os.SameFile or the directory's own listing
-// rather than trusting this key.
+// and full case folding — not simple case mapping, as file systems
+// full-fold too, and spellings simple mapping keeps distinct (Turkish
+// İ, uppercase ẞ, the Greek prosgegrammeni blocks) are one file there,
+// which a narrow key would split into two documents. It is a candidate
+// relation only — whether two spellings really are one file is the file
+// system's to say, which is why lookups probe with os.SameFile or the
+// directory's own listing rather than trusting this key.
 func foldKey(name string) string {
-	return strings.ToLower(string(norm.NFC.Bytes([]byte(name))))
+	return folder.String(string(norm.NFC.Bytes([]byte(name))))
 }
+
+var folder = cases.Fold()
 
 // FoldEqual reports whether a and b could spell one file on a
 // case-insensitive, normalization-insensitive file system. It answers
@@ -185,8 +191,9 @@ func FoldEqual(a, b string) bool {
 // any spelling of a case-insensitive or normalization-insensitive file
 // system converge on one identity. Components that do not exist keep
 // their spelling, and once one does, nothing deeper can be probed. The
-// answer is p itself when it is already the disk's spelling, which is
-// the fast path of a tree or watch that already reads entries by name.
+// answer is p itself when it is already the disk's spelling. Every
+// component is probed, exact spelling or not — there is no fast path —
+// which on a network file system costs a directory listing per ancestor.
 func DiskSpelling(p string) string {
 	abs, err := filepath.Abs(p)
 	if err != nil {
