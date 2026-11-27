@@ -626,7 +626,12 @@ SCENES = {
 
 
 def write_config(home, root, scene):
+    # zsh in the panel, with a prompt of just the directory: the runner's
+    # long hostname and the bash migration notice stay out of the shot.
+    with open(os.path.join(home, ".zshrc"), "w") as f:
+        f.write("PROMPT='%~ %# '\n")
     cfg = {
+        "terminalShell": "/bin/zsh",
         "appearance": scene.get("appearance", ""),
         "trustedWorkspaces": [root],
         "hiddenNames": ".DS_Store,.git",

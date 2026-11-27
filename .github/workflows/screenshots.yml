@@ -26,6 +26,15 @@ jobs:
         run: pip3 install --user --break-system-packages pillow
       - name: Display information
         run: system_profiler SPDisplaysDataType || true
+      - name: Try a HiDPI display mode
+        run: |
+          brew install displayplacer || true
+          displayplacer list || true
+          # The runner's VM display is 1024x768@1x by default; a larger
+          # HiDPI mode gives the hero room and retina density. The mode
+          # below may not exist — the list above says what does.
+          displayplacer "id:1 res:2560x1440 hz:60 color_depth:8 scaling:on origin:(0,0) degree:0" || true
+          system_profiler SPDisplaysDataType || true
       - name: Capture the scenes
         run: python3 scripts/screenshots/shots.py capture --see build/see-e2e --out shots --hero-screencapture
       - uses: actions/upload-artifact@v7
