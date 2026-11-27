@@ -1074,7 +1074,7 @@ func (a *App) hiddenPath(p string) bool {
 	}
 	slashRel := filepath.ToSlash(rel)
 	filesRules := workspaceExcludeRules{patterns: a.workspaceSettings.FilesExclude, clauses: a.workspaceSettings.FilesExcludeWhen}
-	excepted := workspace.ExceptedWithSiblings(filesRules.patterns, filesRules.clauses, slashRel, siblingChecker(root, slashRel))
+	excepted := workspace.ExceptedWithSiblings(filesRules.patterns, filesRules.clauses, slashRel, siblingChecker(root))
 	if root != "" && excludedByRules(filesRules, root, slashRel) {
 		if info, err := os.Stat(p); err == nil && info.IsDir() && workspace.ExceptionMayReveal(exceptionRevealPatterns(filesRules), slashRel) {
 			return false

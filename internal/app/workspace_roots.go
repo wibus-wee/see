@@ -33,6 +33,16 @@ func (a *App) workspaceFolderPaths() []string {
 	return paths
 }
 
+func existingWorkspaceRoots(roots []string) []string {
+	out := make([]string, 0, len(roots))
+	for _, root := range roots {
+		if info, err := os.Stat(root); err == nil && info.IsDir() {
+			out = append(out, root)
+		}
+	}
+	return out
+}
+
 func (a *App) workspaceTrusted() bool {
 	if len(a.workspaceFolders) == 0 {
 		return a.root != "" && a.cfg.IsTrusted(a.root)
@@ -357,16 +367,15 @@ func ignoreFileOptions(settings workspace.Settings) search.IgnoreFileOptions {
 	}
 }
 
-func siblingChecker(root, rel string) func(string) bool {
-	dir := filepath.Dir(filepath.Join(root, filepath.FromSlash(rel)))
-	return func(name string) bool {
-		_, err := os.Lstat(filepath.Join(dir, filepath.FromSlash(name)))
+func siblingChecker(root string) func(string) bool {
+	return func(siblingRel string) bool {
+		_, err := os.Lstat(filepath.Join(root, filepath.FromSlash(siblingRel)))
 		return err == nil
 	}
 }
 
 func excludedByRules(rules workspaceExcludeRules, root, rel string) bool {
-	return workspace.ExcludedWithSiblings(rules.patterns, rules.clauses, rel, siblingChecker(root, rel))
+	return workspace.ExcludedWithSiblings(rules.patterns, rules.clauses, rel, siblingChecker(root))
 }
 
 func ripgrepExcludeGlob(pattern string) string {

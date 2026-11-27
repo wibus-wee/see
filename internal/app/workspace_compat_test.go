@@ -329,10 +329,18 @@ func TestCodeWorkspaceOpensWithMissingMemberSoItCanBeRepaired(t *testing.T) {
 	if err := os.WriteFile(workspaceFile, []byte(`{"folders":[{"path":"present"},{"path":"missing"}]}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.WriteFile(filepath.Join(present, "present.txt"), []byte("present"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	h := newHarness(t, "")
 	h.a.openWorkspace(workspaceFile)
 	if len(h.a.workspaceFolders) != 2 || h.a.workspaceFolders[1].Path != filepath.Join(base, "missing") {
 		t.Fatalf("missing member blocked workspace repair: %+v notice=%q", h.a.workspaceFolders, h.a.notice)
+	}
+	h.a.ensureFiles()
+	h.settle(func() bool { return !h.a.quick.listing && h.a.quick.files != nil })
+	if !slices.Contains(h.a.quick.files, filepath.Join(present, "present.txt")) {
+		t.Fatalf("missing member blocked healthy quick-open results: %v", h.a.quick.files)
 	}
 }
 

@@ -170,7 +170,7 @@ func (a *App) runFind() {
 		return
 	}
 	seq, gen, opts, rg := f.seq, a.gen, f.opts, f.rg
-	roots := a.workspaceFolderPaths()
+	roots := existingWorkspaceRoots(a.workspaceFolderPaths())
 	excludePatterns := mergedSearchExcludes(a.workspaceSettings)
 	excludeArgs := ripgrepExcludeGlobsForRules(excludePatterns)
 	ignoreFiles := ignoreFileOptions(a.workspaceSettings)
@@ -415,7 +415,8 @@ func (a *App) ensureFiles() {
 	rootsEpoch := a.workspaceRootsEpoch
 	q.filesSeq++
 	seq := q.filesSeq
-	roots := a.workspaceFolderPaths()
+	logicalMultiRoot := len(a.workspaceFolderPaths()) > 1
+	roots := existingWorkspaceRoots(a.workspaceFolderPaths())
 	excludePatterns := mergedSearchExcludes(a.workspaceSettings)
 	ignoreFiles := ignoreFileOptions(a.workspaceSettings)
 	rg, _ := findRipgrep(a.root) // "" lists by walking
@@ -453,7 +454,7 @@ func (a *App) ensureFiles() {
 			if err != nil {
 				break
 			}
-			if len(roots) > 1 {
+			if logicalMultiRoot {
 				for i, rel := range rootFiles {
 					rootFiles[i] = filepath.Join(root, filepath.FromSlash(rel))
 				}

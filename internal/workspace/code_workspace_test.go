@@ -257,3 +257,47 @@ func TestReadCodeWorkspaceAcceptsLocalFileURIAndRejectsRemoteURI(t *testing.T) {
 		t.Fatalf("remote URI error = %v", err)
 	}
 }
+
+func TestWorkspaceMembershipEditUsesSymlinkTargetBase(t *testing.T) {
+	base := t.TempDir()
+	targetDir := filepath.Join(base, "target")
+	linkDir := filepath.Join(base, "links")
+	for _, dir := range []string{targetDir, linkDir} {
+		if err := os.Mkdir(dir, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	keep := filepath.Join(targetDir, "keep")
+	added := filepath.Join(targetDir, "added")
+	for _, dir := range []string{keep, added} {
+		if err := os.Mkdir(dir, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	target := filepath.Join(targetDir, "team.code-workspace")
+	link := filepath.Join(linkDir, "team.code-workspace")
+	if err := os.WriteFile(target, []byte(`{"folders":[{"path":"keep"}]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(target, link); err != nil {
+		t.Skipf("symlink: %v", err)
+	}
+	folders, err := AddCodeWorkspaceFolder(link, Folder{Path: added})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(folders) != 2 || folders[1].Path != added {
+		t.Fatalf("folders = %+v", folders)
+	}
+	parsed, err := ReadCodeWorkspace(target)
+	if err != nil || len(parsed.Folders) != 2 || parsed.Folders[1].Path != added {
+		t.Fatalf("target direct read = %+v, %v", parsed, err)
+	}
+	data, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `"path":"added"`) {
+		t.Fatalf("workspace entry is not target-relative: %s", data)
+	}
+}

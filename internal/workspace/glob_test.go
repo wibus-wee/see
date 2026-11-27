@@ -46,3 +46,11 @@ func TestVSCodeExcludeExceptions(t *testing.T) {
 		t.Error("exception directory reveal predicate")
 	}
 }
+
+func TestConditionalDirectoryExclusionCoversDescendants(t *testing.T) {
+	clauses := map[string]string{"**/dist": "$(basename).marker"}
+	hasSibling := func(rel string) bool { return rel == "dist.marker" }
+	if !ExcludedWithSiblings(nil, clauses, "dist/index.js", hasSibling) {
+		t.Error("conditional directory exclusion did not cover its descendant")
+	}
+}

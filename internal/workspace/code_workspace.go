@@ -110,9 +110,20 @@ type CodeWorkspace struct {
 	Settings Settings
 }
 
+func workspaceFilePath(path string) (string, error) {
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	if resolved, err := filepath.EvalSymlinks(absolute); err == nil {
+		return filepath.Clean(resolved), nil
+	}
+	return filepath.Clean(absolute), nil
+}
+
 // ReadCodeWorkspace reads a VS Code .code-workspace file.
 func ReadCodeWorkspace(path string) (*CodeWorkspace, error) {
-	absolute, err := filepath.Abs(path)
+	absolute, err := workspaceFilePath(path)
 	if err != nil {
 		return nil, err
 	}
@@ -188,7 +199,7 @@ func parseCodeWorkspace(data []byte, absolute string) (*CodeWorkspace, error) {
 
 // AddCodeWorkspaceFolder updates the on-disk workspace using its latest contents.
 func AddCodeWorkspaceFolder(path string, folder Folder) ([]Folder, error) {
-	absolute, err := filepath.Abs(path)
+	absolute, err := workspaceFilePath(path)
 	if err != nil {
 		return nil, err
 	}

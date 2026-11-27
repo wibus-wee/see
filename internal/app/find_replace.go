@@ -54,9 +54,35 @@ func (f *findState) canReplace() bool {
 	return f.showReplace && !f.running && !f.replacing && f.err == nil && f.opts == f.ran && f.stats.Matches > 0
 }
 
+func canonicalDiskPath(path string) string {
+	clean := filepath.Clean(path)
+	if resolved, err := filepath.EvalSymlinks(clean); err == nil {
+		return resolved
+	}
+	return clean
+}
+
+func sameDiskPath(a, b string) bool {
+	return canonicalDiskPath(a) == canonicalDiskPath(b)
+}
+
+func (a *App) docsForDiskPath(path string) []*doc {
+	var out []*doc
+	for docPath, d := range a.docs {
+		if docPath == path || sameDiskPath(docPath, path) {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
 func (a *App) replaceProtected(path string) bool {
-	d := a.docs[path]
-	return d != nil && (d.lossy || d.conflict || d.saving || d.buf != nil && d.buf.Modified())
+	for _, d := range a.docsForDiskPath(path) {
+		if d.lossy || d.conflict || d.saving || d.buf != nil && d.buf.Modified() {
+			return true
+		}
+	}
+	return false
 }
 
 // replaceFind writes only the matches from the displayed search, not a new search.
@@ -154,7 +180,7 @@ func (a *App) replaceFind(one *findKey) {
 				f.replaceNote += " " + locales.MsgWorkspaceReplaceSkipped(skipped) + " " + firstIssue
 			}
 			for _, path := range updated {
-				if d := a.docs[path]; d != nil {
+				for _, d := range a.docsForDiskPath(path) {
 					d.stamp = fileStamp{}
 					a.loadDoc(d)
 				}
