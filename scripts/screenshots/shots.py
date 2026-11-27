@@ -592,11 +592,11 @@ def hero_session(root, width=1560, height=860):
                     "tabs": [{"path": main, "line": 14, "column": 1},
                              {"path": store}],
                     "active": main,
-                    "focused": True,
                 },
                 "second": {
                     "tabs": [{"path": pipe}],
                     "active": pipe,
+                    "focused": True,
                 },
             },
             "second": {
