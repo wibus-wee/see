@@ -23,7 +23,7 @@ type Config struct {
 	InspectorTab         string               `json:"inspectorTab,omitempty"`       // its page: "quickhelp" (default), "file", or "history"
 	Appearance           string               `json:"appearance,omitempty"`         // "light", "dark", or "" for the system's
 	Language             string               `json:"language,omitempty"`           // "system", or a language tag
-	Vibrancy             bool                 `json:"vibrancy,omitempty"`           // the window's material under the wash
+	Vibrancy             bool                 `json:"vibrancy,omitempty"`           // the system material behind the sidebar
 	Trusted              []string             `json:"trustedWorkspaces,omitempty"`
 	FontFamily           string               `json:"editorFontFamily,omitempty"`
 	TermFontFallback     string               `json:"terminalFontFallback,omitempty"`

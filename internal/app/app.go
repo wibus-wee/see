@@ -81,6 +81,7 @@ type App struct {
 	trustChanged        func()
 	editorPrefsChanged  func()
 	gitDiscoveryChanged func()
+	vibrancyChanged     func()
 	host                platform.Desktop // the window and the desktop around it
 	windowWidth         int
 	windowHeight        int

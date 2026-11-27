@@ -382,6 +382,8 @@
   "settings": "Settings",
   "general": "General",
   "appearance": "Appearance",
+  "sidebarVibrancy": "Sidebar Vibrancy",
+  "sidebarVibrancyDescription": "Show the system material behind the sidebar.",
   "light": "Light",
   "dark": "Dark",
   "files": "Files",
