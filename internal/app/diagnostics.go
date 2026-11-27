@@ -17,6 +17,10 @@ func (a *App) diagnosticsHandler(gen int) langserver.DiagnosticsHandler {
 		if err != nil {
 			return
 		}
+		// A server spells a path as it was given it, which need not be the
+		// disk's spelling; aligning it here, off the UI thread, is what
+		// makes its diagnostics land on the same document the user edits.
+		path = workspace.DiskSpelling(path)
 		encoding := report.Client.Encoding()
 		var out []editor.Diagnostic
 		if report.Buffer != nil {

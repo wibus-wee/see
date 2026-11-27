@@ -315,7 +315,12 @@ func ListFiles(ctx context.Context, rg, root string, limit int, skipDir func(rel
 			truncated = true
 			break
 		}
-		files = append(files, filepath.ToSlash(sc.Text()))
+		// What rg prints is a tool's claim about a relative path; keep
+		// only well-formed confined ones, as a file named oddly enough
+		// must not let a join reach outside the root.
+		if rel := filepath.ToSlash(sc.Text()); workspace.ValidRel(rel) {
+			files = append(files, rel)
+		}
 	}
 	if truncated || sc.Err() != nil {
 		_ = cmd.Process.Kill()

@@ -658,7 +658,16 @@ func (a *App) chooseQuick(i int) {
 	}
 }
 
-func joinRoot(root, rel string) string { return filepath.Join(root, filepath.FromSlash(rel)) }
+// joinRoot is the one join of a quick-open path into the workspace: the
+// list it comes from is validated when read, and anything malformed
+// degrades to the root rather than reaching outside it.
+func joinRoot(root, rel string) string {
+	p, err := workspace.JoinRel(root, rel)
+	if err != nil {
+		return root
+	}
+	return p
+}
 
 func splitQuickFileSymbol(query string) (string, string, bool) {
 	if query == "" || strings.ContainsAny(query[:1], ">#@:") {

@@ -102,7 +102,13 @@ func (a *App) applyEvents(evs []mygo.FileEvent) {
 		if path.Base(ev.Path) == ".gitignore" || path.Base(ev.Path) == "exclude" && strings.Contains(ev.Path, ".git/info") {
 			a.rereadIgnored()
 		}
-		p := filepath.Join(a.root, filepath.FromSlash(ev.Path))
+		// What a watch reports is relative to the root; joining it
+		// confined keeps a malformed report from naming anything outside
+		// the workspace, however it got into the stream.
+		p, err := workspace.JoinRel(a.root, ev.Path)
+		if err != nil {
+			continue
+		}
 		switch ev.Op {
 		case mygo.FileHint:
 			notify(p, lsp.FileChanged)
@@ -120,8 +126,14 @@ func (a *App) applyEvents(evs []mygo.FileEvent) {
 			}
 			continue
 		case mygo.FileRename:
-			old := filepath.Join(a.root, filepath.FromSlash(ev.OldPath))
+			old, err := workspace.JoinRel(a.root, ev.OldPath)
+			if err != nil {
+				continue
+			}
 			dirs[filepath.Dir(old)] = true
+			// A rename the watch reports closes one identity and opens
+			// another: documents at the old path are gone where they stand,
+			// never silently moved to a path the user did not put them at.
 			a.removed(old)
 			notify(old, lsp.FileDeleted)
 			notify(p, lsp.FileCreated)

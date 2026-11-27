@@ -11,6 +11,7 @@ import (
 	"see/internal/config"
 	"see/internal/git"
 	"see/internal/nav"
+	"see/internal/workspace"
 )
 
 func (a *App) resizedWorkspace(width, height int) {
@@ -387,7 +388,7 @@ func isHash(s string) bool {
 // relGitPath reports whether p is a path in a repository, as git writes
 // one: relative, with slashes, and not out of it.
 func relGitPath(p string) bool {
-	return p != "" && !strings.HasPrefix(p, "/") && !filepath.IsAbs(p) && !slices.Contains(strings.Split(p, "/"), "..")
+	return workspace.ValidRel(p)
 }
 
 // pendingTab is a Git tab of the last session waiting to be read.
