@@ -51,6 +51,7 @@ func parseCodeWorkspace(data []byte, absolute string) (*CodeWorkspace, error) {
 		Folders []struct {
 			Path string `json:"path"`
 			Name string `json:"name"`
+			URI  string `json:"uri"`
 		} `json:"folders"`
 		Settings Settings `json:"settings"`
 	}
@@ -64,6 +65,9 @@ func parseCodeWorkspace(data []byte, absolute string) (*CodeWorkspace, error) {
 	folders := make([]Folder, 0, len(file.Folders))
 	seen := map[string]bool{}
 	for _, entry := range file.Folders {
+		if strings.TrimSpace(entry.URI) != "" {
+			return nil, fmt.Errorf("remote workspace folder %q is not supported by See", entry.URI)
+		}
 		if strings.TrimSpace(entry.Path) == "" {
 			return nil, errors.New("workspace folder has no path")
 		}

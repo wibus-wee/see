@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -161,5 +162,16 @@ func TestWriteNewCodeWorkspaceRoundTripsWithoutOverwriting(t *testing.T) {
 	}
 	if err := WriteNewCodeWorkspace(path, []Folder{{Path: root}}); err == nil {
 		t.Fatal("created over an existing workspace file")
+	}
+}
+
+func TestReadCodeWorkspaceRejectsRemoteFolders(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "remote.code-workspace")
+	if err := os.WriteFile(path, []byte(`{"folders":[{"uri":"vscode-remote://ssh-remote+host/project"}]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := ReadCodeWorkspace(path)
+	if err == nil || !strings.Contains(err.Error(), "remote workspace folder") {
+		t.Fatalf("remote folder error = %v", err)
 	}
 }

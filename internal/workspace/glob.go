@@ -2,6 +2,7 @@ package workspace
 
 import (
 	"path"
+	"runtime"
 	"strings"
 )
 
@@ -13,6 +14,9 @@ func MatchVSCodeGlob(pattern, rel string) bool {
 	rel = strings.TrimPrefix(filepathToSlash(rel), "/")
 	if pattern == "" || rel == "" {
 		return false
+	}
+	if runtime.GOOS == "darwin" || runtime.GOOS == "windows" {
+		pattern, rel = strings.ToLower(pattern), strings.ToLower(rel)
 	}
 	for _, expanded := range expandGlobBraces(pattern) {
 		if matchGlobSegments(strings.Split(expanded, "/"), strings.Split(rel, "/")) {
