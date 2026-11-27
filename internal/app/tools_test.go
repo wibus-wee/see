@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -17,6 +18,7 @@ import (
 	"testing"
 
 	"github.com/egoist/mygo/ui"
+	"see/internal/proc"
 )
 
 // ripgrepArchive builds a release archive as ripgrep's are: a folder with
@@ -372,5 +374,21 @@ func TestRipgrepArchivesExtractExpectedBinary(t *testing.T) {
 				t.Fatal("accepted truncated archive")
 			}
 		})
+	}
+}
+
+func TestFindRejectsWorkspaceRipgrepAlias(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, toolExe("rg"))
+	if err := os.WriteFile(path, []byte("workspace program"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	alias := filepath.Join(t.TempDir(), toolExe("rg"))
+	if err := os.Symlink(path, alias); err != nil {
+		t.Skip(err)
+	}
+	t.Setenv("SEE_RG", alias)
+	if got, err := findRipgrep(root); got != "" || !errors.Is(err, proc.ErrUntrustedExecutable) {
+		t.Fatalf("findRipgrep returned %q, %v", got, err)
 	}
 }

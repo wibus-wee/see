@@ -20,6 +20,7 @@ func TestDocumentSymbolsProtocol(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f, r, w := newFake(t)
+			f.caps = `{"documentSymbolProvider":true}`
 			f.documentSymbols = func(params json.RawMessage) string {
 				var p struct {
 					TextDocument struct {

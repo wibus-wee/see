@@ -1,7 +1,6 @@
 package lsp
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -9,10 +8,12 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"slices"
 	"strings"
 	"sync"
 	"time"
 
+	"see/internal/operr"
 	"see/internal/proc"
 )
 
@@ -84,7 +85,8 @@ type Client struct {
 	semanticLegend      semanticTokensLegend
 	codeActions         codeActionSupport
 	hasCodeActions      bool
-	hasCommands         bool
+	commands            []string
+	operations          map[string]bool
 	hasRename           bool
 	hasPrepareRename    bool
 	documentFormat      bool
@@ -96,7 +98,8 @@ type Client struct {
 
 	cmd    *exec.Cmd
 	stdin  io.Closer
-	stderr *tail
+	abort  chan struct{}
+	stdout io.Closer
 
 	mu       sync.Mutex
 	stopping bool
@@ -106,41 +109,77 @@ type Client struct {
 // Start runs the server command with stdin and stdout for the protocol
 // and stderr kept apart, then initializes it.
 func Start(ctx context.Context, command string, args []string, opts Options) (*Client, error) {
+	launchError := func(err error) error {
+		e := operr.Classify(err)
+		e.Operation = "start language server"
+		e.Finality = operr.NoEffect
+		e.Attempt = 1
+		return e
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, launchError(err)
+	}
 	cmd := proc.Command(command, args...)
+	if cmd.Err != nil {
+		return nil, launchError(cmd.Err)
+	}
+	if err := proc.ValidateExecutable(opts.RootPath, cmd.Path); err != nil {
+		return nil, launchError(err)
+	}
+	configureServer(cmd)
 	cmd.Dir = opts.RootPath
 	cmd.Env = mergeEnv(os.Environ(), opts.Env)
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
-		return nil, err
+		return nil, launchError(err)
 	}
-	stdout, err := cmd.StdoutPipe()
+	// Own the read end: cmd.Wait must not close it before the last reply is read.
+	stdout, childStdout, err := os.Pipe()
 	if err != nil {
-		return nil, err
+		_ = stdin.Close()
+		return nil, launchError(err)
 	}
-	errTail := &tail{max: 16 << 10, logf: opts.Logf}
-	cmd.Stderr = errTail
-	// Wait gives up on the output pipes this long after the process ends,
-	// should a child of the server keep them open.
-	cmd.WaitDelay = 2 * time.Second
+	cmd.Stdout = childStdout
+	// A nil Stderr sends untrusted server output directly to the null device.
 	if err := cmd.Start(); err != nil {
-		return nil, fmt.Errorf("starting %s: %w", command, err)
+		_ = stdout.Close()
+		_ = childStdout.Close()
+		return nil, launchError(err)
 	}
+	_ = childStdout.Close()
 	c := newClient(stdin, stdout, opts)
-	c.cmd, c.stdin, c.stderr = cmd, stdin, errTail
+	c.cmd, c.stdin, c.stdout, c.abort = cmd, stdin, stdout, make(chan struct{})
+	waited := make(chan error, 1)
+	go func() { waited <- cmd.Wait() }()
 	go func() {
-		<-c.conn.Done()
-		// The stream ended or broke: a server that still runs after a
-		// protocol error is of no use any more.
-		_ = cmd.Process.Kill()
-		err := cmd.Wait()
+		var err error
+		select {
+		case err = <-waited:
+			killServer(cmd) // descendants may still hold the protocol pipes
+		case <-c.conn.Done():
+			killServer(cmd)
+			err = <-waited
+		case <-c.abort:
+			killServer(cmd)
+			err = <-waited
+		}
+		// Drain bytes already written, but never wait indefinitely for EOF
+		// from a descendant outside our process group.
+		timer := time.NewTimer(500 * time.Millisecond)
+		select {
+		case <-c.conn.Done():
+		case <-timer.C:
+		}
+		timer.Stop()
+		_ = stdout.Close()
 		if err == nil {
 			err = c.conn.Err()
 		}
-
 		c.finish(err)
 	}()
 	if err := c.initialize(ctx); err != nil {
 		c.Kill()
+		<-c.exited
 		return nil, err
 	}
 	return c, nil
@@ -183,12 +222,13 @@ func mergeEnv(base, extra []string) []string {
 func Connect(ctx context.Context, r io.Reader, w io.WriteCloser, opts Options) (*Client, error) {
 	c := newClient(w, r, opts)
 	c.stdin = w
+	c.stdout, _ = r.(io.Closer)
 	go func() {
 		<-c.conn.Done()
 		c.finish(c.conn.Err())
 	}()
 	if err := c.initialize(ctx); err != nil {
-		w.Close()
+		c.Kill()
 		return nil, err
 	}
 	return c, nil
@@ -280,19 +320,21 @@ func (c *Client) SemanticTokensRange() bool { return c.semanticRange }
 
 // SemanticTokenTypes and SemanticTokenModifiers are the server's
 // legend: the names its token stream indexes, in its order.
-func (c *Client) SemanticTokenTypes() []string     { return c.semanticLegend.TokenTypes }
-func (c *Client) SemanticTokenModifiers() []string { return c.semanticLegend.TokenModifiers }
+func (c *Client) SemanticTokenTypes() []string { return slices.Clone(c.semanticLegend.TokenTypes) }
+func (c *Client) SemanticTokenModifiers() []string {
+	return slices.Clone(c.semanticLegend.TokenModifiers)
+}
 
 // HasCodeActions reports whether the server offers code actions.
 func (c *Client) HasCodeActions() bool { return c.hasCodeActions }
 
 // CodeActionKinds is the kinds the server named in its capabilities,
 // empty when it made no such promise.
-func (c *Client) CodeActionKinds() []string { return c.codeActions.kinds }
+func (c *Client) CodeActionKinds() []string { return slices.Clone(c.codeActions.kinds) }
 
 // HasExecuteCommand reports whether the server runs commands, as a
 // code action's Command asks for.
-func (c *Client) HasExecuteCommand() bool { return c.hasCommands }
+func (c *Client) HasExecuteCommand() bool { return len(c.commands) > 0 }
 
 // HasRename reports whether the server renames symbols. HasPrepareRename
 // says whether it answers textDocument/prepareRename first.
@@ -309,7 +351,7 @@ var ErrNoRename = errors.New("lsp: no rename at position")
 // defaultBehavior is one too.
 func (c *Client) PrepareRename(ctx context.Context, uri string, pos Position) (*PrepareRenameResult, error) {
 	var raw json.RawMessage
-	if err := c.conn.Call(ctx, "textDocument/prepareRename", map[string]any{"textDocument": map[string]any{"uri": uri}, "position": pos}, &raw); err != nil {
+	if err := c.call(ctx, "textDocument/prepareRename", map[string]any{"textDocument": map[string]any{"uri": uri}, "position": pos}, &raw); err != nil {
 		return nil, err
 	}
 	res, err := ParsePrepareRename(raw)
@@ -326,7 +368,7 @@ func (c *Client) PrepareRename(ctx context.Context, uri string, pos Position) (*
 // server wants made. A result of null or an empty edit is a no-op.
 func (c *Client) Rename(ctx context.Context, uri string, pos Position, newName string) (*WorkspaceEdit, error) {
 	var edit WorkspaceEdit
-	if err := c.conn.Call(ctx, "textDocument/rename", map[string]any{
+	if err := c.call(ctx, "textDocument/rename", map[string]any{
 		"textDocument": map[string]any{"uri": uri},
 		"position":     pos,
 		"newName":      newName,
@@ -362,7 +404,7 @@ type WorkspaceSymbol struct {
 
 func (c *Client) WorkspaceSymbols(ctx context.Context, query string) ([]WorkspaceSymbol, error) {
 	var symbols []WorkspaceSymbol
-	if err := c.conn.Call(ctx, "workspace/symbol", map[string]any{"query": query}, &symbols); err != nil {
+	if err := c.call(ctx, "workspace/symbol", map[string]any{"query": query}, &symbols); err != nil {
 		return nil, err
 	}
 	out := make([]WorkspaceSymbol, 0, len(symbols))
@@ -436,13 +478,23 @@ func (c *Client) initialize(ctx context.Context) error {
 	if c.opts.InitializationOptions != nil {
 		params["initializationOptions"] = c.opts.InitializationOptions
 	}
-	var res struct {
-		Capabilities serverCapabilities `json:"capabilities"`
-	}
-	if err := c.conn.Call(ctx, "initialize", params, &res); err != nil {
+	var raw json.RawMessage
+	if err := c.conn.Call(ctx, "initialize", params, &raw); err != nil {
 		return fmt.Errorf("initialize: %w", err)
 	}
-	c.encoding = NegotiatedEncoding(res.Capabilities.PositionEncoding)
+	var res struct {
+		Capabilities *serverCapabilities `json:"capabilities"`
+	}
+	if json.Unmarshal(raw, &res) != nil || res.Capabilities == nil {
+		return fmt.Errorf("initialize: invalid capabilities: %w", operr.New(operr.InvalidInput, operr.Permanent, nil))
+	}
+	// UTF-16 is the protocol default only when positionEncoding was omitted.
+	c.encoding = UTF16
+	if encoding := res.Capabilities.PositionEncoding; encoding != nil {
+		if json.Unmarshal(encoding, &c.encoding) != nil || (c.encoding != UTF8 && c.encoding != UTF16) || string(encoding) == "null" {
+			return fmt.Errorf("initialize: unsupported position encoding: %w", unsupported("initialize"))
+		}
+	}
 	c.sync, c.openNote = res.Capabilities.syncKind()
 	c.defs = res.Capabilities.hasDefinition()
 	c.documentHighlights = res.Capabilities.hasDocumentHighlights()
@@ -455,18 +507,57 @@ func (c *Client) initialize(ctx context.Context) error {
 	c.completion = res.Capabilities.hasCompletion()
 	c.completionResolve = res.Capabilities.completionItemResolve()
 	c.callHierarchy = res.Capabilities.hasCallHierarchy()
-	rawType := bytes.TrimSpace(res.Capabilities.TypeHierarchyProvider)
-	c.typeHierarchy = len(rawType) > 0 && string(rawType) != "false" && string(rawType) != "null"
+	c.typeHierarchy = providerEnabled(res.Capabilities.TypeHierarchyProvider)
 	c.selectionRanges = res.Capabilities.hasSelectionRanges()
 	c.codeActions, c.hasCodeActions = res.Capabilities.codeActions()
-	c.hasCommands = res.Capabilities.hasExecuteCommand()
+	var cmds struct {
+		Commands []string `json:"commands"`
+	}
+	if json.Unmarshal(res.Capabilities.ExecuteCommandProvider, &cmds) == nil {
+		c.commands = cmds.Commands
+	}
 	c.hasRename, c.hasPrepareRename = res.Capabilities.hasRename()
 	c.documentFormat = res.Capabilities.hasDocumentFormatting()
 	c.documentRangeFormat = res.Capabilities.hasDocumentRangeFormatting()
-	c.pullDiagnostics = len(res.Capabilities.DiagnosticProvider) > 0 && string(res.Capabilities.DiagnosticProvider) != "null" && string(res.Capabilities.DiagnosticProvider) != "false"
+	c.pullDiagnostics = providerEnabled(res.Capabilities.DiagnosticProvider)
 	c.foldingRange = res.Capabilities.hasFoldingRange()
 	c.semanticLegend, c.semanticFull, c.semanticRange = res.Capabilities.semanticTokens()
-	return c.conn.Notify("initialized", map[string]any{})
+	c.operations = map[string]bool{
+		"textDocument/definition":           c.defs,
+		"textDocument/documentHighlight":    c.documentHighlights,
+		"textDocument/implementation":       c.implementations,
+		"textDocument/typeDefinition":       c.typeDefinitions,
+		"textDocument/inlayHint":            c.inlayHints,
+		"textDocument/documentLink":         c.documentLinks,
+		"textDocument/prepareCallHierarchy": c.callHierarchy,
+		"textDocument/prepareTypeHierarchy": c.typeHierarchy,
+		"textDocument/selectionRange":       c.selectionRanges,
+		"textDocument/diagnostic":           c.pullDiagnostics,
+		"textDocument/foldingRange":         c.foldingRange,
+		"textDocument/signatureHelp":        c.signatureHelp,
+		"textDocument/completion":           c.completion,
+		"textDocument/semanticTokens/full":  c.semanticFull,
+		"textDocument/semanticTokens/range": c.semanticRange,
+		"textDocument/codeAction":           c.hasCodeActions,
+		"textDocument/rename":               c.hasRename,
+		"textDocument/prepareRename":        c.hasPrepareRename,
+		"textDocument/formatting":           c.documentFormat,
+		"textDocument/rangeFormatting":      c.documentRangeFormat,
+		"documentLink/resolve":              c.documentLinkResolve,
+		"completionItem/resolve":            c.completionResolve,
+		"callHierarchy/incomingCalls":       c.callHierarchy,
+		"callHierarchy/outgoingCalls":       c.callHierarchy,
+		"typeHierarchy/supertypes":          c.typeHierarchy,
+		"typeHierarchy/subtypes":            c.typeHierarchy,
+		"codeAction/resolve":                c.codeActions.resolve,
+		"workspace/executeCommand":          c.HasExecuteCommand(),
+		"textDocument/hover":                providerEnabled(res.Capabilities.HoverProvider),
+		"textDocument/references":           providerEnabled(res.Capabilities.ReferencesProvider),
+		"textDocument/documentSymbol":       providerEnabled(res.Capabilities.DocumentSymbolProvider),
+		"workspace/symbol":                  providerEnabled(res.Capabilities.WorkspaceSymbolProvider),
+	}
+	c.logf("effective LSP operations: %v", c.Operations())
+	return c.conn.writeContext(ctx, map[string]any{"jsonrpc": "2.0", "method": "initialized", "params": map[string]any{}})
 }
 
 // DidOpen tells the server a document is open with text at version.
@@ -509,7 +600,7 @@ func (c *Client) Definition(ctx context.Context, uri string, pos Position) ([]Lo
 // DocumentHighlights asks where the symbol at pos occurs in this document.
 func (c *Client) DocumentHighlights(ctx context.Context, uri string, pos Position) ([]DocumentHighlight, error) {
 	var highlights []DocumentHighlight
-	err := c.conn.Call(ctx, "textDocument/documentHighlight", map[string]any{
+	err := c.call(ctx, "textDocument/documentHighlight", map[string]any{
 		"textDocument": map[string]any{"uri": uri},
 		"position":     pos,
 	}, &highlights)
@@ -526,7 +617,7 @@ func (c *Client) TypeDefinition(ctx context.Context, uri string, pos Position) (
 
 func (c *Client) locations(ctx context.Context, method, uri string, pos Position) ([]Location, error) {
 	var raw json.RawMessage
-	err := c.conn.Call(ctx, method, map[string]any{
+	err := c.call(ctx, method, map[string]any{
 		"textDocument": map[string]any{"uri": uri},
 		"position":     pos,
 	}, &raw)
@@ -540,7 +631,7 @@ func (c *Client) locations(ctx context.Context, method, uri string, pos Position
 // covers when the server says.
 func (c *Client) Hover(ctx context.Context, uri string, pos Position) (string, *Range, error) {
 	var raw json.RawMessage
-	err := c.conn.Call(ctx, "textDocument/hover", map[string]any{
+	err := c.call(ctx, "textDocument/hover", map[string]any{
 		"textDocument": map[string]any{"uri": uri},
 		"position":     pos,
 	}, &raw)
@@ -554,7 +645,7 @@ func (c *Client) Hover(ctx context.Context, uri string, pos Position) (string, *
 // on screen rather than the whole document.
 func (c *Client) InlayHints(ctx context.Context, uri string, r Range) ([]InlayHint, error) {
 	var raw json.RawMessage
-	err := c.conn.Call(ctx, "textDocument/inlayHint", map[string]any{
+	err := c.call(ctx, "textDocument/inlayHint", map[string]any{
 		"textDocument": map[string]any{"uri": uri},
 		"range":        r,
 	}, &raw)
@@ -578,14 +669,11 @@ func (c *Client) SemanticTokens(ctx context.Context, uri string, first, last int
 		params["range"] = Range{Start: Position{Line: first, Character: 0}, End: Position{Line: last + 1, Character: 0}}
 	case c.semanticFull:
 		method = "textDocument/semanticTokens/full"
-	case c.semanticRange:
-		method = "textDocument/semanticTokens/range"
-		params["range"] = Range{Start: Position{Line: max(first, 0), Character: 0}, End: Position{Line: max(last, 0) + 1, Character: 0}}
 	default:
-		return nil, errors.New("lsp: server has no semantic tokens")
+		return nil, unsupported("textDocument/semanticTokens")
 	}
 	var result SemanticTokensData
-	if err := c.conn.Call(ctx, method, params, &result); err != nil {
+	if err := c.call(ctx, method, params, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -614,7 +702,7 @@ var standardSemanticTokenModifiers = []string{
 // DocumentLinkResolve fills it.
 func (c *Client) DocumentLinks(ctx context.Context, uri string) ([]DocumentLink, error) {
 	var raw json.RawMessage
-	err := c.conn.Call(ctx, "textDocument/documentLink", map[string]any{
+	err := c.call(ctx, "textDocument/documentLink", map[string]any{
 		"textDocument": map[string]any{"uri": uri},
 	}, &raw)
 	if err != nil {
@@ -628,7 +716,7 @@ func (c *Client) DocumentLinks(ctx context.Context, uri string) ([]DocumentLink,
 // the protocol wants.
 func (c *Client) DocumentLinkResolve(ctx context.Context, link *DocumentLink) (*DocumentLink, error) {
 	var resolved DocumentLink
-	err := c.conn.Call(ctx, "documentLink/resolve", link, &resolved)
+	err := c.call(ctx, "documentLink/resolve", link, &resolved)
 	if err != nil {
 		return nil, err
 	}
@@ -639,7 +727,7 @@ func (c *Client) DocumentLinkResolve(ctx context.Context, link *DocumentLink) (*
 // positions, one chain a position, innermost first.
 func (c *Client) SelectionRanges(ctx context.Context, uri string, positions []Position) ([]*SelectionRange, error) {
 	var raw json.RawMessage
-	err := c.conn.Call(ctx, "textDocument/selectionRange", map[string]any{
+	err := c.call(ctx, "textDocument/selectionRange", map[string]any{
 		"textDocument": map[string]any{"uri": uri},
 		"positions":    positions,
 	}, &raw)
@@ -652,7 +740,7 @@ func (c *Client) SelectionRanges(ctx context.Context, uri string, positions []Po
 // SignatureHelp asks for the signatures of the call at pos.
 func (c *Client) SignatureHelp(ctx context.Context, uri string, pos Position) (*SignatureHelp, error) {
 	var raw json.RawMessage
-	err := c.conn.Call(ctx, "textDocument/signatureHelp", map[string]any{
+	err := c.call(ctx, "textDocument/signatureHelp", map[string]any{
 		"textDocument": map[string]any{"uri": uri},
 		"position":     pos,
 	}, &raw)
@@ -664,7 +752,7 @@ func (c *Client) SignatureHelp(ctx context.Context, uri string, pos Position) (*
 
 func (c *Client) Completion(ctx context.Context, uri string, pos Position) (*CompletionResult, error) {
 	var raw json.RawMessage
-	err := c.conn.Call(ctx, "textDocument/completion", map[string]any{
+	err := c.call(ctx, "textDocument/completion", map[string]any{
 		"textDocument": map[string]any{"uri": uri},
 		"position":     pos,
 	}, &raw)
@@ -676,13 +764,13 @@ func (c *Client) Completion(ctx context.Context, uri string, pos Position) (*Com
 
 func (c *Client) CompletionItemResolve(ctx context.Context, item CompletionItem) (*CompletionItem, error) {
 	if !c.completionResolve {
-		return nil, fmt.Errorf("lsp: completion item resolve unsupported")
+		return nil, unsupported("completionItem/resolve")
 	}
 	if len(item.Raw) == 0 {
 		return nil, fmt.Errorf("lsp: completion item has no raw payload")
 	}
 	var raw json.RawMessage
-	if err := c.conn.Call(ctx, "completionItem/resolve", item.Raw, &raw); err != nil {
+	if err := c.call(ctx, "completionItem/resolve", item.Raw, &raw); err != nil {
 		return nil, err
 	}
 	return ParseCompletionItem(raw)
@@ -720,7 +808,7 @@ func (c *Client) Diagnostics(ctx context.Context, uri string) ([]Diagnostic, boo
 		Kind  string       `json:"kind"`
 		Items []Diagnostic `json:"items"`
 	}
-	err := c.conn.Call(ctx, "textDocument/diagnostic", map[string]any{"textDocument": map[string]any{"uri": uri}}, &result)
+	err := c.call(ctx, "textDocument/diagnostic", map[string]any{"textDocument": map[string]any{"uri": uri}}, &result)
 	return result.Items, result.Kind == "full", err
 }
 
@@ -728,7 +816,7 @@ func (c *Client) Diagnostics(ctx context.Context, uri string) ([]Diagnostic, boo
 // the range of the document, given the diagnostics published there.
 func (c *Client) CodeActions(ctx context.Context, uri string, r Range, diagnostics []Diagnostic) ([]CodeAction, error) {
 	var actions []CodeAction
-	err := c.conn.Call(ctx, "textDocument/codeAction", map[string]any{
+	err := c.call(ctx, "textDocument/codeAction", map[string]any{
 		"textDocument": map[string]any{"uri": uri},
 		"range":        r,
 		"context":      map[string]any{"diagnostics": diagnostics},
@@ -741,7 +829,7 @@ func (c *Client) CodeActions(ctx context.Context, uri string, r Range, diagnosti
 // replaces the field it filled, the edit or the command.
 func (c *Client) ResolveCodeAction(ctx context.Context, action CodeAction) (*CodeAction, error) {
 	var resolved CodeAction
-	err := c.conn.Call(ctx, "codeAction/resolve", action, &resolved)
+	err := c.call(ctx, "codeAction/resolve", action, &resolved)
 	if err != nil {
 		return nil, err
 	}
@@ -756,11 +844,14 @@ func (c *Client) ResolveCodeAction(ctx context.Context, action CodeAction) (*Cod
 
 // ExecuteCommand runs the command of a code action on the server.
 func (c *Client) ExecuteCommand(ctx context.Context, command Command) error {
+	if !c.SupportsCommand(command.Command) {
+		return unsupported("workspace/executeCommand")
+	}
 	params := map[string]any{"command": command.Command}
 	if len(command.Arguments) > 0 {
 		params["arguments"] = command.Arguments
 	}
-	return c.conn.Call(ctx, "workspace/executeCommand", params, nil)
+	return c.call(ctx, "workspace/executeCommand", params, nil)
 }
 
 // DocumentFormatting asks for the edits that format the whole
@@ -784,7 +875,7 @@ func (c *Client) formatting(ctx context.Context, method, uri string, r *Range, o
 		params["range"] = *r
 	}
 	var raw json.RawMessage
-	if err := c.conn.Call(ctx, method, params, &raw); err != nil {
+	if err := c.call(ctx, method, params, &raw); err != nil {
 		return nil, err
 	}
 	return ParseTextEdits(raw)
@@ -793,7 +884,7 @@ func (c *Client) formatting(ctx context.Context, method, uri string, r *Range, o
 // References returns locations that refer to a symbol.
 func (c *Client) References(ctx context.Context, uri string, pos Position) ([]Location, error) {
 	var result []Location
-	err := c.conn.Call(ctx, "textDocument/references", map[string]any{"textDocument": map[string]any{"uri": uri}, "position": pos, "context": map[string]any{"includeDeclaration": false}}, &result)
+	err := c.call(ctx, "textDocument/references", map[string]any{"textDocument": map[string]any{"uri": uri}, "position": pos, "context": map[string]any{"includeDeclaration": false}}, &result)
 	return result, err
 }
 
@@ -803,7 +894,7 @@ func (c *Client) References(ctx context.Context, uri string, pos Position) ([]Lo
 // the caller can tell "nothing here" apart from a failure.
 func (c *Client) PrepareCallHierarchy(ctx context.Context, uri string, pos Position) ([]CallItem, error) {
 	var items []callItemWire
-	if err := c.conn.Call(ctx, "textDocument/prepareCallHierarchy", map[string]any{"textDocument": map[string]any{"uri": uri}, "position": pos}, &items); err != nil {
+	if err := c.call(ctx, "textDocument/prepareCallHierarchy", map[string]any{"textDocument": map[string]any{"uri": uri}, "position": pos}, &items); err != nil {
 		var e *Error
 		if errors.As(err, &e) && e.Code == 0 {
 			return nil, ErrNoCallItem
@@ -834,7 +925,7 @@ func (c *Client) IncomingCalls(ctx context.Context, item CallItem) ([]CallEdge, 
 		From       callItemWire `json:"from"`
 		FromRanges []Range      `json:"fromRanges"`
 	}
-	if err := c.conn.Call(ctx, "callHierarchy/incomingCalls", map[string]any{"item": item.wire()}, &calls); err != nil {
+	if err := c.call(ctx, "callHierarchy/incomingCalls", map[string]any{"item": item.wire()}, &calls); err != nil {
 		return nil, err
 	}
 	return callEdges(calls, func(c struct {
@@ -851,7 +942,7 @@ func (c *Client) OutgoingCalls(ctx context.Context, item CallItem) ([]CallEdge, 
 		To         callItemWire `json:"to"`
 		FromRanges []Range      `json:"fromRanges"`
 	}
-	if err := c.conn.Call(ctx, "callHierarchy/outgoingCalls", map[string]any{"item": item.wire()}, &calls); err != nil {
+	if err := c.call(ctx, "callHierarchy/outgoingCalls", map[string]any{"item": item.wire()}, &calls); err != nil {
 		return nil, err
 	}
 	return callEdges(calls, func(c struct {
@@ -945,12 +1036,21 @@ func (c *Client) Shutdown(timeout time.Duration) {
 func (c *Client) Kill() {
 	c.mu.Lock()
 	c.stopping = true
+	if c.cmd != nil {
+		select {
+		case <-c.abort:
+		default:
+			close(c.abort)
+		}
+		c.mu.Unlock()
+		return
+	}
 	c.mu.Unlock()
 	if c.stdin != nil {
-		c.stdin.Close()
+		_ = c.stdin.Close()
 	}
-	if c.cmd != nil && c.cmd.Process != nil {
-		_ = c.cmd.Process.Kill()
+	if c.stdout != nil {
+		_ = c.stdout.Close()
 	}
 }
 
@@ -990,8 +1090,7 @@ func (h *handler) Handle(ctx context.Context, method string, params json.RawMess
 		return out, nil // null for each item of a server with nothing to say
 	case "workspace/workspaceFolders":
 		return workspaceFolderParams(h.opts), nil
-	case "client/registerCapability", "client/unregisterCapability",
-		"window/workDoneProgress/create", "window/showMessageRequest":
+	case "window/workDoneProgress/create", "window/showMessageRequest":
 		return nil, nil
 	case "workspace/applyEdit":
 		// A server edits the workspace this way after workspace/executeCommand
@@ -1015,7 +1114,7 @@ func (h *handler) Handle(ctx context.Context, method string, params json.RawMess
 		}
 		return map[string]any{"applied": applied}, nil
 	}
-	return nil, &Error{Code: CodeMethodNotFound, Message: "method not found: " + method}
+	return nil, &Error{Code: CodeMethodNotFound, Message: "method not found"}
 }
 
 func (h *handler) Notify(method string, params json.RawMessage) {
@@ -1038,38 +1137,10 @@ func (h *handler) Notify(method string, params json.RawMessage) {
 		}
 	case "window/logMessage", "window/showMessage":
 		var p struct {
-			Type    int    `json:"type"`
-			Message string `json:"message"`
+			Type int `json:"type"`
 		}
 		if json.Unmarshal(params, &p) == nil && p.Type <= 2 { // errors and warnings
-			(*Client)(h).logf("lsp: server: %s", p.Message)
+			(*Client)(h).logf("lsp: server message (severity %d)", p.Type)
 		}
 	}
-}
-
-// tail keeps the last max bytes written to it, as a server's stderr.
-type tail struct {
-	mu   sync.Mutex
-	max  int
-	b    []byte
-	logf func(string, ...any)
-}
-
-func (t *tail) Write(p []byte) (int, error) {
-	if t.logf != nil {
-		t.logf("server stderr: %s", string(p))
-	}
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	t.b = append(t.b, p...)
-	if len(t.b) > t.max {
-		t.b = append(t.b[:0], t.b[len(t.b)-t.max:]...)
-	}
-	return len(p), nil
-}
-
-func (t *tail) String() string {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	return string(t.b)
 }

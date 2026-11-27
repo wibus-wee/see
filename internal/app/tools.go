@@ -114,7 +114,14 @@ func managedRipgrepInstalled() bool {
 // findRipgrep finds the ripgrep See searches with: one named by $SEE_RG or
 // on PATH, or the copy See installed, which comes first after $SEE_RG.
 func findRipgrep(root string) (string, error) {
-	return search.FindRipgrep(root, managedRipgrepPath())
+	path, err := search.FindRipgrep(root, managedRipgrepPath())
+	if err != nil {
+		return "", err
+	}
+	if err := proc.ValidateExecutable(root, path); err != nil {
+		return "", err
+	}
+	return path, nil
 }
 
 // ripgrepAsset is the name of ripgrep's release asset for this platform.

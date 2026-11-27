@@ -29,6 +29,7 @@ import (
 	"see/internal/localhistory"
 	"see/internal/lsp"
 	"see/internal/nav"
+	"see/internal/operr"
 	"see/internal/uri"
 	"see/internal/workspace"
 
@@ -2015,7 +2016,10 @@ func (a *App) locationFound(g *group, from nav.Entry, targets []target, enc stri
 
 // lspFailure reports why a language server request failed.
 func (a *App) lspFailure(err error) {
+	var failure *operr.Error
 	switch {
+	case errors.As(err, &failure) && failure.Kind == operr.Unsupported:
+		a.note(locales.Unavailable()+": "+failure.Operation, false)
 	case errors.Is(err, languages.ErrNoGopls):
 		a.note(locales.MsgGoToDefinitionNeedsGoplsInstallItWith(), true)
 	case errors.Is(err, languages.ErrNoCMakeServer):

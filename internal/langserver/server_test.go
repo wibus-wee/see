@@ -108,12 +108,12 @@ func TestFailureHoldsUntilRetry(t *testing.T) {
 	}
 }
 
-func TestServerWithoutDefinitionFails(t *testing.T) {
+func TestServerWithoutDefinitionIsReady(t *testing.T) {
 	starts := 0
 	s := New(Options{Start: serving(&fakeClient{noDefinition: true}, &starts)})
 	defer s.StopWait(time.Second)
-	if _, err := s.Get(context.Background()); err == nil {
-		t.Fatal("a server without Go to Definition was used")
+	if _, err := s.Get(context.Background()); err != nil || serverState(s) != Ready {
+		t.Fatalf("optional definition support prevented readiness: %v", err)
 	}
 }
 
@@ -340,4 +340,39 @@ func waitFor(t *testing.T, ok func() bool) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	t.Fatal("timed out waiting")
+}
+
+func TestBlockedWriterFailsSessionOnQueueOverflow(t *testing.T) {
+	blocked, release := make(chan struct{}), make(chan struct{})
+	c := &fakeClient{changeStarted: blocked, releaseChange: release}
+	s := New(Options{Start: serving(c, new(int))})
+	defer s.StopWait(time.Second)
+	defer close(release)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	client, err := s.Get(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	buf := editor.NewBuffer("open")
+	const uri = "file:///a.go"
+	if err = s.Sync(ctx, client, uri, buf.Snapshot()); err != nil {
+		t.Fatal(err)
+	}
+	buf.Set("changed")
+	s.Changed(uri, buf.Snapshot())
+	select {
+	case <-blocked:
+	case <-ctx.Done():
+		t.Fatal(ctx.Err())
+	}
+	for i := 0; i < 1024; i++ {
+		if !s.Open(c, string(rune(0x400+i)), buf.Snapshot()) {
+			if state, err := s.Status(); state != Failed || !errors.Is(err, errQueueFull) {
+				t.Fatalf("lost notification without failure: %v %v", state, err)
+			}
+			return
+		}
+	}
+	t.Fatal("blocked writer accepted unbounded notifications")
 }

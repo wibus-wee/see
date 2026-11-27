@@ -6,7 +6,7 @@ import (
 )
 
 var ErrNoTypeItem = errors.New("lsp: no type hierarchy item")
-var ErrTypeHierarchyUnsupported = errors.New("lsp: type hierarchy unsupported")
+var ErrTypeHierarchyUnsupported error = unsupported("textDocument/prepareTypeHierarchy")
 
 func (c *Client) HasTypeHierarchy() bool { return c.typeHierarchy }
 
@@ -15,7 +15,7 @@ func (c *Client) PrepareTypeHierarchy(ctx context.Context, uri string, pos Posit
 		return nil, ErrTypeHierarchyUnsupported
 	}
 	var items []TypeHierarchyItem
-	err := c.conn.Call(ctx, "textDocument/prepareTypeHierarchy", map[string]any{"textDocument": map[string]any{"uri": uri}, "position": pos}, &items)
+	err := c.call(ctx, "textDocument/prepareTypeHierarchy", map[string]any{"textDocument": map[string]any{"uri": uri}, "position": pos}, &items)
 	if err != nil {
 		return nil, err
 	}
@@ -38,6 +38,6 @@ func (c *Client) typeHierarchyItems(ctx context.Context, method string, item Typ
 		return nil, ErrTypeHierarchyUnsupported
 	}
 	var items []TypeHierarchyItem
-	err := c.conn.Call(ctx, method, map[string]any{"item": item}, &items)
+	err := c.call(ctx, method, map[string]any{"item": item}, &items)
 	return items, err
 }
