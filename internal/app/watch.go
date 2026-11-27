@@ -36,6 +36,71 @@ func (a *App) startWatch() {
 	for _, folder := range a.workspaceFolders {
 		a.startWatchFolder(folder.Path)
 	}
+	a.startWorkspaceFileWatch()
+}
+
+// startWorkspaceFileWatch follows the workspace file itself. It normally
+// lives outside every root, so the folder watches never see VS Code adding
+// or removing a member.
+func (a *App) startWorkspaceFileWatch() {
+	if !a.isCodeWorkspace() {
+		return
+	}
+	if a.workspaceFileCancel != nil {
+		a.workspaceFileCancel()
+	}
+	ctx, cancel := context.WithCancel(a.wsCtx)
+	a.workspaceFileCancel = cancel
+	workspaceFile := a.workspaceID
+	dir, base := filepath.Dir(workspaceFile), filepath.Base(workspaceFile)
+	gen := a.gen
+	go func() {
+		w, err := watchFiles(ctx, dir, mygo.FileWatchOptions{})
+		if err != nil {
+			a.post.Post(func() {
+				if a.gen == gen {
+					a.logf("workspace watch: %v", err)
+				}
+			})
+			return
+		}
+		defer w.Close()
+		for {
+			evs, err := w.Next(ctx)
+			if err != nil {
+				return
+			}
+			touched := false
+			for _, ev := range evs {
+				if ev.Path == base || ev.OldPath == base {
+					touched = true
+					break
+				}
+			}
+			if touched {
+				a.post.Post(func() {
+					if a.gen == gen {
+						a.reloadCodeWorkspace(workspaceFile)
+					}
+				})
+			}
+		}
+	}()
+}
+
+func (a *App) reloadCodeWorkspace(workspaceFile string) {
+	if !a.isCodeWorkspace() || a.workspaceID != workspaceFile {
+		return
+	}
+	folders, err := workspace.ReadCodeWorkspace(workspaceFile)
+	if err != nil {
+		// Editors replace workspace files through a temporary name; a remove
+		// or half-written rename is followed by the complete file. Keeping the
+		// last valid membership is safer than dropping the workspace under the user.
+		a.logf("workspace reload: %v", err)
+		return
+	}
+	a.syncWorkspaceFolders(folders)
 }
 
 func (a *App) startWatchFolder(root string) {

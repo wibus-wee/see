@@ -649,3 +649,26 @@ func TestSemanticTokensPartialCapability(t *testing.T) {
 		t.Fatalf("method = %s", method)
 	}
 }
+
+func TestWorkspaceFolderParamsUseEveryRoot(t *testing.T) {
+	opts := Options{
+		RootURI: "file:///first",
+		WorkspaceFolders: []WorkspaceFolder{
+			{URI: "file:///first", Name: "First"},
+			{URI: "file:///second", Name: "Second"},
+		},
+	}
+	got := workspaceFolderParams(opts)
+	if len(got) != 2 || got[0]["uri"] != "file:///first" || got[1]["uri"] != "file:///second" || got[1]["name"] != "Second" {
+		t.Fatalf("workspace folders: %#v", got)
+	}
+	h := (*handler)(&Client{opts: opts})
+	reply, err := h.Handle(context.Background(), "workspace/workspaceFolders", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	folders, ok := reply.([]map[string]any)
+	if !ok || len(folders) != 2 {
+		t.Fatalf("server-facing workspace folders: %#v", reply)
+	}
+}

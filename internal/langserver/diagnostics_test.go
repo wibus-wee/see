@@ -30,7 +30,7 @@ func TestPublishedDiagnosticsRejectObsoleteDocumentAndServer(t *testing.T) {
 	var exits []func(error)
 	s := New(Options{
 		Name: "fake",
-		Start: func(_ context.Context, _ string, onExit func(error)) (Client, error) {
+		Start: func(_ context.Context, _ string, _ []lsp.WorkspaceFolder, onExit func(error)) (Client, error) {
 			c := clients[len(exits)]
 			exits = append(exits, onExit)
 			return c, nil

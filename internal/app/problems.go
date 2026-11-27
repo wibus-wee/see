@@ -11,6 +11,7 @@ import (
 	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
+	"see/internal/git"
 	"see/internal/langserver"
 	"see/internal/languages"
 	"see/internal/lsp"
@@ -145,8 +146,20 @@ func (a *App) startProjectDiagnostics() {
 	}
 	a.problems.started = true
 	a.problems.starting++
-	root, realRoot, gen, ctx := a.root, a.realRoot, a.gen, a.wsCtx
-	ignored := a.ignored[root]
+	gen, ctx := a.gen, a.wsCtx
+	folders := slices.Clone(a.workspaceFolders)
+	type scanRoot struct {
+		root, realRoot string
+		ignored        *git.Ignored
+	}
+	roots := make([]scanRoot, 0, len(folders))
+	for _, folder := range folders {
+		realRoot := folder.Path
+		if resolved, err := filepath.EvalSymlinks(folder.Path); err == nil {
+			realRoot = resolved
+		}
+		roots = append(roots, scanRoot{root: folder.Path, realRoot: realRoot, ignored: a.ignored[folder.Path]})
+	}
 	type lane struct {
 		server *langserver.Server
 		covers func(string) bool
@@ -165,38 +178,49 @@ func (a *App) startProjectDiagnostics() {
 	}
 	go func() {
 		found := map[*langserver.Server]string{}
-		err := filepath.WalkDir(realRoot, func(path string, entry fs.DirEntry, err error) error {
-			if ctx.Err() != nil || len(found) == len(lanes) {
-				return fs.SkipAll
+		var scanErr error
+		for _, scan := range roots {
+			if len(found) == len(lanes) || ctx.Err() != nil {
+				break
 			}
-			if err != nil {
-				return nil
-			}
-			rel, _ := filepath.Rel(realRoot, path)
-			if entry.IsDir() {
-				if path != realRoot && (workspace.Ignored(entry.Name()) || ignored.Dir(filepath.ToSlash(rel))) {
-					return fs.SkipDir
+			err := filepath.WalkDir(scan.realRoot, func(path string, entry fs.DirEntry, err error) error {
+				if ctx.Err() != nil || len(found) == len(lanes) {
+					return fs.SkipAll
 				}
-				return nil
-			}
-			if entry.Type().IsRegular() {
-				p := filepath.Join(root, rel)
-				for _, lane := range lanes {
-					if lane.covers(p) {
-						found[lane.server] = p
-						break
+				if err != nil {
+					return nil
+				}
+				rel, _ := filepath.Rel(scan.realRoot, path)
+				if entry.IsDir() {
+					if path != scan.realRoot && (workspace.Ignored(entry.Name()) || scan.ignored.Dir(filepath.ToSlash(rel))) {
+						return fs.SkipDir
+					}
+					return nil
+				}
+				if entry.Type().IsRegular() {
+					p := filepath.Join(scan.root, rel)
+					for _, lane := range lanes {
+						if lane.server != nil && lane.covers(p) {
+							if _, ok := found[lane.server]; !ok {
+								found[lane.server] = p
+							}
+							break
+						}
 					}
 				}
+				return nil
+			})
+			if err != nil && scanErr == nil {
+				scanErr = err
 			}
-			return nil
-		})
+		}
 		a.post.Post(func() {
 			if gen != a.gen {
 				return
 			}
 			a.problems.starting--
-			if err != nil {
-				a.logf("project diagnostics: %v", err)
+			if scanErr != nil {
+				a.logf("project diagnostics: %v", scanErr)
 			}
 			for _, path := range found {
 				a.startProblemServer(path)

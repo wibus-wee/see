@@ -16,10 +16,17 @@ import (
 	"see/internal/proc"
 )
 
+// WorkspaceFolder is one root a server knows.
+type WorkspaceFolder struct {
+	URI, Name string
+}
+
 // Options configure a Client.
 type Options struct {
 	// RootPath is the workspace's directory, RootURI its URI.
 	RootPath, RootURI string
+	// WorkspaceFolders are every root in the workspace. Empty uses RootURI.
+	WorkspaceFolders []WorkspaceFolder
 	// ServerID names the server for serverConfigurations, such as
 	// "gopls"; "" answers workspace/configuration with nulls.
 	ServerID string
@@ -35,6 +42,18 @@ type Options struct {
 	// OnExit is called once when the server's process ends or the
 	// connection breaks, with why, unless Shutdown asked for it.
 	OnExit func(err error)
+}
+
+func workspaceFolderParams(opts Options) []map[string]any {
+	folders := opts.WorkspaceFolders
+	if len(folders) == 0 {
+		folders = []WorkspaceFolder{{URI: opts.RootURI, Name: opts.Name}}
+	}
+	out := make([]map[string]any, len(folders))
+	for i, folder := range folders {
+		out[i] = map[string]any{"uri": folder.URI, "name": folder.Name}
+	}
+	return out
 }
 
 // Client is a language client of one server: it initializes it, keeps
@@ -357,13 +376,11 @@ func (c *Client) WorkspaceSymbols(ctx context.Context, query string) ([]Workspac
 
 func (c *Client) initialize(ctx context.Context) error {
 	params := map[string]any{
-		"processId":  os.Getpid(),
-		"clientInfo": map[string]any{"name": "See", "version": "0.1"},
-		"rootUri":    c.opts.RootURI,
-		"rootPath":   c.opts.RootPath,
-		"workspaceFolders": []map[string]any{
-			{"uri": c.opts.RootURI, "name": c.opts.Name},
-		},
+		"processId":        os.Getpid(),
+		"clientInfo":       map[string]any{"name": "See", "version": "0.1"},
+		"rootUri":          c.opts.RootURI,
+		"rootPath":         c.opts.RootPath,
+		"workspaceFolders": workspaceFolderParams(c.opts),
 		"capabilities": map[string]any{
 			"general": map[string]any{
 				"positionEncodings": []string{UTF8, UTF16},
@@ -972,7 +989,7 @@ func (h *handler) Handle(ctx context.Context, method string, params json.RawMess
 		}
 		return out, nil // null for each item of a server with nothing to say
 	case "workspace/workspaceFolders":
-		return []map[string]any{{"uri": h.opts.RootURI, "name": h.opts.Name}}, nil
+		return workspaceFolderParams(h.opts), nil
 	case "client/registerCapability", "client/unregisterCapability",
 		"window/workDoneProgress/create", "window/showMessageRequest":
 		return nil, nil

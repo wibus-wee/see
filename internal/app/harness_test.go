@@ -118,7 +118,7 @@ func newHarnessWithConfig(t *testing.T, root string, cfg *config.Config) *harnes
 	resetNotify()
 	t.Cleanup(resetNotify)
 	h.a.startLSP = func(func(string, ...any)) langserver.Starter {
-		return func(ctx context.Context, root string, onExit func(error)) (langserver.Client, error) {
+		return func(ctx context.Context, root string, _ []lsp.WorkspaceFolder, onExit func(error)) (langserver.Client, error) {
 			if h.fc.startErr != nil {
 				return nil, h.fc.startErr
 			}
@@ -464,7 +464,9 @@ func writeTree(t *testing.T, files map[string]string) string {
 }
 
 func serverOf(root string, c langserver.Client) *langserver.Server {
-	return langserver.New(langserver.Options{Name: "gopls", Root: root, Start: func(context.Context, string, func(error)) (langserver.Client, error) { return c, nil }})
+	return langserver.New(langserver.Options{Name: "gopls", Root: root, Start: func(context.Context, string, []lsp.WorkspaceFolder, func(error)) (langserver.Client, error) {
+		return c, nil
+	}})
 }
 
 // fakeHost is a desktop without a window, as platform.NoDesktop, but for what a test

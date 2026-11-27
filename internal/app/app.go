@@ -111,6 +111,7 @@ type App struct {
 	watchErr            error
 	watching            bool
 	watchCancels        map[string]context.CancelFunc
+	workspaceFileCancel context.CancelFunc
 	ignored             map[string]*git.Ignored // what Git ignores under each folder root
 	git                 gitState
 
@@ -532,8 +533,6 @@ func (a *App) syncWorkspaceFolders(folders []workspace.Folder) {
 	if slices.EqualFunc(a.workspaceFolders, folders, func(a, b workspace.Folder) bool { return a == b }) {
 		return
 	}
-	previousRoot := a.root
-	trustedBefore := a.workspaceTrusted()
 	previous := make(map[string]bool, len(a.workspaceFolders))
 	next := make(map[string]bool, len(folders))
 	for _, folder := range a.workspaceFolders {
@@ -584,7 +583,7 @@ func (a *App) syncWorkspaceFolders(folders []workspace.Folder) {
 	a.refreshGitDiscovery()
 	if !a.workspaceTrusted() {
 		a.enforceTrust()
-	} else if previousRoot != a.root || !trustedBefore || a.lsp == nil {
+	} else {
 		a.stopLanguageServers()
 		a.initLanguageServers()
 		a.openServerDocuments(nil)
@@ -677,10 +676,12 @@ func (a *App) openWorkspace(dir string) {
 func (a *App) initLanguageServers() {
 	a.serverEpoch++
 	gen, epoch, root := a.gen, a.serverEpoch, a.root
+	folders := lspWorkspaceFolders(a.workspaceFolders)
 	a.lsp = langserver.New(langserver.Options{
-		Name:  "gopls",
-		Root:  root,
-		Start: a.startLSP(a.serverLog("gopls")),
+		Name:    "gopls",
+		Root:    root,
+		Folders: folders,
+		Start:   a.startLSP(a.serverLog("gopls")),
 		OnState: func(s langserver.State, err error) {
 			a.post.Post(func() {
 				if a.gen == gen && a.serverEpoch == epoch {
@@ -694,7 +695,7 @@ func (a *App) initLanguageServers() {
 	})
 	a.wireApplyEdit(a.lsp)
 	a.resetTypeScriptServer()
-	a.clangLSP = languages.NewClangdServer(root, func(s langserver.State, err error) {
+	a.clangLSP = languages.NewClangdServer(root, folders, func(s langserver.State, err error) {
 		a.post.Post(func() {
 			if a.gen == gen && a.serverEpoch == epoch {
 				a.clangState, a.clangErr = s, err
@@ -702,7 +703,7 @@ func (a *App) initLanguageServers() {
 			}
 		})
 	}, a.diagnosticsHandler(gen), a.serverLog("clangd"))
-	a.cmakeLSP = languages.NewCMakeServer(root, func(s langserver.State, err error) {
+	a.cmakeLSP = languages.NewCMakeServer(root, folders, func(s langserver.State, err error) {
 		a.post.Post(func() {
 			if a.gen == gen && a.serverEpoch == epoch {
 				a.cmakeState, a.cmakeErr = s, err
@@ -722,7 +723,7 @@ func (a *App) initLanguageServers() {
 	for i, spec := range a.customLSPSpecs {
 		a.customCovers[i] = languages.ConfiguredCovers(spec)
 		idx, name := i, spec.Name
-		a.customLSPs[i] = languages.NewConfiguredServer(spec, root, func(s langserver.State, err error) {
+		a.customLSPs[i] = languages.NewConfiguredServer(spec, root, folders, func(s langserver.State, err error) {
 			a.post.Post(func() {
 				if a.gen == gen && a.serverEpoch == epoch {
 					a.customStates[idx] = struct {
@@ -2071,7 +2072,7 @@ func (a *App) resetTypeScriptServer() {
 		return
 	}
 	gen, epoch := a.gen, a.tsEpoch
-	a.tsLSP = languages.NewTypeScriptServer(a.root, languages.StartTypeScript(a.serverLog("tsrs")), func(s langserver.State, err error) {
+	a.tsLSP = languages.NewTypeScriptServer(a.root, lspWorkspaceFolders(a.workspaceFolders), languages.StartTypeScript(a.serverLog("tsrs")), func(s langserver.State, err error) {
 		a.post.Post(func() {
 			if a.gen == gen && a.tsEpoch == epoch {
 				a.tsState, a.tsErr = s, err

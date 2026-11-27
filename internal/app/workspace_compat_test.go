@@ -8,12 +8,32 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/egoist/mygo"
 
 	"see/internal/config"
 	"see/internal/langserver"
+	"see/internal/lsp"
 	"see/internal/search"
+	"see/internal/uri"
 	"see/internal/workspace"
 )
+
+type channelWatcher struct {
+	events chan []mygo.FileEvent
+}
+
+func (w channelWatcher) Next(ctx context.Context) ([]mygo.FileEvent, error) {
+	select {
+	case evs := <-w.events:
+		return evs, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
+
+func (w channelWatcher) Close() error { return nil }
 
 func codeWorkspaceFixture(t *testing.T) (string, string, string) {
 	t.Helper()
@@ -182,7 +202,7 @@ func TestRemovingCodeWorkspaceFolderOnlyRemovesItsReference(t *testing.T) {
 	oldServer := h.a.lsp
 	var launchedRoot string
 	h.a.startLSP = func(func(string, ...any)) langserver.Starter {
-		return func(_ context.Context, root string, _ func(error)) (langserver.Client, error) {
+		return func(_ context.Context, root string, _ []lsp.WorkspaceFolder, _ func(error)) (langserver.Client, error) {
 			launchedRoot = root
 			return h.fc, nil
 		}
@@ -425,5 +445,95 @@ func TestNestedCodeWorkspaceRootsKeepOneFileIdentity(t *testing.T) {
 	}
 	if resultCount != 1 || h.a.find.stats.Files != 1 || h.a.find.stats.Matches != 1 {
 		t.Fatalf("overlapping search duplicated the file: count=%d stats=%+v results=%+v", resultCount, h.a.find.stats, h.a.find.results)
+	}
+}
+
+func TestLanguageServerReceivesEveryWorkspaceFolder(t *testing.T) {
+	workspaceFile, client, server := codeWorkspaceFixture(t)
+	h := newHarness(t, "")
+	var launched []lsp.WorkspaceFolder
+	h.a.startLSP = func(func(string, ...any)) langserver.Starter {
+		return func(_ context.Context, _ string, folders []lsp.WorkspaceFolder, _ func(error)) (langserver.Client, error) {
+			launched = slices.Clone(folders)
+			return h.fc, nil
+		}
+	}
+	h.a.openWorkspace(workspaceFile)
+	h.a.trust()
+	if _, err := h.a.lsp.Get(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(launched) != 2 || launched[0].URI != uri.FromPath(client) || launched[1].URI != uri.FromPath(server) {
+		t.Fatalf("language server workspace folders: %+v", launched)
+	}
+}
+
+func TestProjectDiagnosticsScanEveryWorkspaceFolder(t *testing.T) {
+	workspaceFile, client, server := codeWorkspaceFixture(t)
+	if err := os.Remove(filepath.Join(client, "src", "main.go")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(client, "src", "notes.txt"), []byte("notes"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	h := newHarness(t, "")
+	h.a.openWorkspace(workspaceFile)
+	h.a.trust()
+	h.a.showProblems()
+	h.settle(func() bool { return h.a.lsp.Current() != nil })
+	if h.a.lsp.Current() == nil {
+		t.Fatalf("project diagnostics never scanned the Go file in the second root %q", server)
+	}
+}
+
+func TestReloadCodeWorkspaceAppliesExternalMembershipEdits(t *testing.T) {
+	workspaceFile, client, server := codeWorkspaceFixture(t)
+	extra := filepath.Join(filepath.Dir(client), "extra")
+	if err := os.MkdirAll(extra, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	oldWatchFiles := watchFiles
+	t.Cleanup(func() { watchFiles = oldWatchFiles })
+	workspaceWatch := make(chan chan []mygo.FileEvent, 1)
+	watchFiles = func(ctx context.Context, root string, opts mygo.FileWatchOptions) (fileWatcher, error) {
+		events := make(chan []mygo.FileEvent, 1)
+		if !opts.Recursive && root == filepath.Dir(workspaceFile) {
+			workspaceWatch <- events
+		}
+		return channelWatcher{events: events}, nil
+	}
+	h := newHarness(t, "")
+	h.a.openWorkspace(workspaceFile)
+	h.settle(func() bool { return h.a.dirs[client] != nil && h.a.dirs[server] != nil })
+	var workspaceEvents chan []mygo.FileEvent
+	select {
+	case workspaceEvents = <-workspaceWatch:
+	case <-time.After(2 * time.Second):
+		t.Fatal("the workspace file itself was not watched")
+	}
+
+	updated := `{
+		// Edited while See has the workspace open.
+		"folders": [
+			{"path": "../client"},
+			{"path": "../server"},
+			{"name": "Extra", "path": "../extra"},
+		],
+	}`
+	if err := os.WriteFile(workspaceFile, []byte(updated), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	workspaceEvents <- []mygo.FileEvent{{Path: filepath.Base(workspaceFile), Op: mygo.FileWrite}}
+	h.settle(func() bool { return h.a.dirs[extra] != nil })
+	if len(h.a.workspaceFolders) != 3 || h.a.workspaceFolders[2].Path != extra || h.a.workspaceFolders[2].Name != "Extra" {
+		t.Fatalf("external membership edit was not applied: %+v", h.a.workspaceFolders)
+	}
+
+	if err := os.WriteFile(workspaceFile, []byte(`{"folders": [`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	h.a.reloadCodeWorkspace(workspaceFile)
+	if len(h.a.workspaceFolders) != 3 || h.a.workspaceFolders[2].Path != extra {
+		t.Fatalf("a half-written workspace replaced the last valid membership: %+v", h.a.workspaceFolders)
 	}
 }

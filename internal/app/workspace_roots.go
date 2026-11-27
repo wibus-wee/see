@@ -7,9 +7,19 @@ import (
 	"github.com/egoist/mygo/i18n"
 
 	"see/internal/config"
+	"see/internal/lsp"
+	"see/internal/uri"
 	"see/internal/workspace"
 	"see/locales"
 )
+
+func lspWorkspaceFolders(folders []workspace.Folder) []lsp.WorkspaceFolder {
+	out := make([]lsp.WorkspaceFolder, len(folders))
+	for i, folder := range folders {
+		out[i] = lsp.WorkspaceFolder{URI: uri.FromPath(folder.Path), Name: folder.Name}
+	}
+	return out
+}
 
 func (a *App) workspaceFolderPaths() []string {
 	paths := make([]string, len(a.workspaceFolders))

@@ -41,12 +41,13 @@ const (
 
 // Starter starts a client for a workspace; onExit is called if the
 // server goes away by itself.
-type Starter func(ctx context.Context, root string, onExit func(error)) (Client, error)
+type Starter func(ctx context.Context, root string, folders []lsp.WorkspaceFolder, onExit func(error)) (Client, error)
 
 // Options configure a Server.
 type Options struct {
 	Name     string // as errors and logs call it, such as "gopls"
 	Root     string
+	Folders  []lsp.WorkspaceFolder
 	Start    Starter
 	Language func(path string) string // the language ID of a document; nil is "go"
 
@@ -230,7 +231,7 @@ func (s *Server) run(done chan struct{}, attempt int) {
 	defer close(done)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-	c, err := s.o.Start(ctx, s.o.Root, func(err error) { s.exited(attempt, err) })
+	c, err := s.o.Start(ctx, s.o.Root, s.o.Folders, func(err error) { s.exited(attempt, err) })
 	var registerDiagnostics func()
 	s.mu.Lock()
 	defer func() {

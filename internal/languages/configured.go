@@ -123,7 +123,7 @@ func FindConfigured(root string, spec config.LSPConfig) (string, error) {
 // runs the configured command with its configured environment, as the
 // built-in starters run theirs.
 func StartConfigured(spec config.LSPConfig, logf func(string, ...any)) langserver.Starter {
-	return func(ctx context.Context, root string, onExit func(error)) (langserver.Client, error) {
+	return func(ctx context.Context, root string, folders []lsp.WorkspaceFolder, onExit func(error)) (langserver.Client, error) {
 		if err := shellpath.Wait(ctx); err != nil {
 			return nil, err
 		}
@@ -134,6 +134,7 @@ func StartConfigured(spec config.LSPConfig, logf func(string, ...any)) langserve
 		return lsp.Start(ctx, p, spec.Command[1:], lsp.Options{
 			RootPath:              root,
 			RootURI:               uri.FromPath(root),
+			WorkspaceFolders:      folders,
 			ServerID:              spec.Name,
 			Name:                  filepath.Base(root),
 			InitializationOptions: spec.InitializationOptions,
@@ -162,13 +163,13 @@ func envList(env map[string]string) []string {
 
 // NewConfiguredServer returns the manager of one configured server for
 // root, with the same lifecycle and recovery the built-in ones have.
-func NewConfiguredServer(spec config.LSPConfig, root string, onState func(langserver.State, error),
+func NewConfiguredServer(spec config.LSPConfig, root string, folders []lsp.WorkspaceFolder, onState func(langserver.State, error),
 	onDiagnostics langserver.DiagnosticsHandler, logf func(string, ...any)) *langserver.Server {
 	notInstalled := func(err error) bool {
 		return err != nil && strings.HasSuffix(err.Error(), "is not installed")
 	}
 	return langserver.New(langserver.Options{
-		Name: spec.Name, Root: root, Start: StartConfigured(spec, logf), Language: ConfiguredLanguage(spec),
+		Name: spec.Name, Root: root, Folders: folders, Start: StartConfigured(spec, logf), Language: ConfiguredLanguage(spec),
 		OnState: onState, OnDiagnostics: onDiagnostics, Logf: logf,
 		Recover: func(err error) bool {
 			if !notInstalled(err) {
