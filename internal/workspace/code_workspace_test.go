@@ -135,14 +135,15 @@ func TestCodeWorkspaceFolderEditRejectsInvalidDiskWithoutWriting(t *testing.T) {
 	}
 }
 
-func TestReadCodeWorkspaceRejectsMissingRoots(t *testing.T) {
+func TestReadCodeWorkspaceKeepsMissingRootsRepairable(t *testing.T) {
 	base := t.TempDir()
 	path := filepath.Join(base, "missing.code-workspace")
 	if err := os.WriteFile(path, []byte(`{"folders":[{"path":"missing"}]}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := ReadCodeWorkspace(path); err == nil {
-		t.Fatal("missing folder was accepted")
+	parsed, err := ReadCodeWorkspace(path)
+	if err != nil || len(parsed.Folders) != 1 || parsed.Folders[0].Path != filepath.Join(base, "missing") {
+		t.Fatalf("missing folder was not kept repairable: %+v, %v", parsed, err)
 	}
 }
 
