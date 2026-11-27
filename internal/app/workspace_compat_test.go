@@ -205,7 +205,7 @@ func TestWorkspaceSettingsControlIgnoreFilesAndExplorerGitIgnore(t *testing.T) {
 	h.a.invalidateQuickFiles()
 	h.a.ensureFiles()
 	h.settle(func() bool { return !h.a.quick.listing && h.a.quick.files != nil })
-	if !slices.Contains(h.a.quick.files, filepath.Join("ignored", "hidden.txt")) {
+	if !slices.Contains(h.a.quick.files, "ignored/hidden.txt") {
 		t.Fatalf("quick open omitted ignored file with search.useIgnoreFiles=false: %v", h.a.quick.files)
 	}
 }
