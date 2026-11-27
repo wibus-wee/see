@@ -370,16 +370,53 @@ def write(root, rel, content):
 # The fixture's history as (message, {path: content}) pairs, oldest
 # first: every commit carries the real work its message claims, so the
 # log, the diffs and the blame all read as a project's.
+LANE_GO = """package pipe
+
+// A lane parses one share of the samples, in lockstep with the rest.
+type lane struct {
+	input  chan string
+	parsed chan sample
+}
+
+type sample struct {
+	name  string
+	value float64
+}
+"""
+
+BUCKET_GO = """package store
+
+// A bucket is one second of aggregated samples, the unit the window
+// drops as it slides.
+type bucket struct {
+	second int64
+	counts map[string]int
+	sums   map[string]float64
+}
+
+func newBucket(second int64) *bucket {
+	return &bucket{second: second, counts: map[string]int{}, sums: map[string]float64{}}
+}
+"""
+
+
 def history_versions():
     return [
         ("Initial commit: pulse skeleton", {
             "main.go": MAIN_V1,
             "go.mod": GO_MOD,
             ".gitignore": "/pulse\n",
+            "Makefile": "test:\n\tgo test ./...\n",
+            "LICENSE": "MIT License\n",
+            "docs/guide.md": "# Guide\n\nPulse reads samples off stdin.\n",
+            "docs/hacking.md": "# Hacking\n\nRun `go test ./...`.\n",
+            "testdata/samples.txt": "cpu 0.4\nmem 0.6\n",
+            "scripts/check.sh": "#!/bin/sh\ngo vet ./...\n",
         }),
         ("pipe: spread parsing over lanes", {
             "main.go": MAIN_GO,
             "internal/pipe/pipe.go": PIPE_GO,
+            "internal/pipe/lane.go": LANE_GO,
         }),
         ("store: keep per-metric rings bounded", {
             "internal/store/store.go": STORE_UNSORTED,
@@ -393,6 +430,7 @@ def history_versions():
         }),
         ("store: order the summary by metric name", {
             "internal/store/store.go": STORE_GO,
+            "internal/store/bucket.go": BUCKET_GO,
         }),
     ]
 
@@ -524,7 +562,7 @@ def config_dir(home):
 
 # ---------------------------------------------------------------- scenes
 
-def hero_session(root, width=1660, height=940):
+def hero_session(root, width=1560, height=860):
     """The hero composition, dense as a reader's screen really is: three
     editor columns — a Go file, its pipeline, the compiled binary as hex
     — the readme's rendered markdown among the tabs, the terminal open
@@ -611,6 +649,8 @@ def palette(client, text):
 def regex_steps(client):
     palette(client, "Test Regex")
     time.sleep(0.8)
+    if sys.platform == "darwin":
+        place_regex_window()
     client.text("read 3 samples\nwrite err once\ndone")
     time.sleep(0.3)
     for _ in range(4):
@@ -626,10 +666,10 @@ def terminal_steps(client):
     in the bottom panel, whose geometry the seeded session fixes."""
     client.click(720, 800)
     client.idle()
-    client.text("go test ./...")
+    client.text("go test ./... && nf")
     client.idle()
     client.key("Enter")
-    time.sleep(4)  # the run's output settles
+    time.sleep(5)  # the run's output settles
     client.idle()
 
 
@@ -661,11 +701,42 @@ SCENES = {
 }
 
 
+NEOFETCH = """#!/bin/sh
+# A neofetch-style card: the terminal in the shots is never empty.
+GREEN='\033[32m'; CYAN='\033[36m'; BOLD='\033[1m'; RESET='\033[0m'
+printf "${GREEN}                    'c.                  ${RESET}${BOLD}wibus@macbook-pro${RESET}\n"
+printf "${GREEN}                 ,xNMM.                  ${RESET}${CYAN}--------------${RESET}\n"
+printf "${GREEN}               .OMMMMo                   ${CYAN}OS${RESET}       macOS 15.7 arm64\n"
+printf "${GREEN}               OMMM0,                    ${CYAN}Host${RESET}     MacBook Pro 14-inch M4 Pro\n"
+printf "${GREEN}     .;loddo:' loolloddol;.              ${CYAN}Kernel${RESET}   24.6.0\n"
+printf "${GREEN}   cKMMMMMMMMMMNWMMMMMMMMMM0:            ${CYAN}Shell${RESET}    zsh 5.9\n"
+printf "${GREEN} .KMMMMMMMMMMMMMMMMMMMMMMMWd.            ${CYAN}Editor${RESET}   See\n"
+printf "${GREEN} XMMMMMMMMMMMMMMMMMMMMMMMX.              ${CYAN}Uptime${RESET}   3 days, 4 hours\n"
+printf "${GREEN};MMMMMMMMMMMMMMMMMMMMMMMM:              \n"
+printf "${GREEN}:MMMMMMMMMMMMMMMMMMMMMMMM:              \n"
+printf "${GREEN}.MMMMMMMMMMMMMMMMMMMMMMMX.              \n"
+printf "${GREEN} kMMMMMMMMMMMMMMMMMMMMMMMMWd.           \n"
+printf "${GREEN} .XMMMMMMMMMMMMMMMMMMMMMMMMMMk          \n"
+printf "${GREEN}  .XMMMMMMMMMMMMMMMMMMMMMMMMK.          \n"
+printf "${GREEN}    kMMMMMMMMMMMMMMMMMMMMMMd            \n"
+printf "${GREEN}     ;KMMMMMMMWXXWMMMMMMMk.             \n"
+printf "${GREEN}       .cooc,.    .,coo:.               ${RESET}\n"
+"""
+
+
 def write_config(home, root, scene):
     # zsh in the panel, with a prompt of just the directory: the runner's
     # long hostname and the bash migration notice stay out of the shot.
     with open(os.path.join(home, ".zshrc"), "w") as f:
-        f.write("PROMPT='%1~ %# '\n")
+        f.write("export PATH=\"$HOME/bin:$PATH\"\nPROMPT='%1~ %# '\n")
+    with open(os.path.join(home, ".bashrc"), "w") as f:
+        f.write("export PATH=\"$HOME/bin:$PATH\"\nPS1='\\W \\# '\n")
+    bin_dir = os.path.join(home, "bin")
+    os.makedirs(bin_dir, exist_ok=True)
+    nf = os.path.join(bin_dir, "nf")
+    with open(nf, "w") as f:
+        f.write(NEOFETCH)
+    os.chmod(nf, 0o755)
     cfg = {
         "terminalShell": "/bin/zsh" if os.path.exists("/bin/zsh") else "/bin/bash",
         "appearance": scene.get("appearance", ""),
@@ -678,6 +749,33 @@ def write_config(home, root, scene):
     os.makedirs(d, exist_ok=True)
     with open(os.path.join(d, "config.json"), "w") as f:
         json.dump(cfg, f)
+
+
+def center_window():
+    """macOS opens the window wherever it likes; the wallpaper crop wants
+    the same room on every side, so center it in the 1920x1080 screen."""
+    x = int((1920 - 1560) / 2)
+    y = int(25 + (1080 - 25 - 860) / 2)
+    for proc in ("see-e2e", "see"):
+        script = (f'tell application "System Events" to set position of window 1 '
+                  f'of process "{proc}" to {{{x}, {y}}}')
+        r = subprocess.run(["osascript", "-e", script],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if r.returncode == 0:
+            break
+
+
+def place_regex_window():
+    """The playground is the process's floating window: park it over the
+    middle editor's seam so every column stays visible around it."""
+    x, y = 620, 150
+    for proc in ("see-e2e", "see"):
+        script = (f'tell application "System Events" to set position of window 2 '
+                  f'of process "{proc}" to {{{x}, {y}}}')
+        r = subprocess.run(["osascript", "-e", script],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if r.returncode == 0:
+            return
 
 
 def run_scene(see, name, scene, out_dir, work, screencapture=False):
@@ -713,6 +811,8 @@ def run_scene(see, name, scene, out_dir, work, screencapture=False):
         else:
             raise RuntimeError("the app showed no window")
         client.idle(timeout=10)
+        if sys.platform == "darwin":
+            center_window()
         time.sleep(1.5)  # the navigator, git status, and the panel catch up
         client.idle(timeout=10)
         for step in scene["steps"]:
@@ -791,17 +891,17 @@ def compose_hero(screen_png, meta_json, out_png, margin_dips=110):
     b = meta["bounds"]
     scale = meta.get("scale", 1)
     img = Image.open(screen_png)
-    margin = int(margin_dips * scale)
     x, y = int(b["x"] * scale), int(b["y"] * scale)
     x2, y2 = int((b["x"] + b["width"]) * scale), int((b["y"] + b["height"]) * scale)
-    # The menu bar is about 25 DIPs tall, the dock as much as 90: the
-    # margin never reaches them, whatever is asked for.
-    menubar = int(25 * scale)
-    dock = int(95 * scale) if margin_dips else 0
-    x0 = max(0, x - margin)
-    y0 = max(menubar, y - margin) if margin_dips else max(0, y)
-    x1 = min(img.width, x2 + margin)
-    y1 = min(img.height - dock, y2 + margin) if margin_dips else min(img.height, y2)
+    if margin_dips:
+        # The same wallpaper margin on all four sides: the tightest side
+        # decides, never crossing the menu bar or the screen's edges.
+        want = int(margin_dips * scale)
+        menubar = int(25 * scale)
+        m = max(0, min(want, x, y - menubar, img.width - x2, img.height - y2))
+    else:
+        m = 0
+    x0, y0, x1, y1 = x - m, y - m, x2 + m, y2 + m
     img.crop((x0, y0, x1, y1)).save(out_png)
     print(f"hero: {out_png} ({x1 - x0}x{y1 - y0})")
 
