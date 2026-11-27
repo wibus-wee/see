@@ -68,6 +68,8 @@ func Main() {
 		projects       []*projectWindow
 		active         *projectWindow
 		varSetMenu     func()
+		mergeAvailable bool
+		mergeKnown     bool
 		createProject  func(string)
 		openProject    func(string) *projectWindow
 		forceNewWindow bool // openProject skips reusing a window for its folder
@@ -170,6 +172,16 @@ func Main() {
 				varSetMenu()
 			}
 		}
+		refreshMenuAfterWindowMove := func() {
+			if varSetMenu == nil {
+				return
+			}
+			canMerge := canMergeProjectWindows(projects, active)
+			if mergeKnown && mergeAvailable == canMerge {
+				return
+			}
+			varSetMenu()
+		}
 		revealOpenFile = func(requester *App, path string) bool {
 			path = workspace.DocPath("", "", path)
 			for _, p := range projects {
@@ -184,6 +196,7 @@ func Main() {
 			return false
 		}
 		win.OnFocus(func() { activate(primary); a.clearNotifyIncoming() })
+		win.OnMove(refreshMenuAfterWindowMove)
 		welcome.OnFocus(func() { activate(primary); a.clearNotifyIncoming() })
 		createProject = func(path string) { openProject(path) }
 		openProject = func(path string) *projectWindow {
@@ -248,6 +261,7 @@ func Main() {
 				})
 			})
 			childWin.OnFocus(func() { activate(p); child.clearNotifyIncoming() })
+			childWin.OnMove(refreshMenuAfterWindowMove)
 			childWin.OnClose(func(e *mygo.CloseEvent) {
 				if quitting {
 					return
@@ -265,6 +279,8 @@ func Main() {
 						childWin.Destroy()
 						if active == p {
 							activate(primary)
+						} else if varSetMenu != nil {
+							varSetMenu()
 						}
 						if len(projects) == 1 && a.root == "" {
 							wins.reopen()
@@ -357,6 +373,9 @@ func Main() {
 				win.Update(func() {
 					if len(projects) <= 1 {
 						wins.closeMain()
+						if varSetMenu != nil {
+							varSetMenu()
+						}
 						return
 					}
 					var closePrimary func()
@@ -367,6 +386,9 @@ func Main() {
 						a.closeWorkspace()
 						a.showWelcome = false
 						wins.sync(nil)
+						if varSetMenu != nil {
+							varSetMenu()
+						}
 					}
 					closePrimary()
 				})
@@ -444,6 +466,8 @@ func Main() {
 			if current == nil {
 				current = primary
 			}
+			canMerge := canMergeProjectWindows(projects, active)
+			mergeAvailable, mergeKnown = canMerge, true
 			currentApp, currentWin := current.app, current.win
 			mygo.App.SetMenu(mygo.NewMenu([]*mygo.MenuItem{
 				appMenu(currentApp), currentApp.fileMenu(currentWin.Update), {Role: mygo.RoleEditMenu},
@@ -467,7 +491,7 @@ func Main() {
 						currentWin.Update(func() { currentApp.cfg.HideDocComments = !currentApp.cfg.HideDocComments; currentApp.settingsChanged() })
 					}},
 					{Label: locales.Folding(), Submenu: currentApp.foldingMenu(currentWin.Update)},
-				}...)}, projectWindowMenu(runtime.GOOS == "darwin", canMergeProjectWindows(projects, active), func() {
+				}...)}, projectWindowMenu(runtime.GOOS == "darwin", canMerge, func() {
 					mergeProjectWindows(projects, active)
 					if varSetMenu != nil {
 						varSetMenu()
