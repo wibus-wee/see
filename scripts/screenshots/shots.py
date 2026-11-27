@@ -584,20 +584,13 @@ def hero_session(root, width=1560, height=860):
         "regexToolHeight": 500,
         "layout": {
             "vertical": False,
-            "percent": 68,
+            "percent": 55,
             "first": {
-                "vertical": False,
-                "percent": 50,
-                "first": {
-                    "tabs": [{"path": main, "line": 14, "column": 1},
-                             {"path": store}],
-                    "active": main,
-                },
-                "second": {
-                    "tabs": [{"path": pipe}],
-                    "active": pipe,
-                    "focused": True,
-                },
+                "tabs": [{"path": main, "line": 14, "column": 1},
+                         {"path": store},
+                         {"path": pipe}],
+                "active": main,
+                "focused": True,
             },
             "second": {
                 "tabs": [{"path": readme, "previewTab": True},
@@ -666,7 +659,7 @@ def terminal_steps(client):
     in the bottom panel, whose geometry the seeded session fixes."""
     client.click(720, 800)
     client.idle()
-    client.text("go test ./... && nf")
+    client.text("go test ./... && git log --graph --oneline --all --decorate")
     client.idle()
     client.key("Enter")
     time.sleep(5)  # the run's output settles
@@ -677,12 +670,12 @@ SCENES = {
     "hero-light": {
         "appearance": "light",
         "session": hero_session,
-        "steps": [("palette", "Git: Show Log"), ("terminal", None)],
+        "steps": [("terminal", None)],
     },
     "hero-dark": {
         "appearance": "dark",
         "session": hero_session,
-        "steps": [("palette", "Git: Show Log"), ("terminal", None)],
+        "steps": [("terminal", None)],
     },
     "diff": {
         "appearance": "light",
