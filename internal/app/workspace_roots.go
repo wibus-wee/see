@@ -250,7 +250,9 @@ func normalizedWorkspaceSettings(settings workspace.Settings) workspace.Settings
 		}
 		return out
 	}
-	return workspace.Settings{FilesExclude: enabled(settings.FilesExclude), SearchExclude: enabled(settings.SearchExclude)}
+	settings.FilesExclude = enabled(settings.FilesExclude)
+	settings.SearchExclude = enabled(settings.SearchExclude)
+	return settings
 }
 
 func sameExcludePatterns(a, b map[string]bool) bool {
@@ -268,7 +270,9 @@ func sameExcludePatterns(a, b map[string]bool) bool {
 func (a *App) applyWorkspaceSettings(settings workspace.Settings) {
 	settings = normalizedWorkspaceSettings(settings)
 	if sameExcludePatterns(a.workspaceSettings.FilesExclude, settings.FilesExclude) &&
-		sameExcludePatterns(a.workspaceSettings.SearchExclude, settings.SearchExclude) {
+		sameExcludePatterns(a.workspaceSettings.SearchExclude, settings.SearchExclude) &&
+		a.workspaceSettings.UseIgnoreFiles() == settings.UseIgnoreFiles() &&
+		a.workspaceSettings.ExplorerExcludeGitIgnore == settings.ExplorerExcludeGitIgnore {
 		return
 	}
 	a.workspaceSettings = settings

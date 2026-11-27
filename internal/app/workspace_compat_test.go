@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"github.com/egoist/mygo"
 
 	"see/internal/config"
+	"see/internal/git"
 	"see/internal/langserver"
 	"see/internal/languages"
 	"see/internal/lsp"
@@ -137,6 +139,73 @@ func TestCodeWorkspaceTreeAndSearchKeepDuplicateFilesUnderTheirRoots(t *testing.
 		if err != nil || !strings.Contains(string(contents), "shared replacement") {
 			t.Errorf("replacement did not update %q: contents=%q err=%v note=%q", root, contents, err, h.a.find.replaceNote)
 		}
+	}
+}
+
+func TestWorkspaceSettingsControlIgnoreFilesAndExplorerGitIgnore(t *testing.T) {
+	if _, err := findRipgrep(""); err != nil {
+		t.Skip(err)
+	}
+	base := t.TempDir()
+	root := filepath.Join(base, "project")
+	if err := os.MkdirAll(filepath.Join(root, "ignored"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for path, contents := range map[string]string{
+		".gitignore":         "ignored/\n",
+		"visible.txt":        "needle\n",
+		"ignored/hidden.txt": "needle\n",
+	} {
+		if err := os.WriteFile(filepath.Join(root, path), []byte(contents), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	workspaceFile := filepath.Join(base, "project.code-workspace")
+	writeWorkspace := func(settings string) {
+		t.Helper()
+		data := `{"folders":[{"path":"project"}],"settings":{` + settings + `}}`
+		if err := os.WriteFile(workspaceFile, []byte(data), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	writeWorkspace(`"explorer.excludeGitIgnore":true`)
+	init := exec.Command("git", "init")
+	init.Dir = root
+	if out, err := init.CombinedOutput(); err != nil {
+		t.Skipf("git init: %v: %s", err, out)
+	}
+	h := newHarness(t, "")
+	h.a.openWorkspace(workspaceFile)
+	h.settle(func() bool { return h.a.dirs[root] != nil && h.a.dirs[root].loaded })
+	ignored, err := git.ReadIgnored(context.Background(), root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.a.ignored = map[string]*git.Ignored{root: ignored}
+	if !h.a.hiddenPath(filepath.Join(root, "ignored")) {
+		t.Fatal("explorer.excludeGitIgnore did not hide an ignored directory")
+	}
+
+	h.a.find.opts = search.Options{Query: "needle"}
+	h.a.runFind()
+	h.settle(func() bool { return !h.a.find.running && h.a.find.stats.Matches == 1 })
+
+	writeWorkspace(`"explorer.excludeGitIgnore":true,"search.useIgnoreFiles":false`)
+	h.a.reloadCodeWorkspace(workspaceFile)
+	h.a.runFind()
+	h.settle(func() bool { return !h.a.find.running && h.a.find.stats.Matches == 2 })
+	found := false
+	for _, file := range h.a.find.results {
+		found = found || file.Path == filepath.Join(root, "ignored", "hidden.txt")
+	}
+	if !found {
+		t.Fatalf("search.useIgnoreFiles=false did not include ignored files: %+v", h.a.find.results)
+	}
+	h.a.invalidateQuickFiles()
+	h.a.ensureFiles()
+	h.settle(func() bool { return !h.a.quick.listing && h.a.quick.files != nil })
+	if !slices.Contains(h.a.quick.files, filepath.Join("ignored", "hidden.txt")) {
+		t.Fatalf("quick open omitted ignored file with search.useIgnoreFiles=false: %v", h.a.quick.files)
 	}
 }
 

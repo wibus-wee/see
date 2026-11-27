@@ -120,6 +120,11 @@ func Excluded(patterns map[string]bool, rel string) bool {
 	return exclusionMatch(patterns, rel, false) && !exclusionMatch(patterns, rel, true)
 }
 
+// Excepted reports whether rel is inside an enabled `!` exception.
+func Excepted(patterns map[string]bool, rel string) bool {
+	return exclusionMatch(patterns, rel, true)
+}
+
 func exclusionMatch(patterns map[string]bool, rel string, exceptions bool) bool {
 	rel = strings.TrimPrefix(filepathToSlash(rel), "/")
 	for p := rel; p != "" && p != "."; {
@@ -179,7 +184,9 @@ func ExceptionMayReveal(patterns map[string]bool, rel string) bool {
 			if i := strings.LastIndexByte(rel, '/'); i >= 0 {
 				base = rel[i+1:]
 			}
-			return base == first
+			if base == first {
+				return true
+			}
 		}
 	}
 	return false

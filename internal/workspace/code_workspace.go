@@ -19,8 +19,15 @@ type Folder struct {
 
 // Settings are the VS Code workspace settings See applies.
 type Settings struct {
-	FilesExclude  map[string]bool `json:"files.exclude"`
-	SearchExclude map[string]bool `json:"search.exclude"`
+	FilesExclude             map[string]bool `json:"files.exclude"`
+	SearchExclude            map[string]bool `json:"search.exclude"`
+	SearchUseIgnoreFiles     *bool           `json:"search.useIgnoreFiles"`
+	ExplorerExcludeGitIgnore bool            `json:"explorer.excludeGitIgnore"`
+}
+
+// UseIgnoreFiles reports whether search follows ignore files; VS Code's default is true.
+func (s Settings) UseIgnoreFiles() bool {
+	return s.SearchUseIgnoreFiles == nil || *s.SearchUseIgnoreFiles
 }
 
 // CodeWorkspace is a VS Code .code-workspace file.

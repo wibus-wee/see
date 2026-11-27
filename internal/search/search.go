@@ -71,6 +71,8 @@ type Options struct {
 	Include, Exclude string
 	// MaxMatches stops the search once this many are found; 0 is 20000.
 	MaxMatches int
+	// NoIgnoreFiles disables .gitignore and friends, as rg's --no-ignore.
+	NoIgnoreFiles bool
 }
 
 // Match is one place the query was found.
@@ -110,6 +112,9 @@ func ignoreGlobs() []string {
 // Args are ripgrep's arguments for o.
 func Args(o Options) []string {
 	args := []string{"--json", "--max-filesize", "4M", "--max-columns", "4000", "--no-config"}
+	if o.NoIgnoreFiles {
+		args = append(args, "--no-ignore")
+	}
 	if !o.Regexp {
 		args = append(args, "--fixed-strings")
 	}
@@ -300,11 +305,14 @@ func preview(line int, text string, start, end int) Match {
 // leaves out what .gitignore does, else by walking the tree. It stops
 // at limit matching files. The walk also leaves out the folders skipDir names,
 // by their slash-separated path relative to root, when it is given.
-func ListFiles(ctx context.Context, rg, root string, limit int, skipDir func(rel string) bool, skipFile func(rel string) bool) ([]string, bool, error) {
+func ListFiles(ctx context.Context, rg, root string, limit int, skipDir func(rel string) bool, skipFile func(rel string) bool, noIgnoreFiles bool) ([]string, bool, error) {
 	if rg == "" {
 		return walkFiles(ctx, root, limit, skipDir, skipFile)
 	}
 	args := append([]string{"--files", "--no-config"}, ignoreGlobs()...)
+	if noIgnoreFiles {
+		args = append(args, "--no-ignore")
+	}
 	cmd := proc.CommandContext(ctx, rg, args...)
 	cmd.Dir = root
 	var stderr strings.Builder

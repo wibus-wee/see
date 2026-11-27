@@ -120,18 +120,18 @@ func TestListFiles(t *testing.T) {
 		"docs/MainPage.md": "", "node_modules/m/main.js": "",
 	})
 	want := []string{"docs/MainPage.md", "internal/app/main_test.go", "internal/app/model.go", "main.go"}
-	walked, _, err := ListFiles(context.Background(), "", root, 100, nil, nil)
+	walked, _, err := ListFiles(context.Background(), "", root, 100, nil, nil, false)
 	slices.Sort(walked)
 	if err != nil || !slices.Equal(walked, want) {
 		t.Errorf("walk: %v %v", walked, err)
 	}
 	if rg, err := FindRipgrep(""); err == nil {
-		files, _, err := ListFiles(context.Background(), rg, root, 100, nil, nil)
+		files, _, err := ListFiles(context.Background(), rg, root, 100, nil, nil, false)
 		slices.Sort(files)
 		if err != nil || !slices.Equal(files, want) {
 			t.Errorf("rg: %v %v", files, err)
 		}
-		files, truncated, _ := ListFiles(context.Background(), rg, root, 2, nil, nil)
+		files, truncated, _ := ListFiles(context.Background(), rg, root, 2, nil, nil, false)
 		if !truncated || len(files) != 2 {
 			t.Errorf("limit: %v %v", files, truncated)
 		}
@@ -172,7 +172,7 @@ func TestListFilesWalkSkipsFolders(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	files, _, err := ListFiles(context.Background(), "", root, 100, func(rel string) bool { return rel == "out" }, nil)
+	files, _, err := ListFiles(context.Background(), "", root, 100, func(rel string) bool { return rel == "out" }, nil, false)
 	if err != nil || !slices.Equal(files, []string{"a.go", "src/out/c.go"}) {
 		t.Fatalf("%q %v", files, err)
 	}

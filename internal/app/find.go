@@ -173,6 +173,7 @@ func (a *App) runFind() {
 	roots := a.workspaceFolderPaths()
 	excludePatterns := mergedSearchExcludes(a.workspaceSettings)
 	excludeArgs := ripgrepExcludeGlobs(excludePatterns)
+	useIgnoreFiles := a.workspaceSettings.UseIgnoreFiles()
 	ctx, cancel := context.WithCancel(a.wsCtx)
 	f.cancel = cancel
 	f.running = true
@@ -201,6 +202,7 @@ func (a *App) runFind() {
 		var searchErr error
 		for _, root := range roots {
 			rootOpts := opts
+			rootOpts.NoIgnoreFiles = !useIgnoreFiles
 			rootOpts.MaxMatches = limit - total.Matches
 			if rootOpts.MaxMatches <= 0 {
 				break
@@ -415,6 +417,7 @@ func (a *App) ensureFiles() {
 	seq := q.filesSeq
 	roots := a.workspaceFolderPaths()
 	excludePatterns := mergedSearchExcludes(a.workspaceSettings)
+	useIgnoreFiles := a.workspaceSettings.UseIgnoreFiles()
 	rg, _ := findRipgrep(a.root) // "" lists by walking
 	ctx, cancel := context.WithCancel(a.wsCtx)
 	q.filesCancel = cancel
@@ -440,13 +443,13 @@ func (a *App) ensureFiles() {
 			ig := ignored[root]
 			nestedPrefixes := nested[root]
 			skipDir := func(rel string) bool {
-				return withinNestedWorkspaceRoot(rel, nestedPrefixes) || ig != nil && ig.Dir(rel)
+				return withinNestedWorkspaceRoot(rel, nestedPrefixes) || useIgnoreFiles && ig != nil && ig.Dir(rel)
 			}
 			var rootFiles []string
 			var rootTruncated bool
 			rootFiles, rootTruncated, err = search.ListFiles(ctx, rg, root, limit, skipDir, func(rel string) bool {
 				return withinNestedWorkspaceRoot(rel, nestedPrefixes) || workspace.Excluded(excludePatterns, rel)
-			})
+			}, !useIgnoreFiles)
 			if err != nil {
 				break
 			}

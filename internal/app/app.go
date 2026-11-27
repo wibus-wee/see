@@ -1068,13 +1068,15 @@ func (a *App) hiddenPath(p string) bool {
 			}
 		}
 	}
-	if !workspace.Excluded(a.workspaceSettings.FilesExclude, filepath.ToSlash(rel)) {
-		return false
+	slashRel := filepath.ToSlash(rel)
+	excepted := workspace.Excepted(a.workspaceSettings.FilesExclude, slashRel)
+	if workspace.Excluded(a.workspaceSettings.FilesExclude, slashRel) {
+		if info, err := os.Stat(p); err == nil && info.IsDir() && workspace.ExceptionMayReveal(a.workspaceSettings.FilesExclude, slashRel) {
+			return false
+		}
+		return true
 	}
-	if info, err := os.Stat(p); err == nil && info.IsDir() && workspace.ExceptionMayReveal(a.workspaceSettings.FilesExclude, filepath.ToSlash(rel)) {
-		return false
-	}
-	return true
+	return a.workspaceSettings.ExplorerExcludeGitIgnore && !excepted && a.gitIgnores(p)
 }
 
 const (
