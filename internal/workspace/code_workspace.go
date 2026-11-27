@@ -19,11 +19,67 @@ type Folder struct {
 
 // Settings are the VS Code workspace settings See applies.
 type Settings struct {
-	FilesExclude             map[string]bool `json:"files.exclude"`
-	FilesWatcherExclude      map[string]bool `json:"files.watcherExclude"`
-	SearchExclude            map[string]bool `json:"search.exclude"`
-	SearchUseIgnoreFiles     *bool           `json:"search.useIgnoreFiles"`
-	ExplorerExcludeGitIgnore bool            `json:"explorer.excludeGitIgnore"`
+	FilesExclude             map[string]bool   `json:"files.exclude"`
+	FilesExcludeWhen         map[string]string `json:"-"`
+	FilesWatcherExclude      map[string]bool   `json:"files.watcherExclude"`
+	FilesWatcherExcludeWhen  map[string]string `json:"-"`
+	SearchExclude            map[string]bool   `json:"search.exclude"`
+	SearchExcludeWhen        map[string]string `json:"-"`
+	SearchUseIgnoreFiles     *bool             `json:"search.useIgnoreFiles"`
+	ExplorerExcludeGitIgnore bool              `json:"explorer.excludeGitIgnore"`
+}
+
+// UnmarshalJSON reads VS Code exclusion expressions. Their values are either
+// booleans or sibling clauses such as {"when": "$(basename).ts"}.
+func (s *Settings) UnmarshalJSON(data []byte) error {
+	var raw struct {
+		FilesExclude             json.RawMessage `json:"files.exclude"`
+		FilesWatcherExclude      json.RawMessage `json:"files.watcherExclude"`
+		SearchExclude            json.RawMessage `json:"search.exclude"`
+		SearchUseIgnoreFiles     *bool           `json:"search.useIgnoreFiles"`
+		ExplorerExcludeGitIgnore bool            `json:"explorer.excludeGitIgnore"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	s.FilesExclude, s.FilesExcludeWhen = parseExcludeExpression(raw.FilesExclude)
+	s.FilesWatcherExclude, s.FilesWatcherExcludeWhen = parseExcludeExpression(raw.FilesWatcherExclude)
+	s.SearchExclude, s.SearchExcludeWhen = parseExcludeExpression(raw.SearchExclude)
+	s.SearchUseIgnoreFiles = raw.SearchUseIgnoreFiles
+	s.ExplorerExcludeGitIgnore = raw.ExplorerExcludeGitIgnore
+	return nil
+}
+
+func parseExcludeExpression(data json.RawMessage) (map[string]bool, map[string]string) {
+	if len(data) == 0 {
+		return nil, nil
+	}
+	var values map[string]json.RawMessage
+	if json.Unmarshal(data, &values) != nil {
+		return nil, nil
+	}
+	patterns := map[string]bool{}
+	clauses := map[string]string{}
+	for pattern, raw := range values {
+		var enabled bool
+		if err := json.Unmarshal(raw, &enabled); err == nil {
+			patterns[pattern] = enabled
+			continue
+		}
+		var clause struct {
+			When string `json:"when"`
+		}
+		if err := json.Unmarshal(raw, &clause); err == nil && clause.When != "" {
+			clauses[pattern] = clause.When
+		}
+	}
+	if len(patterns) == 0 {
+		patterns = nil
+	}
+	if len(clauses) == 0 {
+		clauses = nil
+	}
+	return patterns, clauses
 }
 
 // UseIgnoreFiles reports whether search follows ignore files; VS Code's default is true.
@@ -85,7 +141,13 @@ func parseCodeWorkspace(data []byte, absolute string) (*CodeWorkspace, error) {
 		}
 		root, err := CanonicalRoot(p)
 		if err != nil {
-			return nil, fmt.Errorf("workspace folder %q: %w", entry.Path, err)
+			// Keep a missing member readable so the user can remove its stale
+			// reference instead of being locked out of the whole workspace.
+			absolute, absErr := filepath.Abs(p)
+			if absErr != nil {
+				return nil, fmt.Errorf("workspace folder %q: %w", entry.Path, err)
+			}
+			root = filepath.Clean(absolute)
 		}
 		if seen[root] {
 			continue
@@ -175,10 +237,11 @@ func RemoveCodeWorkspaceFolder(path, root string) ([]Folder, error) {
 		return nil, err
 	}
 	folders := parsed.Folders
-	target, err := CanonicalRoot(root)
+	target, err := filepath.Abs(root)
 	if err != nil {
 		return nil, err
 	}
+	target = filepath.Clean(target)
 	array, err := parseWorkspaceFolderArray(data, absolute)
 	if err != nil {
 		return nil, err
@@ -191,7 +254,10 @@ func RemoveCodeWorkspaceFolder(path, root string) ([]Folder, error) {
 			entryRoot = filepath.Join(filepath.Dir(absolute), filepath.FromSlash(entryRoot))
 		}
 		canonical, canonicalErr := CanonicalRoot(entryRoot)
-		if canonicalErr == nil && canonical == target {
+		if canonicalErr != nil {
+			canonical = filepath.Clean(entryRoot)
+		}
+		if canonical == target {
 			remove[i] = true
 			removed++
 		}
@@ -506,6 +572,9 @@ func spliceWorkspaceBytes(data []byte, start, end int, insert []byte) []byte {
 }
 
 func writeWorkspaceFile(path string, expected, data []byte) error {
+	if resolved, err := filepath.EvalSymlinks(path); err == nil {
+		path = resolved
+	}
 	info, err := os.Stat(path)
 	if err != nil {
 		return err

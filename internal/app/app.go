@@ -575,6 +575,10 @@ func (a *App) adoptCodeWorkspace(workspaceFile string) {
 		}
 	}
 	a.cfg.AddRecent(workspaceFile)
+	a.cfg.LastWorkspace = workspaceFile
+	if parsed, err := workspace.ReadCodeWorkspace(workspaceFile); err == nil {
+		a.applyWorkspaceSettings(parsed.Settings)
+	}
 	a.host.SetTitle(a.workspaceTitle())
 	a.startWorkspaceFileWatch()
 }
@@ -1069,9 +1073,10 @@ func (a *App) hiddenPath(p string) bool {
 		}
 	}
 	slashRel := filepath.ToSlash(rel)
-	excepted := workspace.Excepted(a.workspaceSettings.FilesExclude, slashRel)
-	if workspace.Excluded(a.workspaceSettings.FilesExclude, slashRel) {
-		if info, err := os.Stat(p); err == nil && info.IsDir() && workspace.ExceptionMayReveal(a.workspaceSettings.FilesExclude, slashRel) {
+	filesRules := workspaceExcludeRules{patterns: a.workspaceSettings.FilesExclude, clauses: a.workspaceSettings.FilesExcludeWhen}
+	excepted := workspace.ExceptedWithSiblings(filesRules.patterns, filesRules.clauses, slashRel, siblingChecker(root, slashRel))
+	if root != "" && excludedByRules(filesRules, root, slashRel) {
+		if info, err := os.Stat(p); err == nil && info.IsDir() && workspace.ExceptionMayReveal(exceptionRevealPatterns(filesRules), slashRel) {
 			return false
 		}
 		return true
@@ -1146,6 +1151,7 @@ func (a *App) revealInTree(p string) {
 		return
 	}
 	root := a.workspaceRootForPath(p)
+	a.tree.Open.Add(root)
 	for dir := filepath.Dir(p); dir != root && workspace.Within(root, dir); dir = filepath.Dir(dir) {
 		a.tree.Open.Add(dir)
 	}

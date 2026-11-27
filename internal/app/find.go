@@ -172,7 +172,7 @@ func (a *App) runFind() {
 	seq, gen, opts, rg := f.seq, a.gen, f.opts, f.rg
 	roots := a.workspaceFolderPaths()
 	excludePatterns := mergedSearchExcludes(a.workspaceSettings)
-	excludeArgs := ripgrepExcludeGlobs(excludePatterns)
+	excludeArgs := ripgrepExcludeGlobsForRules(excludePatterns)
 	useIgnoreFiles := a.workspaceSettings.UseIgnoreFiles()
 	ctx, cancel := context.WithCancel(a.wsCtx)
 	f.cancel = cancel
@@ -208,7 +208,7 @@ func (a *App) runFind() {
 				break
 			}
 			st, err := search.Run(ctx, rg, root, rootOpts, append(slices.Clone(excludeArgs), nestedWorkspaceRootGlobs(root, roots)...), func(file search.File) {
-				if rel, relErr := filepath.Rel(root, file.Path); relErr == nil && workspace.Excluded(excludePatterns, filepath.ToSlash(rel)) {
+				if rel, relErr := filepath.Rel(root, file.Path); relErr == nil && excludedByRules(excludePatterns, root, filepath.ToSlash(rel)) {
 					return
 				}
 				mu.Lock()
@@ -448,7 +448,7 @@ func (a *App) ensureFiles() {
 			var rootFiles []string
 			var rootTruncated bool
 			rootFiles, rootTruncated, err = search.ListFiles(ctx, rg, root, limit, skipDir, func(rel string) bool {
-				return withinNestedWorkspaceRoot(rel, nestedPrefixes) || workspace.Excluded(excludePatterns, rel)
+				return withinNestedWorkspaceRoot(rel, nestedPrefixes) || excludedByRules(excludePatterns, root, rel)
 			}, !useIgnoreFiles)
 			if err != nil {
 				break

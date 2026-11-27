@@ -1,6 +1,8 @@
 package app
 
 import (
+	"maps"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -174,15 +176,17 @@ func workspaceRemoveFolderLabel() string {
 }
 
 func (a *App) docPath(path string) string {
-	root := a.workspaceRootForPath(path)
-	if root == "" {
-		return workspace.DocPath(a.root, a.realRoot, path)
+	clean := filepath.Clean(path)
+	for _, folder := range a.workspaceFolders {
+		realRoot := folder.Path
+		if resolved, err := filepath.EvalSymlinks(folder.Path); err == nil {
+			realRoot = resolved
+		}
+		if mapped := workspace.DocPath(folder.Path, realRoot, clean); mapped != clean {
+			return mapped
+		}
 	}
-	realRoot := root
-	if resolved, err := filepath.EvalSymlinks(root); err == nil {
-		realRoot = resolved
-	}
-	return workspace.DocPath(root, realRoot, path)
+	return workspace.DocPath(a.root, a.realRoot, clean)
 }
 
 func (a *App) codeWorkspace() bool {
@@ -239,16 +243,7 @@ func normalizedWorkspaceSettings(settings workspace.Settings) workspace.Settings
 		if len(in) == 0 {
 			return nil
 		}
-		out := map[string]bool{}
-		for pattern, on := range in {
-			if on {
-				out[pattern] = true
-			}
-		}
-		if len(out) == 0 {
-			return nil
-		}
-		return out
+		return maps.Clone(in)
 	}
 	settings.FilesExclude = enabled(settings.FilesExclude)
 	settings.FilesWatcherExclude = enabled(settings.FilesWatcherExclude)
@@ -256,12 +251,25 @@ func normalizedWorkspaceSettings(settings workspace.Settings) workspace.Settings
 	return settings
 }
 
+func sameStringMap(a, b map[string]string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for pattern, when := range a {
+		if b[pattern] != when {
+			return false
+		}
+	}
+	return true
+}
+
 func sameExcludePatterns(a, b map[string]bool) bool {
 	if len(a) != len(b) {
 		return false
 	}
-	for pattern := range a {
-		if !b[pattern] {
+	for pattern, enabled := range a {
+		other, ok := b[pattern]
+		if !ok || other != enabled {
 			return false
 		}
 	}
@@ -270,10 +278,13 @@ func sameExcludePatterns(a, b map[string]bool) bool {
 
 func (a *App) applyWorkspaceSettings(settings workspace.Settings) {
 	settings = normalizedWorkspaceSettings(settings)
-	watcherChanged := !sameExcludePatterns(a.workspaceSettings.FilesWatcherExclude, settings.FilesWatcherExclude)
+	watcherChanged := !sameExcludePatterns(a.workspaceSettings.FilesWatcherExclude, settings.FilesWatcherExclude) || !sameStringMap(a.workspaceSettings.FilesWatcherExcludeWhen, settings.FilesWatcherExcludeWhen)
 	if sameExcludePatterns(a.workspaceSettings.FilesExclude, settings.FilesExclude) &&
+		sameStringMap(a.workspaceSettings.FilesExcludeWhen, settings.FilesExcludeWhen) &&
 		!watcherChanged &&
+		sameStringMap(a.workspaceSettings.FilesWatcherExcludeWhen, settings.FilesWatcherExcludeWhen) &&
 		sameExcludePatterns(a.workspaceSettings.SearchExclude, settings.SearchExclude) &&
+		sameStringMap(a.workspaceSettings.SearchExcludeWhen, settings.SearchExcludeWhen) &&
 		a.workspaceSettings.UseIgnoreFiles() == settings.UseIgnoreFiles() &&
 		a.workspaceSettings.ExplorerExcludeGitIgnore == settings.ExplorerExcludeGitIgnore {
 		return
@@ -292,18 +303,44 @@ func (a *App) applyWorkspaceSettings(settings workspace.Settings) {
 	a.runFind()
 }
 
-func mergedSearchExcludes(settings workspace.Settings) map[string]bool {
-	if len(settings.FilesExclude) == 0 && len(settings.SearchExclude) == 0 {
-		return nil
+type workspaceExcludeRules struct {
+	patterns map[string]bool
+	clauses  map[string]string
+}
+
+func mergedSearchExcludes(settings workspace.Settings) workspaceExcludeRules {
+	out := workspaceExcludeRules{}
+	if len(settings.FilesExclude)+len(settings.SearchExclude) > 0 {
+		out.patterns = map[string]bool{}
+		for pattern, enabled := range settings.FilesExclude {
+			out.patterns[pattern] = enabled
+		}
+		for pattern, enabled := range settings.SearchExclude {
+			out.patterns[pattern] = enabled
+		}
 	}
-	out := map[string]bool{}
-	for pattern := range settings.FilesExclude {
-		out[pattern] = true
-	}
-	for pattern := range settings.SearchExclude {
-		out[pattern] = true
+	if len(settings.FilesExcludeWhen)+len(settings.SearchExcludeWhen) > 0 {
+		out.clauses = map[string]string{}
+		for pattern, when := range settings.FilesExcludeWhen {
+			out.clauses[pattern] = when
+		}
+		for pattern, when := range settings.SearchExcludeWhen {
+			out.clauses[pattern] = when
+		}
 	}
 	return out
+}
+
+func siblingChecker(root, rel string) func(string) bool {
+	dir := filepath.Dir(filepath.Join(root, filepath.FromSlash(rel)))
+	return func(name string) bool {
+		_, err := os.Lstat(filepath.Join(dir, filepath.FromSlash(name)))
+		return err == nil
+	}
+}
+
+func excludedByRules(rules workspaceExcludeRules, root, rel string) bool {
+	return workspace.ExcludedWithSiblings(rules.patterns, rules.clauses, rel, siblingChecker(root, rel))
 }
 
 func ripgrepExcludeGlob(pattern string) string {
@@ -314,9 +351,35 @@ func ripgrepExcludeGlob(pattern string) string {
 	return pattern
 }
 
+func ripgrepExcludeGlobsForRules(rules workspaceExcludeRules) []string {
+	for pattern := range rules.clauses {
+		if strings.HasPrefix(pattern, "!") {
+			return nil
+		}
+	}
+	return ripgrepExcludeGlobs(rules.patterns)
+}
+
+func exceptionRevealPatterns(rules workspaceExcludeRules) map[string]bool {
+	out := maps.Clone(rules.patterns)
+	if len(rules.clauses) == 0 {
+		return out
+	}
+	if out == nil {
+		out = map[string]bool{}
+	}
+	for pattern := range rules.clauses {
+		out[pattern] = true
+	}
+	return out
+}
+
 func ripgrepExcludeGlobs(patterns map[string]bool) []string {
 	out := make([]string, 0, len(patterns))
-	for pattern := range patterns {
+	for pattern, enabled := range patterns {
+		if !enabled {
+			continue
+		}
 		if strings.HasPrefix(pattern, "!") {
 			// ripgrep prunes excluded directories before See can apply VS Code's
 			// exception, so exception-bearing sets are filtered exactly after search.

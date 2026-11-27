@@ -230,6 +230,9 @@ func (a *App) startProjectDiagnostics() {
 }
 
 func (a *App) startProblemServer(path string) {
+	if !a.workspaceTrusted() {
+		return
+	}
 	m := a.diagnosticsServerFor(path)
 	if m == nil {
 		return

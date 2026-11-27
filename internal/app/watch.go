@@ -118,7 +118,7 @@ func (a *App) startWatchFolder(root string) {
 	ctx, cancel := context.WithCancel(a.wsCtx)
 	a.watchCancels[root] = cancel
 	gen := a.gen
-	watchExclude := a.workspaceSettings.FilesWatcherExclude
+	watchExclude := workspaceExcludeRules{patterns: a.workspaceSettings.FilesWatcherExclude, clauses: a.workspaceSettings.FilesWatcherExcludeWhen}
 	current := func() bool {
 		return a.gen == gen && ctx.Err() == nil && a.isWorkspaceFolder(root)
 	}
@@ -137,7 +137,7 @@ func (a *App) startWatchFolder(root string) {
 			}
 		})
 		ignore := func(rel string, isDir bool) bool {
-			return workspace.Excluded(watchExclude, filepath.ToSlash(rel)) || isDir && (workspace.IgnoredRel(rel) || ignored.Dir(rel))
+			return excludedByRules(watchExclude, root, filepath.ToSlash(rel)) || isDir && (workspace.IgnoredRel(rel) || ignored.Dir(rel))
 		}
 		w, err := watchFiles(ctx, root, mygo.FileWatchOptions{Recursive: true, Ignore: ignore})
 		if errors.Is(err, mygo.ErrWatchLimit) {

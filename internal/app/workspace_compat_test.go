@@ -210,6 +210,104 @@ func TestWorkspaceSettingsControlIgnoreFilesAndExplorerGitIgnore(t *testing.T) {
 	}
 }
 
+func TestWorkspaceSiblingClauseExcludesGeneratedSibling(t *testing.T) {
+	if _, err := findRipgrep(""); err != nil {
+		t.Skip(err)
+	}
+	base := t.TempDir()
+	root := filepath.Join(base, "project")
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for name, contents := range map[string]string{
+		"foo.ts": "const foo = 1\n",
+		"foo.js": "needle generated\n",
+		"bar.js": "needle source\n",
+	} {
+		if err := os.WriteFile(filepath.Join(root, name), []byte(contents), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	workspaceFile := filepath.Join(base, "project.code-workspace")
+	data := `{"folders":[{"path":"project"}],"settings":{"files.exclude":{"**/*.js":{"when":"$(basename).ts"}}}}`
+	if err := os.WriteFile(workspaceFile, []byte(data), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	h := newHarness(t, "")
+	h.a.openWorkspace(workspaceFile)
+	h.settle(func() bool { return h.a.dirs[root] != nil && h.a.dirs[root].loaded })
+	if !h.a.hiddenPath(filepath.Join(root, "foo.js")) || h.a.hiddenPath(filepath.Join(root, "bar.js")) {
+		t.Fatal("sibling clause did not distinguish generated and source JavaScript")
+	}
+	h.a.find.opts = search.Options{Query: "needle"}
+	h.a.runFind()
+	h.settle(func() bool { return !h.a.find.running })
+	if len(h.a.find.results) != 1 || h.a.find.results[0].Path != filepath.Join(root, "bar.js") {
+		t.Fatalf("sibling clause search results = %+v", h.a.find.results)
+	}
+	h.a.ensureFiles()
+	h.settle(func() bool { return !h.a.quick.listing && h.a.quick.files != nil })
+	if slices.Contains(h.a.quick.files, "foo.js") || !slices.Contains(h.a.quick.files, "bar.js") {
+		t.Fatalf("sibling clause quick files = %v", h.a.quick.files)
+	}
+}
+
+func TestWorkspaceSafetyRegressions(t *testing.T) {
+	root := writeTree(t, map[string]string{"go.mod": "module example.com/safety\n", "main.go": "package main\n"})
+	h := newHarness(t, root)
+	before := h.a.lsp
+	h.a.startProblemServer(filepath.Join(root, "main.go"))
+	if state, _ := before.Status(); state != langserver.Off {
+		t.Fatalf("untrusted workspace started a problem server: %v", state)
+	}
+
+	h.a.trust()
+	target := filepath.Join(root, "main.go")
+	h.a.tree.Open.Remove(root)
+	h.a.revealInTree(target)
+	if !h.a.tree.Open.Has(root) || h.a.reveal != target {
+		t.Fatalf("reveal did not reopen the workspace root: open=%v reveal=%q", h.a.tree.Open, h.a.reveal)
+	}
+}
+
+func TestDocPathMapsSecondaryRealRootToOpenedAlias(t *testing.T) {
+	base := t.TempDir()
+	real := filepath.Join(base, "real")
+	alias := filepath.Join(base, "alias")
+	other := filepath.Join(base, "other")
+	for _, dir := range []string{real, other} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Symlink(real, alias); err != nil {
+		t.Skipf("symlink: %v", err)
+	}
+	workspaceFile := filepath.Join(base, "workspace.code-workspace")
+	data := `{"folders":[{"path":"other"},{"path":"alias"}]}`
+	if err := os.WriteFile(workspaceFile, []byte(data), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	h := newHarness(t, "")
+	h.a.openWorkspace(workspaceFile)
+	realFile := filepath.Join(real, "main.go")
+	want := filepath.Join(alias, "main.go")
+	if got := h.a.docPath(realFile); got != want {
+		t.Fatalf("docPath(%q) = %q, want %q", realFile, got, want)
+	}
+}
+
+func TestSearchExcludeFalseOverridesInheritedFilesExclude(t *testing.T) {
+	settings := workspace.Settings{
+		FilesExclude:  map[string]bool{"**/generated": true},
+		SearchExclude: map[string]bool{"**/generated": false},
+	}
+	rules := mergedSearchExcludes(settings)
+	if rules.patterns["**/generated"] {
+		t.Fatalf("search.exclude=false did not disable the inherited pattern: %+v", rules.patterns)
+	}
+}
+
 func TestSingleRootCodeWorkspaceKeepsItsProjectItemInTree(t *testing.T) {
 	base := t.TempDir()
 	root := filepath.Join(base, "Project")
@@ -828,6 +926,9 @@ func TestPlainWorkspaceReusesExistingWorkspaceFileAndSettings(t *testing.T) {
 	data, err := os.ReadFile(workspaceFile)
 	if err != nil || !strings.Contains(string(data), "files.exclude") || !strings.Contains(string(data), "secondary") {
 		t.Fatalf("workspace file lost settings or membership: %s", data)
+	}
+	if !h.a.workspaceSettings.FilesExclude["**/build"] || h.a.cfg.LastWorkspace != workspaceFile {
+		t.Fatalf("conversion did not adopt settings/last workspace: settings=%+v last=%q", h.a.workspaceSettings, h.a.cfg.LastWorkspace)
 	}
 }
 

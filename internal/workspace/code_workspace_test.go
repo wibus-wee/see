@@ -175,3 +175,58 @@ func TestReadCodeWorkspaceRejectsRemoteFolders(t *testing.T) {
 		t.Fatalf("remote folder error = %v", err)
 	}
 }
+
+func TestReadCodeWorkspaceReadsSiblingClauses(t *testing.T) {
+	base := t.TempDir()
+	root := filepath.Join(base, "project")
+	if err := os.Mkdir(root, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(base, "project.code-workspace")
+	data := `{"folders":[{"path":"project"}],"settings":{"files.exclude":{"**/*.js":{"when":"$(basename).ts"}}}}`
+	if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := ReadCodeWorkspace(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if parsed.Settings.FilesExcludeWhen["**/*.js"] != "$(basename).ts" || len(parsed.Settings.FilesExclude) != 0 {
+		t.Fatalf("sibling clause settings = %+v", parsed.Settings)
+	}
+}
+
+func TestWorkspaceMembershipEditWritesThroughSymlinkAndRemovesMissingFolder(t *testing.T) {
+	base := t.TempDir()
+	realFile := filepath.Join(base, "real.code-workspace")
+	linkFile := filepath.Join(base, "link.code-workspace")
+	keep := filepath.Join(base, "keep")
+	missing := filepath.Join(base, "missing")
+	if err := os.Mkdir(keep, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(missing, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	initial := `{"folders":[{"path":"keep"},{"path":"missing"}]}`
+	if err := os.WriteFile(realFile, []byte(initial), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(realFile, linkFile); err != nil {
+		t.Skipf("symlink: %v", err)
+	}
+	if err := os.Remove(missing); err != nil {
+		t.Fatal(err)
+	}
+	folders, err := RemoveCodeWorkspaceFolder(linkFile, missing)
+	if err != nil || len(folders) != 1 || folders[0].Path != keep {
+		t.Fatalf("remove missing folder = %+v, %v", folders, err)
+	}
+	info, err := os.Lstat(linkFile)
+	if err != nil || info.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("workspace symlink was replaced: info=%v err=%v", info, err)
+	}
+	if data, err := os.ReadFile(realFile); err != nil || strings.Contains(string(data), "missing") {
+		t.Fatalf("workspace target was not updated through symlink: %s err=%v", data, err)
+	}
+}

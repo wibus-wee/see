@@ -452,6 +452,15 @@ func Main() {
 					return
 				}
 				path := req.Path
+				if strings.EqualFold(filepath.Ext(path), ".code-workspace") {
+					forceNewWindow = req.NewWindow
+					p := openProject(path)
+					forceNewWindow = false
+					wins.sync(nil)
+					p.win.Show()
+					p.win.Focus()
+					return
+				}
 				if p := projectHolding(projects, path); p != nil && !req.NewWindow {
 					p.app.revealCLIPath(path)
 					wins.sync(nil)
@@ -464,15 +473,6 @@ func Main() {
 					a.openCLIPath(path)
 					wins.sync(nil)
 					win.Focus()
-					return
-				}
-				if strings.EqualFold(filepath.Ext(path), ".code-workspace") {
-					forceNewWindow = req.NewWindow
-					p := openProject(path)
-					forceNewWindow = false
-					wins.sync(nil)
-					p.win.Show()
-					p.win.Focus()
 					return
 				}
 				dir, file := cli.Split(path)

@@ -117,15 +117,26 @@ func expandGlobBraces(pattern string) []string {
 // enabled exclusion. Enabled exceptions, written with a leading `!` as in VS
 // Code, win over exclusions regardless of their order.
 func Excluded(patterns map[string]bool, rel string) bool {
-	return exclusionMatch(patterns, rel, false) && !exclusionMatch(patterns, rel, true)
+	return ExcludedWithSiblings(patterns, nil, rel, nil)
+}
+
+// ExcludedWithSiblings applies boolean exclusions and VS Code sibling clauses.
+// hasSibling answers whether a name exists next to the candidate file.
+func ExcludedWithSiblings(patterns map[string]bool, clauses map[string]string, rel string, hasSibling func(string) bool) bool {
+	return exclusionMatch(patterns, clauses, rel, hasSibling, false) && !exclusionMatch(patterns, clauses, rel, hasSibling, true)
 }
 
 // Excepted reports whether rel is inside an enabled `!` exception.
 func Excepted(patterns map[string]bool, rel string) bool {
-	return exclusionMatch(patterns, rel, true)
+	return exclusionMatch(patterns, nil, rel, nil, true)
 }
 
-func exclusionMatch(patterns map[string]bool, rel string, exceptions bool) bool {
+// ExceptedWithSiblings is Excepted for boolean and conditional exceptions.
+func ExceptedWithSiblings(patterns map[string]bool, clauses map[string]string, rel string, hasSibling func(string) bool) bool {
+	return exclusionMatch(patterns, clauses, rel, hasSibling, true)
+}
+
+func exclusionMatch(patterns map[string]bool, clauses map[string]string, rel string, hasSibling func(string) bool, exceptions bool) bool {
 	rel = strings.TrimPrefix(filepathToSlash(rel), "/")
 	for p := rel; p != "" && p != "."; {
 		for pattern, enabled := range patterns {
@@ -137,6 +148,14 @@ func exclusionMatch(patterns map[string]bool, rel string, exceptions bool) bool 
 				return true
 			}
 		}
+		for pattern, when := range clauses {
+			if strings.HasPrefix(pattern, "!") != exceptions || !MatchVSCodeGlob(strings.TrimPrefix(pattern, "!"), p) {
+				continue
+			}
+			if hasSibling != nil && siblingClauseMatches(when, p, hasSibling) {
+				return true
+			}
+		}
 		i := strings.LastIndexByte(p, '/')
 		if i < 0 {
 			break
@@ -144,6 +163,12 @@ func exclusionMatch(patterns map[string]bool, rel string, exceptions bool) bool 
 		p = p[:i]
 	}
 	return false
+}
+
+func siblingClauseMatches(when, rel string, hasSibling func(string) bool) bool {
+	base := path.Base(rel)
+	name := strings.TrimSuffix(base, path.Ext(base))
+	return hasSibling(strings.ReplaceAll(when, "$(basename)", name))
 }
 
 // ExceptionMayReveal reports whether an enabled exception may name rel or a
