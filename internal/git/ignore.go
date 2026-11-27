@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -55,8 +56,8 @@ func ReadIgnoredSources(ctx context.Context, dir string, useGlobal, useParent bo
 	prefix := strings.TrimSpace(string(prefixOut))
 	fields := strings.Split(string(confirmed), "\x00")
 	for i := 0; i+3 < len(fields); i += 4 {
-		source, p := fields[i], fields[i+3]
-		if p == "" || p == "./" || !useGlobal && isGlobalIgnoreSource(source) || !useParent && isParentIgnoreSource(source, prefix) {
+		source, pattern, p := fields[i], fields[i+2], fields[i+3]
+		if p == "" || p == "./" || strings.HasPrefix(pattern, "!") || !useGlobal && isGlobalIgnoreSource(source) || !useParent && isParentIgnoreSource(source, prefix) {
 			continue
 		}
 		if strings.HasSuffix(p, "/") {
@@ -69,7 +70,10 @@ func ReadIgnoredSources(ctx context.Context, dir string, useGlobal, useParent bo
 }
 
 func isGlobalIgnoreSource(source string) bool {
-	return source != ".git/info/exclude" && !strings.HasSuffix(source, ".gitignore")
+	if source == ".git/info/exclude" {
+		return false
+	}
+	return filepath.IsAbs(filepath.FromSlash(source)) || !strings.HasSuffix(source, ".gitignore")
 }
 
 func isParentIgnoreSource(source, rootPrefix string) bool {

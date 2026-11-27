@@ -52,7 +52,9 @@ func TestReadIgnoredSourcesSeparatesGlobalAndParentRules(t *testing.T) {
 	if err := os.MkdirAll(configDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	write(t, configDir, "ignore", "scratch/\n")
+	globalIgnore := filepath.Join(configDir, ".gitignore")
+	write(t, configDir, ".gitignore", "scratch/\n")
+	write(t, home, ".gitconfig", "[core]\n\texcludesFile = "+filepath.ToSlash(globalIgnore)+"\n")
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
 
