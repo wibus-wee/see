@@ -132,6 +132,7 @@ func Main() {
 			Hidden:               true, // until a folder opens (windows.sync)
 			Content:              ui.View(func(c *ui.Context) { a.view(c); wins.sync(win) }),
 		})
+		configureProjectWindowTabs(win)
 		// The welcome window, as Xcode's: of its own, of one size, its
 		// buttons over its left side.
 		welcome = mygo.NewWindow(mygo.WindowOptions{
@@ -219,6 +220,7 @@ func Main() {
 				TrafficLightPosition: &mygo.Point{X: 20, Y: (toolbarHeight - trafficLightSize) / 2},
 				Vibrancy:             mygo.VibrancySidebar, Content: ui.View(child.view),
 			})
+			configureProjectWindowTabs(childWin)
 			p := &projectWindow{app: child, win: childWin}
 			projects = append(projects, p)
 			child.post.set(platform.SchedulerFunc(func(fn func()) { childWin.Update(fn) }))
@@ -465,7 +467,12 @@ func Main() {
 						currentWin.Update(func() { currentApp.cfg.HideDocComments = !currentApp.cfg.HideDocComments; currentApp.settingsChanged() })
 					}},
 					{Label: locales.Folding(), Submenu: currentApp.foldingMenu(currentWin.Update)},
-				}...)}, {Role: mygo.RoleWindowMenu},
+				}...)}, projectWindowMenu(runtime.GOOS == "darwin", canMergeProjectWindows(projects, active), func() {
+					mergeProjectWindows(projects, active)
+					if varSetMenu != nil {
+						varSetMenu()
+					}
+				}),
 			}))
 			mygo.App.Dock.SetMenu(mygo.NewMenu(dockRecentItems(cfg.Recent, func(path string) {
 				win.Update(func() {
