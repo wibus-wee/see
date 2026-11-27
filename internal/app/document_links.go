@@ -16,6 +16,7 @@ import (
 
 	"see/internal/langserver"
 	"see/internal/lsp"
+	"see/internal/workspace"
 	"see/internal/uri"
 )
 
@@ -374,7 +375,7 @@ func (a *App) markdownHeadingLine(path, name string) int {
 		return markdownAnchorLine(t.buf.String(), name)
 	}
 	data, err := os.ReadFile(path)
-	if err != nil {
+	if err != nil || len(data) > workspace.MaxSize {
 		return -1
 	}
 	return markdownAnchorLine(string(data), name)

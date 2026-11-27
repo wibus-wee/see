@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"see/locales"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/egoist/mygo/i18n"
@@ -58,6 +59,11 @@ func (a *App) quickOpenPanel(c *ui.Context) {
 						ui.Text(c, workspace.RelPath(a.root, q.filePath)).TextColor(colors(c).Muted).SingleLine().Ellipsis("…").MinWidth(0)
 					})
 				}
+				// A workspace larger than the listing cap must not hide it: the
+				// files past the cap cannot be opened from here, so the panel
+				// says the list is partial — a bare "No Matches" would claim the
+				// file does not exist when it may sit past the cap.
+				partial := !commandMode && !symbolMode && !lineMode && q.truncated
 				switch {
 				case fileSymbolMode && !targeted && a.activeEditor() == nil:
 					ui.Text(c, locales.Catalog.Format(i18n.Locale(), "fileSymbolsOpenText", nil)).TextColor(colors(c).Muted).Padding(8)
@@ -99,6 +105,9 @@ func (a *App) quickOpenPanel(c *ui.Context) {
 					if symbolMode {
 						list.Height(float32(min(len(q.results), 10)) * 36)
 					}
+				}
+				if partial {
+					ui.Text(c, locales.MsgOnlyTheFirstCountFilesAreListed(strconv.Itoa(maxQuickFiles))).FontSize(11).TextColor(colors(c).Muted).Padding(2, 8).SingleLine()
 				}
 			})
 		})

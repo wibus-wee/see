@@ -136,6 +136,15 @@ func TestListFiles(t *testing.T) {
 			t.Errorf("limit: %v %v", files, truncated)
 		}
 	}
+	files, truncated, err := ListFiles(context.Background(), "", root, 2, nil)
+	if err != nil || !truncated || len(files) != 2 {
+		t.Errorf("walk limit: %v %v %v", files, truncated, err)
+	}
+	// A listing the limit fits is not truncated.
+	files, truncated, err = ListFiles(context.Background(), "", root, 100, nil)
+	if err != nil || truncated || len(files) != len(want) {
+		t.Errorf("walk full: %v %v %v", files, truncated, err)
+	}
 }
 
 func TestFuzzy(t *testing.T) {

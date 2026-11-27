@@ -4774,6 +4774,18 @@ func (msgs Messages) MsgNoMatches() string {
 	return Catalog.Format(msgs.locale, "msgNoMatches", nil)
 }
 
+// MsgOnlyTheFirstCountFilesAreListed says "Only the first {count} files are listed — type more of the name."
+// in the language the app shows.
+func MsgOnlyTheFirstCountFilesAreListed(count string) string {
+	return In(i18n.Locale()).MsgOnlyTheFirstCountFilesAreListed(count)
+}
+
+// MsgOnlyTheFirstCountFilesAreListed says "Only the first {count} files are listed — type more of the name."
+// in the language of msgs.
+func (msgs Messages) MsgOnlyTheFirstCountFilesAreListed(count string) string {
+	return Catalog.Format(msgs.locale, "msgOnlyTheFirstCountFilesAreListed", map[string]any{"count": count})
+}
+
 // MsgImagePreviewArea says "Image preview area"
 // in the language the app shows.
 func MsgImagePreviewArea() string { return In(i18n.Locale()).MsgImagePreviewArea() }

@@ -3,34 +3,18 @@ package hexview
 
 import (
 	"fmt"
-	"io"
-	"os"
 	"strings"
 )
 
 const RowBytes = 16
 const PageBytes = 64 << 10
 
-// ReadPage reads one bounded page at offset without retaining an open file.
-func ReadPage(path string, offset, size int64) ([]byte, error) {
-	if offset < 0 || offset%PageBytes != 0 || size < 0 || offset >= size {
-		return nil, fmt.Errorf("invalid page offset")
-	}
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	n := min(int64(PageBytes), size-offset)
-	data := make([]byte, int(n))
-	got, err := f.ReadAt(data, offset)
-	if err != nil && err != io.EOF {
-		return nil, err
-	}
-	if got != len(data) {
-		return nil, io.ErrUnexpectedEOF
-	}
-	return data, nil
+// PageLen is the number of bytes the page starting at offset holds in a
+// file of size: PageBytes for every page but the final one, which ends
+// at the file's end. Callers read pages through a rangeio.Session so
+// every page of one view comes from the same version of the file.
+func PageLen(offset, size int64) int64 {
+	return min(int64(PageBytes), size-offset)
 }
 
 // Rows returns the number of rows needed to show size bytes.

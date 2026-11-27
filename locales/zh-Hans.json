@@ -469,6 +469,7 @@
   "msgSearchingSymbols": "正在搜索符号…",
   "msgListingFiles": "正在列出文件…",
   "msgNoMatches": "没有匹配项",
+  "msgOnlyTheFirstCountFilesAreListed": "仅列出前 {count} 个文件——请继续输入名称。",
   "msgImagePreviewArea": "图像预览区域",
   "msgImagePreview": "图像预览",
   "msgCouldNotCopyFile": "无法复制文件：",
