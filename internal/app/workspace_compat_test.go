@@ -229,7 +229,7 @@ func TestRemovingCodeWorkspaceFolderOnlyRemovesItsReference(t *testing.T) {
 		t.Fatalf("removing the root changed its file: contents=%q err=%v", got, err)
 	}
 	folders, err := workspace.ReadCodeWorkspace(workspaceFile)
-	if err != nil || len(folders) != 1 || folders[0].Path != server {
+	if err != nil || len(folders.Folders) != 1 || folders.Folders[0].Path != server {
 		t.Fatalf("workspace file references = %+v, error %v", folders, err)
 	}
 	if len(h.a.cfg.Workspaces[workspaceFile].Folders) != 0 {
@@ -536,4 +536,103 @@ func TestReloadCodeWorkspaceAppliesExternalMembershipEdits(t *testing.T) {
 	if len(h.a.workspaceFolders) != 3 || h.a.workspaceFolders[2].Path != extra {
 		t.Fatalf("a half-written workspace replaced the last valid membership: %+v", h.a.workspaceFolders)
 	}
+}
+
+func TestCodeWorkspaceSettingsExcludeTreeSearchAndQuickOpen(t *testing.T) {
+	if _, err := findRipgrep(""); err != nil {
+		t.Skip(err)
+	}
+	workspaceFile, client, _ := codeWorkspaceFixture(t)
+	for path, contents := range map[string]string{
+		"build/hidden.txt":       "needle in an excluded folder\n",
+		"src/search-hidden.txt":  "needle in a search exclusion\n",
+		"src/visible.txt":        "needle visible\n",
+		"src/search-visible.txt": "needle visible search\n",
+		"generated/one.ts":       "needle excluded by brace\n",
+		"generated/two.js":       "needle excluded by brace\n",
+	} {
+		path = filepath.Join(client, filepath.FromSlash(path))
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(contents), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	data, err := os.ReadFile(workspaceFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	updated := strings.Replace(string(data), `"settings": {"files.exclude": {"**/build": true}}`, `"settings": {
+		"files.exclude": {"**/build": true, "**/generated": true},
+		"search.exclude": {"**/search-hidden.txt": true},
+	}`, 1)
+	if updated == string(data) {
+		t.Fatal("workspace fixture settings did not patch")
+	}
+	if err := os.WriteFile(workspaceFile, []byte(updated), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	h := newHarness(t, "")
+	h.a.openWorkspace(workspaceFile)
+	h.settle(func() bool { return h.a.dirs[client] != nil && h.a.dirs[client].loaded })
+	for _, path := range h.a.entryPaths(h.a.dirs[client]) {
+		if filepath.Base(path) == "build" || filepath.Base(path) == "generated" {
+			t.Fatalf("files.exclude entry is visible in the tree: %v", h.a.entryPaths(h.a.dirs[client]))
+		}
+	}
+
+	h.a.ensureFiles()
+	h.settle(func() bool { return !h.a.quick.listing && h.a.quick.files != nil })
+	for _, path := range h.a.quick.files {
+		base := filepath.Base(path)
+		if strings.Contains(path, string(filepath.Separator)+"build"+string(filepath.Separator)) || base == "search-hidden.txt" || base == "one.ts" || base == "two.js" {
+			t.Fatalf("excluded file is in quick open: %q", path)
+		}
+	}
+
+	h.a.find.opts = search.Options{Query: "needle"}
+	h.a.runFind()
+	h.settle(func() bool { return !h.a.find.running })
+	for _, result := range h.a.find.results {
+		base := filepath.Base(result.Path)
+		if strings.Contains(result.Path, string(filepath.Separator)+"build"+string(filepath.Separator)) || base == "search-hidden.txt" || base == "one.ts" || base == "two.js" {
+			t.Fatalf("excluded file is in search results: %q", result.Path)
+		}
+	}
+	if h.a.findFile(filepath.Join(client, "src", "visible.txt")) == nil || h.a.findFile(filepath.Join(client, "src", "search-visible.txt")) == nil {
+		t.Fatalf("visible files missing from search results: %+v", h.a.find.results)
+	}
+}
+
+func TestReloadCodeWorkspaceAppliesSettingsEdits(t *testing.T) {
+	workspaceFile, client, _ := codeWorkspaceFixture(t)
+	build := filepath.Join(client, "build")
+	if err := os.MkdirAll(build, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(workspaceFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	initial := strings.Replace(string(data), `"**/build": true`, `"**/build": false`, 1)
+	if err := os.WriteFile(workspaceFile, []byte(initial), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	h := newHarness(t, "")
+	h.a.openWorkspace(workspaceFile)
+	h.settle(func() bool { return h.a.dirs[client] != nil && h.a.dirs[client].loaded })
+	if !slices.Contains(h.a.entryPaths(h.a.dirs[client]), build) {
+		t.Fatal("test setup did not leave build visible")
+	}
+
+	included := strings.Replace(initial, `"**/build": false`, `"**/build": true`, 1)
+	if err := os.WriteFile(workspaceFile, []byte(included), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	h.a.reloadCodeWorkspace(workspaceFile)
+	h.settle(func() bool {
+		return h.a.dirs[client] != nil && h.a.dirs[client].loaded && !slices.Contains(h.a.entryPaths(h.a.dirs[client]), build)
+	})
 }

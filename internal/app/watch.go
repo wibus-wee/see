@@ -11,6 +11,7 @@ import (
 	"github.com/egoist/mygo"
 
 	"see/internal/git"
+	"see/internal/langserver"
 	"see/internal/lsp"
 	"see/internal/workspace"
 )
@@ -92,7 +93,7 @@ func (a *App) reloadCodeWorkspace(workspaceFile string) {
 	if !a.isCodeWorkspace() || a.workspaceID != workspaceFile {
 		return
 	}
-	folders, err := workspace.ReadCodeWorkspace(workspaceFile)
+	parsed, err := workspace.ReadCodeWorkspace(workspaceFile)
 	if err != nil {
 		// Editors replace workspace files through a temporary name; a remove
 		// or half-written rename is followed by the complete file. Keeping the
@@ -100,7 +101,8 @@ func (a *App) reloadCodeWorkspace(workspaceFile string) {
 		a.logf("workspace reload: %v", err)
 		return
 	}
-	a.syncWorkspaceFolders(folders)
+	a.applyWorkspaceSettings(parsed.Settings)
+	a.syncWorkspaceFolders(parsed.Folders)
 }
 
 func (a *App) startWatchFolder(root string) {
@@ -193,9 +195,15 @@ func (a *App) applyEventsAt(root string, evs []mygo.FileEvent) {
 		a.invalidateHover()
 	}
 	dirs := map[string]bool{}
-	var changes []lsp.FileChange
+	changes := map[*langserver.Server][]lsp.FileChange{}
 	notify := func(p string, kind lsp.FileChangeType) {
-		changes = append(changes, lsp.FileChange{URI: uriOf(p), Type: kind})
+		server := a.serverFor(p)
+		if name := filepath.Base(p); name == "go.mod" || name == "go.work" {
+			server = a.lsp
+		}
+		if server != nil {
+			changes[server] = append(changes[server], lsp.FileChange{URI: uriOf(p), Type: kind})
+		}
 	}
 	for _, ev := range evs {
 		if path.Base(ev.Path) == ".gitignore" || path.Base(ev.Path) == "exclude" && strings.Contains(ev.Path, ".git/info") {
@@ -248,8 +256,8 @@ func (a *App) applyEventsAt(root string, evs []mygo.FileEvent) {
 			dirs[p] = true
 		}
 	}
-	if a.lsp != nil && len(changes) > 0 {
-		a.lsp.WatchedFiles(changes)
+	for server, serverChanges := range changes {
+		server.WatchedFiles(serverChanges)
 	}
 	for dir := range dirs {
 		a.refreshDir(dir)

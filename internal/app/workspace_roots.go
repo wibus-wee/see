@@ -2,6 +2,7 @@ package app
 
 import (
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/egoist/mygo/i18n"
@@ -231,4 +232,81 @@ func loadSavedWorkspaceFolders(folders []config.WorkspaceFolder) ([]workspace.Fo
 		return nil, nil
 	}
 	return out, nil
+}
+
+func normalizedWorkspaceSettings(settings workspace.Settings) workspace.Settings {
+	enabled := func(in map[string]bool) map[string]bool {
+		if len(in) == 0 {
+			return nil
+		}
+		out := map[string]bool{}
+		for pattern, on := range in {
+			if on {
+				out[pattern] = true
+			}
+		}
+		if len(out) == 0 {
+			return nil
+		}
+		return out
+	}
+	return workspace.Settings{FilesExclude: enabled(settings.FilesExclude), SearchExclude: enabled(settings.SearchExclude)}
+}
+
+func sameExcludePatterns(a, b map[string]bool) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for pattern := range a {
+		if !b[pattern] {
+			return false
+		}
+	}
+	return true
+}
+
+func (a *App) applyWorkspaceSettings(settings workspace.Settings) {
+	settings = normalizedWorkspaceSettings(settings)
+	if sameExcludePatterns(a.workspaceSettings.FilesExclude, settings.FilesExclude) &&
+		sameExcludePatterns(a.workspaceSettings.SearchExclude, settings.SearchExclude) {
+		return
+	}
+	a.workspaceSettings = settings
+	for dir := range a.dirs {
+		a.refreshDir(dir)
+	}
+	a.invalidateQuickFiles()
+	a.filter.forQuery, a.filter.tree, a.filter.roots = "", nil, nil
+	a.runFind()
+}
+
+func mergedSearchExcludes(settings workspace.Settings) map[string]bool {
+	if len(settings.FilesExclude) == 0 && len(settings.SearchExclude) == 0 {
+		return nil
+	}
+	out := map[string]bool{}
+	for pattern := range settings.FilesExclude {
+		out[pattern] = true
+	}
+	for pattern := range settings.SearchExclude {
+		out[pattern] = true
+	}
+	return out
+}
+
+func ripgrepExcludeGlob(pattern string) string {
+	pattern = strings.TrimSuffix(filepath.ToSlash(pattern), "/")
+	if !strings.Contains(pattern, "/") {
+		return "/" + pattern
+	}
+	return pattern
+}
+
+func ripgrepExcludeGlobs(patterns map[string]bool) []string {
+	out := make([]string, 0, len(patterns))
+	for pattern := range patterns {
+		out = append(out, ripgrepExcludeGlob(pattern))
+	}
+	slices.Sort(out)
+	return out
 }

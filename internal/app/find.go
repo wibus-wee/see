@@ -171,6 +171,8 @@ func (a *App) runFind() {
 	}
 	seq, gen, opts, rg := f.seq, a.gen, f.opts, f.rg
 	roots := a.workspaceFolderPaths()
+	excludePatterns := mergedSearchExcludes(a.workspaceSettings)
+	excludeArgs := ripgrepExcludeGlobs(excludePatterns)
 	ctx, cancel := context.WithCancel(a.wsCtx)
 	f.cancel = cancel
 	f.running = true
@@ -199,11 +201,20 @@ func (a *App) runFind() {
 		var searchErr error
 		for _, root := range roots {
 			rootOpts := opts
+			if len(excludeArgs) > 0 {
+				if rootOpts.Exclude != "" {
+					rootOpts.Exclude += ","
+				}
+				rootOpts.Exclude += strings.Join(excludeArgs, ",")
+			}
 			rootOpts.MaxMatches = limit - total.Matches
 			if rootOpts.MaxMatches <= 0 {
 				break
 			}
 			st, err := search.Run(ctx, rg, root, rootOpts, func(file search.File) {
+				if rel, relErr := filepath.Rel(root, file.Path); relErr == nil && workspace.Excluded(excludePatterns, filepath.ToSlash(rel)) {
+					return
+				}
 				mu.Lock()
 				batch = append(batch, file)
 				mu.Unlock()
@@ -409,6 +420,7 @@ func (a *App) ensureFiles() {
 	q.filesSeq++
 	seq := q.filesSeq
 	roots := a.workspaceFolderPaths()
+	excludePatterns := mergedSearchExcludes(a.workspaceSettings)
 	rg, _ := findRipgrep(a.root) // "" lists by walking
 	ctx, cancel := context.WithCancel(a.wsCtx)
 	q.filesCancel = cancel
@@ -434,7 +446,9 @@ func (a *App) ensureFiles() {
 			}
 			var rootFiles []string
 			var rootTruncated bool
-			rootFiles, rootTruncated, err = search.ListFiles(ctx, rg, root, limit, skipDir)
+			rootFiles, rootTruncated, err = search.ListFiles(ctx, rg, root, limit, skipDir, func(rel string) bool {
+				return workspace.Excluded(excludePatterns, rel)
+			})
 			if err != nil {
 				break
 			}

@@ -289,11 +289,11 @@ func preview(line int, text string, start, end int) Match {
 // ListFiles lists the files under root for quick open, relative to it
 // and separated by slashes: with `rg --files` when rg is given, which
 // leaves out what .gitignore does, else by walking the tree. It stops
-// at limit files. The walk also leaves out the folders skipDir names,
+// at limit matching files. The walk also leaves out the folders skipDir names,
 // by their slash-separated path relative to root, when it is given.
-func ListFiles(ctx context.Context, rg, root string, limit int, skipDir func(rel string) bool) ([]string, bool, error) {
+func ListFiles(ctx context.Context, rg, root string, limit int, skipDir func(rel string) bool, skipFile func(rel string) bool) ([]string, bool, error) {
 	if rg == "" {
-		return walkFiles(ctx, root, limit, skipDir)
+		return walkFiles(ctx, root, limit, skipDir, skipFile)
 	}
 	args := append([]string{"--files", "--no-config"}, ignoreGlobs()...)
 	cmd := proc.CommandContext(ctx, rg, args...)
@@ -311,11 +311,15 @@ func ListFiles(ctx context.Context, rg, root string, limit int, skipDir func(rel
 	truncated := false
 	sc := bufio.NewScanner(out)
 	for sc.Scan() {
+		rel := filepath.ToSlash(sc.Text())
+		if skipFile != nil && skipFile(rel) {
+			continue
+		}
 		if len(files) >= limit {
 			truncated = true
 			break
 		}
-		files = append(files, filepath.ToSlash(sc.Text()))
+		files = append(files, rel)
 	}
 	if truncated || sc.Err() != nil {
 		_ = cmd.Process.Kill()
@@ -337,7 +341,7 @@ func ListFiles(ctx context.Context, rg, root string, limit int, skipDir func(rel
 }
 
 // walkFiles lists files without ripgrep.
-func walkFiles(ctx context.Context, root string, limit int, skipDir func(rel string) bool) ([]string, bool, error) {
+func walkFiles(ctx context.Context, root string, limit int, skipDir func(rel string) bool, skipFile func(rel string) bool) ([]string, bool, error) {
 	var files []string
 	truncated := false
 	err := filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
@@ -367,6 +371,9 @@ func walkFiles(ctx context.Context, root string, limit int, skipDir func(rel str
 			return filepath.SkipAll
 		}
 		rel, _ := filepath.Rel(root, p)
+		if skipFile != nil && skipFile(filepath.ToSlash(rel)) {
+			return nil
+		}
 		files = append(files, filepath.ToSlash(rel))
 		return nil
 	})

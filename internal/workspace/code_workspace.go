@@ -17,9 +17,20 @@ type Folder struct {
 	Name string
 }
 
-// ReadCodeWorkspace reads the folders from a VS Code .code-workspace file.
-// Workspace settings are intentionally not applied by See.
-func ReadCodeWorkspace(path string) ([]Folder, error) {
+// Settings are the VS Code workspace settings See applies.
+type Settings struct {
+	FilesExclude  map[string]bool `json:"files.exclude"`
+	SearchExclude map[string]bool `json:"search.exclude"`
+}
+
+// CodeWorkspace is a VS Code .code-workspace file.
+type CodeWorkspace struct {
+	Folders  []Folder
+	Settings Settings
+}
+
+// ReadCodeWorkspace reads a VS Code .code-workspace file.
+func ReadCodeWorkspace(path string) (*CodeWorkspace, error) {
 	absolute, err := filepath.Abs(path)
 	if err != nil {
 		return nil, err
@@ -31,7 +42,7 @@ func ReadCodeWorkspace(path string) ([]Folder, error) {
 	return parseCodeWorkspace(data, absolute)
 }
 
-func parseCodeWorkspace(data []byte, absolute string) ([]Folder, error) {
+func parseCodeWorkspace(data []byte, absolute string) (*CodeWorkspace, error) {
 	data, err := cleanWorkspaceJSON(data)
 	if err != nil {
 		return nil, fmt.Errorf("parse workspace: %w", err)
@@ -41,6 +52,7 @@ func parseCodeWorkspace(data []byte, absolute string) ([]Folder, error) {
 			Path string `json:"path"`
 			Name string `json:"name"`
 		} `json:"folders"`
+		Settings Settings `json:"settings"`
 	}
 	if err := json.Unmarshal(data, &file); err != nil {
 		return nil, fmt.Errorf("parse workspace: %w", err)
@@ -76,7 +88,7 @@ func parseCodeWorkspace(data []byte, absolute string) ([]Folder, error) {
 	if len(folders) == 0 {
 		return nil, errors.New("workspace has no folders")
 	}
-	return folders, nil
+	return &CodeWorkspace{Folders: folders, Settings: file.Settings}, nil
 }
 
 // AddCodeWorkspaceFolder updates the on-disk workspace using its latest contents.
@@ -89,10 +101,11 @@ func AddCodeWorkspaceFolder(path string, folder Folder) ([]Folder, error) {
 	if err != nil {
 		return nil, err
 	}
-	folders, err := parseCodeWorkspace(data, absolute)
+	parsed, err := parseCodeWorkspace(data, absolute)
 	if err != nil {
 		return nil, err
 	}
+	folders := parsed.Folders
 	root, err := CanonicalRoot(folder.Path)
 	if err != nil {
 		return nil, err
@@ -132,7 +145,7 @@ func AddCodeWorkspaceFolder(path string, folder Folder) ([]Folder, error) {
 	if err := writeWorkspaceFile(absolute, data, updated); err != nil {
 		return nil, err
 	}
-	return updatedFolders, nil
+	return updatedFolders.Folders, nil
 }
 
 // RemoveCodeWorkspaceFolder removes only references to root from the file.
@@ -145,10 +158,11 @@ func RemoveCodeWorkspaceFolder(path, root string) ([]Folder, error) {
 	if err != nil {
 		return nil, err
 	}
-	folders, err := parseCodeWorkspace(data, absolute)
+	parsed, err := parseCodeWorkspace(data, absolute)
 	if err != nil {
 		return nil, err
 	}
+	folders := parsed.Folders
 	target, err := CanonicalRoot(root)
 	if err != nil {
 		return nil, err
@@ -184,7 +198,7 @@ func RemoveCodeWorkspaceFolder(path, root string) ([]Folder, error) {
 	if err := writeWorkspaceFile(absolute, data, updated); err != nil {
 		return nil, err
 	}
-	return updatedFolders, nil
+	return updatedFolders.Folders, nil
 }
 
 type workspaceFolderElement struct {

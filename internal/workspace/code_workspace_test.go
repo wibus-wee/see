@@ -30,13 +30,16 @@ func TestReadCodeWorkspaceResolvesRelativeAndAbsoluteRoots(t *testing.T) {
 	if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	folders, err := ReadCodeWorkspace(path)
+	parsed, err := ReadCodeWorkspace(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := []Folder{{Path: frontend, Name: "Client"}, {Path: backend, Name: "backend"}}
-	if !reflect.DeepEqual(folders, want) {
-		t.Fatalf("folders = %#v, want %#v", folders, want)
+	if !reflect.DeepEqual(parsed.Folders, want) {
+		t.Fatalf("folders = %#v, want %#v", parsed.Folders, want)
+	}
+	if !parsed.Settings.FilesExclude["**/dist"] {
+		t.Fatalf("settings were not read: %+v", parsed.Settings)
 	}
 }
 

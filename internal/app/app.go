@@ -97,6 +97,7 @@ type App struct {
 	workspaceID         string // folder or .code-workspace path used for saved state
 	workspaceFolders    []workspace.Folder
 	workspaceChanged    bool
+	workspaceSettings   workspace.Settings
 	workspaceRootsEpoch uint64
 	gen                 int // bumped when the workspace changes; late results of an old one are dropped
 	wsCtx               context.Context
@@ -606,9 +607,14 @@ func (a *App) openWorkspace(dir string) {
 	}
 	workspaceID = filepath.Clean(workspaceID)
 	var folders []workspace.Folder
+	var settings workspace.Settings
 	isCodeWorkspace := strings.EqualFold(filepath.Ext(workspaceID), ".code-workspace")
 	if isCodeWorkspace {
-		folders, err = workspace.ReadCodeWorkspace(workspaceID)
+		var parsed *workspace.CodeWorkspace
+		parsed, err = workspace.ReadCodeWorkspace(workspaceID)
+		if err == nil {
+			folders, settings = parsed.Folders, parsed.Settings
+		}
 	} else {
 		var root string
 		root, err = workspace.CanonicalRoot(workspaceID)
@@ -641,6 +647,7 @@ func (a *App) openWorkspace(dir string) {
 	a.closeWorkspace()
 	a.workspaceID = workspaceID
 	a.workspaceFolders = folders
+	a.workspaceSettings = normalizedWorkspaceSettings(settings)
 	a.workspaceChanged = !isCodeWorkspace && len(a.cfg.Workspaces[workspaceID].Folders) > 0
 	a.workspaceRootsEpoch++
 	a.invalidateQuickFiles()
@@ -773,6 +780,7 @@ func (a *App) closeWorkspace() {
 	a.stopLanguageServers()
 	a.root, a.realRoot, a.workspaceID = "", "", ""
 	a.workspaceFolders, a.workspaceChanged = nil, false
+	a.workspaceSettings = workspace.Settings{}
 	a.watchCancels = nil
 	a.recents = nil
 	a.dirs = map[string]*dirState{}
@@ -985,7 +993,7 @@ func (a *App) hiddenPath(p string) bool {
 			}
 		}
 	}
-	return false
+	return workspace.Excluded(a.workspaceSettings.FilesExclude, filepath.ToSlash(rel))
 }
 
 const (
