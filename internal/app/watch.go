@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"os"
 	"path"
 	"path/filepath"
 	"strings"
@@ -53,40 +54,67 @@ func (a *App) startWorkspaceFileWatch() {
 	ctx, cancel := context.WithCancel(a.wsCtx)
 	a.workspaceFileCancel = cancel
 	workspaceFile := a.workspaceID
-	dir, base := filepath.Dir(workspaceFile), filepath.Base(workspaceFile)
+	targets := workspaceFileWatchTargets(workspaceFile)
 	gen := a.gen
-	go func() {
-		w, err := watchFiles(ctx, dir, mygo.FileWatchOptions{})
-		if err != nil {
-			a.post.Post(func() {
-				if a.gen == gen {
-					a.logf("workspace watch: %v", err)
-				}
-			})
-			return
-		}
-		defer w.Close()
-		for {
-			evs, err := w.Next(ctx)
+	for dir, bases := range targets {
+		go func(dir string, bases map[string]bool) {
+			w, err := watchFiles(ctx, dir, mygo.FileWatchOptions{})
 			if err != nil {
-				return
-			}
-			touched := false
-			for _, ev := range evs {
-				if ev.Path == base || ev.OldPath == base {
-					touched = true
-					break
-				}
-			}
-			if touched {
 				a.post.Post(func() {
 					if a.gen == gen {
-						a.reloadCodeWorkspace(workspaceFile)
+						a.logf("workspace watch: %v", err)
 					}
 				})
+				return
 			}
+			defer w.Close()
+			for {
+				evs, err := w.Next(ctx)
+				if err != nil {
+					return
+				}
+				touched := false
+				for _, ev := range evs {
+					if bases[ev.Path] || bases[ev.OldPath] {
+						touched = true
+						break
+					}
+				}
+				if touched {
+					a.post.Post(func() {
+						if a.gen == gen {
+							a.reloadCodeWorkspace(workspaceFile)
+						}
+					})
+				}
+			}
+		}(dir, bases)
+	}
+}
+
+func workspaceFileWatchTargets(workspaceFile string) map[string]map[string]bool {
+	targets := map[string]map[string]bool{}
+	add := func(file string) {
+		dir, base := filepath.Dir(file), filepath.Base(file)
+		if targets[dir] == nil {
+			targets[dir] = map[string]bool{}
 		}
-	}()
+		targets[dir][base] = true
+	}
+	add(workspaceFile)
+	target := ""
+	if resolved, err := filepath.EvalSymlinks(workspaceFile); err == nil {
+		target = resolved
+	} else if link, err := os.Readlink(workspaceFile); err == nil {
+		if !filepath.IsAbs(link) {
+			link = filepath.Join(filepath.Dir(workspaceFile), link)
+		}
+		target = filepath.Clean(link)
+	}
+	if target != "" && target != workspaceFile {
+		add(target)
+	}
+	return targets
 }
 
 func (a *App) reloadCodeWorkspace(workspaceFile string) {
