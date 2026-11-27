@@ -777,3 +777,39 @@ func TestPlainWorkspaceConversionPreservesRestoredMembership(t *testing.T) {
 		}
 	}
 }
+
+func TestWatchedFileEventsReachTheirLanguageServer(t *testing.T) {
+	root := writeTree(t, map[string]string{"go.mod": "module example.com/watched\n", "main.go": "package main\n", "main.ts": "const x = 1\n"})
+	h := newHarness(t, root)
+	h.a.trust()
+	if _, err := h.a.lsp.Get(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	tsClient := &fakeClient{enc: lsp.UTF16}
+	h.a.tsLSP = langserver.New(langserver.Options{
+		Name: "tsrs", Root: root,
+		Start: func(context.Context, string, []lsp.WorkspaceFolder, func(error)) (langserver.Client, error) {
+			return tsClient, nil
+		},
+		Language: languages.TypeScriptLanguage,
+	})
+	if _, err := h.a.tsLSP.Get(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	h.a.applyEventsAt(root, []mygo.FileEvent{
+		{Path: "go.mod", Op: mygo.FileWrite},
+		{Path: "main.ts", Op: mygo.FileWrite},
+		{Path: "notes.txt", Op: mygo.FileWrite},
+	})
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) && (len(h.fc.watchedFiles()) == 0 || len(tsClient.watchedFiles()) == 0) {
+		time.Sleep(5 * time.Millisecond)
+	}
+	goWatched, tsWatched := h.fc.watchedFiles(), tsClient.watchedFiles()
+	if len(goWatched) != 1 || !strings.HasSuffix(goWatched[0].URI, "go.mod") {
+		t.Fatalf("go watched changes: %+v", goWatched)
+	}
+	if len(tsWatched) != 1 || !strings.HasSuffix(tsWatched[0].URI, "main.ts") {
+		t.Fatalf("typescript watched changes: %+v", tsWatched)
+	}
+}

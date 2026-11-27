@@ -216,6 +216,7 @@ type fakeClient struct {
 	prepareRename     func(ctx context.Context, uri string, pos lsp.Position) (*lsp.PrepareRenameResult, error)
 	noRename          bool // server without renameProvider
 	format            formatFake
+	watched           []lsp.FileChange
 	log               []string
 	shutdown          bool
 }
@@ -260,6 +261,19 @@ type callFake struct {
 	prepare  error
 	incoming func(lsp.CallItem) ([]lsp.CallEdge, error)
 	outgoing func(lsp.CallItem) ([]lsp.CallEdge, error)
+}
+
+func (f *fakeClient) DidChangeWatchedFiles(changes []lsp.FileChange) error {
+	f.mu.Lock()
+	f.watched = append(f.watched, changes...)
+	f.mu.Unlock()
+	return nil
+}
+
+func (f *fakeClient) watchedFiles() []lsp.FileChange {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]lsp.FileChange(nil), f.watched...)
 }
 
 func (f *fakeClient) record(s string) {
