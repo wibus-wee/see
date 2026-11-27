@@ -4,6 +4,7 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+  pull_request:  # temporary, while the pipeline is validated in #157
 
 permissions:
   contents: write
@@ -33,8 +34,16 @@ jobs:
           displayplacer "id:1 res:1920x1080 hz:60 color_depth:7 scaling:off origin:(0,0) degree:0"
       - name: Set a desktop picture
         run: |
-          python3 scripts/screenshots/shots.py wallpaper /tmp/wallpaper.png
-          osascript -e 'tell application "System Events" to set picture of every desktop to POSIX file "/tmp/wallpaper.png"' || true
+          ls "/System/Library/Desktop Pictures" 2>/dev/null || true
+          # macOS's own pictures ship with the runner; take the first of
+          # them, the generated gradient only as a fallback.
+          picture=$(ls "/System/Library/Desktop Pictures"/*.heic 2>/dev/null | head -1)
+          if [ -z "$picture" ]; then
+            python3 scripts/screenshots/shots.py wallpaper /tmp/wallpaper.png
+            picture=/tmp/wallpaper.png
+          fi
+          echo "Desktop picture: $picture"
+          osascript -e "tell application \"System Events\" to set picture of every desktop to POSIX file \"$picture\"" || true
       - name: Capture the scenes
         run: python3 scripts/screenshots/shots.py capture --see build/see-e2e --out shots --screencapture
       - uses: actions/upload-artifact@v7
@@ -46,6 +55,7 @@ jobs:
   update:
     needs: capture
     runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
     steps:
       - uses: actions/checkout@v7
       - uses: actions/download-artifact@v7

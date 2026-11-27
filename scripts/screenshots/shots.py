@@ -375,6 +375,7 @@ def history_versions():
         ("Initial commit: pulse skeleton", {
             "main.go": MAIN_V1,
             "go.mod": GO_MOD,
+            ".gitignore": "/pulse\n",
         }),
         ("pipe: spread parsing over lanes", {
             "main.go": MAIN_GO,
@@ -428,6 +429,9 @@ def fixture(root):
     write(root, "internal/pipe/alerts.go",
           "package pipe\n\n// WIP: alert rules evaluated over the window.\n")
     git(root, "add", "internal/store/store.go")
+    # The compiled binary, for the hex view.
+    subprocess.run(["go", "build", "-o", "pulse", "."], cwd=root,
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 
@@ -520,27 +524,47 @@ def config_dir(home):
 
 # ---------------------------------------------------------------- scenes
 
-def hero_session(root, width=1440, height=860):
-    """The hero composition: a Go file beside the readme's rendered
-    markdown, the terminal open at the bottom."""
+def hero_session(root, width=1660, height=940):
+    """The hero composition, dense as a reader's screen really is: three
+    editor columns — a Go file, its pipeline, the compiled binary as hex
+    — the readme's rendered markdown among the tabs, the terminal open
+    below, the regex playground floating over it all."""
+    main = os.path.join(root, "main.go")
+    pipe = os.path.join(root, "internal/pipe/pipe.go")
+    store = os.path.join(root, "internal/store/store.go")
+    readme = os.path.join(root, "README.md")
+    binary = os.path.join(root, "pulse")
     return {
         "windowWidth": width,
         "windowHeight": height,
         "panelOpen": True,
-        "panelPercent": 72,
+        "panelPercent": 74,
         "terminals": [{"panes": [{"dir": root, "title": "zsh"}]}],
+        "regexToolX": width * 0.36,
+        "regexToolY": 96,
+        "regexToolWidth": 470,
+        "regexToolHeight": 500,
         "layout": {
             "vertical": False,
-            "percent": 55,
+            "percent": 68,
             "first": {
-                "tabs": [{"path": os.path.join(root, "main.go"), "line": 14, "column": 1}],
-                "active": os.path.join(root, "main.go"),
-                "focused": True,
+                "vertical": False,
+                "percent": 50,
+                "first": {
+                    "tabs": [{"path": main, "line": 14, "column": 1},
+                             {"path": store}],
+                    "active": main,
+                    "focused": True,
+                },
+                "second": {
+                    "tabs": [{"path": pipe}],
+                    "active": pipe,
+                },
             },
             "second": {
-                "tabs": [{"path": os.path.join(root, "README.md"), "previewTab": True}],
-                "active": os.path.join(root, "README.md"),
-                "activePreview": True,
+                "tabs": [{"path": readme, "previewTab": True},
+                         {"path": binary}],
+                "active": binary,
             },
         },
     }
@@ -601,12 +625,12 @@ SCENES = {
     "hero-light": {
         "appearance": "light",
         "session": hero_session,
-        "steps": [("terminal", None)],
+        "steps": [("palette", "Test Regex"), ("terminal", None)],
     },
     "hero-dark": {
         "appearance": "dark",
         "session": hero_session,
-        "steps": [("terminal", None)],
+        "steps": [("palette", "Test Regex"), ("terminal", None)],
     },
     "diff": {
         "appearance": "light",
@@ -631,7 +655,7 @@ def write_config(home, root, scene):
     with open(os.path.join(home, ".zshrc"), "w") as f:
         f.write("PROMPT='%1~ %# '\n")
     cfg = {
-        "terminalShell": "/bin/zsh",
+        "terminalShell": "/bin/zsh" if os.path.exists("/bin/zsh") else "/bin/bash",
         "appearance": scene.get("appearance", ""),
         "trustedWorkspaces": [root],
         "hiddenNames": ".DS_Store,.git",
