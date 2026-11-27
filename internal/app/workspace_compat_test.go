@@ -299,12 +299,16 @@ func TestDocPathMapsSecondaryRealRootToOpenedAlias(t *testing.T) {
 
 func TestSearchExcludeFalseOverridesInheritedFilesExclude(t *testing.T) {
 	settings := workspace.Settings{
-		FilesExclude:  map[string]bool{"**/generated": true},
-		SearchExclude: map[string]bool{"**/generated": false},
+		FilesExclude:     map[string]bool{"**/generated": true},
+		FilesExcludeWhen: map[string]string{"**/*.js": "$(basename).ts"},
+		SearchExclude:    map[string]bool{"**/generated": false, "**/*.js": true},
 	}
 	rules := mergedSearchExcludes(settings)
 	if rules.patterns["**/generated"] {
 		t.Fatalf("search.exclude=false did not disable the inherited pattern: %+v", rules.patterns)
+	}
+	if !rules.patterns["**/*.js"] || rules.clauses["**/*.js"] != "" {
+		t.Fatalf("search.exclude did not override the inherited sibling clause: %+v/%+v", rules.patterns, rules.clauses)
 	}
 }
 

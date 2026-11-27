@@ -310,21 +310,36 @@ type workspaceExcludeRules struct {
 
 func mergedSearchExcludes(settings workspace.Settings) workspaceExcludeRules {
 	out := workspaceExcludeRules{}
-	if len(settings.FilesExclude)+len(settings.SearchExclude) > 0 {
-		out.patterns = map[string]bool{}
-		for pattern, enabled := range settings.FilesExclude {
-			out.patterns[pattern] = enabled
-		}
-		for pattern, enabled := range settings.SearchExclude {
-			out.patterns[pattern] = enabled
-		}
+	keys := map[string]bool{}
+	for pattern := range settings.FilesExclude {
+		keys[pattern] = true
 	}
-	if len(settings.FilesExcludeWhen)+len(settings.SearchExcludeWhen) > 0 {
-		out.clauses = map[string]string{}
-		for pattern, when := range settings.FilesExcludeWhen {
-			out.clauses[pattern] = when
+	for pattern := range settings.FilesExcludeWhen {
+		keys[pattern] = true
+	}
+	for pattern := range settings.SearchExclude {
+		keys[pattern] = true
+	}
+	for pattern := range settings.SearchExcludeWhen {
+		keys[pattern] = true
+	}
+	for pattern := range keys {
+		enabled, useBool := settings.FilesExclude[pattern]
+		when, useClause := settings.FilesExcludeWhen[pattern], false
+		if searchEnabled, ok := settings.SearchExclude[pattern]; ok {
+			enabled, useBool, useClause = searchEnabled, true, false
+		} else if searchWhen, ok := settings.SearchExcludeWhen[pattern]; ok {
+			when, useBool, useClause = searchWhen, false, true
 		}
-		for pattern, when := range settings.SearchExcludeWhen {
+		if useBool {
+			if out.patterns == nil {
+				out.patterns = map[string]bool{}
+			}
+			out.patterns[pattern] = enabled
+		} else if useClause {
+			if out.clauses == nil {
+				out.clauses = map[string]string{}
+			}
 			out.clauses[pattern] = when
 		}
 	}
