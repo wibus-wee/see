@@ -629,7 +629,7 @@ def write_config(home, root, scene):
     # zsh in the panel, with a prompt of just the directory: the runner's
     # long hostname and the bash migration notice stay out of the shot.
     with open(os.path.join(home, ".zshrc"), "w") as f:
-        f.write("PROMPT='%~ %# '\n")
+        f.write("PROMPT='%1~ %# '\n")
     cfg = {
         "terminalShell": "/bin/zsh",
         "appearance": scene.get("appearance", ""),
@@ -659,6 +659,11 @@ def run_scene(see, name, scene, out_dir, work, screencapture=False):
     # X authority is looked up in HOME; point it back at the real one.
     if sys.platform != "darwin":
         env["XAUTHORITY"] = os.path.expanduser("~/.Xauthority")
+    # A warm build cache: the terminal's `go test` finishes in a second.
+    gocache = os.path.join(tempfile.gettempdir(), "see-shots-gocache")
+    env["GOCACHE"] = gocache
+    subprocess.run(["go", "test", "./..."], cwd=root, env=env,
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     proc = subprocess.Popen(
         [see, "--see-cli-open", root],
         env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
@@ -742,12 +747,48 @@ def compose_hero(screen_png, meta_json, out_png, margin_dips=110):
     scale = meta.get("scale", 1)
     img = Image.open(screen_png)
     margin = int(margin_dips * scale)
-    x0 = max(0, int(b["x"] * scale) - margin)
-    y0 = max(0, int(b["y"] * scale) - margin)
-    x1 = min(img.width, int((b["x"] + b["width"]) * scale) + margin)
-    y1 = min(img.height, int((b["y"] + b["height"]) * scale) + margin)
+    x, y = int(b["x"] * scale), int(b["y"] * scale)
+    x2, y2 = int((b["x"] + b["width"]) * scale), int((b["y"] + b["height"]) * scale)
+    # The menu bar is about 25 DIPs tall, the dock as much as 90: the
+    # margin never reaches them, whatever is asked for.
+    menubar = int(25 * scale)
+    dock = int(95 * scale) if margin_dips else 0
+    x0 = max(0, x - margin)
+    y0 = max(menubar, y - margin) if margin_dips else max(0, y)
+    x1 = min(img.width, x2 + margin)
+    y1 = min(img.height - dock, y2 + margin) if margin_dips else min(img.height, y2)
     img.crop((x0, y0, x1, y1)).save(out_png)
     print(f"hero: {out_png} ({x1 - x0}x{y1 - y0})")
+
+
+def wallpaper(out_png, width=1920, height=1080):
+    """A macOS-like desktop picture: soft color blobs over a deep blue
+    ground, heavily blurred. Generated rather than copied — macOS's own
+    wallpapers are not ours to ship."""
+    try:
+        from PIL import Image, ImageDraw, ImageFilter
+    except ImportError:
+        sys.exit("wallpaper needs Pillow: pip install pillow")
+    small = Image.new("RGB", (24, 14))
+    px = small.load()
+    ground = (38, 54, 92)
+    for yy in range(14):
+        for xx in range(24):
+            px[xx, yy] = ground
+    blobs = [
+        (5, 3, 9, (240, 149, 115)),   # warm peach, as Sonoma's dawn
+        (16, 2, 8, (190, 110, 160)),  # rose
+        (19, 10, 10, (90, 110, 200)),  # violet blue
+        (8, 11, 9, (70, 140, 190)),   # teal blue
+    ]
+    layer = Image.new("RGB", (24, 14), ground)
+    draw = ImageDraw.Draw(layer)
+    for cx, cy, r, color in blobs:
+        draw.ellipse([cx - r, cy - r, cx + r, cy + r], fill=color)
+    layer = layer.filter(ImageFilter.GaussianBlur(6))
+    img = layer.resize((width, height), Image.BICUBIC).filter(ImageFilter.GaussianBlur(30))
+    img.save(out_png)
+    print(f"wallpaper: {out_png}")
 
 
 def main():
@@ -762,13 +803,17 @@ def main():
     p.add_argument("--scenes", default=",".join(SCENES))
     p.add_argument("--hero-screencapture", action="store_true",
                    help="after hero scenes, screencapture the screen and crop the wallpaper shot")
+    p = sub.add_parser("wallpaper")
+    p.add_argument("out")
     p = sub.add_parser("compose-hero")
     p.add_argument("--screen", required=True)
     p.add_argument("--meta", required=True)
     p.add_argument("--out", required=True)
     args = parser.parse_args()
 
-    if args.cmd == "fixture":
+    if args.cmd == "wallpaper":
+        wallpaper(args.out)
+    elif args.cmd == "fixture":
         fixture(args.dir)
     elif args.cmd == "capture":
         capture(args.see, args.out, args.scenes.split(","), args.hero_screencapture)

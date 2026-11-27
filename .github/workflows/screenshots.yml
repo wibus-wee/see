@@ -35,6 +35,10 @@ jobs:
           # below may not exist — the list above says what does.
           displayplacer "id:1 res:1920x1080 hz:60 color_depth:7 scaling:off origin:(0,0) degree:0" || true
           system_profiler SPDisplaysDataType || true
+      - name: Set a desktop picture
+        run: |
+          python3 scripts/screenshots/shots.py wallpaper /tmp/wallpaper.png
+          osascript -e 'tell application "System Events" to set picture of every desktop to POSIX file "/tmp/wallpaper.png"' || true
       - name: Capture the scenes
         run: python3 scripts/screenshots/shots.py capture --see build/see-e2e --out shots --hero-screencapture
       - uses: actions/upload-artifact@v7
