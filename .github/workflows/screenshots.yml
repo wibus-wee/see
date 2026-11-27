@@ -23,7 +23,7 @@ jobs:
       - name: Build See with automation
         run: go build -tags e2e -o build/see-e2e .
       - name: Install Pillow
-        run: pip3 install --user pillow
+        run: pip3 install --user --break-system-packages pillow
       - name: Display information
         run: system_profiler SPDisplaysDataType || true
       - name: Capture the scenes
