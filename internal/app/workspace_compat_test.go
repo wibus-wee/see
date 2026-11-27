@@ -290,7 +290,11 @@ func TestDocPathMapsSecondaryRealRootToOpenedAlias(t *testing.T) {
 	}
 	h := newHarness(t, "")
 	h.a.openWorkspace(workspaceFile)
-	realFile := filepath.Join(real, "main.go")
+	realRoot, err := filepath.EvalSymlinks(real)
+	if err != nil {
+		t.Fatal(err)
+	}
+	realFile := filepath.Join(realRoot, "main.go")
 	want := filepath.Join(alias, "main.go")
 	if got := h.a.docPath(realFile); got != want {
 		t.Fatalf("docPath(%q) = %q, want %q", realFile, got, want)
