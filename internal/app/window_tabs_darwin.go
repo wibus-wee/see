@@ -21,7 +21,10 @@ func configureProjectWindowTabs(win *mygo.Window) {
 	if win == nil || win.IsDestroyed() {
 		return
 	}
-	handle := win.NativeHandle()
+	configureNativeProjectWindowTabs(win.NativeHandle())
+}
+
+func configureNativeProjectWindowTabs(handle uintptr) {
 	if handle == 0 || symbolRuntime() == 0 {
 		return
 	}
