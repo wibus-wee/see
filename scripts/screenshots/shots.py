@@ -677,12 +677,12 @@ SCENES = {
     "hero-light": {
         "appearance": "light",
         "session": hero_session,
-        "steps": [("terminal", None)],
+        "steps": [("palette", "Git: Show Log"), ("terminal", None)],
     },
     "hero-dark": {
         "appearance": "dark",
         "session": hero_session,
-        "steps": [("terminal", None)],
+        "steps": [("palette", "Git: Show Log"), ("terminal", None)],
     },
     "diff": {
         "appearance": "light",
