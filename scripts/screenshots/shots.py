@@ -702,7 +702,11 @@ def run_scene(see, name, scene, out_dir, work, screencapture=False):
                                "captureHeight": height, "scale": scale}, f)
                 if screencapture:
                     screen = os.path.join(out_dir, name + "-screen.png")
-                    subprocess.run(["screencapture", "-x", screen], check=True)
+                    try:
+                        subprocess.run(["screencapture", "-x", screen], check=True)
+                    except (OSError, subprocess.CalledProcessError) as e:
+                        print(f"{name}: screencapture failed: {e}; the automation capture stands")
+                        continue
                     compose_hero(screen, meta, os.path.join(
                         out_dir, name + "-native.png"), margin_dips=0)
                     if name.startswith("hero"):
@@ -801,8 +805,8 @@ def main():
     p.add_argument("--see", required=True)
     p.add_argument("--out", required=True)
     p.add_argument("--scenes", default=",".join(SCENES))
-    p.add_argument("--hero-screencapture", action="store_true",
-                   help="after hero scenes, screencapture the screen and crop the wallpaper shot")
+    p.add_argument("--screencapture", action="store_true",
+                   help="screencapture the screen after every scene, cropping the window and the hero's wallpaper shot")
     p = sub.add_parser("wallpaper")
     p.add_argument("out")
     p = sub.add_parser("compose-hero")
@@ -816,7 +820,7 @@ def main():
     elif args.cmd == "fixture":
         fixture(args.dir)
     elif args.cmd == "capture":
-        capture(args.see, args.out, args.scenes.split(","), args.hero_screencapture)
+        capture(args.see, args.out, args.scenes.split(","), args.screencapture)
     elif args.cmd == "compose-hero":
         compose_hero(args.screen, args.meta, args.out)
 
