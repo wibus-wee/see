@@ -32,6 +32,11 @@ jobs:
           # the largest mode it offers, and no HiDPI modes exist.
           brew install displayplacer
           displayplacer "id:1 res:1920x1080 hz:60 color_depth:7 scaling:off origin:(0,0) degree:0"
+      - name: Hide the dock
+        run: |
+          defaults write com.apple.dock autohide -bool true
+          killall Dock || true
+
       - name: Set a desktop picture
         run: |
           ls "/System/Library/Desktop Pictures" 2>/dev/null || true
