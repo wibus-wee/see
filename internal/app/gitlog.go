@@ -141,7 +141,9 @@ func (a *App) gitLogContent(c *ui.Context, g *group, v *gitLogView) {
 	}
 	columns := logColumns(width, h.lanesW)
 	columns.refs = max(columns.refs, logRefsWidth(c, a.git.branch, h.commits, rows))
-	columns.date = max(columns.date, logDateWidth(c))
+	columns.author = max(logLabelWidth(c, "gitLogAuthor"), logAuthorWidth(c, h.commits, rows))
+	columns.date = max(logLabelWidth(c, "gitLogDate"), logDateWidth(c, h.commits, rows))
+	columns.hash = max(logLabelWidth(c, "gitLogHash"), logHashWidth(c, h.commits, rows))
 	graphVisible := strings.TrimSpace(v.query) == ""
 	ui.Column(c).Grow(1).FillWidth().Children(func() {
 		ui.Row(c).Shrink(0).FillWidth().Height(36).Padding(0, 12).Gap(8).AlignItems(ui.Center).
@@ -267,17 +269,22 @@ const logRowHeight = 34
 type logTableColumns struct{ refs, graph, author, date, hash float32 }
 
 func logColumns(width float32, lanes int) logTableColumns {
-	columns := logTableColumns{refs: 144, graph: max(62, graphX(max(lanes, 1)-1)+graphLane), date: 92}
-	if width >= 900 {
-		columns.author = 140
-	}
-	if width >= 1100 {
-		columns.hash = 72
-	}
+	columns := logTableColumns{refs: 144, graph: max(62, graphX(max(lanes, 1)-1)+graphLane)}
 	if width < 700 {
 		columns.refs = 108
 	}
 	return columns
+}
+
+// logTextWidth is the room text takes at size, with a pixel to spare.
+func logTextWidth(c *ui.Context, text string, size float32) float32 {
+	w, _ := c.MeasureText(0, ui.Span{Text: text, Size: size})
+	return w + 2
+}
+
+// logLabelWidth is the room a column header needs at its size.
+func logLabelWidth(c *ui.Context, key string) float32 {
+	return logTextWidth(c, logText(key), 11)
 }
 
 // logRefsWidth is the room the refs column needs to show the badges of
@@ -305,25 +312,43 @@ func logRefsWidth(c *ui.Context, branch string, commits []git.Commit, rows []int
 	return width
 }
 
+// logAuthorWidth is the room the author column needs for the widest
+// byline of the rows, at the size logRow draws it.
+func logAuthorWidth(c *ui.Context, commits []git.Commit, rows []int) float32 {
+	var width float32
+	for _, i := range rows {
+		width = max(width, logTextWidth(c, authors(commits[i]), 12))
+	}
+	return width
+}
+
 // logDate is when a commit was made, to the second: the log's date
 // column has room for the whole stamp, unlike the navigator's byline.
 func logDate(t time.Time) string { return t.Format("2006-01-02 15:04:05") }
 
-// logDateWidth is the room the date column needs for a stamp, at the
-// size logRow draws it.
-func logDateWidth(c *ui.Context) float32 {
-	w, _ := c.MeasureText(0, ui.Span{Text: logDate(time.Now()), Size: 11})
-	return w + 2
+// logDateWidth is the room the date column needs: a stand-in stamp of
+// the widest digits keeps the column steady as the clock ticks, and the
+// rows widen it when the font draws their own stamps wider.
+func logDateWidth(c *ui.Context, commits []git.Commit, rows []int) float32 {
+	width := logTextWidth(c, "8888-88-88 88:88:88", 11)
+	for _, i := range rows {
+		width = max(width, logTextWidth(c, logDate(commits[i].Date), 11))
+	}
+	return width + 4
+}
+
+// logHashWidth is the room the hash column needs for a commit's short
+// hash.
+func logHashWidth(c *ui.Context, commits []git.Commit, rows []int) float32 {
+	var width float32
+	for _, i := range rows {
+		width = max(width, logTextWidth(c, commits[i].Short, 11))
+	}
+	return width
 }
 
 func (columns logTableColumns) minimumWidth() float32 {
-	count := 4
-	if columns.author > 0 {
-		count++
-	}
-	if columns.hash > 0 {
-		count++
-	}
+	const count = 6
 	return columns.refs + columns.graph + columns.author + columns.date + columns.hash + 160 + 24 + float32(count-1)*12
 }
 
@@ -338,13 +363,9 @@ func logTableHeader(c *ui.Context, columns logTableColumns) {
 		label("gitLogRefs", columns.refs)
 		label("gitLogGraph", columns.graph)
 		ui.Text(c, logText("gitLogMessage")).Grow(1).Basis(0).FontSize(11).TextColor(colors(c).Muted).SingleLine()
-		if columns.author > 0 {
-			label("gitLogAuthor", columns.author)
-		}
+		label("gitLogAuthor", columns.author)
 		label("gitLogDate", columns.date)
-		if columns.hash > 0 {
-			label("gitLogHash", columns.hash)
-		}
+		label("gitLogHash", columns.hash)
 	})
 }
 
@@ -398,13 +419,9 @@ func (a *App) logRow(c *ui.Context, v *gitLogView, cm git.Commit, columns logTab
 				ui.Text(c, "↓").FontSize(11).Bold().TextColor(c.Theme().Accent).Shrink(0).Tooltip(logText("gitIncomingCommit"))
 			}
 		})
-		if columns.author > 0 {
-			ui.Text(c, authors(cm)).Width(columns.author).Shrink(0).FontSize(12).TextColor(colors(c).Muted).SingleLine().Tooltip(authors(cm))
-		}
+		ui.Text(c, authors(cm)).Width(columns.author).Shrink(0).FontSize(12).TextColor(colors(c).Muted).SingleLine().Tooltip(authors(cm))
 		ui.Text(c, logDate(cm.Date)).Width(columns.date).Shrink(0).FontSize(11).TextColor(colors(c).Muted).SingleLine().Tooltip(cm.Date.Format(time.RFC1123))
-		if columns.hash > 0 {
-			ui.Text(c, cm.Short).Width(columns.hash).Shrink(0).FontSize(11).TextColor(colors(c).Dim).SingleLine()
-		}
+		ui.Text(c, cm.Short).Width(columns.hash).Shrink(0).FontSize(11).TextColor(colors(c).Dim).SingleLine()
 	})
 }
 

@@ -67,8 +67,10 @@ func TestGitLogTableColumnsFilterAndNavigation(t *testing.T) {
 	h.tt = ui.NewTester(h.a.view, 600, 700)
 	h.tt.Frame()
 	h.tt.Frame()
-	if !h.tt.HasText("Commit Message") || !h.tt.HasText("Date") || h.tt.HasText("Author") {
-		t.Fatalf("narrow columns: %v", h.tt.Texts())
+	for _, label := range []string{"Commit Message", "Author", "Date", "Hash"} {
+		if !h.tt.HasText(label) {
+			t.Fatalf("narrow columns hide %q: %v", label, h.tt.Texts())
+		}
 	}
 	if output := os.Getenv("SEE_LOG_PREVIEW_DIR"); output != "" {
 		saveLogPreview(t, h, filepath.Join(output, "git-log-narrow.png"))
@@ -106,6 +108,61 @@ func TestGitLogRefsColumnFitsLongBranchNames(t *testing.T) {
 	// the badge needs.
 	if badge.W <= 150 {
 		t.Fatalf("long branch badge is %v wide: %+v", badge.W, badge)
+	}
+}
+
+func TestGitLogAuthorAndHashColumnsFitTheirText(t *testing.T) {
+	root := historyRepo(t)
+	const author = "Alexandria Cassandra Longname"
+	const coAuthor = "Beatrice Coplayer"
+	gitRun(t, root, "commit", "--allow-empty", "--author", author+" <alex@example.com>",
+		"-qm", "A long author", "-m", "Co-authored-by: "+coAuthor+" <bea@example.com>")
+	h := newHarness(t, root)
+	h.a.sidebarOff = true
+	h.readGit()
+	h.a.openGitLog()
+	h.settle(func() bool { return !h.a.git.history.loading })
+	h.tt.Frame()
+	h.tt.Frame()
+	byline := authors(h.a.git.history.commits[0])
+	text, ok := h.tt.Find(byline)
+	if !ok {
+		t.Fatalf("the long author is not shown: %v", h.tt.Texts())
+	}
+	// The author column's old fixed width cut long names.
+	if text.W <= 150 {
+		t.Fatalf("author column is %v wide: %+v", text.W, text)
+	}
+	hash, ok := h.tt.Find(h.a.git.history.commits[0].Short)
+	if !ok {
+		t.Fatalf("the short hash is not shown: %v", h.tt.Texts())
+	}
+	// The hash column takes the room of the short hash, not its old
+	// fixed width.
+	if hash.W >= 60 {
+		t.Fatalf("hash column is %v wide: %+v", hash.W, hash)
+	}
+}
+
+func TestGitLogDateColumnFitsTheWidestStamp(t *testing.T) {
+	root := historyRepo(t)
+	// A stamp of the widest digits is wider than the time the test runs
+	// at may be, and the column must hold both without changing size.
+	gitRun(t, root, "commit", "--allow-empty", "--date", "2026-11-27 08:08:08", "-qm", "A wide stamp")
+	h := newHarness(t, root)
+	h.a.sidebarOff = true
+	h.readGit()
+	h.a.openGitLog()
+	h.settle(func() bool { return !h.a.git.history.loading })
+	h.tt.Frame()
+	h.tt.Frame()
+	want := h.a.git.history.commits[0].Date.Format("2006-01-02 15:04:05")
+	stamp, ok := h.tt.Find(want)
+	if !ok {
+		t.Fatalf("the date %q is not shown: %v", want, h.tt.Texts())
+	}
+	if stamp.W < 120 {
+		t.Fatalf("date stamp is %v wide: %+v", stamp.W, stamp)
 	}
 }
 
