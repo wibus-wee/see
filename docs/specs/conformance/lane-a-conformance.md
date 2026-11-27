@@ -1,0 +1,106 @@
+# Lane A: negotiated LSP operations and external processes
+
+Baseline: See `bbccc32`. Evaluation: the revision containing this report on `spec-lane-a-tools`, Darwin arm64, Go 1.27.4. Baseline locations below refer to `git show bbccc32:<path>`, not current line numbers. Status follows [SPEC-000](../00-verification-framework.md): **implemented** means observed at the stated boundary; **partial** names the remaining limitation. These are requirement counts, not line coverage.
+
+The evaluated paths are LSP initialization → negotiated request → shutdown/restart and `tasks.Run` → Go child process. Ripgrep discovery in the app now rejects resolved workspace executables, but its search process and Git commands do not use the Go-task policy handle. The common LSP launch guard applies to tsrs; no real tsrs run was verified. The test LSP peer is a real process speaking framed JSON-RPC over pipes; it controls advertisements, stalls, crashes and late replies. It is not evidence that every third-party language server behaves like that peer.
+
+Reference: Apache OpenDAL `c0ce8b66`. In this checkout the core capability and error definitions live in `core/core/src/types/{capability,error}.rs`, layer composition in `core/core/src/raw/layer.rs`, and the retry, timeout, logging and chaos crates in `core/layers/`. Similarity of types is not an oracle: the task acceptance criterion is that a temporary failure before spawn can be retried, but no failure after spawn launches a second potentially side-effecting build/test.
+
+## Operation policies and errors (Go tasks)
+
+Baseline references in this table are `internal/tasks/tasks.go`. Current entrypoints: [Handle.Run and policy construction](../../../internal/tasks/handle.go), [error classification](../../../internal/operr/error.go). Behavior tests: [process policies](../../../internal/tasks/handle_test.go) and [fixed argv, output and child lifetime](../../../internal/tasks/tasks_test.go).
+
+| Requirement | Baseline status and evidence | Evaluated status | Call, observation and remaining limits |
+|---|---|---|---|
+| REQ-POL-010 | partial: 67-75 hardwired command factory | implemented | TestPolicyProcess dispatches fixed business arguments through a replacement executable factory. |
+| REQ-POL-020 | missing: 67-81 no derived handle | implemented | Value receivers on handle.go:35-50 return distinct configurations; TestDeriveWhileProcessDispatchInFlight keeps a real process dispatch paused while the derived handle fails against a different executable, then releases the original and observes success. |
+| REQ-POL-030 | missing: 72-81 fixed code only, no ordered policies | partial | TestAttemptAndTotalDeadline distinguishes enclosing budget from per-attempt timeout. Admission wraps retries. Observer order implemented; no telemetry integration tested. |
+| REQ-POL-040 | missing: 72 operation and resource inseparable | implemented | TestPolicyProcess exercises pre-start operation hook and command factory at the actual process boundary. |
+| REQ-POL-050 | missing: 72-76 no resource wrapper | partial | TestAttemptAndTotalDeadline sets clock then factory then policy and sees zero elapsed time from original clock. Clock retention is observed on injected failure, not measured while the subprocess is running. |
+| REQ-POL-060 | partial: 23-31,72 fixed argv; no wrappers | implemented | TestRunFixedArgumentsAndWorkingDirectory and TestPolicyProcess assert argv, cwd and output; no capability-changing policy shipped. |
+| REQ-POL-070 | partial: 77-81 no retries; post-run cancellation overwrites success | implemented | TestPolicyProcess sees exactly one started, failed child despite retry budget. TestRunCancelsDescendants verifies ready child exits. TestPolicyAdmissionAndCancellation shows retry wait does not dispatch again. |
+| REQ-POL-080 | missing: 72 no injection point | implemented | TestPolicyProcess uses count-controlled hook on normal dispatch; default nil. |
+| REQ-POL-090 | missing: 75 hardcoded wait delay; no scope | implemented | WithPolicy rejects negative values and replaces whole policy; parent context always bounds a call. TestRejectInvalidPolicy covers each negative setting. |
+| REQ-ERR-010 | missing: 77-81 raw error, no status | implemented | TestMissingProcessIsSafeToDisplay: permanent/not-found. TestPolicyProcess: temporary becomes persistent on budget exhaustion. |
+| REQ-ERR-020 | missing: 70,79,81 no classification | partial | operr/error.go exposes all required kinds; not every protocol kind occurs at a child-process boundary. |
+| REQ-ERR-030 | partial: 77 single attempt, even for safe pre-start failures | implemented | TestPolicyProcess confirms unknown failure after start not replayed; before-start allowlist excludes invalid input, conflict, unsupported. |
+| REQ-ERR-040 | missing: 77 no budget tracking | implemented | TestPolicyProcess continuous injected failure returns persistent at configured attempt count. |
+| REQ-ERR-050 | missing: 81 no operation context | implemented | TestMissingProcessIsSafeToDisplay / TestAttemptAndTotalDeadline assert operation and duration. Path/executable and environment deliberately omitted. |
+| REQ-ERR-060 | partial: 70 interpolates untrusted kind; 81 may expose paths | implemented | Missing executable embeds canary in real OS failure, public error contains no canary. Child stdout/stderr is user-requested task output, not structured diagnostics. |
+| REQ-ERR-070 | partial: 79 returns context error without finality | implemented | TestPolicyAdmissionAndCancellation establishes cancelled/no-effect; TestRunCancelsDescendants covers actual termination, did not verify Windows here. |
+| REQ-ERR-080 | partial: 81 retains raw chain, lacks operation/status | implemented | TestMissingProcessIsSafeToDisplay recovers fields through fmt.Errorf wrapping and retains errors.Is(fs.ErrNotExist). |
+| REQ-ERR-090 | missing: 81 no diagnostic trace | partial | Unexpected-only caller PCs, operr.New; missing binary proves expected failures lack traces. Trace diagnostic quality not assessed. No acceptance test inspects an unexpected trace. |
+| REQ-ERR-100 | missing: 81 unknown failures unclassified | implemented | TestPolicyProcess unknown pre-start error reaches budget; actual subprocess exit classified conservatively with uncertain effects, never replayed. |
+
+### RPC regressions: before and after
+
+At `bbccc32`, `internal/lsp/jsonrpc.go:250,270-304` writes a request before reaching the caller's cancellation select; `:54-57` reads a header through newline before checking length. The same OS-pipe fixtures failed on the old implementation: **“cancel waits for peer to drain stdin”** and **“read beyond header limit”**, each at the one-second hang bound. In [conn_limits_test.go](../../../internal/lsp/conn_limits_test.go), the first peer reads one byte of a 2 MiB request and then stalls; cancellation now returns `context.Canceled` without requiring the peer to drain. The second sends 128 KiB without a newline or EOF; the reader now rejects it without waiting for either. Both passed, as did stalled initialize, unresponsive group shutdown, inherited stdout after leader exit, and a final reply immediately before exit:
+
+```sh
+go test -race -count=1 -v ./internal/lsp -run 'Test(CancelWithStalledPipe|HeaderLimitBeforeNewline|StartStalledPipe|ShutdownStalledProcessGroup|ProcessExitWithInheritedStdout|FinalReplyBeforeExit)$'
+```
+
+Six PASS, Darwin arm64. The process fixtures check kernel pipe/process behavior, not only in-memory RPC framing. Unix kills the private process group; descendants that deliberately leave it are outside the guarantee. Non-Unix fallback kills the direct child only. Closing the owned read end after a bounded drain prevents an escaped writer from hiding leader exit. Remote stderr is discarded and window messages log only severity: safer diagnostics, at the cost of raw server detail.
+
+## Negotiated operations (LSP requests)
+
+Current implementation: [capability queries and dispatch gate](../../../internal/lsp/capabilities.go), [handshake and typed requests](../../../internal/lsp/client.go), [compound action preflight](../../../internal/app/codeaction.go). The [real capability peer](../../../internal/lsp/capabilities_test.go) advertises hover and command `inspect`, but not definition or command `mutate`. The first two rejected operations send no request; after `inspect`, hover reports `calls=1`. Baseline references to `client.go` here are under `internal/lsp/`.
+
+| Requirement | Baseline status and evidence | Evaluated status | Observation | Remaining limit |
+|---|---|---|---|---|
+| REQ-CAP-010 | partial: client.go:214–281,428–451, mutable provider slices | implemented | `Supports`, `Operations`, `SupportsCommand`; two child snapshots differ while both connections live. | Request methods only; lifecycle notifications are separate.  |
+| REQ-CAP-020 | partial: client.go:214–281,488–524, advertisement did not constrain dispatch | implemented | Denied command on a command-capable peer is not dispatched; ordinary command and hover remain usable. | No general proxy or emulation layer claimed.  |
+| REQ-CAP-030 | partial: client.go:214–281, omitted providers and command constraints | implemented | Command identifiers, full/range semantic tokens, resolver variants, legends and position encoding are individually queryable. Existing `TestSemanticTokensPartialCapability` rejects whole-document requests on range-only sessions. | Server-specific limits not advertised on the wire cannot be inferred.  |
+| REQ-CAP-040 | partial: client.go:488–524,712–746, unchecked request paths | partial | `Client.call` checks each feature request before transport. A child lacking definition answers hover; lifecycle definition gate removed separately. | Some app entry points still discover unsupported on activation rather than disabling in advance.  |
+| REQ-CAP-050 | partial: client.go:488–524, unsupported could become wire failure | implemented | In-process classification in `TestCapabilityProcess` and independent wire count distinguish permanent, no-effect unsupported from RPC errors; RPC error classification is owned by ERR. | UI presentation varies.  |
+| REQ-CAP-060 | partial: internal/app/codeaction.go:382–400, edits before command check | partial | Process wire count; compound action preflight checks command and resource operations before applying text edits. File-preservation regression in `codeaction_test.go`. | The file-preservation test also covers a versioned edit against a closed document. General multi-file rollback and arbitrary malformed text edits are not certified.  |
+| REQ-CAP-070 | partial: client.go:214–281,488–524, optimistic dispatch | partial | Missing provider and command are rejected. Whole document is no longer approximated as just the first line on range-only peers. | Server misadvertising support cannot be prevented; method-not-found logged. Malformed nested options not exhaustively verified.  |
+| REQ-CAP-080 | partial: client.go:428–451, provider flags but no complete method inventory | implemented | `initialize` logs sorted static operation names, not document data. `TestCapabilityProcess` checks the effective methods of the new and old sessions. | No separate inspector UI.  |
+| REQ-CAP-090 | partial: client.go:214–281,428–451, mutable returned slices | implemented | Concurrent child sessions negotiate different methods; the first snapshot stays unchanged. Dynamic registrations are not negotiated or acknowledged, reconnect samples anew. | No live dynamic-registration support is claimed.  |
+
+## Managed language-server lifecycle
+
+Current owners: [session state and document queues](../../../internal/langserver/server.go), [executable trust check](../../../internal/proc/executable.go), [LSP process owner](../../../internal/lsp/client.go), [RPC transport](../../../internal/lsp/jsonrpc.go). Baseline paths in the table are relative to `internal/`. See the [real lifecycle peer](../../../internal/langserver/subprocess_test.go) and [Unix pipe/process fixtures](../../../internal/lsp/server_unix_test.go).
+
+| Requirement | Baseline status and evidence | Evaluated status | Observation | Remaining limit |
+|---|---|---|---|---|
+| REQ-EXT-010 | partial: `langserver/server.go:35–40,510–537`: four states; stopping retained Ready. | implemented | `TestStartsOnceAndReportsStates`, `TestBlockedWriterFailsSessionOnQueueOverflow`, `TestLateReplyAfterRapidChangesAndCancellation`: handshake/ready, terminal failure, cancellation without killing session. Owner now reports Stopping then Off and Degraded on failed document delivery. | Native UI rendering of new states not verified.  |
+| REQ-EXT-020 | partial: `languages/configured.go:92–119` maps multiple causes to “not installed”; `langserver/server.go:248–258` conflated optional feature absence with failed start. | partial | `TestWorkspaceExecutableNeverStarts` distinguishes launch policy denial; `TestStartStalledPipe` establishes timeout. | Partial: finders may conflate missing, permission and denied before launch. No seven-way end-to-end classification proof.  |
+| REQ-EXT-030 | partial: `languages/languages.go:23–59`: gopls precedence explicit but inspected only lexical workspace containment. | implemented | `TestWorkspaceExecutableNeverStarts`: outside symlink pointing inside workspace, real Server.Get → lsp.Start returns `proc.ErrUntrustedExecutable`, marker absent. All LSP starts check resolved command before spawn. | No opt-in execution inside workspace. Interpreter arguments/environment and concurrent filesystem substitution are not sandboxed.  |
+| REQ-EXT-040 | partial: `langserver/server.go:233–259`: waited for initialize but rejected peers without definition. | implemented | `TestServerWithoutDefinitionIsReady` plus real handshake/capability test `TestCapabilityProcess`. | Capability-level details are in CAP matrix.  |
+| REQ-EXT-050 | partial: `langserver/server.go:277,307,392–404`: snapshots lost on restart; older buffer version accepted. | implemented | `TestCrashReplaysCurrentDocumentAndExhaustsBudget` observes reopened **latest** content without caller resync; `TestLateReplyAfterRapidChangesAndCancellation` peer rejects non-increasing versions, subsequent hover reads last edit. `TestPublishedDiagnosticsRejectObsoleteDocumentAndServer` exercises stale session and document publications. | No claim that future edits while client is offline are visible unless forwarded via Changed/Close.  |
+| REQ-EXT-060 | partial: `langserver/server.go:300–312`: late exit ignored by attempt; RPC had separate connection per session. | implemented | `TestCrashReplaysCurrentDocumentAndExhaustsBudget`: request interrupted by process exit returns before context deadline. `TestProcessExitWithInheritedStdout` covers surviving descendant. | See RPC limits/terminalization tests for transport details.  |
+| REQ-EXT-070 | partial: `langserver/server.go:289–330` had two retries, 30s/2m delays, 5min stable reset; timer not tied to failed attempt. | implemented | `TestCrashReplaysCurrentDocumentAndExhaustsBudget` observes two replacement clients then durable Failed. `TestStableSessionEarnsRestartBudgetBack` advances stable uptime by backdating the ready timestamp, then crashes actual process once more. | Tests do not sleep five minutes.  |
+| REQ-EXT-080 | partial: `lsp/jsonrpc.go:270–304` sends protocol cancellation; former tests used simulated peers. | implemented | `TestLateReplyAfterRapidChangesAndCancellation` waits for peer to receive request, edits repeatedly, cancels, observes peer writing obsolete response, then receives latest text from a new request. `TestCancelWithStalledPipe` covers blocked writer. | None identified for this request flow.  |
+| REQ-EXT-090 | partial: `langserver/server.go:540–569`: unbounded closure queue; RPC bounded message bodies but not headers or concurrent requests. | partial | `TestBlockedWriterFailsSessionOnQueueOverflow`: blocked writer plus repeated opens → explicit Failed; latest snapshots retained for budgeted restart. `TestHeaderLimitBeforeNewline` covers oversized protocol headers. | Outbox limit is by notification count, not snapshot byte size. RPC bounds covered in transport changes.  |
+| REQ-EXT-100 | partial: `langserver/server.go:510–537` delegated protocol shutdown; no way for StopWait to join previously started shutdown. | partial | `TestShutdownStalledProcessGroup` verifies Unix timeout escalation; Stop/StopWait share one shutdown. | Windows lacks Unix group termination; see `internal/lsp/server_other.go`.  |
+| REQ-EXT-110 | divergent: `lsp/client.go:101` forwarded captured stderr to logging. | partial | `TestProcessExitWithInheritedStdout` sends sentinel in stderr and server log message; neither appears in recorded diagnostics. | No end-to-end test for all configured secret environment values; command arguments and environment are not rendered by launcher.  |
+
+## Coverage and reproduction
+
+| Boundary | Requirements | Implemented | Partial |
+|---|---:|---:|---:|
+| Negotiated LSP requests (CAP) | 9 | 6 | 3 |
+| Go task policies (POL) | 9 | 7 | 2 |
+| Go task errors (ERR) | 10 | 8 | 2 |
+| Managed LSP lifecycle (EXT) | 11 | 7 | 4 |
+| **Total** | **39** | **28** | **11** |
+
+These totals count only the evaluated paths; they are not repository-wide conformance. No runtime comparison against an OpenDAL service was run. Its published contracts informed the design; the See test oracles are process launches, wire frames, file contents, reported error kinds and process termination.
+
+```sh
+go test -race -count=1 ./internal/lsp ./internal/langserver ./internal/tasks
+CGO_ENABLED=0 go test -count=1 ./internal/app -run '^TestCodeActionUnsupportedStepPreservesFile$'
+```
+
+Observed: the three race-tested packages passed (`internal/lsp`, `internal/langserver`, `internal/tasks`); the targeted app test passed. Package success does not establish Windows descendant cleanup, a production-server capability matrix, or full-suite results.
+
+## Additional entry points and verification
+
+- `TestInvalidCapabilityHandshake`: real peers return missing/null/invalid capabilities or an unsupported position encoding. Startup returns a permanent error rather than making a client ready with guessed semantics.
+- `TestRemoteFailureOnPipe`: an OS-pipe peer returns method-not-found, cancellation and an unknown code with a canary payload. `Conn.Call` retains the protocol code and operation but not the remote message or data. A local unsupported result instead has no effect and sends no frame.
+- `TestFindRejectsWorkspaceRipgrepAlias`: a configured rg symlink outside the project points back inside. The app previously returned that path; now it returns no executable and a typed policy denial. With rg unavailable, Quick Open can still walk files (`TestListFiles`); text search requires rg. Missing gopls is handled separately by `TestFindGoplsSaysWhenThereIsNone` and the existing install hint in `App.lspFailure`.
+
+App changes: `app.go` presents an unsupported operation as unavailable rather than a server failure; `tools.go` validates the effective rg binary; `codeaction.go` preflights command, URI and version requirements before edits; `symbolrename.go` propagates a rejected edit; `semantic_tokens.go` selects range requests for range-only peers. `tools_test.go`, `codeaction_test.go` and `harness_test.go` exercise/adapt those contracts. No changes to Git, workspace identity, config or local history.
+
+`go build ./...`, the Go suite with `CGO_ENABLED=0`, rg 15.0.0 and gopls v0.23.0, `go tool mygo vet .`, and race tests for `internal/{lsp,langserver,tasks}` passed on macOS. An earlier cold Go-suite run saw `TestNewFileCacheFailureKeepsWelcome` fail removing a nonempty `localhistory` directory; the isolated regression and subsequent full Go runs passed. `./scripts/verify.sh` reached the Python fixtures but exited 1: 7/8 passed, while `test_release_body_uses_reviewed_notes_and_external_contributors_on_each_run` invoked the Lody GitHub wrapper (`release not found`) instead of its temporary `gh` fixture. Run this fixture on a CI host without command interception. Neither a passing build nor the unaffected package counts were used as behavior evidence.

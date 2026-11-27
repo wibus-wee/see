@@ -13,6 +13,7 @@ import (
 	"github.com/egoist/mygo/ui/editor"
 
 	"see/internal/lsp"
+	"see/internal/operr"
 	"see/internal/uri"
 )
 
@@ -37,6 +38,8 @@ const (
 	Starting
 	Ready
 	Failed
+	Stopping
+	Degraded
 )
 
 // Starter starts a client for a workspace; onExit is called if the
@@ -79,16 +82,19 @@ type DiagnosticsHandler func(*Server, DiagnosticReport)
 type Server struct {
 	o Options
 
-	mu       sync.Mutex
-	state    State
-	err      error
-	client   Client
-	starting chan struct{}
-	docs     map[string]*document // by URI
-	closed   bool
-	attempt  int  // counts starts, so a late exit of an old server is ignored
-	ready    bool // the running client made it to Ready
-	retries  int  // restarts since the last session that stayed up
+	mu          sync.Mutex
+	state       State
+	err         error
+	client      Client
+	starting    chan struct{}
+	cancelStart context.CancelFunc
+	stopped     chan struct{}
+	sessionDone chan struct{}
+	docs        map[string]*document // by URI
+	closed      bool
+	attempt     int // counts starts, so a late exit of an old server is ignored
+	readySince  time.Time
+	retries     int // restarts since the last session that stayed up
 
 	// out sends the documents' notifications, in order, on a goroutine
 	// of its own: a write that blocks on a busy server never holds mu.
@@ -122,21 +128,12 @@ func (r *syncResult) complete(err error) {
 	close(r.done)
 }
 
-func (r *syncResult) wait(ctx context.Context) error {
-	select {
-	case <-r.done:
-		return r.err
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-}
-
 // New returns a Server, stopped until the first Get.
 func New(o Options) *Server {
 	if o.Language == nil {
 		o.Language = func(string) string { return "go" }
 	}
-	s := &Server{o: o, docs: map[string]*document{}, out: newOutbox()}
+	s := &Server{o: o, docs: map[string]*document{}, out: newOutbox(), stopped: make(chan struct{})}
 	go s.out.loop()
 	return s
 }
@@ -164,6 +161,15 @@ func (s *Server) Current() Client {
 	return s.client
 }
 
+// MatchesDocumentVersion reports whether the current session has the open
+// document at both the requested LSP version and editor buffer revision.
+func (s *Server) MatchesDocumentVersion(uri string, protocolVersion int64, bufferVersion uint64) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	d := s.docs[uri]
+	return s.client != nil && d != nil && int64(d.version) == protocolVersion && d.bufVersion == bufferVersion
+}
+
 func (s *Server) setState(st State, err error) {
 	s.state, s.err = st, err
 	if s.o.OnState != nil {
@@ -184,7 +190,7 @@ func (s *Server) get(ctx context.Context, recover bool) (Client, error) {
 		return nil, context.Canceled
 	}
 	switch s.state {
-	case Ready:
+	case Ready, Degraded:
 		c := s.client
 		s.mu.Unlock()
 		return c, nil
@@ -203,15 +209,19 @@ func (s *Server) get(ctx context.Context, recover bool) (Client, error) {
 	case Off:
 		s.starting = make(chan struct{})
 		s.attempt++
-		s.ready = false
+		s.readySince = time.Time{}
 		s.setState(Starting, nil)
-		go s.run(s.starting, s.attempt)
+		startCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		s.cancelStart = cancel
+		go s.run(startCtx, cancel, s.starting, s.attempt)
 	}
 	wait := s.starting
 	s.mu.Unlock()
 	select {
 	case <-wait:
 		return s.get(ctx, recover)
+	case <-s.out.quit:
+		return nil, context.Canceled
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
@@ -226,9 +236,8 @@ func (s *Server) retryIf(err error) {
 	}
 }
 
-func (s *Server) run(done chan struct{}, attempt int) {
+func (s *Server) run(ctx context.Context, cancel context.CancelFunc, done chan struct{}, attempt int) {
 	defer close(done)
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 	c, err := s.o.Start(ctx, s.o.Root, func(err error) { s.exited(attempt, err) })
 	var registerDiagnostics func()
@@ -239,9 +248,11 @@ func (s *Server) run(done chan struct{}, attempt int) {
 			registerDiagnostics()
 		}
 	}()
-	if s.closed {
-		if c != nil {
-			go c.Shutdown(3 * time.Second)
+	if s.closed || attempt != s.attempt {
+		if err == nil && c != nil {
+			s.mu.Unlock()
+			c.Shutdown(3 * time.Second)
+			s.mu.Lock()
 		}
 		return
 	}
@@ -249,16 +260,12 @@ func (s *Server) run(done chan struct{}, attempt int) {
 		s.setState(Failed, err)
 		return
 	}
-	if s.state == Failed {
+	if s.state != Starting {
 		return // it exited as soon as it started
 	}
-	if !c.HasDefinition() {
-		go c.Shutdown(3 * time.Second)
-		s.setState(Failed, errors.New("the language server does not support Go to Definition"))
-		return
-	}
 	s.client = c
-	s.ready = true
+	s.sessionDone = make(chan struct{})
+	s.readySince = time.Now()
 	if dc, ok := c.(interface {
 		SetDiagnosticsHandler(func(string, *int, []lsp.Diagnostic))
 	}); ok {
@@ -271,19 +278,21 @@ func (s *Server) run(done chan struct{}, attempt int) {
 		if ac, ok := c.(interface {
 			SetApplyEditHandler(func(*lsp.WorkspaceEdit) error)
 		}); ok {
-			ac.SetApplyEditHandler(func(edit *lsp.WorkspaceEdit) error { return s.o.ApplyEdit(s, edit) })
+			apply := s.o.ApplyEdit
+			ac.SetApplyEditHandler(func(edit *lsp.WorkspaceEdit) error {
+				if s.Current() != c {
+					return errors.New("workspace edit from obsolete session")
+				}
+				return apply(s, edit)
+			})
 		}
 	}
+	previous := s.docs
 	s.docs = map[string]*document{}
 	s.setState(Ready, nil)
-	go func(attempt int) {
-		<-time.After(stableUptime)
-		s.mu.Lock()
-		defer s.mu.Unlock()
-		if !s.closed && s.attempt == attempt && s.state == Ready {
-			s.retries = 0
-		}
-	}(s.attempt)
+	for uri, d := range previous {
+		s.queueSync(c, uri, d.snap)
+	}
 }
 
 // A server that exits on its own comes back on its own too, but not
@@ -303,21 +312,46 @@ func (s *Server) exited(attempt int, err error) {
 	if s.closed || attempt != s.attempt {
 		return
 	}
-	s.client = nil
-	s.docs = map[string]*document{}
-	s.setState(Failed, fmt.Errorf("%s stopped: %w", s.o.Name, err))
-	if s.ready && s.retries < maxRestarts {
-		s.retries++
-		s.afterRestart(restartDelays[s.retries-1])
+	if s.state != Starting && s.sessionDone == nil {
+		return
 	}
+	s.failSession(fmt.Errorf("%s stopped: %w", s.o.Name, err))
+}
+
+func (s *Server) failSession(err error) {
+	if s.sessionDone != nil {
+		close(s.sessionDone)
+		s.sessionDone = nil
+	}
+	s.client = nil
+	if s.readySince.IsZero() {
+		s.setState(Failed, err)
+		return
+	}
+	if time.Since(s.readySince) >= stableUptime {
+		s.retries = 0
+	}
+	s.readySince = time.Time{}
+	if s.retries >= maxRestarts {
+		failure := operr.Classify(err)
+		failure.Status = operr.Persistent
+		failure.Attempt = s.attempt
+		failure.Operation = "language-server session"
+		s.setState(Failed, failure)
+		return
+	}
+	s.setState(Failed, err)
+	s.retries++
+	s.afterRestart(restartDelays[s.retries-1])
 }
 
 // afterRestart forgets the failure after delay and starts the server
 // again in the background; a Retry or a Stop in between wins.
 func (s *Server) afterRestart(delay time.Duration) {
+	attempt := s.attempt
 	time.AfterFunc(delay, func() {
 		s.mu.Lock()
-		if s.closed || s.state != Failed || s.retries == 0 {
+		if s.closed || s.state != Failed || s.attempt != attempt {
 			s.mu.Unlock()
 			return
 		}
@@ -347,24 +381,34 @@ func (s *Server) Sync(ctx context.Context, c Client, docURI string, snap editor.
 		s.mu.Unlock()
 		return err
 	}
-	if c != s.client {
+	if c == nil || c != s.client {
 		s.mu.Unlock()
 		return fmt.Errorf("%s restarted", s.o.Name)
 	}
+	sessionDone := s.sessionDone
 	result := s.queueSync(c, docURI, snap)
 	s.mu.Unlock()
-	return result.wait(ctx)
+	select {
+	case <-result.done:
+		return result.err
+	case <-sessionDone:
+		return fmt.Errorf("%s session ended", s.o.Name)
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-s.out.quit:
+		return context.Canceled
+	}
 }
 
 // Open queues the sync without waiting for the server's stdin.
 func (s *Server) Open(c Client, docURI string, snap editor.Snapshot) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if c != s.client {
+	if c == nil || c != s.client {
 		return false
 	}
 	s.queueSync(c, docURI, snap)
-	return true
+	return s.client == c
 }
 
 // queueSync queues what brings the server's copy of a document up to
@@ -379,7 +423,7 @@ func (s *Server) queueSync(c Client, docURI string, snap editor.Snapshot) *syncR
 		s.docs[docURI] = d
 		path, _ := uri.ToPath(docURI)
 		language := s.o.Language(path)
-		s.out.push(func() {
+		if !s.enqueue(func() {
 			err := c.DidOpen(docURI, language, 1, snap.String())
 			s.completeSync(docURI, d, result, err)
 			if err == nil {
@@ -387,8 +431,12 @@ func (s *Server) queueSync(c Client, docURI string, snap editor.Snapshot) *syncR
 			} else {
 				s.logf("document open failed: %v", err)
 			}
-		})
+		}) {
+			result.complete(errQueueFull)
+		}
 		return result
+	case d.bufVersion > snap.Version():
+		return completedSyncResult(errors.New("obsolete document snapshot"))
 	case d.bufVersion == snap.Version():
 		if d.pending != nil {
 			return d.pending
@@ -401,7 +449,7 @@ func (s *Server) queueSync(c Client, docURI string, snap editor.Snapshot) *syncR
 		d.snap = snap
 		d.pending = result
 		v := d.version
-		s.out.push(func() {
+		if !s.enqueue(func() {
 			err := c.DidChange(docURI, v, snap.String())
 			s.completeSync(docURI, d, result, err)
 			if err == nil {
@@ -409,7 +457,9 @@ func (s *Server) queueSync(c Client, docURI string, snap editor.Snapshot) *syncR
 			} else {
 				s.logf("document change failed: %v", err)
 			}
-		})
+		}) {
+			result.complete(errQueueFull)
+		}
 		return result
 	}
 }
@@ -418,7 +468,11 @@ func (s *Server) completeSync(docURI string, d *document, result *syncResult, er
 	result.complete(err)
 	s.mu.Lock()
 	if s.docs[docURI] == d && d.pending == result {
-		d.pending = nil
+		if err == nil {
+			d.pending = nil
+		} else if s.client != nil && !s.closed {
+			s.setState(Degraded, err)
+		}
 	}
 	s.mu.Unlock()
 }
@@ -481,7 +535,7 @@ func (s *Server) WatchedFiles(changes []lsp.FileChange) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if c, ok := s.client.(interface{ DidChangeWatchedFiles([]lsp.FileChange) error }); ok {
-		s.out.push(func() {
+		s.enqueue(func() {
 			if err := c.DidChangeWatchedFiles(changes); err != nil {
 				s.logf("watched files: %v", err)
 			}
@@ -493,8 +547,12 @@ func (s *Server) WatchedFiles(changes []lsp.FileChange) {
 func (s *Server) Changed(docURI string, snap editor.Snapshot) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if _, open := s.docs[docURI]; open && s.client != nil {
-		s.queueSync(s.client, docURI, snap)
+	if d := s.docs[docURI]; d != nil {
+		if s.client != nil {
+			s.queueSync(s.client, docURI, snap)
+		} else if snap.Version() >= d.bufVersion {
+			d.snap, d.bufVersion = snap, snap.Version()
+		}
 	}
 }
 
@@ -502,36 +560,55 @@ func (s *Server) Changed(docURI string, snap editor.Snapshot) {
 func (s *Server) Close(docURI string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if _, ok := s.docs[docURI]; ok && s.client != nil {
+	if _, ok := s.docs[docURI]; ok {
 		delete(s.docs, docURI)
+		if s.client == nil {
+			return
+		}
 		c := s.client
-		s.out.push(func() { c.DidClose(docURI) })
+		s.enqueue(func() { c.DidClose(docURI) })
 	}
 }
 
 // Stop shuts the server down, in the background; the Server is done.
-func (s *Server) Stop() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.closed = true
-	s.out.stop()
-	if c := s.client; c != nil {
-		s.client = nil
-		go c.Shutdown(3 * time.Second)
+func (s *Server) Stop() { s.beginStop(3 * time.Second) }
+
+// StopWait initiates shutdown once and waits up to timeout for completion.
+func (s *Server) StopWait(timeout time.Duration) {
+	s.beginStop(timeout)
+	select {
+	case <-s.stopped:
+	case <-time.After(timeout):
 	}
 }
 
-// StopWait shuts the server down and waits, as the app quits.
-func (s *Server) StopWait(timeout time.Duration) {
+func (s *Server) beginStop(timeout time.Duration) {
 	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return
+	}
 	s.closed = true
 	s.out.stop()
-	c := s.client
-	s.client = nil
-	s.mu.Unlock()
-	if c != nil {
-		c.Shutdown(timeout)
+	if s.cancelStart != nil {
+		s.cancelStart()
 	}
+	c, starting := s.client, s.starting
+	s.client = nil
+	s.docs = nil
+	s.setState(Stopping, nil)
+	go func() {
+		if starting != nil {
+			<-starting
+		}
+		if c != nil {
+			c.Shutdown(timeout)
+		}
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		s.setState(Off, nil)
+		close(s.stopped)
+	}()
 }
 
 // outbox runs functions one after the other on its goroutine, in the
@@ -548,14 +625,36 @@ func newOutbox() *outbox {
 	return &outbox{wake: make(chan struct{}, 1), quit: make(chan struct{})}
 }
 
-func (o *outbox) push(fn func()) {
+var errQueueFull = errors.New("language server notification queue full")
+
+// A missing notification invalidates the session: restart with full snapshots
+// rather than continue against an unknown document version. Caller holds mu.
+func (s *Server) enqueue(fn func()) bool {
+	if s.client == nil {
+		return false
+	}
+	if s.out.push(fn) {
+		return true
+	}
+	c := s.client
+	s.failSession(errQueueFull)
+	go c.Shutdown(time.Second)
+	return false
+}
+
+func (o *outbox) push(fn func()) bool {
 	o.mu.Lock()
+	if len(o.q) >= 256 {
+		o.mu.Unlock()
+		return false
+	}
 	o.q = append(o.q, fn)
 	o.mu.Unlock()
 	select {
 	case o.wake <- struct{}{}:
 	default:
 	}
+	return true
 }
 
 func (o *outbox) loop() {
