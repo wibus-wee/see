@@ -756,7 +756,7 @@ def center_window():
     the same room on every side, so center it in the 1920x1080 screen."""
     x = int((1920 - 1560) / 2)
     y = int(25 + (1080 - 25 - 860) / 2)
-    for proc in ("see-e2e", "see"):
+    for proc in ("See", "see-e2e", "see"):
         script = (f'tell application "System Events" to set position of window 1 '
                   f'of process "{proc}" to {{{x}, {y}}}')
         r = subprocess.run(["osascript", "-e", script],
@@ -766,14 +766,19 @@ def center_window():
 
 
 def place_regex_window():
-    """The playground is the process's floating window: park it over the
-    middle editor's seam so every column stays visible around it."""
-    x, y = 620, 150
-    for proc in ("see-e2e", "see"):
+    """The playground is the process's floating window: compact, inside
+    the editor area over the first columns' seam, the editors and the
+    terminal visible around it."""
+    x, y, w, h = 480, 210, 440, 470
+    for proc in ("See", "see-e2e", "see"):
         script = (f'tell application "System Events" to set position of window 2 '
                   f'of process "{proc}" to {{{x}, {y}}}')
         r = subprocess.run(["osascript", "-e", script],
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        script = (f'tell application "System Events" to set size of window 2 '
+                  f'of process "{proc}" to {{{w}, {h}}}')
+        subprocess.run(["osascript", "-e", script],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         if r.returncode == 0:
             return
 
