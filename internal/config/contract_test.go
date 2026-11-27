@@ -69,7 +69,14 @@ func TestSchemaInvalidFieldDegradesOnlyThatKey(t *testing.T) {
 	}
 }
 
-func TestValidationFailurePreservesOriginalOnWriteBack(t *testing.T) {
+// A validation-failed key is representable in memory, so write-back
+// converges the file to the in-memory truth rather than preserving the
+// invalid original. The truth here is the degraded default: the key is
+// omitted, and the file heals — the next load reports nothing. Anything
+// weaker fails the zero-value repair: the user fixing the field to its
+// default emits no key, so a preserved invalid original would win the
+// write-back back and the file could never heal at all.
+func TestValidationFailureConvergesToInMemoryTruthOnWriteBack(t *testing.T) {
 	p := writeConfig(t, `{"appearance": "purple"}`)
 	c := Load(p)
 	if c.Appearance != "" {
@@ -82,8 +89,139 @@ func TestValidationFailurePreservesOriginalOnWriteBack(t *testing.T) {
 		t.Fatal(err)
 	}
 	raw := readFileKeys(t, p)
-	if string(raw["appearance"]) != `"purple"` {
-		t.Fatalf("the invalid value was silently rewritten: %s", raw["appearance"])
+	if _, present := raw["appearance"]; present {
+		t.Fatalf("the invalid value survived write-back: %s — the in-memory default should replace it", raw["appearance"])
+	}
+	if issues := Load(p).Issues(); len(issues) != 0 {
+		t.Fatalf("the file did not heal: %+v", issues)
+	}
+}
+
+// TestZeroValueResetSticksOnWriteBack is the regression test for the
+// write-back contract violation found in independent verification: every
+// field is omitempty, so repairing an invalid value to the default — a
+// zero value — used to emit nothing, letting the preserved invalid value
+// win the collision. The file could never be repaired to a default
+// through the app, and the warning repeated on every launch while the
+// settings already showed the intended state.
+func TestZeroValueResetSticksOnWriteBack(t *testing.T) {
+	// "appearance" is the clearest case: "" is valid and meaningful
+	// (follow the system appearance), so resetting to it is a real repair.
+	p := writeConfig(t, `{"appearance": "purple"}`)
+	c := Load(p)
+	if len(c.Issues()) != 1 || c.Issues()[0].Kind != IssueValidationFailed {
+		t.Fatalf("setup: %+v", c.Issues())
+	}
+	c.Appearance = "" // the user repairs to the default: system appearance
+	if err := c.Save(); err != nil {
+		t.Fatal(err)
+	}
+	raw := readFileKeys(t, p)
+	if got, present := raw["appearance"]; present {
+		t.Fatalf("the repair did not stick: the invalid %s was written back over it", got)
+	}
+	if issues := Load(p).Issues(); len(issues) != 0 {
+		t.Fatalf("the warning did not clear: %+v", issues)
+	}
+
+	// Same shape for a numeric key: editorFontSize 8 (invalid, below 9)
+	// repaired to the default 0, which is 13 in effect.
+	p2 := writeConfig(t, `{"editorFontSize": 8}`)
+	c2 := Load(p2)
+	if len(c2.Issues()) != 1 {
+		t.Fatalf("setup: %+v", c2.Issues())
+	}
+	c2.FontSize = 0 // the user resets the font size to default
+	if err := c2.Save(); err != nil {
+		t.Fatal(err)
+	}
+	raw2 := readFileKeys(t, p2)
+	if got, present := raw2["editorFontSize"]; present {
+		t.Fatalf("the numeric repair did not stick: %s was written back over it", got)
+	}
+	if issues := Load(p2).Issues(); len(issues) != 0 {
+		t.Fatalf("the numeric warning did not clear: %+v", issues)
+	}
+}
+
+// A repair through a valid non-default value sticks the same way — and
+// did even before the contract correction, because the emitted field won
+// the collision. This pins that the correction did not regress it.
+func TestRepairToNonDefaultSticksOnWriteBack(t *testing.T) {
+	p := writeConfig(t, `{"appearance": "purple"}`)
+	c := Load(p)
+	c.Appearance = "dark"
+	if err := c.Save(); err != nil {
+		t.Fatal(err)
+	}
+	raw := readFileKeys(t, p)
+	if string(raw["appearance"]) != `"dark"` {
+		t.Fatalf("the non-default repair did not stick: %s", raw["appearance"])
+	}
+	if issues := Load(p).Issues(); len(issues) != 0 {
+		t.Fatalf("a non-default repair should stick: %+v", issues)
+	}
+}
+
+// Values that do not fit their key's type are not representable in
+// memory: they stay preserved verbatim, unlike validation failures. The
+// asymmetry is the contract — memory may only overrule what memory can
+// represent.
+func TestSchemaInvalidValueStaysPreservedOnWriteBack(t *testing.T) {
+	p := writeConfig(t, `{"editorFontSize": "sixteen"}`)
+	c := Load(p)
+	if len(c.Issues()) != 1 || c.Issues()[0].Kind != IssueSchemaInvalid {
+		t.Fatalf("setup: %+v", c.Issues())
+	}
+	if err := c.Save(); err != nil {
+		t.Fatal(err)
+	}
+	raw := readFileKeys(t, p)
+	if string(raw["editorFontSize"]) != `"sixteen"` {
+		t.Fatalf("the type-mismatched value was not preserved: %s", raw["editorFontSize"])
+	}
+}
+
+// An explicit null unmarshals into any Go type without error, so it reads
+// as the zero value — unset, meaning the default — and write-back
+// normalizes it to the omission the zero value gets. Deliberate, not
+// silent: null carries no information omission does not, and the
+// degradation it degrades to is the same.
+func TestNullReadsAsDefaultAndNormalizesOnWriteBack(t *testing.T) {
+	p := writeConfig(t, `{"editorFontSize": null, "appearance": null}`)
+	c := Load(p)
+	if len(c.Issues()) != 0 {
+		t.Fatalf("null values raised issues: %+v — null reads as unset", c.Issues())
+	}
+	if c.FontSize != 0 || c.Appearance != "" {
+		t.Fatalf("null did not read as the default: %+v", c)
+	}
+	if err := c.Save(); err != nil {
+		t.Fatal(err)
+	}
+	raw := readFileKeys(t, p)
+	for _, key := range []string{"editorFontSize", "appearance"} {
+		if _, present := raw[key]; present {
+			t.Fatalf("null was not normalized away: %s = %s", key, raw[key])
+		}
+	}
+}
+
+// A version declaration this build cannot read as a number is not
+// representable in memory, so write-back preserves it rather than
+// rewriting the file's schema claim into this build's integer.
+func TestWronglyTypedVersionStaysPreservedOnWriteBack(t *testing.T) {
+	p := writeConfig(t, `{"version": "1"}`)
+	c := Load(p)
+	if len(c.Issues()) != 1 || c.Issues()[0].Kind != IssueSchemaInvalid || c.Issues()[0].Key != "version" {
+		t.Fatalf("issues: %+v", c.Issues())
+	}
+	if err := c.Save(); err != nil {
+		t.Fatal(err)
+	}
+	raw := readFileKeys(t, p)
+	if string(raw["version"]) != `"1"` {
+		t.Fatalf("the wrongly-typed version was normalized to %s — the file's own declaration must survive", raw["version"])
 	}
 }
 

@@ -106,10 +106,12 @@ type Config struct {
 	path     string // where it is saved; "" saves nowhere, as in tests
 	onRecent func() // called when the recent folders change
 
-	// extras holds keys the struct does not decode: names this build does
-	// not know, and values that failed schema or validation. Save writes
-	// them back with their values unchanged, so a downgrade, an upgrade,
-	// or a repaired key never silently discards what the file said.
+	// extras holds what the in-memory state cannot represent: keys this
+	// build does not know, and values that do not fit their key's type.
+	// Save writes them back unchanged, so a downgrade or an upgrade never
+	// silently discards what the file said. Values that fit their type
+	// but fail validation are not preserved — they are representable, and
+	// the in-memory truth is authoritative for them; see MarshalJSON.
 	extras map[string]json.RawMessage
 	issues []Issue
 	// fileVersion is the schema version the file declared when it is
@@ -117,6 +119,11 @@ type Config struct {
 	// downgrading the declaration of a file this build only partly
 	// understands.
 	fileVersion int
+	// unprotected is the corrupted original file's bytes while no backup
+	// of them exists anywhere. Load sets it when the parse fails and the
+	// backup write fails with it; Save must complete the backup before
+	// overwriting the only copy, as REQ-CFG-040's overwrite gate demands.
+	unprotected []byte
 }
 
 type SavedFindQuery struct {
@@ -216,13 +223,18 @@ func (c *Config) decode(data []byte) {
 		}
 		// The original file stays exactly as it is; a backup copy
 		// preserves it before anything can write the configuration back
-		// over it.
+		// over it. When the copy fails the original is the only version
+		// left, and overwriting it is forbidden until the backup succeeds:
+		// the bytes stay in memory as the gate Save enforces.
 		backup := c.path + ".broken-" + time.Now().Format("20060102-150405.000000000")
 		if err := atomicfile.WriteFilePerm(backup, 0o600, func(w io.Writer) error {
 			_, err := w.Write(data)
 			return err
 		}); err == nil {
 			issue.Backup = backup
+		} else {
+			c.unprotected = data
+			issue.Detail += " — and no backup copy could be written, so the broken file is the only one left: saving is refused until a backup succeeds"
 		}
 		c.issues = append(c.issues, issue)
 		return
@@ -348,9 +360,34 @@ func validate(key string, v reflect.Value) string {
 }
 
 // MarshalJSON writes the struct's fields, the schema version, and the
-// preserved keys the struct does not know. A struct field wins a collision
-// with a preserved key: once the key validates again, the typed value is
-// the configuration.
+// preserved keys the struct does not know. The write-back contract decides
+// per key what the file says afterwards:
+//
+//   - Keys the struct does not know, and values that do not fit their
+//     key's type, are preserved verbatim: the in-memory state cannot
+//     represent them, so nothing in memory may overrule what the file
+//     said. A struct field that validates again still wins its collision,
+//     because then the typed value is the configuration.
+//   - Values that fit their type but failed validation are not preserved.
+//     The in-memory state — the default the load degraded to, or whatever
+//     the user chose since — is the semantic truth the settings display
+//     and the app runs on, and the file converges to it. Without this rule
+//     a repair to the default could never reach the file: the zero value
+//     emits no key, so the preserved invalid value would win the collision
+//     back, the file could never heal, and the warning would repeat on
+//     every launch while the settings already showed the intended state.
+//     The cost is the downgrade path of an enum widened by a newer build:
+//     this build cannot validate the newer value either, so a save
+//     replaces it with the in-memory state rather than keeping it for the
+//     upgrade back. The file's content is the truth the user is running
+//     on either way; nothing is silently destroyed, because the invalid
+//     value was never in effect.
+//
+// An explicit null reads as the zero value of its key's type — unset,
+// meaning the default — and write-back normalizes it to the same omission
+// the zero value gets. The version key follows the same representability
+// rule: a version this build cannot read as a number is preserved, because
+// the schema integer is not what the file declared.
 func (c *Config) MarshalJSON() ([]byte, error) {
 	type exported Config
 	data, err := json.Marshal((*exported)(c))
@@ -365,15 +402,52 @@ func (c *Config) MarshalJSON() ([]byte, error) {
 	if c.fileVersion > version {
 		version = c.fileVersion
 	}
-	if b, err := json.Marshal(version); err == nil {
-		merged["version"] = b
+	// A wrongly-shaped version declaration — the file says a string where
+	// the schema reads a number — is not representable in memory, so the
+	// file keeps it: writing the schema integer over it would silently
+	// rewrite what the file claims to be.
+	if _, foreign := c.extras["version"]; !foreign {
+		if b, err := json.Marshal(version); err == nil {
+			merged["version"] = b
+		}
 	}
+	fields := fieldTypes()
 	for key, r := range c.extras {
+		if ft, known := fields[key]; known {
+			probe := reflect.New(ft)
+			if json.Unmarshal(r, probe.Interface()) == nil {
+				// The value fits its key's type: it is here because
+				// validation rejected it, and validation-failed keys are
+				// representable — the in-memory truth is authoritative.
+				// A non-zero field emits into merged and wins by absence
+				// of competition; a zero field emits nothing, and omitting
+				// the key is exactly what writing that state means.
+				continue
+			}
+		}
 		if _, taken := merged[key]; !taken {
 			merged[key] = r
 		}
 	}
 	return json.Marshal(merged)
+}
+
+// fieldTypes maps each configuration key to the type of its struct field.
+func fieldTypes() map[string]reflect.Type {
+	m := map[string]reflect.Type{}
+	t := reflect.TypeOf(Config{})
+	for i := range t.NumField() {
+		f := t.Field(i)
+		if !f.IsExported() {
+			continue
+		}
+		key, _, _ := strings.Cut(f.Tag.Get("json"), ",")
+		if key == "" || key == "-" {
+			continue
+		}
+		m[key] = f.Type
+	}
+	return m
 }
 
 // SetPath moves the configuration to p, which the next Save writes.
@@ -394,6 +468,16 @@ func (c *Config) SoftWrapForLanguage(language string) bool {
 // complete new file is staged beside the old one, made durable, and
 // published in one rename. A failure anywhere reports failure, leaves the
 // old configuration intact, and cleans its staging up.
+//
+// One refusal overrides the convenience: when the file being overwritten
+// is a corrupted original whose backup never completed, the original is
+// the only copy of what the user had. The overwrite gate of the
+// configuration contract allows replacing it only after the backup
+// completes, so Save first writes the backup of the bytes Load kept, and
+// refuses — changing nothing — when even that fails. The common transient
+// case, a full disk or a permission problem at launch that has since been
+// fixed, heals on the first save: the backup lands, the overwrite
+// proceeds, and the file is never unprotected at any moment.
 func (c *Config) Save() error {
 	if c.path == "" {
 		return nil
@@ -404,6 +488,23 @@ func (c *Config) Save() error {
 	}
 	if err := os.MkdirAll(filepath.Dir(c.path), 0o700); err != nil {
 		return err
+	}
+	if len(c.unprotected) > 0 {
+		backup := c.path + ".broken-" + time.Now().Format("20060102-150405.000000000")
+		if err := atomicfile.WriteFilePerm(backup, 0o600, func(w io.Writer) error {
+			_, err := w.Write(c.unprotected)
+			return err
+		}); err != nil {
+			return fmt.Errorf("saving is refused: the configuration file is corrupted and backing it up failed again (%v) — the broken file is the only copy of the old settings, so nothing was overwritten", err)
+		}
+		// The original is protected now wherever it goes next: overwrite
+		// away, and let the load issue know where the copy landed.
+		c.unprotected = nil
+		for i := range c.issues {
+			if c.issues[i].Kind == IssueParseFailed && c.issues[i].Backup == "" {
+				c.issues[i].Backup = backup
+			}
+		}
 	}
 	return atomicfile.WriteFilePerm(c.path, 0o600, func(w io.Writer) error {
 		_, err := w.Write(data)

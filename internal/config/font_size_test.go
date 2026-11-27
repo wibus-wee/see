@@ -22,8 +22,10 @@ func TestEditorFontSizeRoundTrip(t *testing.T) {
 }
 
 // Out-of-range font sizes are invalid configuration: the load reports a
-// validation failure, falls back to the default, and preserves the file's
-// text for write-back rather than silently rewriting or accepting it.
+// validation failure and falls back to the default. The invalid value is
+// representable in memory, so write-back converges the file to that
+// in-memory truth — the file heals on the first save instead of warning
+// forever.
 func TestEditorFontSizeOutOfRangeDegrades(t *testing.T) {
 	for _, stored := range []float64{8, 29} {
 		p := filepath.Join(t.TempDir(), "config.json")
@@ -39,14 +41,15 @@ func TestEditorFontSizeOutOfRangeDegrades(t *testing.T) {
 		if len(loaded.Issues()) != 1 || loaded.Issues()[0].Kind != IssueValidationFailed || loaded.Issues()[0].Key != "editorFontSize" {
 			t.Fatalf("stored %g: issues %+v, want one validation failure", stored, loaded.Issues())
 		}
-		// Saving again must not lose the original value: the file keeps
-		// saying what it said until the user fixes it.
+		// Write-back converges the file to the in-memory truth: the
+		// invalid value is replaced by the degraded default — the key
+		// omitted — and the next load reports nothing.
 		if err := loaded.Save(); err != nil {
 			t.Fatal(err)
 		}
 		again := Load(p)
-		if len(again.Issues()) != 1 || again.Issues()[0].Key != "editorFontSize" {
-			t.Fatalf("stored %g: the invalid value was lost or repaired silently: %+v", stored, again.Issues())
+		if len(again.Issues()) != 0 {
+			t.Fatalf("stored %g: the file did not heal on write-back: %+v", stored, again.Issues())
 		}
 	}
 }
