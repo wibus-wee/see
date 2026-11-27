@@ -7,13 +7,26 @@
 // Concurrent sessions for one target are last-writer-wins: each writes
 // its own randomly named staging file, and the last rename published
 // decides the contents. Writes never interleave into a mixed file.
-// Callers that need conflict detection must check before writing, as
-// editor saves do against the disk text they read; POSIX renames cannot
-// carry conditions, so a concurrent external write in the window between
-// such a check and the publish is silently replaced. Crashed sessions
-// leave their staging files orphaned beside the target: dot-hidden, never
-// mistaken for the target, never cleaned or reused by a later session,
-// and safe to inspect or delete by hand.
+// Callers that need conflict detection publish through CommitIf, which
+// evaluates its condition immediately before the rename, or — when the
+// condition is absence — CommitIfAbsent, which the kernel makes truly
+// atomic. A condition checked before writing instead, as a caller reading
+// the file and comparing later would do, leaves the whole staging write
+// as the window in which a concurrent external write is silently
+// replaced; POSIX renames cannot carry conditions, so even CommitIf
+// leaves the rename-boundary sliver. Crashed sessions leave their staging
+// files orphaned beside the target: dot-hidden, never mistaken for the
+// target, never cleaned or reused by a later session, and safe to inspect
+// or delete by hand.
+//
+// One session may be shared across goroutines: Write, Commit and Abort
+// serialize, and the first Commit or Abort to arrive ends the session for
+// the rest. What they may not do is order themselves — which write lands
+// before the commit is the caller's synchronization problem, as with
+// os.File. Replacement keeps the replaced file's permission bits but not
+// metadata the rename cannot carry: hard links break, extended attributes
+// and ACLs do not survive, and setuid, setgid and sticky bits are
+// stripped, because only the permission bits are copied.
 package atomicfile
 
 import (
@@ -24,6 +37,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sync"
 )
 
 // ErrReadOnlyTarget rejects a write whose target exists without any write
@@ -35,15 +49,18 @@ var ErrReadOnlyTarget = errors.New("the file is read-only")
 // file, Commit syncs, closes and publishes it, Abort discards it. A
 // session ends at Commit or Abort: after either one, Write and Commit keep
 // failing, and only one of them can succeed. Nothing of the session ever
-// reaches the target without a successful Commit.
+// reaches the target without a successful Commit. The methods may be
+// called from different goroutines; they serialize, and a Write racing a
+// Commit either lands entirely before it or fails after it.
 type Session struct {
 	target   string // the publish destination after symlink resolution
 	staging  string // the sibling file being written
 	f        *os.File
-	open     bool // writes still accepted
-	staged   bool // staging still on disk to clean up
-	poisoned bool // a write failed; nothing partial may be published
-	finished bool // Commit or Abort ran
+	mu       sync.Mutex // serializes Write, Commit and Abort for sharable sessions
+	open     bool       // writes still accepted
+	staged   bool       // staging still on disk to clean up
+	poisoned bool       // a write failed; nothing partial may be published
+	finished bool       // Commit or Abort ran
 }
 
 // Begin starts overwriting path. The file is written anew: a symlink is
@@ -116,6 +133,8 @@ func begin(path string, perm os.FileMode) (*Session, error) {
 // it. After Commit or Abort, or after the first failure, every Write
 // fails: the session is poisoned rather than silently truncated.
 func (s *Session) Write(p []byte) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if !s.open {
 		return 0, fmt.Errorf("atomicfile: write on a finished or failed session for %s", s.target)
 	}
@@ -131,12 +150,60 @@ func (s *Session) Write(p []byte) (int, error) {
 // Only a nil error means the new bytes are the target's. A session whose
 // write failed is poisoned: its Commit fails instead of publishing partial
 // contents. Any failure reports it, removes the staging file and ends the
-// session; the target keeps its old bytes. Publish failures of a
-// same-directory rename are configuration failures (permissions, a
-// directory in the way), so retrying this session could not succeed: the
-// retry is a fresh session that writes everything again, and no staging
-// is retained for it.
+// session; the target keeps its old bytes.
+//
+// A failed publish never retains the staging file for an in-place retry.
+// The premise is not that rename failures are permanent — they are not:
+// NFS and FUSE renames fail with ESTALE from client cache races, signals
+// interrupt them with EINTR, soft mounts return EIO while a server is
+// down, and a full directory can refuse one more entry until space frees;
+// retrying the identical rename is the documented remedy for several of
+// these. Cleanup is the right trade-off for two other reasons. First,
+// after EINTR or a network filesystem error the rename may already have
+// happened server-side, so the publish state is uncertain, and a retry of
+// it can overwrite what the first attempt published: safe republishing is
+// only possible when the failure is known to predate the rename, which the
+// error alone cannot tell. Second, every caller regenerates the staged
+// bytes at no cost — they are editor buffers and serialized settings — so
+// retention would buy nothing even when a retry was safe. What a retry
+// needs is a fresh session that writes everything again. Callers whose
+// bytes cannot be regenerated must stream them again from their source
+// rather than rely on staging surviving a failed publish.
 func (s *Session) Commit() error {
+	return s.commit(nil, false)
+}
+
+// CommitIf is Commit that first requires cond: it runs immediately before
+// the rename, after the staging file is durable and closed, and its error
+// aborts the publish — the target keeps its old bytes and the staging file
+// is removed, exactly as a failed Commit. The condition is not part of
+// the atomic operation: POSIX rename carries no condition, so an external
+// write landing between cond and the rename is still overwritten. What
+// CommitIf shrinks is the window, from the entire staging write — which
+// grows with the file — to the rename boundary; callers must treat the
+// semantics as best-effort conflict detection, never as atomic compare-
+// and-publish. cond runs under the session lock, so it must be quick and
+// must not call the session.
+func (s *Session) CommitIf(cond func() error) error {
+	return s.commit(cond, false)
+}
+
+// CommitIfAbsent publishes like Commit but atomically refuses when the
+// target exists: the publish is a hard link of the staging file onto the
+// target's name, and the kernel fails it when anything already occupies
+// that name. The refusal error satisfies errors.Is(err, fs.ErrExist).
+// Unlike CommitIf this is a true atomic create-if-absent: no external
+// write can slip between check and publish, because the kernel performs
+// both in one step. It is the one conditional publish POSIX offers for
+// regular files. The target tested is the session's resolved one, as
+// Begin describes: an existing symlink is followed before the test.
+func (s *Session) CommitIfAbsent() error {
+	return s.commit(nil, true)
+}
+
+func (s *Session) commit(cond func() error, ifAbsent bool) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.finished {
 		return fmt.Errorf("atomicfile: commit on a finished session for %s", s.target)
 	}
@@ -151,8 +218,26 @@ func (s *Session) Commit() error {
 	if closeErr := s.f.Close(); err == nil {
 		err = closeErr
 	}
+	if err == nil && cond != nil {
+		// As late as the condition can run: the staging file is durable
+		// and closed, and nothing but the publish remains.
+		err = cond()
+	}
 	if err == nil {
-		err = os.Rename(s.staging, s.target)
+		if ifAbsent {
+			err = os.Link(s.staging, s.target)
+			if err == nil {
+				// Published: the staging name is now a second link to the
+				// target's contents, not scratch, so removing it is cleanup
+				// rather than destruction. Its failure leaves a dot-hidden
+				// twin — the documented orphan shape, never the target's name.
+				s.staged = false
+				_ = os.Remove(s.staging)
+				return nil
+			}
+		} else {
+			err = os.Rename(s.staging, s.target)
+		}
 	}
 	if err != nil {
 		s.cleanup()
@@ -168,6 +253,8 @@ func (s *Session) Commit() error {
 // write that already reported its error: cleanup failures do not replace
 // the result the caller was given.
 func (s *Session) Abort() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.finished {
 		return nil
 	}
@@ -198,14 +285,16 @@ func WriteFile(path string, write func(io.Writer) error) error {
 }
 
 // WriteFilePerm is WriteFile with the permissions a newly created target
-// gets, as BeginPerm describes.
+// gets, as BeginPerm describes. A panic in write still cleans up: the
+// deferred Abort closes the staging handle and removes the file before
+// the panic propagates, rather than leaking the descriptor until exit.
 func WriteFilePerm(path string, perm os.FileMode, write func(io.Writer) error) error {
 	s, err := BeginPerm(path, perm)
 	if err != nil {
 		return err
 	}
+	defer func() { _ = s.Abort() }()
 	if err := write(s); err != nil {
-		_ = s.Abort()
 		return err
 	}
 	return s.Commit()

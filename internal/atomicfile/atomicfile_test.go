@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -277,6 +278,95 @@ func TestConcurrentWritesNeverInterleave(t *testing.T) {
 	}
 	if stagingLeftovers(t, dir) {
 		t.Fatal("concurrent writes left staging behind")
+	}
+}
+
+// TestConcurrentReadersNeverSeeTornContent strengthens the interleaving
+// test by reading mid-stream: readers poll continuously while writers
+// race, and every read must be one complete version, never a mix. This
+// is the user-visible contract at any instant, not only after the dust
+// settles. (Regression coverage from the independent verification of the
+// write lifecycle.)
+func TestConcurrentReadersNeverSeeTornContent(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "file.txt")
+	versions := []string{
+		strings.Repeat("a", 40_000) + "\n",
+		strings.Repeat("b", 40_000) + "\n",
+		strings.Repeat("c", 40_000) + "\n",
+		strings.Repeat("d", 40_000) + "\n",
+	}
+	if err := os.WriteFile(path, []byte(versions[0]), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	valid := map[string]bool{}
+	for _, v := range versions {
+		valid[v] = true
+	}
+
+	stop := make(chan struct{})
+	var wg sync.WaitGroup
+	failures := make(chan string, 64)
+	for _, v := range versions {
+		wg.Add(1)
+		go func(text string) {
+			defer wg.Done()
+			for range 15 {
+				select {
+				case <-stop:
+					return
+				default:
+				}
+				if err := WriteFile(path, func(w io.Writer) error {
+					rest := text
+					for len(rest) > 0 {
+						n := min(len(rest), 1500)
+						if _, err := w.Write([]byte(rest[:n])); err != nil {
+							return err
+						}
+						rest = rest[n:]
+					}
+					return nil
+				}); err != nil {
+					failures <- "writer error: " + err.Error()
+					return
+				}
+			}
+		}(v)
+	}
+
+	reads := 0
+	readerDone := make(chan struct{})
+	go func() {
+		defer close(readerDone)
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			data, err := os.ReadFile(path)
+			if err != nil {
+				failures <- "reader error: " + err.Error()
+				return
+			}
+			reads++
+			if !valid[string(data)] {
+				failures <- "torn read: target held none of the complete versions"
+				return
+			}
+		}
+	}()
+
+	wg.Wait()
+	close(stop)
+	<-readerDone
+	close(failures)
+	for f := range failures {
+		t.Fatal(f)
+	}
+	if reads < 10 {
+		t.Fatalf("readers barely ran (reads=%d): overlap not demonstrated", reads)
 	}
 }
 
