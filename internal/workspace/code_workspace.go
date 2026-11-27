@@ -110,40 +110,11 @@ type CodeWorkspace struct {
 	Settings Settings
 }
 
-func workspaceFilePath(path string) (string, error) {
-	absolute, err := filepath.Abs(path)
-	if err != nil {
-		return "", err
-	}
-	return resolveWorkspaceFileLink(filepath.Clean(absolute)), nil
-}
-
-// resolveWorkspaceFileLink follows the workspace file's own symlink chain
-// without canonicalizing its parent directories. Workspace roots deliberately
-// keep symlink aliases, so resolving a parent alias here would make relative
-// members jump to a different spelling of the same directory.
-func resolveWorkspaceFileLink(path string) string {
-	current := filepath.Clean(path)
-	for range 255 {
-		target, err := os.Readlink(current)
-		if err != nil {
-			return current
-		}
-		if !filepath.IsAbs(target) {
-			target = filepath.Join(filepath.Dir(current), target)
-		}
-		next := filepath.Clean(target)
-		if next == current {
-			return current
-		}
-		current = next
-	}
-	return current
-}
-
-// ReadCodeWorkspace reads a VS Code .code-workspace file.
+// ReadCodeWorkspace reads a VS Code .code-workspace file. VS Code resolves
+// relative members against the opened URI lexically, so parent symlinks keep
+// their spelling here instead of being canonicalized away.
 func ReadCodeWorkspace(path string) (*CodeWorkspace, error) {
-	absolute, err := workspaceFilePath(path)
+	absolute, err := filepath.Abs(path)
 	if err != nil {
 		return nil, err
 	}
@@ -152,6 +123,21 @@ func ReadCodeWorkspace(path string) (*CodeWorkspace, error) {
 		return nil, err
 	}
 	return parseCodeWorkspace(data, absolute)
+}
+
+func workspaceFolderEntryPath(pathValue, uriValue string) (string, error) {
+	p := pathValue
+	if strings.TrimSpace(uriValue) != "" {
+		local, err := uri.ToPath(strings.TrimSpace(uriValue))
+		if err != nil {
+			return "", fmt.Errorf("remote workspace folder %q is not supported by See", uriValue)
+		}
+		p = local
+	}
+	if strings.TrimSpace(p) == "" {
+		return "", errors.New("workspace folder has no path")
+	}
+	return p, nil
 }
 
 func parseCodeWorkspace(data []byte, absolute string) (*CodeWorkspace, error) {
@@ -177,16 +163,9 @@ func parseCodeWorkspace(data []byte, absolute string) (*CodeWorkspace, error) {
 	folders := make([]Folder, 0, len(file.Folders))
 	seen := map[string]bool{}
 	for _, entry := range file.Folders {
-		p := entry.Path
-		if strings.TrimSpace(entry.URI) != "" {
-			local, err := uri.ToPath(strings.TrimSpace(entry.URI))
-			if err != nil {
-				return nil, fmt.Errorf("remote workspace folder %q is not supported by See", entry.URI)
-			}
-			p = local
-		}
-		if strings.TrimSpace(p) == "" {
-			return nil, errors.New("workspace folder has no path")
+		p, err := workspaceFolderEntryPath(entry.Path, entry.URI)
+		if err != nil {
+			return nil, err
 		}
 		if !filepath.IsAbs(p) {
 			p = filepath.Join(base, filepath.FromSlash(p))
@@ -219,7 +198,7 @@ func parseCodeWorkspace(data []byte, absolute string) (*CodeWorkspace, error) {
 
 // AddCodeWorkspaceFolder updates the on-disk workspace using its latest contents.
 func AddCodeWorkspaceFolder(path string, folder Folder) ([]Folder, error) {
-	absolute, err := workspaceFilePath(path)
+	absolute, err := filepath.Abs(path)
 	if err != nil {
 		return nil, err
 	}
@@ -409,8 +388,13 @@ func parseWorkspaceFolderElements(data []byte, start, end int, path string) (wor
 		var entry struct {
 			Path string `json:"path"`
 			Name string `json:"name"`
+			URI  string `json:"uri"`
 		}
-		if err := json.Unmarshal(clean, &entry); err != nil || strings.TrimSpace(entry.Path) == "" {
+		if err := json.Unmarshal(clean, &entry); err != nil {
+			return workspaceFolderArray{}, fmt.Errorf("parse workspace: invalid folder entry in %s", path)
+		}
+		entryPath, pathErr := workspaceFolderEntryPath(entry.Path, entry.URI)
+		if pathErr != nil {
 			return workspaceFolderArray{}, fmt.Errorf("parse workspace: invalid folder entry in %s", path)
 		}
 		next := skipWorkspaceTrivia(data, valueEnd)
@@ -421,7 +405,7 @@ func parseWorkspaceFolderElements(data []byte, start, end int, path string) (wor
 		} else if next >= end || data[next] != ']' {
 			return workspaceFolderArray{}, errors.New("parse workspace: expected comma or folders end")
 		}
-		array.elements = append(array.elements, workspaceFolderElement{start: i, end: valueEnd, comma: comma, path: entry.Path, name: entry.Name})
+		array.elements = append(array.elements, workspaceFolderElement{start: i, end: valueEnd, comma: comma, path: entryPath, name: entry.Name})
 		i = skipWorkspaceTrivia(data, next)
 	}
 	return array, nil
@@ -624,7 +608,9 @@ func spliceWorkspaceBytes(data []byte, start, end int, insert []byte) []byte {
 }
 
 func writeWorkspaceFile(path string, expected, data []byte) error {
-	path = resolveWorkspaceFileLink(path)
+	if resolved, err := filepath.EvalSymlinks(path); err == nil {
+		path = resolved
+	}
 	info, err := os.Stat(path)
 	if err != nil {
 		return err

@@ -442,6 +442,9 @@ func (a *App) ensureFiles() {
 				break
 			}
 			ig := ignored[root]
+			if !ignoreFiles.All && (ignoreFiles.Global || ignoreFiles.Parent) {
+				ig, _ = git.ReadIgnoredSources(ctx, root, !ignoreFiles.Global, !ignoreFiles.Parent)
+			}
 			nestedPrefixes := nested[root]
 			skipDir := func(rel string) bool {
 				return withinNestedWorkspaceRoot(rel, nestedPrefixes) || !ignoreFiles.All && ig != nil && ig.Dir(rel)

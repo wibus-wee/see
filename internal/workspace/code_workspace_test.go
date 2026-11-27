@@ -258,7 +258,7 @@ func TestReadCodeWorkspaceAcceptsLocalFileURIAndRejectsRemoteURI(t *testing.T) {
 	}
 }
 
-func TestWorkspaceMembershipEditUsesSymlinkTargetBase(t *testing.T) {
+func TestWorkspaceMembershipEditKeepsSymlinkMemberBase(t *testing.T) {
 	base := t.TempDir()
 	targetDir := filepath.Join(base, "target")
 	linkDir := filepath.Join(base, "links")
@@ -268,7 +268,7 @@ func TestWorkspaceMembershipEditUsesSymlinkTargetBase(t *testing.T) {
 		}
 	}
 	keep := filepath.Join(targetDir, "keep")
-	added := filepath.Join(targetDir, "added")
+	added := filepath.Join(linkDir, "added")
 	for _, dir := range []string{keep, added} {
 		if err := os.Mkdir(dir, 0o700); err != nil {
 			t.Fatal(err)
@@ -276,7 +276,7 @@ func TestWorkspaceMembershipEditUsesSymlinkTargetBase(t *testing.T) {
 	}
 	target := filepath.Join(targetDir, "team.code-workspace")
 	link := filepath.Join(linkDir, "team.code-workspace")
-	if err := os.WriteFile(target, []byte(`{"folders":[{"path":"keep"}]}`), 0o600); err != nil {
+	if err := os.WriteFile(target, []byte(`{"folders":[{"uri":"`+uri.FromPath(keep)+`"}]}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Symlink(target, link); err != nil {
@@ -289,16 +289,16 @@ func TestWorkspaceMembershipEditUsesSymlinkTargetBase(t *testing.T) {
 	if len(folders) != 2 || folders[1].Path != added {
 		t.Fatalf("folders = %+v", folders)
 	}
-	parsed, err := ReadCodeWorkspace(target)
+	parsed, err := ReadCodeWorkspace(link)
 	if err != nil || len(parsed.Folders) != 2 || parsed.Folders[1].Path != added {
-		t.Fatalf("target direct read = %+v, %v", parsed, err)
+		t.Fatalf("link read = %+v, %v", parsed, err)
 	}
 	data, err := os.ReadFile(target)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(string(data), `"path":"added"`) {
-		t.Fatalf("workspace entry is not target-relative: %s", data)
+		t.Fatalf("workspace entry is not link-relative: %s", data)
 	}
 }
 
@@ -334,5 +334,29 @@ func TestWorkspaceMembershipEditKeepsParentDirectoryAlias(t *testing.T) {
 	}
 	if !strings.Contains(string(data), `"path":"added"`) {
 		t.Fatalf("parent alias was canonicalized into member paths: %s", data)
+	}
+}
+
+func TestWorkspaceMembershipEditPreservesFileURIFolders(t *testing.T) {
+	base := t.TempDir()
+	uriRoot := filepath.Join(base, "uri-root")
+	plainRoot := filepath.Join(base, "plain-root")
+	for _, root := range []string{uriRoot, plainRoot} {
+		if err := os.Mkdir(root, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	path := filepath.Join(base, "uri-edit.code-workspace")
+	data := `{"folders":[{"uri":"` + uri.FromPath(uriRoot) + `"},{"path":"plain-root"}]}`
+	if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	folders, err := RemoveCodeWorkspaceFolder(path, plainRoot)
+	if err != nil || len(folders) != 1 || folders[0].Path != uriRoot {
+		t.Fatalf("remove beside URI folder = %+v, %v", folders, err)
+	}
+	folders, err = RemoveCodeWorkspaceFolder(path, uriRoot)
+	if err == nil || len(folders) != 0 {
+		t.Fatalf("removing the last URI folder = %+v, %v", folders, err)
 	}
 }
