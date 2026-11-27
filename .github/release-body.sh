@@ -2,7 +2,8 @@
 #
 # release-body.sh writes a GitHub release body to stdout: first the direct
 # download links for the release's installers, then the reviewed notes from
-# CHANGELOG.md. The release page lists installers and deltas together.
+# CHANGELOG.md, then external contributors found in the release range. The
+# release page lists installers and deltas together.
 #
 # Usage: release-body.sh <tag> <owner/repo> <notes-file>
 # Needs gh, authenticated with a token that can read the release.
@@ -11,11 +12,14 @@ set -euo pipefail
 tag="${1:?usage: release-body.sh <tag> <owner/repo>}"
 repo="${2:?usage: release-body.sh <tag> <owner/repo>}"
 notes="${3:?usage: release-body.sh <tag> <owner/repo> <notes-file>}"
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+root="$(cd -- "$script_dir/.." && pwd)"
 
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
 gh release view "$tag" --repo "$repo" --json assets --jq '.assets[].name' | sort >"$work/assets"
+python3 "$root/scripts/changelog/contributors.py" "$repo" "$tag" >"$work/contributors"
 
 base="https://github.com/$repo/releases/download/$tag"
 
@@ -76,4 +80,10 @@ row() {
 	echo '---'
 	echo
 	cat "$notes"
+	if [ -s "$work/contributors" ]; then
+		echo
+		echo '---'
+		echo
+		cat "$work/contributors"
+	fi
 }
