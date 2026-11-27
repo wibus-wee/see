@@ -161,8 +161,15 @@ func TestGitLogDateColumnFitsTheWidestStamp(t *testing.T) {
 	if !ok {
 		t.Fatalf("the date %q is not shown: %v", want, h.tt.Texts())
 	}
-	if stamp.W < 120 {
-		t.Fatalf("date stamp is %v wide: %+v", stamp.W, stamp)
+	// Compare against the font's own measurement: a fixed pixel width
+	// only fits the fonts of the machines that ran the test first.
+	var measured float32
+	measure := ui.NewTester(func(c *ui.Context) {
+		measured, _ = c.MeasureText(0, ui.Span{Text: want, Size: 11})
+	}, harnessWidth, harnessHeight)
+	measure.Frame()
+	if stamp.W+0.5 < measured {
+		t.Fatalf("date stamp is %v wide, want at least %0.1f: %+v", stamp.W, measured, stamp)
 	}
 }
 
