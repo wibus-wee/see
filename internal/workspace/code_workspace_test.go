@@ -26,7 +26,7 @@ func TestReadCodeWorkspaceResolvesRelativeAndAbsoluteRoots(t *testing.T) {
 			{"path": "` + filepath.ToSlash(backend) + `",},
 			// Comments after a trailing comma are valid JSONC.
 		],
-		"settings": {"files.exclude": {"**/dist": true}}
+		"settings": {"files.exclude": {"**/dist": true}, "files.watcherExclude": {"**/coverage": true}}
 	}`
 	if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
 		t.Fatal(err)
@@ -39,7 +39,7 @@ func TestReadCodeWorkspaceResolvesRelativeAndAbsoluteRoots(t *testing.T) {
 	if !reflect.DeepEqual(parsed.Folders, want) {
 		t.Fatalf("folders = %#v, want %#v", parsed.Folders, want)
 	}
-	if !parsed.Settings.FilesExclude["**/dist"] {
+	if !parsed.Settings.FilesExclude["**/dist"] || !parsed.Settings.FilesWatcherExclude["**/coverage"] {
 		t.Fatalf("settings were not read: %+v", parsed.Settings)
 	}
 }

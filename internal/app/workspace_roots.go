@@ -251,6 +251,7 @@ func normalizedWorkspaceSettings(settings workspace.Settings) workspace.Settings
 		return out
 	}
 	settings.FilesExclude = enabled(settings.FilesExclude)
+	settings.FilesWatcherExclude = enabled(settings.FilesWatcherExclude)
 	settings.SearchExclude = enabled(settings.SearchExclude)
 	return settings
 }
@@ -269,13 +270,20 @@ func sameExcludePatterns(a, b map[string]bool) bool {
 
 func (a *App) applyWorkspaceSettings(settings workspace.Settings) {
 	settings = normalizedWorkspaceSettings(settings)
+	watcherChanged := !sameExcludePatterns(a.workspaceSettings.FilesWatcherExclude, settings.FilesWatcherExclude)
 	if sameExcludePatterns(a.workspaceSettings.FilesExclude, settings.FilesExclude) &&
+		!watcherChanged &&
 		sameExcludePatterns(a.workspaceSettings.SearchExclude, settings.SearchExclude) &&
 		a.workspaceSettings.UseIgnoreFiles() == settings.UseIgnoreFiles() &&
 		a.workspaceSettings.ExplorerExcludeGitIgnore == settings.ExplorerExcludeGitIgnore {
 		return
 	}
 	a.workspaceSettings = settings
+	if watcherChanged {
+		for _, folder := range a.workspaceFolders {
+			a.startWatchFolder(folder.Path)
+		}
+	}
 	for dir := range a.dirs {
 		a.refreshDir(dir)
 	}

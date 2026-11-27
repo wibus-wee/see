@@ -20,6 +20,7 @@ type Folder struct {
 // Settings are the VS Code workspace settings See applies.
 type Settings struct {
 	FilesExclude             map[string]bool `json:"files.exclude"`
+	FilesWatcherExclude      map[string]bool `json:"files.watcherExclude"`
 	SearchExclude            map[string]bool `json:"search.exclude"`
 	SearchUseIgnoreFiles     *bool           `json:"search.useIgnoreFiles"`
 	ExplorerExcludeGitIgnore bool            `json:"explorer.excludeGitIgnore"`
