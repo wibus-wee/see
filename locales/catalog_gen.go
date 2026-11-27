@@ -8448,18 +8448,6 @@ func (msgs Messages) MsgUncommittedChanges() string {
 	return Catalog.Format(msgs.locale, "msgUncommittedChanges", nil)
 }
 
-// MsgThatCommitIsFurtherBackThanTheHistory says "That commit is further back than the history read so far."
-// in the language the app shows.
-func MsgThatCommitIsFurtherBackThanTheHistory() string {
-	return In(i18n.Locale()).MsgThatCommitIsFurtherBackThanTheHistory()
-}
-
-// MsgThatCommitIsFurtherBackThanTheHistory says "That commit is further back than the history read so far."
-// in the language of msgs.
-func (msgs Messages) MsgThatCommitIsFurtherBackThanTheHistory() string {
-	return Catalog.Format(msgs.locale, "msgThatCommitIsFurtherBackThanTheHistory", nil)
-}
-
 // MsgCouldNotLocateTheApplication says "Could not locate the application: "
 // in the language the app shows.
 func MsgCouldNotLocateTheApplication() string {
@@ -10224,16 +10212,6 @@ func MsgOpenCompareOn() string { return In(i18n.Locale()).MsgOpenCompareOn() }
 // in the language of msgs.
 func (msgs Messages) MsgOpenCompareOn() string {
 	return Catalog.Format(msgs.locale, "msgOpenCompareOn", nil)
-}
-
-// MsgOpenParent says "Open parent "
-// in the language the app shows.
-func MsgOpenParent() string { return In(i18n.Locale()).MsgOpenParent() }
-
-// MsgOpenParent says "Open parent "
-// in the language of msgs.
-func (msgs Messages) MsgOpenParent() string {
-	return Catalog.Format(msgs.locale, "msgOpenParent", nil)
 }
 
 // MsgCopyChangedFilePaths says "Copy Changed File Paths"
@@ -12318,26 +12296,6 @@ func GitCommittedBy(name string) string { return In(i18n.Locale()).GitCommittedB
 // in the language of msgs.
 func (msgs Messages) GitCommittedBy(name string) string {
 	return Catalog.Format(msgs.locale, "gitCommittedBy", map[string]any{"name": name})
-}
-
-// GitParent says "Parent"
-// in the language the app shows.
-func GitParent() string { return In(i18n.Locale()).GitParent() }
-
-// GitParent says "Parent"
-// in the language of msgs.
-func (msgs Messages) GitParent() string {
-	return Catalog.Format(msgs.locale, "gitParent", nil)
-}
-
-// GitParents says "Parents"
-// in the language the app shows.
-func GitParents() string { return In(i18n.Locale()).GitParents() }
-
-// GitParents says "Parents"
-// in the language of msgs.
-func (msgs Messages) GitParents() string {
-	return Catalog.Format(msgs.locale, "gitParents", nil)
 }
 
 // GitLogTitle says "Git Log"

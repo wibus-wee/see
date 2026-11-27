@@ -631,13 +631,3 @@ func (a *App) commitContent(c *ui.Context, g *group, v *commitView) {
 		})
 	})
 }
-
-// historyCommit is a commit of the history read, by hash.
-func (a *App) historyCommit(hash string) (git.Commit, bool) {
-	for _, cm := range a.git.history.commits {
-		if cm.Hash == hash {
-			return cm, true
-		}
-	}
-	return git.Commit{}, false
-}

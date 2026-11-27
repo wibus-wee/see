@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"see/internal/git"
-	"see/locales"
 )
 
 // A commit's tab shows its body, its co-authors, and the other trailers
@@ -58,8 +57,8 @@ func TestGitLogDetailShowsCoAuthors(t *testing.T) {
 	}
 }
 
-// Both details show the same hash, refs and parents, not one a short
-// hash and the other a full one without the rest.
+// Both details show the same hash, subject and refs, not one a short
+// hash and the other a full one without the rest. Parents stay out.
 func TestCommitDetailsShowTheSameFields(t *testing.T) {
 	root := historyRepo(t)
 	gitRun(t, root, "tag", "release")
@@ -73,11 +72,14 @@ func TestCommitDetailsShowTheSameFields(t *testing.T) {
 		v := h.a.focus.diffs[commitTab(cm.Hash)]
 		return v != nil && !v.commit.loading
 	})
-	want := []string{cm.Short, "Merge side", "release", locales.GitParents()}
+	want := []string{cm.Short, "Merge side", "release"}
 	for _, s := range want {
 		if !h.tt.HasText(s) {
 			t.Fatalf("the commit tab shows no %q: %q", s, h.tt.Texts())
 		}
+	}
+	if h.tt.HasText("Parents") {
+		t.Fatalf("the commit tab still shows parents: %q", h.tt.Texts())
 	}
 
 	h.a.openGitLog()
@@ -88,6 +90,9 @@ func TestCommitDetailsShowTheSameFields(t *testing.T) {
 		if !h.tt.HasText(s) {
 			t.Fatalf("the log detail shows no %q: %q", s, h.tt.Texts())
 		}
+	}
+	if h.tt.HasText("Parents") {
+		t.Fatalf("the log detail still shows parents: %q", h.tt.Texts())
 	}
 }
 

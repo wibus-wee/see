@@ -106,27 +106,6 @@ func (a *App) commitMeta(c *ui.Context, v *commitView) {
 		a.commitSignatureBadge(c, d.Signature)
 		a.commitRefs(c, cm)
 	})
-	if len(cm.Parents) > 0 {
-		ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
-			label := locales.GitParent()
-			if len(cm.Parents) > 1 {
-				label = locales.GitParents()
-			}
-			ui.Text(c, label).FontSize(12).TextColor(colors(c).Muted)
-			for _, parent := range cm.Parents {
-				short := parent[:min(len(parent), len(cm.Short))]
-				link := ui.ButtonBase(c.Key(parent)).Label(locales.MsgOpenParent() + short).Cursor(ui.CursorPointer)
-				link.Children(func() { ui.Text(c, short).FontSize(12).TextColor(c.Theme().Accent) })
-				if link.Clicked() {
-					if pc, ok := a.historyCommit(parent); ok {
-						a.openCommit(pc)
-					} else {
-						a.note(locales.MsgThatCommitIsFurtherBackThanTheHistory(), false)
-					}
-				}
-			}
-		})
-	}
 }
 
 func (a *App) commitOpenInTabButton(c *ui.Context, cm git.Commit) {
