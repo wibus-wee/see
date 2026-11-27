@@ -243,11 +243,24 @@ func (a *App) restoreSession() {
 				a.restoreDiffTab(g, *tab.Diff)
 				continue
 			}
-			key := tab.Path
-			if tab.PreviewTab {
-				key = markdownTab(tab.Path)
+			if !filepath.IsAbs(tab.Path) || (tab.PreviewTab && !isMarkdown(tab.Path)) {
+				continue
 			}
-			if !filepath.IsAbs(tab.Path) || g.has(key) || (tab.PreviewTab && !isMarkdown(tab.Path)) {
+			// A stored path is input like any other: the file may have been
+			// renamed between sessions, so its identity is the disk's spelling
+			// of it, as everywhere else — otherwise the restored document keys
+			// by the stale spelling and reopening the file by its true spelling
+			// splits it into two buffers of one file. Untitled drafts keep
+			// their synthetic path: nothing on disk spells it.
+			path := tab.Path
+			if !tab.Untitled {
+				path = workspace.DiskSpelling(tab.Path)
+			}
+			key := path
+			if tab.PreviewTab {
+				key = markdownTab(path)
+			}
+			if g.has(key) {
 				continue
 			}
 			if a.root == "" {
@@ -260,46 +273,60 @@ func (a *App) restoreSession() {
 				continue
 			}
 			pos := editor.Pos{Line: max(tab.Line, 0), Col: max(tab.Column, 0)}
-			if tab.Untitled && a.docs[tab.Path] == nil {
-				if !validDraftPath(tab.Path) {
+			if tab.Untitled && a.docs[path] == nil {
+				if !validDraftPath(path) {
 					continue
 				}
-				d := &doc{path: tab.Path, uri: uriOf(tab.Path), name: tab.Name, untitled: true, cache: &draftCache{}}
+				d := &doc{path: path, uri: uriOf(path), name: tab.Name, untitled: true, cache: &draftCache{}}
 				if d.name == "" {
 					d.name = "Untitled"
 				}
-				a.docs[tab.Path] = d
+				a.docs[path] = d
 				a.loadDoc(d)
 			}
 			if tab.PreviewTab {
-				d := a.docs[tab.Path]
+				d := a.docs[path]
 				if d == nil {
-					d = &doc{path: tab.Path, uri: uriOf(tab.Path), name: filepath.Base(tab.Path)}
-					a.docs[tab.Path] = d
+					d = &doc{path: path, uri: uriOf(path), name: filepath.Base(path)}
+					a.docs[path] = d
 					a.loadDoc(d)
 				}
 				g.addTab(key, len(g.order))
 				a.activateIn(g, key)
 				a.showLoaded(g, d)
 			} else {
-				a.openIn(g, tab.Path, goTo{pos: &pos, folds: tab.Folds})
+				a.openIn(g, path, goTo{pos: &pos, folds: tab.Folds})
 			}
 			if tab.MarkdownPreview {
 				if g.markdownPreview == nil {
 					g.markdownPreview = map[string]bool{}
 				}
-				g.markdownPreview[tab.Path] = true
+				g.markdownPreview[path] = true
 			}
 		}
+		// Active and Preview are stored spellings too: they match the
+		// restored tabs only under the same normalization. Diff tabs are
+		// keys, not paths, and stand as stored.
 		active := saved.Active
+		if active != "" && !isDiffTab(active) {
+			active = workspace.DiskSpelling(active)
+		}
 		if saved.ActivePreview {
 			active = markdownTab(active)
 		}
 		if g.has(active) {
 			g.active = active
 		}
-		if g.has(saved.Preview) {
-			g.preview = saved.Preview
+		preview := saved.Preview
+		if preview != "" && !isDiffTab(preview) {
+			if isMarkdownTab(preview) {
+				preview = markdownTab(workspace.DiskSpelling(tabPath(preview)))
+			} else {
+				preview = workspace.DiskSpelling(preview)
+			}
+		}
+		if g.has(preview) {
+			g.preview = preview
 		}
 		if g.active != "" {
 			g.mru = slices.DeleteFunc(g.mru, func(p string) bool { return p == g.active })
