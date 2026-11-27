@@ -234,6 +234,13 @@ func shortErr(err error) string {
 			s = "not installed"
 		case operr.Timeout:
 			s = "timed out"
+		case operr.Unexpected:
+			// The bare "unexpected (persistent)" a spent restart budget
+			// leaves says nothing: say what persistent means here, and
+			// that Retry restarts the server.
+			if failure.Status == operr.Persistent {
+				s = locales.MsgServerCrashedRepeatedly()
+			}
 		}
 	}
 	if len(s) > 80 {

@@ -1236,5 +1236,9 @@
   "betaVibrancyMaterialDescription": "Choose the experimental system material behind project windows.",
   "betaVibrancyMaterialSidebar": "Sidebar",
   "betaVibrancyMaterialWindow": "Window",
-  "betaVibrancyMaterialGlass": "Glass"
+  "betaVibrancyMaterialGlass": "Glass",
+  "denied": "Denied",
+  "msgDegraded": "Degraded · ",
+  "msgDegradedExplanation": "Document sync failed once; it recovers when the next change reaches the server.",
+  "msgServerCrashedRepeatedly": "crashed repeatedly — restart it with Retry"
 }

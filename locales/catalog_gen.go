@@ -12555,3 +12555,43 @@ func BetaVibrancyMaterialGlass() string { return In(i18n.Locale()).BetaVibrancyM
 func (msgs Messages) BetaVibrancyMaterialGlass() string {
 	return Catalog.Format(msgs.locale, "betaVibrancyMaterialGlass", nil)
 }
+
+// Denied says "Denied"
+// in the language the app shows.
+func Denied() string { return In(i18n.Locale()).Denied() }
+
+// Denied says "Denied"
+// in the language of msgs.
+func (msgs Messages) Denied() string {
+	return Catalog.Format(msgs.locale, "denied", nil)
+}
+
+// MsgDegraded says "Degraded · "
+// in the language the app shows.
+func MsgDegraded() string { return In(i18n.Locale()).MsgDegraded() }
+
+// MsgDegraded says "Degraded · "
+// in the language of msgs.
+func (msgs Messages) MsgDegraded() string {
+	return Catalog.Format(msgs.locale, "msgDegraded", nil)
+}
+
+// MsgDegradedExplanation says "Document sync failed once; it recovers when the next change reaches the server."
+// in the language the app shows.
+func MsgDegradedExplanation() string { return In(i18n.Locale()).MsgDegradedExplanation() }
+
+// MsgDegradedExplanation says "Document sync failed once; it recovers when the next change reaches the server."
+// in the language of msgs.
+func (msgs Messages) MsgDegradedExplanation() string {
+	return Catalog.Format(msgs.locale, "msgDegradedExplanation", nil)
+}
+
+// MsgServerCrashedRepeatedly says "crashed repeatedly — restart it with Retry"
+// in the language the app shows.
+func MsgServerCrashedRepeatedly() string { return In(i18n.Locale()).MsgServerCrashedRepeatedly() }
+
+// MsgServerCrashedRepeatedly says "crashed repeatedly — restart it with Retry"
+// in the language of msgs.
+func (msgs Messages) MsgServerCrashedRepeatedly() string {
+	return Catalog.Format(msgs.locale, "msgServerCrashedRepeatedly", nil)
+}

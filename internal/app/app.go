@@ -30,6 +30,7 @@ import (
 	"see/internal/lsp"
 	"see/internal/nav"
 	"see/internal/operr"
+	"see/internal/proc"
 	"see/internal/uri"
 	"see/internal/workspace"
 
@@ -2020,6 +2021,16 @@ func (a *App) lspFailure(err error) {
 	switch {
 	case errors.As(err, &failure) && failure.Kind == operr.Unsupported:
 		a.note(locales.Unavailable()+": "+failure.Operation, false)
+	case errors.As(err, &failure) && failure.Status == operr.Persistent:
+		// A spent restart budget surfaces as bare "unexpected (persistent)"
+		// in Error(); the user needs the server named and the way back.
+		name := ""
+		if m := a.serverFor(a.activePath()); m != nil {
+			name = m.Name()
+		}
+		a.note(strings.TrimSpace(name+" "+locales.MsgServerCrashedRepeatedly()), true)
+	case errors.Is(err, proc.ErrUntrustedExecutable):
+		a.note("Denied: executables inside this workspace are never run.", true)
 	case errors.Is(err, languages.ErrNoGopls):
 		a.note(locales.MsgGoToDefinitionNeedsGoplsInstallItWith(), true)
 	case errors.Is(err, languages.ErrNoCMakeServer):
