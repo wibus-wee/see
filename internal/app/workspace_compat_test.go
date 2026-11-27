@@ -56,6 +56,9 @@ func TestCodeWorkspaceTreeAndSearchKeepDuplicateFilesUnderTheirRoots(t *testing.
 	h.settle(func() bool {
 		return h.a.dirs[client] != nil && h.a.dirs[client].loaded && h.a.dirs[server] != nil && h.a.dirs[server].loaded
 	})
+	if !h.tt.HasText("comparison") || h.tt.HasText("client") {
+		t.Fatalf("workspace title does not use its workspace identity: %q", h.tt.Texts())
+	}
 
 	if h.a.workspaceID != workspaceFile || !slices.Equal(h.a.workspaceFolderPaths(), []string{client, server}) {
 		t.Fatalf("workspace identity/roots = %q/%v", h.a.workspaceID, h.a.workspaceFolderPaths())

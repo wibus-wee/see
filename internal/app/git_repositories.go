@@ -145,10 +145,7 @@ func (a *App) gitRepositories(c *ui.Context) {
 }
 
 func (a *App) gitRepositoryChoice(c *ui.Context, root string) {
-	label := filepath.Base(root)
-	if path := a.workspacePath(root); path != root {
-		label = path
-	}
+	label := a.gitRepositoryLabel(root)
 	selected := root == a.git.root
 	row := ui.ButtonBase(c.Key("repository:"+root)).FillWidth().Height(24).Shrink(0).AlignItems(ui.Center).
 		Label(label).Tooltip(root).Gap(5).Radius(5).Padding(0, 6).KeepFocus().OnClick(func() { a.selectGitRepository(root) })
@@ -164,6 +161,17 @@ func (a *App) gitRepositoryChoice(c *ui.Context, root string) {
 			symbolIcon(c, icGitCurrent, 13, c.Theme().Accent)
 		}
 	})
+}
+
+func (a *App) gitRepositoryLabel(root string) string {
+	if label := a.git.repositoryLabels[root]; label != "" {
+		return label
+	}
+	label := filepath.Base(root)
+	if path := a.workspacePath(root); path != "" && path != root && path != "." {
+		label = path
+	}
+	return label
 }
 
 func (a *App) selectGitRepository(root string) {

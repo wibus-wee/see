@@ -157,6 +157,13 @@ func TestChildGitRepositoryDiscoveryIsOptInAndSelectionStaysExplicit(t *testing.
 
 func TestCodeWorkspaceSelectsEachConfiguredRepositoryWithoutNestedDiscovery(t *testing.T) {
 	base := t.TempDir()
+	if runtime.GOOS != "windows" {
+		alias := filepath.Join(filepath.Dir(base), filepath.Base(base)+"-alias")
+		if err := os.Symlink(base, alias); err != nil {
+			t.Fatal(err)
+		}
+		base = alias
+	}
 	workspaceDir := filepath.Join(base, "comparison")
 	if err := os.MkdirAll(workspaceDir, 0o700); err != nil {
 		t.Fatal(err)

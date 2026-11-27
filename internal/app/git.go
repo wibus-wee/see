@@ -22,6 +22,7 @@ import (
 type gitState struct {
 	root, branch, message  string
 	repositories           []string
+	repositoryLabels       map[string]string
 	repositoriesLoaded     bool
 	repositoryScanLoading  bool
 	repositoryScanSeq      uint64
@@ -411,15 +412,51 @@ func (a *App) refreshGitDiscovery() {
 	a.git.resolvingPath = ""
 	if a.gitRepositorySelectionEnabled() {
 		a.git.repositoriesLoaded = false
+		a.git.repositoryLabels = nil
 		a.git.err = ""
 		a.scanGitRepositories()
 		return
 	}
 	a.git.repositories = nil
+	a.git.repositoryLabels = nil
 	a.git.repositoriesLoaded = false
 	a.git.workingCopies = nil
 	a.selectGitRepository("")
 	a.refreshGit()
+}
+
+type repositoryWorkspaceRoot struct {
+	path, realPath, label string
+}
+
+func repositoryLabelsForWorkspace(repositories []string, roots []repositoryWorkspaceRoot) map[string]string {
+	labels := make(map[string]string, len(repositories))
+	for _, repository := range repositories {
+		label := filepath.Base(repository)
+		longest := -1
+		for _, root := range roots {
+			for _, prefix := range []string{root.path, root.realPath} {
+				if prefix == "" {
+					continue
+				}
+				relative, err := filepath.Rel(prefix, repository)
+				if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(filepath.Separator)) || filepath.IsAbs(relative) || len(prefix) <= longest {
+					continue
+				}
+				switch {
+				case relative == ".":
+					label = root.label
+				case len(roots) > 1:
+					label = filepath.ToSlash(filepath.Join(root.label, relative))
+				default:
+					label = filepath.ToSlash(relative)
+				}
+				longest = len(prefix)
+			}
+		}
+		labels[repository] = label
+	}
+	return labels
 }
 
 func (a *App) scanGitRepositories() {
@@ -430,8 +467,18 @@ func (a *App) scanGitRepositories() {
 	a.git.repositoryScanLoading = true
 	seq, gen, scopeSeq, ctx, workspaceRoot := a.git.repositoryScanSeq, a.gen, a.git.scopeSeq, a.wsCtx, a.realRoot
 	roots := a.workspaceFolderPaths()
+	workspaceRoots := make([]repositoryWorkspaceRoot, 0, len(a.workspaceFolders))
+	for _, folder := range a.workspaceFolders {
+		workspaceRoots = append(workspaceRoots, repositoryWorkspaceRoot{path: folder.Path, label: a.workspaceFolderLabel(folder.Path)})
+	}
 	autoDiscover := a.cfg.GitAutoDiscover
 	go func() {
+		for i := range workspaceRoots {
+			workspaceRoots[i].realPath = workspaceRoots[i].path
+			if resolved, err := filepath.EvalSymlinks(workspaceRoots[i].path); err == nil {
+				workspaceRoots[i].realPath = resolved
+			}
+		}
 		var repositories []string
 		var err error
 		if len(roots) > 1 {
@@ -471,6 +518,7 @@ func (a *App) scanGitRepositories() {
 		} else {
 			repositories, err = git.DiscoverRepositories(ctx, workspaceRoot)
 		}
+		labels := repositoryLabelsForWorkspace(repositories, workspaceRoots)
 		a.post.Post(func() {
 			if a.gen != gen || a.git.repositoryScanSeq != seq || a.git.scopeSeq != scopeSeq || !a.gitRepositorySelectionEnabled() {
 				return
@@ -479,11 +527,13 @@ func (a *App) scanGitRepositories() {
 			a.git.repositoriesLoaded = true
 			if err != nil {
 				a.git.repositories = nil
+				a.git.repositoryLabels = nil
 				a.git.err = err.Error()
 				a.reconcileGitWorkingCopies()
 				return
 			}
 			a.git.repositories = repositories
+			a.git.repositoryLabels = labels
 			a.reconcileGitWorkingCopies()
 			a.git.err = ""
 			selected := a.git.root

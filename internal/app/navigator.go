@@ -170,10 +170,19 @@ func (a *App) projectNavigatorContent(c *ui.Context) {
 // treeHeading is the navigator's title, as a source list's section: small
 // and muted, with what the filter matches at its side, and the actions on
 // the tree at its end.
+const (
+	workspaceTreeFontSize  float32 = 12
+	workspaceTreeRowHeight float32 = 24
+)
+
 func (a *App) treeHeading(c *ui.Context) {
 	ui.Row(c).FillWidth().Padding(4, 12, 4, sidebarInset+6).Gap(6).AlignItems(ui.Center).Children(func() {
-		folderGlyph(c, true, 15)
-		ui.Text(c, a.workspaceTitle()).FontSize(12).Bold().SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
+		if a.isCodeWorkspace() || len(a.workspaceFolders) > 1 {
+			symbolIcon(c, icLayers, 15, colors(c).Muted)
+		} else {
+			folderGlyph(c, true, 15)
+		}
+		ui.Text(c, a.workspaceTitle()).FontSize(workspaceTreeFontSize).FontWeight(500).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 		if a.filtering() {
 			detail := fmt.Sprintf("%d of %d", a.filter.matches, len(a.quick.files))
 			if a.quick.files == nil {
@@ -416,7 +425,7 @@ func (a *App) treeItem(c *ui.Context, p string) {
 	// Extend the hit area into the outline's row padding and the
 	// sidebar's inset, to the sidebar's edge as AppKit's rows, keeping
 	// the disclosure arrow as a separate target.
-	row := ui.Row(c).Grow(1).AlignItems(ui.Center).Gap(6).Margin(-3, 0).MarginEnd(-(6 + sidebarInset)).Padding(3, 0)
+	row := ui.Row(c).Grow(1).Height(workspaceTreeRowHeight).AlignItems(ui.Center).Gap(6).Margin(-3, 0).MarginEnd(-(6 + sidebarInset)).Padding(3, 0)
 	row.Children(func() {
 		if a.renameEntry != nil && a.renameEntry.path == p {
 			treeIcon(c, name, e.Dir, a.tree.Open.Has(p), 16)
@@ -424,10 +433,10 @@ func (a *App) treeItem(c *ui.Context, p string) {
 			return
 		}
 		t := treeLabel(c, treeLabelOptions{
-			Name: name, Dir: e.Dir, Open: a.tree.Open.Has(p), IconSize: 16, Dim: dim,
+			Name: name, Dir: e.Dir, Open: a.tree.Open.Has(p), IconSize: 16, FontSize: workspaceTreeFontSize, Dim: dim,
 		})
 		if isWorkspaceRoot {
-			t.Bold()
+			t.FontWeight(500)
 		}
 		if e.Link {
 			t.Italic()

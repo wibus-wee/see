@@ -211,7 +211,11 @@ func (a *App) diffJumpBar(c *ui.Context, g *group) {
 	ui.Row(c).FillWidth().Height(26).Padding(0, 6).Gap(5).AlignItems(ui.Center).Background(colors(c).Editor).
 		BorderWidth(0, 0, 1, 0).BorderColor(colors(c).Separator).Children(func() {
 		folderGlyph(c, false, 13)
-		ui.Text(c, filepath.Base(a.root)).FontSize(12).TextColor(colors(c).Muted).SingleLine()
+		repositoryLabel := a.workspaceTitle()
+		if a.git.root != "" {
+			repositoryLabel = a.gitRepositoryLabel(a.git.root)
+		}
+		ui.Text(c, repositoryLabel).FontSize(12).TextColor(colors(c).Muted).SingleLine()
 		symbolIcon(c, icChevron, 9, colors(c).Dim)
 		label := v.label()
 		if v.search != nil {
