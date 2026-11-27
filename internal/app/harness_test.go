@@ -67,7 +67,7 @@ func TestMain(m *testing.M) {
 		}
 	}
 	shareNativesCache(realCache)
-	code := m.Run()
+	code := runTestsWithAppKitMainThread(m)
 	_ = os.RemoveAll(dir)
 	os.Exit(code)
 }

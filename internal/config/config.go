@@ -67,8 +67,9 @@ type Config struct {
 	HideSymbolHighlights bool                 `json:"hideSymbolHighlights,omitempty"`
 	HideMinimap          bool                 `json:"hideEditorMinimap,omitempty"`
 	HideReadingPin       bool                 `json:"hideReadingPositionPin,omitempty"`
-	DiffUnified          bool                 `json:"diffUnified,omitempty"` // diffs inline rather than side by side
-	DiffLayout           string               `json:"diffLayout,omitempty"`  // "auto", "unified", "split"
+	DiffUnified          bool                 `json:"diffUnified,omitempty"`       // diffs inline rather than side by side
+	DiffLayout           string               `json:"diffLayout,omitempty"`        // "auto", "unified", "split"
+	DiffShowUnchanged    bool                 `json:"diffShowUnchanged,omitempty"` // unchanged lines shown rather than folded
 	GitStatus            bool                 `json:"gitStatus,omitempty"`
 	GitAutoDiscover      bool                 `json:"gitAutoDiscover,omitempty"`
 	HiddenNames          string               `json:"hiddenNames"`
