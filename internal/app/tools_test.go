@@ -186,6 +186,63 @@ func TestInstallRipgrepRejectsAnotherChecksum(t *testing.T) {
 	}
 }
 
+func TestInstallRipgrepChecksumMismatchCannotReachTheToolDirectory(t *testing.T) {
+	// REQ-CHK-020/030 at the install entrypoint: whatever the server
+	// serves, a checksum mismatch means no ripgrep is staged into place
+	// — nothing executable appears, and nothing partial is left to be
+	// executed by mistake or to defeat the next attempt's freshness
+	// check.
+	asset, err := ripgrepAsset()
+	if err != nil {
+		t.Skip(err)
+	}
+	archive := ripgrepArchive(t, asset)
+
+	// First the mirror serves its true release, and the install lands.
+	serveRipgrepRelease(t, archive, checksum(archive)+"  ripgrep.tar.gz\n")
+	parent := t.TempDir()
+	dest := filepath.Join(parent, "ripgrep")
+	if err := installRipgrep(context.Background(), dest); err != nil {
+		t.Fatal(err)
+	}
+	installed, err := os.ReadFile(filepath.Join(dest, toolExe("rg")))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// A reinstall is refused before anything is even downloaded: the
+	// existing installation can never be harmed by what a mirror
+	// serves, because nothing it serves is ever applied over one. This
+	// is half of REQ-CHK-030 — corruption cannot displace a working
+	// tool because nothing ever writes over one.
+	serveRipgrepRelease(t, archive, checksum([]byte("something else"))+"  ripgrep.tar.gz\n")
+	if err := installRipgrep(context.Background(), dest); err == nil {
+		t.Fatal("reinstalling over an existing installation was not refused")
+	}
+	data, err := os.ReadFile(filepath.Join(dest, toolExe("rg")))
+	if err != nil {
+		t.Fatalf("the installed ripgrep vanished: %v", err)
+	}
+	if !bytes.Equal(data, installed) {
+		t.Fatal("the installed ripgrep was modified")
+	}
+
+	// On an empty directory, the corrupted mirror's archive never
+	// becomes executable either: no staging directory survives to be
+	// mistaken for an installation.
+	fresh := filepath.Join(parent, "fresh", "ripgrep")
+	if err := installRipgrep(context.Background(), fresh); err == nil {
+		t.Fatal("the corrupted mirror's archive was installed")
+	}
+	entries, err := os.ReadDir(filepath.Dir(fresh))
+	if err != nil && !os.IsNotExist(err) {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("the failed install left files: %v", entries)
+	}
+}
+
 func TestFindRipgrepUsesManagedCopy(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

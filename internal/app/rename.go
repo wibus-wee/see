@@ -213,7 +213,7 @@ func (a *App) renamed(old, dst string) {
 	}
 	a.bookmarks.Renamed(old, dst)
 	a.refreshDir(filepath.Dir(old))
-	a.quick.files = nil
+	a.quick.files, a.quick.err = nil, nil
 	a.filter.forQuery = ""
 	a.revealInTree(dst)
 	a.refreshGit()

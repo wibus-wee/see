@@ -734,7 +734,7 @@ func (a *App) discardGitChange(ch git.Change) {
 							a.reloadDoc(d)
 						}
 						a.refreshDir(filepath.Dir(path))
-						a.quick.files = nil
+						a.quick.files, a.quick.err = nil, nil
 						a.filter.forQuery = ""
 					}
 					a.refreshGit()
@@ -806,7 +806,7 @@ func (a *App) discardGitChanges(chs []git.Change) {
 						a.note(locales.MsgCouldNotDiscardGitChanges()+firstErr.Error(), true)
 					} else {
 						a.git.diffSeq++
-						a.quick.files = nil
+						a.quick.files, a.quick.err = nil, nil
 						a.filter.forQuery = ""
 					}
 					a.refreshGit()

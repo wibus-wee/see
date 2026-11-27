@@ -53,7 +53,7 @@ func (a *App) requestTrash(path string) {
 					a.removed(path)
 					a.refreshDir(filepath.Dir(path))
 					a.refreshGit()
-					a.quick.files = nil
+					a.quick.files, a.quick.err = nil, nil
 					a.filter.forQuery = ""
 				})
 			}()
@@ -168,7 +168,7 @@ func (a *App) submitEntry(q *entryPrompt) {
 				return
 			}
 			a.refreshDir(q.dir)
-			a.quick.files = nil
+			a.quick.files, a.quick.err = nil, nil
 			a.filter.forQuery = ""
 			a.tree.Open.Add(q.dir)
 			a.revealInTree(path)
@@ -211,7 +211,7 @@ func (a *App) copyInto(dir string, paths []string) {
 				return
 			}
 			a.refreshDir(dir)
-			a.quick.files = nil
+			a.quick.files, a.quick.err = nil, nil
 			a.filter.forQuery = ""
 			a.tree.Open.Add(dir)
 			if len(failures) > 0 {
