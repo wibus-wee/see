@@ -1,6 +1,7 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"runtime"
@@ -13,6 +14,7 @@ import (
 	"github.com/egoist/mygo/plugins/glass"
 	"github.com/egoist/mygo/ui"
 
+	"see/internal/proc"
 	"see/internal/search"
 	"see/internal/workspace"
 )
@@ -688,6 +690,8 @@ func (a *App) findSummary(c *ui.Context) {
 	switch {
 	case f.err != nil && f.err == search.ErrNoRipgrep:
 		msg, color = "Finding needs ripgrep: install it in Settings, or "+search.InstallHint()+".", colors(c).Err
+	case f.err != nil && errors.Is(f.err, proc.ErrUntrustedExecutable):
+		msg, color = "Finding is off: executables inside this workspace are never run. Install ripgrep in Settings, or "+search.InstallHint()+".", colors(c).Err
 	case f.err != nil:
 		msg, color = f.err.Error(), colors(c).Err
 	case f.running && f.stats.Matches == 0:

@@ -3,6 +3,8 @@ package langserver
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -375,4 +377,46 @@ func TestBlockedWriterFailsSessionOnQueueOverflow(t *testing.T) {
 		}
 	}
 	t.Fatal("blocked writer accepted unbounded notifications")
+}
+
+func TestBlockedWriterFailsSessionOnByteOverflow(t *testing.T) {
+	// Payload bytes, not notification count, must trip the queue bound:
+	// a few large documents behind a blocked writer cannot accumulate.
+	small := outboxMaxBytes
+	outboxMaxBytes = 1 << 20
+	defer func() { outboxMaxBytes = small }()
+
+	blocked, release := make(chan struct{}), make(chan struct{})
+	c := &fakeClient{changeStarted: blocked, releaseChange: release}
+	s := New(Options{Start: serving(c, new(int))})
+	defer s.StopWait(time.Second)
+	defer close(release)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	client, err := s.Get(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	buf := editor.NewBuffer("open")
+	const uri = "file:///a.go"
+	if err = s.Sync(ctx, client, uri, buf.Snapshot()); err != nil {
+		t.Fatal(err)
+	}
+	buf.Set("changed")
+	s.Changed(uri, buf.Snapshot())
+	select {
+	case <-blocked:
+	case <-ctx.Done():
+		t.Fatal(ctx.Err())
+	}
+	large := editor.NewBuffer(strings.Repeat("x", 256<<10))
+	for i := 0; i < 64; i++ {
+		if !s.Open(client, fmt.Sprintf("file:///big%d.go", i), large.Snapshot()) {
+			if state, err := s.Status(); state != Failed || !errors.Is(err, errQueueFull) {
+				t.Fatalf("byte overflow did not fail the session: %v %v", state, err)
+			}
+			return
+		}
+	}
+	t.Fatal("blocked writer accepted unbounded payload bytes")
 }
