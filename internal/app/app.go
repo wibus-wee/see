@@ -569,6 +569,7 @@ func (a *App) adoptCodeWorkspace(workspaceFile string) {
 	if a.cfg.Workspaces != nil {
 		if session, ok := a.cfg.Workspaces[old]; ok {
 			if _, exists := a.cfg.Workspaces[workspaceFile]; !exists {
+				session.Folders = nil
 				a.cfg.Workspaces[workspaceFile] = session
 			}
 		}

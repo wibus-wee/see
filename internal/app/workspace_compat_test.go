@@ -776,6 +776,9 @@ func TestPlainWorkspaceConversionPreservesRestoredMembership(t *testing.T) {
 			t.Fatalf("member %d = %q, want %q in %+v", i, parsed.Folders[i].Path, path, parsed.Folders)
 		}
 	}
+	if len(h.a.cfg.Workspaces[h.a.workspaceID].Folders) != 0 {
+		t.Fatalf("converted workspace kept See-private membership: %+v", h.a.cfg.Workspaces[h.a.workspaceID].Folders)
+	}
 }
 
 func TestWatchedFileEventsReachTheirLanguageServer(t *testing.T) {
