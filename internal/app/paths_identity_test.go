@@ -178,7 +178,15 @@ func TestEntryPromptConfinedToItsFolder(t *testing.T) {
 	outside := filepath.Dir(root)
 	marker := filepath.Join(outside, "evil-entry.txt")
 	_ = os.Remove(marker)
-	for _, name := range []string{"../evil-entry.txt", "sub/../../evil-entry.txt", "..", ".", "/etc/passwd"} {
+	for _, name := range []string{
+		"../evil-entry.txt", "sub/../../evil-entry.txt", "..", ".", "/etc/passwd",
+		// Windows-only in effect: Win32 strips the trailing space of `.. `
+		// at open time, which turns the component into a parent traversal.
+		// Refused on every platform, as the strip is the volume namespace's,
+		// not the client OS's (an SMB or exFAT volume shares it everywhere).
+		".. /evil-entry.txt",
+		"notes.",
+	} {
 		q := &entryPrompt{dir: h.a.root, name: name}
 		h.a.createEntry = q
 		h.a.submitEntry(q)

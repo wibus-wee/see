@@ -103,6 +103,15 @@ var ErrOutsideRoot = errors.New("path escapes the root")
 // ".." cancels what precedes it, like path.Clean but through the OS's
 // separators. The result is "" for the root itself, or a path
 // without a leading separator.
+//
+// Components ending in a dot or a space are refused outright, on every
+// platform: Win32 normalization strips them at open time, so a lexical
+// join cannot confine them — ".. " reads as ".." — and while POSIX
+// file systems carry such names literally, a volume shared with Windows
+// (SMB, exFAT) does not, which leaves no platform the app runs on where
+// joining them is safe. Almost nothing real is lost: trailing-dot and
+// trailing-space names are absent from ordinary projects and impossible
+// to create on Windows.
 func cleanRel(rel string) (string, bool) {
 	if strings.ContainsRune(rel, '\x00') {
 		return "", false
@@ -125,6 +134,9 @@ func cleanRel(rel string) (string, bool) {
 			}
 			parts = parts[:len(parts)-1]
 		default:
+			if strings.HasSuffix(part, ".") || strings.HasSuffix(part, " ") {
+				return "", false
+			}
 			parts = append(parts, part)
 		}
 	}
@@ -133,8 +145,9 @@ func cleanRel(rel string) (string, bool) {
 
 // JoinRel joins rel, a slash-separated path relative to root as tools
 // write one, to root, confined to it: input that is absolute,
-// volume-anchored, NUL-bearing or escapes through ".." is refused with
-// ErrOutsideRoot, never silently re-rooted. Input of "", "." or
+// volume-anchored, NUL-bearing, escapes through ".." or carries a
+// component the Win32 namespace would rewrite (trailing dot or space)
+// is refused with ErrOutsideRoot, never silently re-rooted. Input of "", "." or
 // separators alone is the root itself, as a file watch reports the
 // watched directory. The check is lexical, as OpenDAL documents of its
 // own confined join: a symlink inside the root can point outside it,
