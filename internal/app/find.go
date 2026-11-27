@@ -201,17 +201,11 @@ func (a *App) runFind() {
 		var searchErr error
 		for _, root := range roots {
 			rootOpts := opts
-			if len(excludeArgs) > 0 {
-				if rootOpts.Exclude != "" {
-					rootOpts.Exclude += ","
-				}
-				rootOpts.Exclude += strings.Join(excludeArgs, ",")
-			}
 			rootOpts.MaxMatches = limit - total.Matches
 			if rootOpts.MaxMatches <= 0 {
 				break
 			}
-			st, err := search.Run(ctx, rg, root, rootOpts, func(file search.File) {
+			st, err := search.Run(ctx, rg, root, rootOpts, append(slices.Clone(excludeArgs), nestedWorkspaceRootGlobs(root, roots)...), func(file search.File) {
 				if rel, relErr := filepath.Rel(root, file.Path); relErr == nil && workspace.Excluded(excludePatterns, filepath.ToSlash(rel)) {
 					return
 				}
@@ -428,6 +422,10 @@ func (a *App) ensureFiles() {
 	for root, ig := range a.ignored {
 		ignored[root] = ig
 	}
+	nested := make(map[string][]string, len(roots))
+	for _, root := range roots {
+		nested[root] = nestedWorkspaceRootPrefixes(root, roots)
+	}
 	go func() {
 		var files []string
 		seenFiles := map[string]bool{}
@@ -440,14 +438,14 @@ func (a *App) ensureFiles() {
 				break
 			}
 			ig := ignored[root]
-			var skipDir func(string) bool
-			if ig != nil {
-				skipDir = ig.Dir
+			nestedPrefixes := nested[root]
+			skipDir := func(rel string) bool {
+				return withinNestedWorkspaceRoot(rel, nestedPrefixes) || ig != nil && ig.Dir(rel)
 			}
 			var rootFiles []string
 			var rootTruncated bool
 			rootFiles, rootTruncated, err = search.ListFiles(ctx, rg, root, limit, skipDir, func(rel string) bool {
-				return workspace.Excluded(excludePatterns, rel)
+				return withinNestedWorkspaceRoot(rel, nestedPrefixes) || workspace.Excluded(excludePatterns, rel)
 			})
 			if err != nil {
 				break

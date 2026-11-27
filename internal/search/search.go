@@ -156,7 +156,7 @@ type rgText struct {
 // Run searches root with the ripgrep at rg, calling emit with each
 // file's matches as ripgrep finishes it, until ctx is canceled or
 // MaxMatches is reached.
-func Run(ctx context.Context, rg, root string, o Options, emit func(File)) (Stats, error) {
+func Run(ctx context.Context, rg, root string, o Options, extraExcludes []string, emit func(File)) (Stats, error) {
 	if o.Query == "" {
 		return Stats{}, errors.New("empty query")
 	}
@@ -166,7 +166,11 @@ func Run(ctx context.Context, rg, root string, o Options, emit func(File)) (Stat
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	cmd := proc.CommandContext(ctx, rg, Args(o)...)
+	args := Args(o)
+	for _, glob := range extraExcludes {
+		args = append(args, "-g", "!"+glob)
+	}
+	cmd := proc.CommandContext(ctx, rg, args...)
 	cmd.Dir = root
 	var stderr strings.Builder
 	cmd.Stderr = &stderr

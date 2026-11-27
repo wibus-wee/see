@@ -34,7 +34,7 @@ func ripgrep(t *testing.T) string {
 func run(t *testing.T, rg, root string, o Options) (map[string][]Match, Stats) {
 	t.Helper()
 	got := map[string][]Match{}
-	st, err := Run(context.Background(), rg, root, o, func(f File) {
+	st, err := Run(context.Background(), rg, root, o, nil, func(f File) {
 		rel, _ := filepath.Rel(root, f.Path)
 		got[filepath.ToSlash(rel)] = f.Matches
 	})
@@ -104,12 +104,12 @@ func TestRipgrep(t *testing.T) {
 	if !st.Truncated || st.Matches != 2 {
 		t.Errorf("limit: %+v", st)
 	}
-	if _, err := Run(context.Background(), rg, root, Options{Query: "[", Regexp: true}, func(File) {}); err == nil || !strings.Contains(err.Error(), "unclosed character class") {
+	if _, err := Run(context.Background(), rg, root, Options{Query: "[", Regexp: true}, nil, func(File) {}); err == nil || !strings.Contains(err.Error(), "unclosed character class") {
 		t.Errorf("missing regexp error reason: %v", err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if _, err := Run(ctx, rg, root, Options{Query: "hello"}, func(File) {}); !errors.Is(err, context.Canceled) {
+	if _, err := Run(ctx, rg, root, Options{Query: "hello"}, nil, func(File) {}); !errors.Is(err, context.Canceled) {
 		t.Errorf("canceled: %v", err)
 	}
 }

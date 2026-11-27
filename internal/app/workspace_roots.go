@@ -315,3 +315,35 @@ func ripgrepExcludeGlobs(patterns map[string]bool) []string {
 	slices.Sort(out)
 	return out
 }
+
+func nestedWorkspaceRootGlobs(root string, roots []string) []string {
+	var out []string
+	for _, other := range roots {
+		if other == root || !workspace.Within(root, other) {
+			continue
+		}
+		if rel, err := filepath.Rel(root, other); err == nil && rel != "." {
+			out = append(out, "/"+filepath.ToSlash(rel))
+		}
+	}
+	slices.Sort(out)
+	return out
+}
+
+func nestedWorkspaceRootPrefixes(root string, roots []string) []string {
+	globs := nestedWorkspaceRootGlobs(root, roots)
+	prefixes := make([]string, len(globs))
+	for i, glob := range globs {
+		prefixes[i] = strings.TrimPrefix(glob, "/")
+	}
+	return prefixes
+}
+
+func withinNestedWorkspaceRoot(rel string, prefixes []string) bool {
+	for _, prefix := range prefixes {
+		if rel == prefix || strings.HasPrefix(rel, prefix+"/") {
+			return true
+		}
+	}
+	return false
+}
