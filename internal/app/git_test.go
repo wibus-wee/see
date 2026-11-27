@@ -1293,6 +1293,32 @@ func TestDiffLayoutAndChanges(t *testing.T) {
 	if v.state.Layout != editor.DiffSplit {
 		t.Fatal("a diff starts side by side")
 	}
+	if v.state.ExpandUnchanged {
+		t.Fatal("a diff starts with unchanged lines folded")
+	}
+	if _, ok := h.tt.AccessByRole(ui.RoleGroup, "2 unmodified lines"); !ok {
+		t.Fatal("unchanged lines are not folded")
+	}
+	if err := h.tt.Click(locales.MsgShowUnchangedDiffLines()); err != nil {
+		t.Fatal(err)
+	}
+	h.tt.Frame()
+	if !v.state.ExpandUnchanged || !h.a.cfg.DiffShowUnchanged {
+		t.Fatal("the button did not show unchanged lines")
+	}
+	if _, ok := h.tt.AccessByRole(ui.RoleGroup, "2 unmodified lines"); ok {
+		t.Fatal("unchanged lines remain folded")
+	}
+	if err := h.tt.Click(locales.MsgShowUnchangedDiffLines()); err != nil {
+		t.Fatal(err)
+	}
+	h.tt.Frame()
+	if v.state.ExpandUnchanged || h.a.cfg.DiffShowUnchanged {
+		t.Fatal("the button did not fold unchanged lines again")
+	}
+	if _, ok := h.tt.AccessByRole(ui.RoleGroup, "2 unmodified lines"); !ok {
+		t.Fatal("unchanged lines did not fold again")
+	}
 	if err := h.tt.Click(locales.MsgInlineDiff()); err != nil {
 		t.Fatal(err)
 	}

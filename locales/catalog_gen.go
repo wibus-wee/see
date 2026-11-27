@@ -8578,6 +8578,16 @@ func (msgs Messages) MsgNewWindow() string {
 	return Catalog.Format(msgs.locale, "msgNewWindow", nil)
 }
 
+// MsgMergeAllWindows says "Merge All Windows"
+// in the language the app shows.
+func MsgMergeAllWindows() string { return In(i18n.Locale()).MsgMergeAllWindows() }
+
+// MsgMergeAllWindows says "Merge All Windows"
+// in the language of msgs.
+func (msgs Messages) MsgMergeAllWindows() string {
+	return Catalog.Format(msgs.locale, "msgMergeAllWindows", nil)
+}
+
 // MsgOpenFile says "Open File…"
 // in the language the app shows.
 func MsgOpenFile() string { return In(i18n.Locale()).MsgOpenFile() }
@@ -9920,6 +9930,38 @@ func MsgShowWhitespaceChanges() string { return In(i18n.Locale()).MsgShowWhitesp
 // in the language of msgs.
 func (msgs Messages) MsgShowWhitespaceChanges() string {
 	return Catalog.Format(msgs.locale, "msgShowWhitespaceChanges", nil)
+}
+
+// MsgShowUnchangedDiffLines says "Show Unchanged Lines"
+// in the language the app shows.
+func MsgShowUnchangedDiffLines() string { return In(i18n.Locale()).MsgShowUnchangedDiffLines() }
+
+// MsgShowUnchangedDiffLines says "Show Unchanged Lines"
+// in the language of msgs.
+func (msgs Messages) MsgShowUnchangedDiffLines() string {
+	return Catalog.Format(msgs.locale, "msgShowUnchangedDiffLines", nil)
+}
+
+// MsgCollapseUnchangedDiffLines says "Collapse Unchanged Lines"
+// in the language the app shows.
+func MsgCollapseUnchangedDiffLines() string { return In(i18n.Locale()).MsgCollapseUnchangedDiffLines() }
+
+// MsgCollapseUnchangedDiffLines says "Collapse Unchanged Lines"
+// in the language of msgs.
+func (msgs Messages) MsgCollapseUnchangedDiffLines() string {
+	return Catalog.Format(msgs.locale, "msgCollapseUnchangedDiffLines", nil)
+}
+
+// MsgShowUnchangedDiffLinesDescription says "Show unchanged lines in diffs instead of folding them into separators."
+// in the language the app shows.
+func MsgShowUnchangedDiffLinesDescription() string {
+	return In(i18n.Locale()).MsgShowUnchangedDiffLinesDescription()
+}
+
+// MsgShowUnchangedDiffLinesDescription says "Show unchanged lines in diffs instead of folding them into separators."
+// in the language of msgs.
+func (msgs Messages) MsgShowUnchangedDiffLinesDescription() string {
+	return Catalog.Format(msgs.locale, "msgShowUnchangedDiffLinesDescription", nil)
 }
 
 // MsgBinaryFileNotShown says "Binary file not shown"
