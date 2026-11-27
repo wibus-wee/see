@@ -167,8 +167,13 @@ func Run(ctx context.Context, rg, root string, o Options, extraExcludes []string
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	args := Args(o)
-	for _, glob := range extraExcludes {
-		args = append(args, "-g", "!"+glob)
+	if len(extraExcludes) > 0 {
+		tail := append([]string(nil), args[len(args)-4:]...)
+		args = args[:len(args)-4]
+		for _, glob := range extraExcludes {
+			args = append(args, "-g", "!"+glob)
+		}
+		args = append(args, tail...)
 	}
 	cmd := proc.CommandContext(ctx, rg, args...)
 	cmd.Dir = root

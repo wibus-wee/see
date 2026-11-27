@@ -135,7 +135,7 @@ func TestCodeWorkspaceTreeAndSearchKeepDuplicateFilesUnderTheirRoots(t *testing.
 	for _, root := range []string{client, server} {
 		contents, err := os.ReadFile(filepath.Join(root, "src", "main.go"))
 		if err != nil || !strings.Contains(string(contents), "shared replacement") {
-			t.Errorf("replacement did not update %q: contents=%q err=%v", root, contents, err)
+			t.Errorf("replacement did not update %q: contents=%q err=%v note=%q", root, contents, err, h.a.find.replaceNote)
 		}
 	}
 }
