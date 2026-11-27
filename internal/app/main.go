@@ -68,6 +68,8 @@ func Main() {
 		projects       []*projectWindow
 		active         *projectWindow
 		varSetMenu     func()
+		mergeAvailable bool
+		mergeKnown     bool
 		createProject  func(string)
 		openProject    func(string) *projectWindow
 		forceNewWindow bool // openProject skips reusing a window for its folder
@@ -132,6 +134,7 @@ func Main() {
 			Hidden:               true, // until a folder opens (windows.sync)
 			Content:              ui.View(func(c *ui.Context) { a.view(c); wins.sync(win) }),
 		})
+		configureProjectWindowTabs(win)
 		// The welcome window, as Xcode's: of its own, of one size, its
 		// buttons over its left side.
 		welcome = mygo.NewWindow(mygo.WindowOptions{
@@ -169,6 +172,16 @@ func Main() {
 				varSetMenu()
 			}
 		}
+		refreshMenuAfterWindowMove := func() {
+			if varSetMenu == nil {
+				return
+			}
+			canMerge := canMergeProjectWindows(projects, active)
+			if mergeKnown && mergeAvailable == canMerge {
+				return
+			}
+			varSetMenu()
+		}
 		revealOpenFile = func(requester *App, path string) bool {
 			path = workspace.DocPath("", "", path)
 			for _, p := range projects {
@@ -183,6 +196,7 @@ func Main() {
 			return false
 		}
 		win.OnFocus(func() { activate(primary); a.clearNotifyIncoming() })
+		win.OnMove(refreshMenuAfterWindowMove)
 		welcome.OnFocus(func() { activate(primary); a.clearNotifyIncoming() })
 		createProject = func(path string) { openProject(path) }
 		openProject = func(path string) *projectWindow {
@@ -219,6 +233,7 @@ func Main() {
 				TrafficLightPosition: &mygo.Point{X: 20, Y: (toolbarHeight - trafficLightSize) / 2},
 				Vibrancy:             mygo.VibrancySidebar, Content: ui.View(child.view),
 			})
+			configureProjectWindowTabs(childWin)
 			p := &projectWindow{app: child, win: childWin}
 			projects = append(projects, p)
 			child.post.set(platform.SchedulerFunc(func(fn func()) { childWin.Update(fn) }))
@@ -246,6 +261,7 @@ func Main() {
 				})
 			})
 			childWin.OnFocus(func() { activate(p); child.clearNotifyIncoming() })
+			childWin.OnMove(refreshMenuAfterWindowMove)
 			childWin.OnClose(func(e *mygo.CloseEvent) {
 				if quitting {
 					return
@@ -263,6 +279,8 @@ func Main() {
 						childWin.Destroy()
 						if active == p {
 							activate(primary)
+						} else if varSetMenu != nil {
+							varSetMenu()
 						}
 						if len(projects) == 1 && a.root == "" {
 							wins.reopen()
@@ -355,6 +373,9 @@ func Main() {
 				win.Update(func() {
 					if len(projects) <= 1 {
 						wins.closeMain()
+						if varSetMenu != nil {
+							varSetMenu()
+						}
 						return
 					}
 					var closePrimary func()
@@ -365,6 +386,9 @@ func Main() {
 						a.closeWorkspace()
 						a.showWelcome = false
 						wins.sync(nil)
+						if varSetMenu != nil {
+							varSetMenu()
+						}
 					}
 					closePrimary()
 				})
@@ -442,6 +466,8 @@ func Main() {
 			if current == nil {
 				current = primary
 			}
+			canMerge := canMergeProjectWindows(projects, active)
+			mergeAvailable, mergeKnown = canMerge, true
 			currentApp, currentWin := current.app, current.win
 			mygo.App.SetMenu(mygo.NewMenu([]*mygo.MenuItem{
 				appMenu(currentApp), currentApp.fileMenu(currentWin.Update), {Role: mygo.RoleEditMenu},
@@ -465,7 +491,12 @@ func Main() {
 						currentWin.Update(func() { currentApp.cfg.HideDocComments = !currentApp.cfg.HideDocComments; currentApp.settingsChanged() })
 					}},
 					{Label: locales.Folding(), Submenu: currentApp.foldingMenu(currentWin.Update)},
-				}...)}, {Role: mygo.RoleWindowMenu},
+				}...)}, projectWindowMenu(runtime.GOOS == "darwin", canMerge, func() {
+					mergeProjectWindows(projects, active)
+					if varSetMenu != nil {
+						varSetMenu()
+					}
+				}),
 			}))
 			mygo.App.Dock.SetMenu(mygo.NewMenu(dockRecentItems(cfg.Recent, func(path string) {
 				win.Update(func() {
