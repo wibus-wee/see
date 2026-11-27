@@ -1,6 +1,7 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"see/locales"
@@ -10,6 +11,8 @@ import (
 	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 
+	"see/internal/operr"
+	"see/internal/proc"
 	"see/internal/workspace"
 )
 
@@ -212,6 +215,22 @@ func highlightTextStyle(c *ui.Context, name string, hits []int, off int, fontSiz
 
 func shortErr(err error) string {
 	s := err.Error()
+	var failure *operr.Error
+	if errors.As(err, &failure) {
+		switch failure.Kind {
+		case operr.PermissionDenied:
+			// Workspace binaries are never run, so this is almost always
+			// a launch denied by the trust boundary rather than a file mode.
+			s = "denied: executables inside the workspace are never run"
+			if !errors.Is(err, proc.ErrUntrustedExecutable) {
+				s = "permission denied"
+			}
+		case operr.NotFound:
+			s = "not installed"
+		case operr.Timeout:
+			s = "timed out"
+		}
+	}
 	if len(s) > 80 {
 		s = s[:77] + "…"
 	}

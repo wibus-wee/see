@@ -110,6 +110,14 @@ func Start(ctx context.Context, command string, args []string, opts Options) (*C
 	configureServer(cmd)
 	cmd.Dir = opts.RootPath
 	cmd.Env = mergeEnv(os.Environ(), opts.Env)
+	// A server's stderr is untrusted content: it is redacted against the
+	// environment it runs with and bounded, then attached to exit errors
+	// instead of streamed to the log. Capturing it pipes through Wait, so
+	// WaitDelay bounds how long a descendant holding the pipe can stall
+	// reaping, as it does for the protocol pipes below.
+	stderr := proc.NewTail(stderrDigestMax, cmd.Env)
+	cmd.Stderr = stderr
+	cmd.WaitDelay = 500 * time.Millisecond
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, launchError(err)
@@ -121,7 +129,6 @@ func Start(ctx context.Context, command string, args []string, opts Options) (*C
 		return nil, launchError(err)
 	}
 	cmd.Stdout = childStdout
-	// A nil Stderr sends untrusted server output directly to the null device.
 	if err := cmd.Start(); err != nil {
 		_ = stdout.Close()
 		_ = childStdout.Close()
@@ -156,14 +163,33 @@ func Start(ctx context.Context, command string, args []string, opts Options) (*C
 		if err == nil {
 			err = c.conn.Err()
 		}
-		c.finish(err)
+		c.finish(withStderr(err, stderr))
 	}()
 	if err := c.initialize(ctx); err != nil {
 		c.Kill()
 		<-c.exited
+		if digest := stderr.String(); digest != "" {
+			err = fmt.Errorf("%w (server stderr: %s)", err, digest)
+		}
 		return nil, err
 	}
 	return c, nil
+}
+
+// stderrDigestMax bounds the server stderr kept for error reporting.
+const stderrDigestMax = 4 << 10
+
+// withStderr appends the redacted stderr tail to a non-nil exit error, so
+// a crash report shows why the server died. The digest is bounded and
+// secret-free, but it is still server-controlled text.
+func withStderr(err error, stderr *proc.Tail) error {
+	if err == nil {
+		return nil
+	}
+	if digest := stderr.String(); digest != "" {
+		return fmt.Errorf("%w (server stderr: %s)", err, digest)
+	}
+	return err
 }
 
 // mergeEnv returns base with each "NAME=value" of extra applied: a NAME

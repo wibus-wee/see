@@ -423,15 +423,16 @@ func (s *Server) queueSync(c Client, docURI string, snap editor.Snapshot) *syncR
 		s.docs[docURI] = d
 		path, _ := uri.ToPath(docURI)
 		language := s.o.Language(path)
+		text := snap.String()
 		if !s.enqueue(func() {
-			err := c.DidOpen(docURI, language, 1, snap.String())
+			err := c.DidOpen(docURI, language, 1, text)
 			s.completeSync(docURI, d, result, err)
 			if err == nil {
 				s.pull(c, docURI, snap)
 			} else {
 				s.logf("document open failed: %v", err)
 			}
-		}) {
+		}, len(text)) {
 			result.complete(errQueueFull)
 		}
 		return result
@@ -449,15 +450,16 @@ func (s *Server) queueSync(c Client, docURI string, snap editor.Snapshot) *syncR
 		d.snap = snap
 		d.pending = result
 		v := d.version
+		text := snap.String()
 		if !s.enqueue(func() {
-			err := c.DidChange(docURI, v, snap.String())
+			err := c.DidChange(docURI, v, text)
 			s.completeSync(docURI, d, result, err)
 			if err == nil {
 				s.pull(c, docURI, snap)
 			} else {
 				s.logf("document change failed: %v", err)
 			}
-		}) {
+		}, len(text)) {
 			result.complete(errQueueFull)
 		}
 		return result
@@ -535,11 +537,15 @@ func (s *Server) WatchedFiles(changes []lsp.FileChange) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if c, ok := s.client.(interface{ DidChangeWatchedFiles([]lsp.FileChange) error }); ok {
+		cost := 0
+		for _, change := range changes {
+			cost += len(change.URI)
+		}
 		s.enqueue(func() {
 			if err := c.DidChangeWatchedFiles(changes); err != nil {
 				s.logf("watched files: %v", err)
 			}
-		})
+		}, cost)
 	}
 }
 
@@ -566,7 +572,7 @@ func (s *Server) Close(docURI string) {
 			return
 		}
 		c := s.client
-		s.enqueue(func() { c.DidClose(docURI) })
+		s.enqueue(func() { c.DidClose(docURI) }, len(docURI))
 	}
 }
 
@@ -612,14 +618,29 @@ func (s *Server) beginStop(timeout time.Duration) {
 }
 
 // outbox runs functions one after the other on its goroutine, in the
-// order they were pushed; pushing never blocks.
+// order they were pushed; pushing never blocks. Queued notifications are
+// bounded by count and by the payload bytes they carry, since a blocked
+// server otherwise accumulates one full document copy per edit.
 type outbox struct {
-	mu   sync.Mutex
-	q    []func()
-	wake chan struct{}
-	quit chan struct{}
-	once sync.Once
+	mu    sync.Mutex
+	q     []outboxItem
+	bytes int
+	wake  chan struct{}
+	quit  chan struct{}
+	once  sync.Once
 }
+
+type outboxItem struct {
+	fn   func()
+	cost int
+}
+
+const outboxMaxCount = 256
+
+// outboxMaxBytes caps the payload of queued notifications. Document text
+// dominates it; a variable so tests can exercise the overflow with small
+// documents.
+var outboxMaxBytes = 64 << 20
 
 func newOutbox() *outbox {
 	return &outbox{wake: make(chan struct{}, 1), quit: make(chan struct{})}
@@ -629,11 +650,11 @@ var errQueueFull = errors.New("language server notification queue full")
 
 // A missing notification invalidates the session: restart with full snapshots
 // rather than continue against an unknown document version. Caller holds mu.
-func (s *Server) enqueue(fn func()) bool {
+func (s *Server) enqueue(fn func(), cost int) bool {
 	if s.client == nil {
 		return false
 	}
-	if s.out.push(fn) {
+	if s.out.push(fn, cost) {
 		return true
 	}
 	c := s.client
@@ -642,13 +663,14 @@ func (s *Server) enqueue(fn func()) bool {
 	return false
 }
 
-func (o *outbox) push(fn func()) bool {
+func (o *outbox) push(fn func(), cost int) bool {
 	o.mu.Lock()
-	if len(o.q) >= 256 {
+	if len(o.q) >= outboxMaxCount || o.bytes+cost > outboxMaxBytes {
 		o.mu.Unlock()
 		return false
 	}
-	o.q = append(o.q, fn)
+	o.q = append(o.q, outboxItem{fn, cost})
+	o.bytes += cost
 	o.mu.Unlock()
 	select {
 	case o.wake <- struct{}{}:
@@ -663,13 +685,16 @@ func (o *outbox) loop() {
 		q := o.q
 		o.q = nil
 		o.mu.Unlock()
-		for _, fn := range q {
+		for _, item := range q {
 			select {
 			case <-o.quit:
 				return
 			default:
 			}
-			fn()
+			item.fn()
+			o.mu.Lock()
+			o.bytes -= item.cost
+			o.mu.Unlock()
 		}
 		select {
 		case <-o.wake:

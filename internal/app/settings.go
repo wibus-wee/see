@@ -1,6 +1,7 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"slices"
@@ -16,6 +17,7 @@ import (
 	"github.com/egoist/mygo/ui/editor"
 
 	"see/internal/config"
+	"see/internal/proc"
 	"see/internal/search"
 	"see/internal/workspace"
 
@@ -1238,6 +1240,9 @@ func (a *App) searchPane(c *ui.Context) {
 	status := "Finds text in the workspace · " + tildePath(rg)
 	if err != nil {
 		status = "Not installed: Open Quickly lists files without it"
+		if errors.Is(err, proc.ErrUntrustedExecutable) {
+			status = "Denied: executables inside this workspace are never run"
+		}
 	}
 	r := toolRow{
 		id: "ripgrep", language: "ripgrep", server: "ripgrep",

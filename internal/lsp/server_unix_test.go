@@ -6,9 +6,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"see/internal/operr"
 )
 
 func TestStartStalledPipe(t *testing.T) {
@@ -102,5 +106,51 @@ func TestFinalReplyBeforeExit(t *testing.T) {
 	case <-c.Exited():
 	case <-ctx.Done():
 		t.Fatal("process not reaped")
+	}
+}
+
+func TestStartWithoutExecutePermission(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root ignores permission bits")
+	}
+	dir := t.TempDir()
+	exe := filepath.Join(dir, "server")
+	if err := os.WriteFile(exe, []byte("#!/bin/sh\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := Start(t.Context(), exe, nil, Options{})
+	var e *operr.Error
+	if !errors.As(err, &e) || e.Kind != operr.PermissionDenied || e.Status != operr.Permanent || e.Finality != operr.NoEffect {
+		t.Fatalf("start error: %#v", err)
+	}
+	if strings.Contains(err.Error(), exe) {
+		t.Fatalf("error leaked the executable path: %v", err)
+	}
+}
+
+func TestStartCrashReportsRedactedStderr(t *testing.T) {
+	t.Setenv("SEE_TEST_SECRET", "testsecretvalue123")
+	const response = `{"jsonrpc":"2.0","id":1,"result":{"capabilities":{}}}`
+	script := readInitialize + fmt.Sprintf(`printf 'Content-Length: %d\r\n\r\n%%s' '%s'; `, len(response), response) +
+		`echo "fatal: token testsecretvalue123 rejected" >&2; echo "check the config" >&2; exit 1`
+	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
+	defer cancel()
+	exitErr := make(chan error, 1)
+	c, err := Start(ctx, "/bin/sh", []string{"-c", script}, Options{OnExit: func(err error) { exitErr <- err }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Kill()
+	select {
+	case err := <-exitErr:
+		text := err.Error()
+		if strings.Contains(text, "testsecretvalue123") {
+			t.Fatalf("secret leaked into exit error: %v", err)
+		}
+		if !strings.Contains(text, "check the config") {
+			t.Fatalf("stderr digest missing from exit error: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatal("server exit not reported")
 	}
 }
