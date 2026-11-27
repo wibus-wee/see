@@ -11,6 +11,7 @@ import (
 
 	"see/internal/config"
 	"see/internal/lsp"
+	"see/internal/search"
 	"see/internal/uri"
 	"see/internal/workspace"
 	"see/locales"
@@ -286,6 +287,8 @@ func (a *App) applyWorkspaceSettings(settings workspace.Settings) {
 		sameExcludePatterns(a.workspaceSettings.SearchExclude, settings.SearchExclude) &&
 		sameStringMap(a.workspaceSettings.SearchExcludeWhen, settings.SearchExcludeWhen) &&
 		a.workspaceSettings.UseIgnoreFiles() == settings.UseIgnoreFiles() &&
+		a.workspaceSettings.UseGlobalIgnoreFiles() == settings.UseGlobalIgnoreFiles() &&
+		a.workspaceSettings.UseParentIgnoreFiles() == settings.UseParentIgnoreFiles() &&
 		a.workspaceSettings.ExplorerExcludeGitIgnore == settings.ExplorerExcludeGitIgnore {
 		return
 	}
@@ -344,6 +347,14 @@ func mergedSearchExcludes(settings workspace.Settings) workspaceExcludeRules {
 		}
 	}
 	return out
+}
+
+func ignoreFileOptions(settings workspace.Settings) search.IgnoreFileOptions {
+	return search.IgnoreFileOptions{
+		All:    !settings.UseIgnoreFiles(),
+		Global: settings.UseIgnoreFiles() && !settings.UseGlobalIgnoreFiles(),
+		Parent: settings.UseIgnoreFiles() && !settings.UseParentIgnoreFiles(),
+	}
 }
 
 func siblingChecker(root, rel string) func(string) bool {

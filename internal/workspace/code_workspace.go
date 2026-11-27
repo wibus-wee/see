@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+
+	"see/internal/uri"
 )
 
 // Folder is a root folder in a multi-root workspace.
@@ -19,25 +21,29 @@ type Folder struct {
 
 // Settings are the VS Code workspace settings See applies.
 type Settings struct {
-	FilesExclude             map[string]bool   `json:"files.exclude"`
-	FilesExcludeWhen         map[string]string `json:"-"`
-	FilesWatcherExclude      map[string]bool   `json:"files.watcherExclude"`
-	FilesWatcherExcludeWhen  map[string]string `json:"-"`
-	SearchExclude            map[string]bool   `json:"search.exclude"`
-	SearchExcludeWhen        map[string]string `json:"-"`
-	SearchUseIgnoreFiles     *bool             `json:"search.useIgnoreFiles"`
-	ExplorerExcludeGitIgnore bool              `json:"explorer.excludeGitIgnore"`
+	FilesExclude               map[string]bool   `json:"files.exclude"`
+	FilesExcludeWhen           map[string]string `json:"-"`
+	FilesWatcherExclude        map[string]bool   `json:"files.watcherExclude"`
+	FilesWatcherExcludeWhen    map[string]string `json:"-"`
+	SearchExclude              map[string]bool   `json:"search.exclude"`
+	SearchExcludeWhen          map[string]string `json:"-"`
+	SearchUseIgnoreFiles       *bool             `json:"search.useIgnoreFiles"`
+	SearchUseGlobalIgnoreFiles *bool             `json:"search.useGlobalIgnoreFiles"`
+	SearchUseParentIgnoreFiles *bool             `json:"search.useParentIgnoreFiles"`
+	ExplorerExcludeGitIgnore   bool              `json:"explorer.excludeGitIgnore"`
 }
 
 // UnmarshalJSON reads VS Code exclusion expressions. Their values are either
 // booleans or sibling clauses such as {"when": "$(basename).ts"}.
 func (s *Settings) UnmarshalJSON(data []byte) error {
 	var raw struct {
-		FilesExclude             json.RawMessage `json:"files.exclude"`
-		FilesWatcherExclude      json.RawMessage `json:"files.watcherExclude"`
-		SearchExclude            json.RawMessage `json:"search.exclude"`
-		SearchUseIgnoreFiles     *bool           `json:"search.useIgnoreFiles"`
-		ExplorerExcludeGitIgnore bool            `json:"explorer.excludeGitIgnore"`
+		FilesExclude               json.RawMessage `json:"files.exclude"`
+		FilesWatcherExclude        json.RawMessage `json:"files.watcherExclude"`
+		SearchExclude              json.RawMessage `json:"search.exclude"`
+		SearchUseIgnoreFiles       *bool           `json:"search.useIgnoreFiles"`
+		SearchUseGlobalIgnoreFiles *bool           `json:"search.useGlobalIgnoreFiles"`
+		SearchUseParentIgnoreFiles *bool           `json:"search.useParentIgnoreFiles"`
+		ExplorerExcludeGitIgnore   bool            `json:"explorer.excludeGitIgnore"`
 	}
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
@@ -46,6 +52,8 @@ func (s *Settings) UnmarshalJSON(data []byte) error {
 	s.FilesWatcherExclude, s.FilesWatcherExcludeWhen = parseExcludeExpression(raw.FilesWatcherExclude)
 	s.SearchExclude, s.SearchExcludeWhen = parseExcludeExpression(raw.SearchExclude)
 	s.SearchUseIgnoreFiles = raw.SearchUseIgnoreFiles
+	s.SearchUseGlobalIgnoreFiles = raw.SearchUseGlobalIgnoreFiles
+	s.SearchUseParentIgnoreFiles = raw.SearchUseParentIgnoreFiles
 	s.ExplorerExcludeGitIgnore = raw.ExplorerExcludeGitIgnore
 	return nil
 }
@@ -85,6 +93,15 @@ func parseExcludeExpression(data json.RawMessage) (map[string]bool, map[string]s
 // UseIgnoreFiles reports whether search follows ignore files; VS Code's default is true.
 func (s Settings) UseIgnoreFiles() bool {
 	return s.SearchUseIgnoreFiles == nil || *s.SearchUseIgnoreFiles
+}
+
+// UseGlobalIgnoreFiles and UseParentIgnoreFiles follow VS Code's defaults.
+func (s Settings) UseGlobalIgnoreFiles() bool {
+	return s.SearchUseGlobalIgnoreFiles == nil || *s.SearchUseGlobalIgnoreFiles
+}
+
+func (s Settings) UseParentIgnoreFiles() bool {
+	return s.SearchUseParentIgnoreFiles == nil || *s.SearchUseParentIgnoreFiles
 }
 
 // CodeWorkspace is a VS Code .code-workspace file.
@@ -129,13 +146,17 @@ func parseCodeWorkspace(data []byte, absolute string) (*CodeWorkspace, error) {
 	folders := make([]Folder, 0, len(file.Folders))
 	seen := map[string]bool{}
 	for _, entry := range file.Folders {
+		p := entry.Path
 		if strings.TrimSpace(entry.URI) != "" {
-			return nil, fmt.Errorf("remote workspace folder %q is not supported by See", entry.URI)
+			local, err := uri.ToPath(strings.TrimSpace(entry.URI))
+			if err != nil {
+				return nil, fmt.Errorf("remote workspace folder %q is not supported by See", entry.URI)
+			}
+			p = local
 		}
-		if strings.TrimSpace(entry.Path) == "" {
+		if strings.TrimSpace(p) == "" {
 			return nil, errors.New("workspace folder has no path")
 		}
-		p := entry.Path
 		if !filepath.IsAbs(p) {
 			p = filepath.Join(base, filepath.FromSlash(p))
 		}

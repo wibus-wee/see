@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"see/internal/uri"
 )
 
 func TestReadCodeWorkspaceResolvesRelativeAndAbsoluteRoots(t *testing.T) {
@@ -229,5 +231,29 @@ func TestWorkspaceMembershipEditWritesThroughSymlinkAndRemovesMissingFolder(t *t
 	}
 	if data, err := os.ReadFile(realFile); err != nil || strings.Contains(string(data), "missing") {
 		t.Fatalf("workspace target was not updated through symlink: %s err=%v", data, err)
+	}
+}
+
+func TestReadCodeWorkspaceAcceptsLocalFileURIAndRejectsRemoteURI(t *testing.T) {
+	base := t.TempDir()
+	root := filepath.Join(base, "project")
+	if err := os.Mkdir(root, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(base, "uri.code-workspace")
+	data := `{"folders":[{"uri":"` + uri.FromPath(root) + `"}]}`
+	if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	parsed, err := ReadCodeWorkspace(path)
+	if err != nil || len(parsed.Folders) != 1 || parsed.Folders[0].Path != root {
+		t.Fatalf("local file URI root = %+v, %v", parsed, err)
+	}
+	remote := `{"folders":[{"uri":"vscode-remote://ssh-remote+host/home/project"}]}`
+	if err := os.WriteFile(path, []byte(remote), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ReadCodeWorkspace(path); err == nil || !strings.Contains(err.Error(), "not supported") {
+		t.Fatalf("remote URI error = %v", err)
 	}
 }

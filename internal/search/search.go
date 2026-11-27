@@ -62,6 +62,10 @@ func InstallHint() string {
 }
 
 // Options say what to find and where.
+type IgnoreFileOptions struct {
+	All, Global, Parent bool
+}
+
 type Options struct {
 	Query         string
 	CaseSensitive bool
@@ -71,8 +75,8 @@ type Options struct {
 	Include, Exclude string
 	// MaxMatches stops the search once this many are found; 0 is 20000.
 	MaxMatches int
-	// NoIgnoreFiles disables .gitignore and friends, as rg's --no-ignore.
-	NoIgnoreFiles bool
+	// NoIgnoreFiles disables ignore files as rg's --no-ignore* flags.
+	NoIgnoreFiles IgnoreFileOptions
 }
 
 // Match is one place the query was found.
@@ -112,8 +116,15 @@ func ignoreGlobs() []string {
 // Args are ripgrep's arguments for o.
 func Args(o Options) []string {
 	args := []string{"--json", "--max-filesize", "4M", "--max-columns", "4000", "--no-config"}
-	if o.NoIgnoreFiles {
+	if o.NoIgnoreFiles.All {
 		args = append(args, "--no-ignore")
+	} else {
+		if o.NoIgnoreFiles.Global {
+			args = append(args, "--no-ignore-global")
+		}
+		if o.NoIgnoreFiles.Parent {
+			args = append(args, "--no-ignore-parent")
+		}
 	}
 	if !o.Regexp {
 		args = append(args, "--fixed-strings")
@@ -305,13 +316,20 @@ func preview(line int, text string, start, end int) Match {
 // leaves out what .gitignore does, else by walking the tree. It stops
 // at limit matching files. The walk also leaves out the folders skipDir names,
 // by their slash-separated path relative to root, when it is given.
-func ListFiles(ctx context.Context, rg, root string, limit int, skipDir func(rel string) bool, skipFile func(rel string) bool, noIgnoreFiles bool) ([]string, bool, error) {
+func ListFiles(ctx context.Context, rg, root string, limit int, skipDir func(rel string) bool, skipFile func(rel string) bool, noIgnoreFiles IgnoreFileOptions) ([]string, bool, error) {
 	if rg == "" {
 		return walkFiles(ctx, root, limit, skipDir, skipFile)
 	}
 	args := append([]string{"--files", "--no-config"}, ignoreGlobs()...)
-	if noIgnoreFiles {
+	if noIgnoreFiles.All {
 		args = append(args, "--no-ignore")
+	} else {
+		if noIgnoreFiles.Global {
+			args = append(args, "--no-ignore-global")
+		}
+		if noIgnoreFiles.Parent {
+			args = append(args, "--no-ignore-parent")
+		}
 	}
 	cmd := proc.CommandContext(ctx, rg, args...)
 	cmd.Dir = root
