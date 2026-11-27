@@ -119,6 +119,29 @@ func TestCodeWorkspaceTreeAndSearchKeepDuplicateFilesUnderTheirRoots(t *testing.
 	}
 }
 
+func TestSingleRootCodeWorkspaceKeepsItsProjectItemInTree(t *testing.T) {
+	base := t.TempDir()
+	root := filepath.Join(base, "Project")
+	src := filepath.Join(root, "src")
+	if err := os.MkdirAll(src, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	workspaceFile := filepath.Join(base, "comparison.code-workspace")
+	if err := os.WriteFile(workspaceFile, []byte(`{"folders":[{"name":"Project","path":"Project"}]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	h := newHarness(t, "")
+	h.a.openWorkspace(workspaceFile)
+	h.settle(func() bool { return h.a.dirs[root] != nil && h.a.dirs[root].loaded })
+	h.tt.Frame()
+	if !h.tt.HasText("Project") || !h.tt.HasText("src") {
+		t.Fatalf("single-root workspace item and child folder not shown: %q", h.tt.Texts())
+	}
+	if h.a.tree.Rows() != 2 || h.a.tree.Item(0) != root || h.a.tree.Depth(0) != 0 || h.a.tree.Item(1) != src || h.a.tree.Depth(1) != 1 {
+		t.Fatalf("single-root workspace tree rows = %d, text=%q", h.a.tree.Rows(), h.tt.Texts())
+	}
+}
+
 func TestRemovingCodeWorkspaceFolderOnlyRemovesItsReference(t *testing.T) {
 	if _, err := findRipgrep(""); err != nil {
 		t.Skip(err)
@@ -150,6 +173,10 @@ func TestRemovingCodeWorkspaceFolderOnlyRemovesItsReference(t *testing.T) {
 	}
 	if len(h.a.workspaceFolders) != 1 || h.a.root != server || h.a.withinWorkspace(filepath.Join(client, "src", "main.go")) {
 		t.Fatalf("folder reference was not removed: root=%q folders=%v", h.a.root, h.a.workspaceFolders)
+	}
+	h.tt.Frame()
+	if h.a.tree.Rows() == 0 || h.a.tree.Item(0) != server || h.a.tree.Depth(0) != 0 || !h.tt.HasText("Server") {
+		t.Fatalf("remaining workspace member is not shown as a root item: rows=%d text=%q", h.a.tree.Rows(), h.tt.Texts())
 	}
 	if h.a.lsp == nil || h.a.lsp == oldServer {
 		t.Fatal("removing the first root did not replace its root-scoped language server")

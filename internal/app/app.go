@@ -573,7 +573,7 @@ func (a *App) syncWorkspaceFolders(folders []workspace.Folder) {
 			a.loadDir(folder.Path)
 			a.startWatchFolder(folder.Path)
 		}
-		if len(folders) > 1 {
+		if len(folders) > 1 || a.isCodeWorkspace() {
 			a.tree.Open.Add(folder.Path)
 		}
 	}
@@ -656,7 +656,7 @@ func (a *App) openWorkspace(dir string) {
 	a.initLanguageServers()
 	for _, folder := range folders {
 		a.loadDir(folder.Path)
-		if len(folders) > 1 {
+		if len(folders) > 1 || a.isCodeWorkspace() {
 			a.tree.Open.Add(folder.Path)
 		}
 	}

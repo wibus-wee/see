@@ -140,7 +140,7 @@ func (a *App) projectNavigatorContent(c *ui.Context) {
 		default:
 			a.fileTree(c, a.filter.roots)
 		}
-	case len(a.workspaceFolders) > 1:
+	case len(a.workspaceFolders) > 1 || a.isCodeWorkspace():
 		a.fileTree(c, a.workspaceFolderPaths())
 	default:
 		rootDir := a.dirs[a.root]
@@ -406,7 +406,7 @@ func (a *App) treeItem(c *ui.Context, p string) {
 		return
 	}
 	e, _ := a.entry(p)
-	isWorkspaceRoot := len(a.workspaceFolders) > 1 && a.isWorkspaceFolder(p)
+	isWorkspaceRoot := (len(a.workspaceFolders) > 1 || a.isCodeWorkspace()) && a.isWorkspaceFolder(p)
 	if isWorkspaceRoot {
 		e = workspace.Entry{Name: a.workspaceFolderLabel(p), Path: p, Dir: true}
 	}
@@ -433,7 +433,7 @@ func (a *App) treeItem(c *ui.Context, p string) {
 			return
 		}
 		t := treeLabel(c, treeLabelOptions{
-			Name: name, Dir: e.Dir, Open: a.tree.Open.Has(p), IconSize: 16, FontSize: workspaceTreeFontSize, Dim: dim,
+			Name: name, Dir: e.Dir, Open: a.tree.Open.Has(p), IconSize: 16, FontSize: workspaceTreeFontSize, Dim: dim, Project: isWorkspaceRoot,
 		})
 		if isWorkspaceRoot {
 			t.FontWeight(500)
