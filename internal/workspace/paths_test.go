@@ -198,6 +198,16 @@ func TestFoldEqual(t *testing.T) {
 	if FoldEqual("a.go", "a.gox") {
 		t.Error("prefix")
 	}
+	// Full folding, as file systems apply it: Turkish İ folds to
+	// i + combining dot above, and uppercase ẞ to ss. Simple case
+	// mapping keeps these distinct, which would split one file's
+	// spellings into two documents on APFS and NTFS.
+	if !FoldEqual("İx.txt", "i̇x.txt") {
+		t.Error("full fold of U+0130")
+	}
+	if !FoldEqual("ẞx.txt", "ssx.txt") {
+		t.Error("full fold of U+1E9E")
+	}
 }
 
 // TestCaseInsensitiveWriteDetectsCollision probes what the platform's
