@@ -250,6 +250,13 @@ func (a *App) diffJumpBar(c *ui.Context, g *group) {
 			}
 		}
 		if v.state != nil {
+			unchangedTip := locales.MsgShowUnchangedDiffLines()
+			if a.cfg.DiffShowUnchanged {
+				unchangedTip = locales.MsgCollapseUnchangedDiffLines()
+			}
+			if glyphToggle(c.Key("diff-unchanged"), icDiffUnchanged, locales.MsgShowUnchangedDiffLines(), unchangedTip, a.cfg.DiffShowUnchanged, false).Clicked() {
+				a.toggleDiffUnchanged()
+			}
 			hunks := v.state.Hunks()
 			if v.partial != nil && len(hunks) > 0 {
 				i, _ := v.state.CurrentHunk()
