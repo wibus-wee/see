@@ -2,10 +2,17 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
+	"strings"
+	"time"
+
+	"see/internal/atomicfile"
 )
 
 // Config is what the app remembers between runs.
@@ -98,6 +105,18 @@ type Config struct {
 
 	path     string // where it is saved; "" saves nowhere, as in tests
 	onRecent func() // called when the recent folders change
+
+	// extras holds keys the struct does not decode: names this build does
+	// not know, and values that failed schema or validation. Save writes
+	// them back with their values unchanged, so a downgrade, an upgrade,
+	// or a repaired key never silently discards what the file said.
+	extras map[string]json.RawMessage
+	issues []Issue
+	// fileVersion is the schema version the file declared when it is
+	// newer than this build's: Save writes it back rather than silently
+	// downgrading the declaration of a file this build only partly
+	// understands.
+	fileVersion int
 }
 
 type SavedFindQuery struct {
@@ -157,24 +176,206 @@ func Path() string {
 	return filepath.Join(dir, "See", "config.json")
 }
 
-// Load reads the configuration at p; a missing or broken file gives the
-// defaults.
+// CurrentVersion is the configuration schema version this build writes.
+// Version 0 is the unversioned schema of builds before the field existed;
+// files without a "version" key are read as it. Version 1 adds nothing
+// but the contract: the versions differ only in what readers may assume.
+// No breaking change has ever needed a migration, so none exists; the
+// contract for a breaking change is that it raises CurrentVersion, writes
+// a backup before touching the file, and only then rewrites it.
+const CurrentVersion = 1
+
+// Load reads the configuration at p. It never fails: a missing file is
+// the first run, and every problem degrades exactly the part of the file
+// it affects — a broken syntax falls back to defaults, a mistyped key to
+// that key's default — and is reported through Issues. Keys and values
+// the load cannot use survive in memory and are written back on Save.
 func Load(p string) *Config {
 	c := &Config{path: p, HiddenNames: ".DS_Store"}
 	if p == "" {
 		return c
 	}
-	if data, err := os.ReadFile(p); err == nil {
-		if json.Unmarshal(data, c) != nil {
-			*c = Config{HiddenNames: ".DS_Store"}
+	data, err := os.ReadFile(p)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			c.issues = append(c.issues, Issue{Kind: IssueReadFailed, Detail: err.Error()})
 		}
-		c.path = p
+		return c
 	}
+	c.decode(data)
 	return c
 }
 
-// save writes the configuration, through a temporary file so a crash
-// never leaves half of it.
+// decode fills the configuration from the file's bytes.
+func (c *Config) decode(data []byte) {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil || raw == nil {
+		issue := Issue{Kind: IssueParseFailed, Detail: "the file is not a JSON object"}
+		if err != nil {
+			issue.Detail = err.Error()
+		}
+		// The original file stays exactly as it is; a backup copy
+		// preserves it before anything can write the configuration back
+		// over it.
+		backup := c.path + ".broken-" + time.Now().Format("20060102-150405.000000000")
+		if err := atomicfile.WriteFilePerm(backup, 0o600, func(w io.Writer) error {
+			_, err := w.Write(data)
+			return err
+		}); err == nil {
+			issue.Backup = backup
+		}
+		c.issues = append(c.issues, issue)
+		return
+	}
+
+	if v, ok := raw["version"]; ok {
+		delete(raw, "version")
+		var version int
+		if err := json.Unmarshal(v, &version); err != nil {
+			c.issues = append(c.issues, Issue{Kind: IssueSchemaInvalid, Key: "version", Detail: err.Error()})
+			c.preserve("version", v)
+		} else if version > CurrentVersion {
+			c.issues = append(c.issues, Issue{
+				Kind:   IssueVersionNewer,
+				Detail: fmt.Sprintf("version %d is newer than this build's %d", version, CurrentVersion),
+			})
+			// The file stays the newer schema's: a save writes its version
+			// back rather than silently downgrading the declaration.
+			c.fileVersion = version
+		}
+	}
+
+	type field struct {
+		key   string
+		value reflect.Value
+	}
+	fields := []field{}
+	v := reflect.ValueOf(c).Elem()
+	t := v.Type()
+	for i := range t.NumField() {
+		f := t.Field(i)
+		if !f.IsExported() {
+			continue
+		}
+		key, _, _ := strings.Cut(f.Tag.Get("json"), ",")
+		if key == "" || key == "-" {
+			continue
+		}
+		fields = append(fields, field{key, v.Field(i)})
+	}
+	for _, f := range fields {
+		r, ok := raw[f.key]
+		if !ok {
+			continue
+		}
+		delete(raw, f.key)
+		if err := json.Unmarshal(r, f.value.Addr().Interface()); err != nil {
+			c.issues = append(c.issues, Issue{Kind: IssueSchemaInvalid, Key: f.key, Detail: err.Error()})
+			c.preserve(f.key, r)
+			continue
+		}
+		if detail := validate(f.key, f.value); detail != "" {
+			f.value.SetZero()
+			c.issues = append(c.issues, Issue{Kind: IssueValidationFailed, Key: f.key, Detail: detail})
+			c.preserve(f.key, r)
+		}
+	}
+	for key, r := range raw {
+		c.preserve(key, r)
+	}
+}
+
+// preserve keeps a key's original value for write-back.
+func (c *Config) preserve(key string, r json.RawMessage) {
+	if c.extras == nil {
+		c.extras = map[string]json.RawMessage{}
+	}
+	c.extras[key] = r
+}
+
+// validate is the contractual domain of the keys that have one. Keys not
+// checked here — scroll sensitivities, font weights, free-form strings —
+// are read only through consumers that clamp or ignore what they do not
+// understand, which is the degradation their domain defines.
+func validate(key string, v reflect.Value) string {
+	in := func(values ...string) string {
+		if s := v.String(); s != "" && !slices.Contains(values, s) {
+			return fmt.Sprintf("%q is not one of %s", s, strings.Join(values, ", "))
+		}
+		return ""
+	}
+	inRange := func(lo, hi float64) string {
+		if n := v.Float(); n != 0 && (n < lo || n > hi) {
+			return fmt.Sprintf("%v is outside %v..%v", n, lo, hi)
+		}
+		return ""
+	}
+	inIntRange := func(lo, hi int64) string {
+		if n := v.Int(); n != 0 && (n < lo || n > hi) {
+			return fmt.Sprintf("%d is outside %d..%d", n, lo, hi)
+		}
+		return ""
+	}
+	switch key {
+	case "appearance":
+		return in("light", "dark")
+	case "inspectorTab":
+		return in("quickhelp", "file", "history")
+	case "terminalCursor":
+		return in("block", "bar", "underline")
+	case "terminalRightClick":
+		return in("menu", "paste", "copyOrPaste")
+	case "terminalClipboard":
+		return in("ask", "allow", "deny")
+	case "parameterHelp":
+		return in("trigger", "always", "off")
+	case "diffLayout":
+		return in("auto", "unified", "split")
+	case "editorFontSize":
+		return inRange(9, 28)
+	case "terminalFontSize":
+		return inRange(9, 28)
+	case "editorLineNumbers":
+		return inIntRange(0, 2)
+	case "editorPageGuideColumn":
+		return inIntRange(1, MaxPageGuideColumn)
+	case "panelPercent":
+		return inRange(15, 90)
+	case "terminalLineHeight":
+		return inRange(-20, 100)
+	}
+	return ""
+}
+
+// MarshalJSON writes the struct's fields, the schema version, and the
+// preserved keys the struct does not know. A struct field wins a collision
+// with a preserved key: once the key validates again, the typed value is
+// the configuration.
+func (c *Config) MarshalJSON() ([]byte, error) {
+	type exported Config
+	data, err := json.Marshal((*exported)(c))
+	if err != nil {
+		return nil, err
+	}
+	var merged map[string]json.RawMessage
+	if err := json.Unmarshal(data, &merged); err != nil {
+		return nil, err
+	}
+	version := CurrentVersion
+	if c.fileVersion > version {
+		version = c.fileVersion
+	}
+	if b, err := json.Marshal(version); err == nil {
+		merged["version"] = b
+	}
+	for key, r := range c.extras {
+		if _, taken := merged[key]; !taken {
+			merged[key] = r
+		}
+	}
+	return json.Marshal(merged)
+}
+
 // SetPath moves the configuration to p, which the next Save writes.
 func (c *Config) SetPath(p string) { c.path = p }
 
@@ -189,6 +390,10 @@ func (c *Config) SoftWrapForLanguage(language string) bool {
 	return c.SoftWrap
 }
 
+// Save writes the configuration through the atomic write contract: the
+// complete new file is staged beside the old one, made durable, and
+// published in one rename. A failure anywhere reports failure, leaves the
+// old configuration intact, and cleans its staging up.
 func (c *Config) Save() error {
 	if c.path == "" {
 		return nil
@@ -200,11 +405,10 @@ func (c *Config) Save() error {
 	if err := os.MkdirAll(filepath.Dir(c.path), 0o700); err != nil {
 		return err
 	}
-	tmp := c.path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o600); err != nil {
+	return atomicfile.WriteFilePerm(c.path, 0o600, func(w io.Writer) error {
+		_, err := w.Write(data)
 		return err
-	}
-	return os.Rename(tmp, c.path)
+	})
 }
 
 // IsTrusted reports whether root is a workspace the user trusts.

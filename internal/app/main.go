@@ -59,6 +59,15 @@ func Main() {
 	mygo.Use(native.Plugin)
 	cfg := config.Load(config.Path())
 	a := newApp(cfg)
+	if note := configLoadNote(cfg); note != "" {
+		// The configuration degraded: tell the user what was reset rather
+		// than silently starting over, and keep it in the log where the
+		// welcome screen's note cannot reach.
+		for _, issue := range cfg.Issues() {
+			log.Printf("see: settings: %s", issue.Error())
+		}
+		a.welcomeNote = note
+	}
 	a.hasWelcome = true
 	var (
 		win, welcome   *mygo.Window

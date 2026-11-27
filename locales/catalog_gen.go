@@ -12359,3 +12359,15 @@ func RelativeFullDate(weekday string, date string, time_ string) string {
 func (msgs Messages) RelativeFullDate(weekday string, date string, time_ string) string {
 	return Catalog.Format(msgs.locale, "relativeFullDate", map[string]any{"weekday": weekday, "date": date, "time": time_})
 }
+
+// MsgConfigLoadProblem says "Some settings could not be loaded and were reset to defaults: {detail}"
+// in the language the app shows.
+func MsgConfigLoadProblem(detail string) string {
+	return In(i18n.Locale()).MsgConfigLoadProblem(detail)
+}
+
+// MsgConfigLoadProblem says "Some settings could not be loaded and were reset to defaults: {detail}"
+// in the language of msgs.
+func (msgs Messages) MsgConfigLoadProblem(detail string) string {
+	return Catalog.Format(msgs.locale, "msgConfigLoadProblem", map[string]any{"detail": detail})
+}

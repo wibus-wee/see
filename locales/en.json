@@ -1216,5 +1216,6 @@
   "gitNoRepositoryFound": "No Git repository found, or Git is unavailable.",
   "gitStashedChanges": "Stashed changes.",
   "gitRemote": "Remote",
-  "relativeFullDate": "{weekday}, {date} at {time}"
+  "relativeFullDate": "{weekday}, {date} at {time}",
+  "msgConfigLoadProblem": "Some settings could not be loaded and were reset to defaults: {detail}"
 }

@@ -1217,5 +1217,6 @@
   "gitNoRepositoryFound": "未找到 Git 仓库，或 Git 不可用。",
   "gitStashedChanges": "已贮藏更改。",
   "gitRemote": "远程",
-  "relativeFullDate": "{date} {weekday} {time}"
+  "relativeFullDate": "{date} {weekday} {time}",
+  "msgConfigLoadProblem": "部分设置无法加载，已重置为默认值：{detail}"
 }
