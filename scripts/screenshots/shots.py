@@ -659,6 +659,13 @@ def run_scene(see, name, scene, out_dir, work, screencapture=False):
         env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     try:
         client = Automation(sock, timeout=30)
+        # The socket listens before the app's windows exist.
+        for _ in range(100):
+            if client.windows():
+                break
+            time.sleep(0.2)
+        else:
+            raise RuntimeError("the app showed no window")
         client.idle(timeout=10)
         time.sleep(1.5)  # the navigator, git status, and the panel catch up
         client.idle(timeout=10)
