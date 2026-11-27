@@ -325,7 +325,7 @@ func mergedSearchExcludes(settings workspace.Settings) workspaceExcludeRules {
 	}
 	for pattern := range keys {
 		enabled, useBool := settings.FilesExclude[pattern]
-		when, useClause := settings.FilesExcludeWhen[pattern], false
+		when, useClause := settings.FilesExcludeWhen[pattern]
 		if searchEnabled, ok := settings.SearchExclude[pattern]; ok {
 			enabled, useBool, useClause = searchEnabled, true, false
 		} else if searchWhen, ok := settings.SearchExcludeWhen[pattern]; ok {
