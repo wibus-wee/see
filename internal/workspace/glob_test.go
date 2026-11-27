@@ -27,3 +27,22 @@ func TestMatchVSCodeGlob(t *testing.T) {
 		}
 	}
 }
+
+func TestVSCodeExcludeExceptions(t *testing.T) {
+	patterns := map[string]bool{"node_modules": true, "!node_modules/@types": true, "!**/generated/keep.txt": true}
+	for rel, want := range map[string]bool{
+		"node_modules/pkg/index.js":    true,
+		"node_modules/@types/pkg.d.ts": false,
+		"src/generated/drop.txt":       true,
+		"src/generated/keep.txt":       false,
+		"nested/generated/keep.txt":    false,
+	} {
+		patterns["**/generated/**"] = true
+		if got := Excluded(patterns, rel); got != want {
+			t.Errorf("Excluded(%q) = %v, want %v", rel, got, want)
+		}
+	}
+	if !ExceptionMayReveal(patterns, "node_modules") || ExceptionMayReveal(map[string]bool{"!other/keep": true}, "node_modules") {
+		t.Error("exception directory reveal predicate")
+	}
+}

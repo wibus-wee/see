@@ -564,7 +564,7 @@ func TestCodeWorkspaceSettingsExcludeTreeSearchAndQuickOpen(t *testing.T) {
 		t.Fatal(err)
 	}
 	updated := strings.Replace(string(data), `"settings": {"files.exclude": {"**/build": true}}`, `"settings": {
-		"files.exclude": {"**/build": true, "**/generated": true},
+		"files.exclude": {"**/build": true, "**/generated": true, "!**/generated/one.ts": true},
 		"search.exclude": {"**/search-hidden.txt": true},
 	}`, 1)
 	if updated == string(data) {
@@ -578,16 +578,26 @@ func TestCodeWorkspaceSettingsExcludeTreeSearchAndQuickOpen(t *testing.T) {
 	h.a.openWorkspace(workspaceFile)
 	h.settle(func() bool { return h.a.dirs[client] != nil && h.a.dirs[client].loaded })
 	for _, path := range h.a.entryPaths(h.a.dirs[client]) {
-		if filepath.Base(path) == "build" || filepath.Base(path) == "generated" {
+		if filepath.Base(path) == "build" {
 			t.Fatalf("files.exclude entry is visible in the tree: %v", h.a.entryPaths(h.a.dirs[client]))
 		}
+	}
+	generated := filepath.Join(client, "generated")
+	if !slices.Contains(h.a.entryPaths(h.a.dirs[client]), generated) {
+		t.Fatal("the parent of an exclusion exception is not visible")
+	}
+	h.a.loadDir(generated)
+	h.settle(func() bool { return h.a.dirs[generated] != nil && h.a.dirs[generated].loaded })
+	generatedEntries := h.a.entryPaths(h.a.dirs[generated])
+	if !slices.Contains(generatedEntries, filepath.Join(generated, "one.ts")) || slices.Contains(generatedEntries, filepath.Join(generated, "two.js")) {
+		t.Fatalf("exception entries in tree: %v", generatedEntries)
 	}
 
 	h.a.ensureFiles()
 	h.settle(func() bool { return !h.a.quick.listing && h.a.quick.files != nil })
 	for _, path := range h.a.quick.files {
 		base := filepath.Base(path)
-		if strings.Contains(path, string(filepath.Separator)+"build"+string(filepath.Separator)) || base == "search-hidden.txt" || base == "one.ts" || base == "two.js" {
+		if strings.Contains(path, string(filepath.Separator)+"build"+string(filepath.Separator)) || base == "search-hidden.txt" || base == "two.js" {
 			t.Fatalf("excluded file is in quick open: %q", path)
 		}
 	}
@@ -597,12 +607,15 @@ func TestCodeWorkspaceSettingsExcludeTreeSearchAndQuickOpen(t *testing.T) {
 	h.settle(func() bool { return !h.a.find.running })
 	for _, result := range h.a.find.results {
 		base := filepath.Base(result.Path)
-		if strings.Contains(result.Path, string(filepath.Separator)+"build"+string(filepath.Separator)) || base == "search-hidden.txt" || base == "one.ts" || base == "two.js" {
+		if strings.Contains(result.Path, string(filepath.Separator)+"build"+string(filepath.Separator)) || base == "search-hidden.txt" || base == "two.js" {
 			t.Fatalf("excluded file is in search results: %q", result.Path)
 		}
 	}
-	if h.a.findFile(filepath.Join(client, "src", "visible.txt")) == nil || h.a.findFile(filepath.Join(client, "src", "search-visible.txt")) == nil {
+	if h.a.findFile(filepath.Join(client, "src", "visible.txt")) == nil || h.a.findFile(filepath.Join(client, "src", "search-visible.txt")) == nil || h.a.findFile(filepath.Join(client, "generated", "one.ts")) == nil {
 		t.Fatalf("visible files missing from search results: %+v", h.a.find.results)
+	}
+	if !slices.Contains(h.a.quick.files, filepath.Join(client, "generated", "one.ts")) {
+		t.Fatal("exclusion exception missing from quick open")
 	}
 }
 

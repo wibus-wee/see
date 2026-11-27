@@ -305,6 +305,11 @@ func ripgrepExcludeGlob(pattern string) string {
 func ripgrepExcludeGlobs(patterns map[string]bool) []string {
 	out := make([]string, 0, len(patterns))
 	for pattern := range patterns {
+		if strings.HasPrefix(pattern, "!") {
+			// ripgrep prunes excluded directories before See can apply VS Code's
+			// exception, so exception-bearing sets are filtered exactly after search.
+			return nil
+		}
 		out = append(out, ripgrepExcludeGlob(pattern))
 	}
 	slices.Sort(out)

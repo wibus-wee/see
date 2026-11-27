@@ -993,7 +993,13 @@ func (a *App) hiddenPath(p string) bool {
 			}
 		}
 	}
-	return workspace.Excluded(a.workspaceSettings.FilesExclude, filepath.ToSlash(rel))
+	if !workspace.Excluded(a.workspaceSettings.FilesExclude, filepath.ToSlash(rel)) {
+		return false
+	}
+	if info, err := os.Stat(p); err == nil && info.IsDir() && workspace.ExceptionMayReveal(a.workspaceSettings.FilesExclude, filepath.ToSlash(rel)) {
+		return false
+	}
+	return true
 }
 
 const (

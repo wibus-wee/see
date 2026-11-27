@@ -110,12 +110,21 @@ func expandGlobBraces(pattern string) []string {
 }
 
 // Excluded reports whether rel or one of its parent directories matches an
-// enabled pattern: excluding a folder excludes everything under it.
+// enabled exclusion. Enabled exceptions, written with a leading `!` as in VS
+// Code, win over exclusions regardless of their order.
 func Excluded(patterns map[string]bool, rel string) bool {
+	return exclusionMatch(patterns, rel, false) && !exclusionMatch(patterns, rel, true)
+}
+
+func exclusionMatch(patterns map[string]bool, rel string, exceptions bool) bool {
 	rel = strings.TrimPrefix(filepathToSlash(rel), "/")
 	for p := rel; p != "" && p != "."; {
 		for pattern, enabled := range patterns {
-			if enabled && MatchVSCodeGlob(pattern, p) {
+			if !enabled || strings.HasPrefix(pattern, "!") != exceptions {
+				continue
+			}
+			pattern = strings.TrimPrefix(pattern, "!")
+			if MatchVSCodeGlob(pattern, p) {
 				return true
 			}
 		}
@@ -124,6 +133,50 @@ func Excluded(patterns map[string]bool, rel string) bool {
 			break
 		}
 		p = p[:i]
+	}
+	return false
+}
+
+// ExceptionMayReveal reports whether an enabled exception may name rel or a
+// descendant of rel. Glob exceptions are deliberately conservative: their
+// literal prefix decides, and a pattern with no literal prefix may descend
+// anywhere.
+func ExceptionMayReveal(patterns map[string]bool, rel string) bool {
+	rel = strings.TrimPrefix(filepathToSlash(rel), "/")
+	for pattern, enabled := range patterns {
+		if !enabled || !strings.HasPrefix(pattern, "!") {
+			continue
+		}
+		target := strings.TrimPrefix(strings.TrimPrefix(filepathToSlash(strings.TrimPrefix(pattern, "!")), "/"), "/")
+		literalEnd := strings.IndexAny(target, "*?{}[]")
+		literal := target
+		if literalEnd >= 0 {
+			literal = target[:literalEnd]
+		}
+		literal = strings.TrimSuffix(literal, "/")
+		switch {
+		case target == rel || strings.HasPrefix(target, rel+"/"):
+			return true
+		case strings.HasPrefix(literal, rel+"/") || strings.HasPrefix(rel, literal+"/") || literal == rel:
+			return true
+		case literal == "":
+			segments := strings.Split(target, "/")
+			first := ""
+			for _, segment := range segments {
+				if segment != "**" && !strings.ContainsAny(segment, "*?{}[]") {
+					first = segment
+					break
+				}
+			}
+			if first == "" {
+				return true
+			}
+			base := rel
+			if i := strings.LastIndexByte(rel, '/'); i >= 0 {
+				base = rel[i+1:]
+			}
+			return base == first
+		}
 	}
 	return false
 }
