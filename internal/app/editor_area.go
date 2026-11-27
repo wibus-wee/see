@@ -78,7 +78,11 @@ func (a *App) layoutView(c *ui.Context, n *layout) {
 
 func (a *App) groupView(c *ui.Context, g *group) {
 	focused := g == a.focus && len(a.groups()) > 1
-	col := ui.Column(c.Key(g)).Grow(1).Fill().FocusRing(false).Bind(&g.focusHandle).Label(fmt.Sprintf("%s %d", locales.Catalog.Format(i18n.Locale(), "editorGroup", nil), g.id))
+	// The root is transparent where the window material shows; the editor stays opaque.
+	col := ui.Column(c.Key(g)).Grow(1).Fill().FocusRing(false).
+		Bind(&g.focusHandle).
+		Label(fmt.Sprintf("%s %d", locales.Catalog.Format(i18n.Locale(), "editorGroup", nil), g.id)).
+		Background(colors(c).Editor)
 	if !a.groupHasFocusTarget(g) {
 		col.Focusable()
 		if a.focusGroupTarget == g {
