@@ -169,9 +169,7 @@ func TestCodeWorkspaceSelectsEachConfiguredRepositoryWithoutNestedDiscovery(t *t
 	}
 	h := newHarness(t, workspaceFile)
 	h.a.refreshGitDiscovery()
-	h.settle(func() bool {
-		return h.a.dirs[backend] != nil && h.a.dirs[backend].loaded && h.a.git.repositoriesLoaded && len(h.a.git.repositories) == 2
-	})
+	h.settle(func() bool { return h.a.git.repositoriesLoaded && !h.a.git.repositoryScanLoading })
 	if h.a.cfg.GitAutoDiscover || !h.a.gitRepositorySelectionEnabled() || !slices.Equal(h.a.git.repositories, []string{backend, frontend}) {
 		t.Fatalf("configured repository selection = enabled %v, repositories %v, nested discovery %v", h.a.gitRepositorySelectionEnabled(), h.a.git.repositories, h.a.cfg.GitAutoDiscover)
 	}

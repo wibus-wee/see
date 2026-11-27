@@ -98,7 +98,7 @@ func TestCodeWorkspaceTreeAndSearchKeepDuplicateFilesUnderTheirRoots(t *testing.
 	}
 	h.a.navigator = navFind
 	h.tt.Frame()
-	for _, label := range []string{"Client/src", "Server/src"} {
+	for _, label := range []string{filepath.Join("Client", "src"), filepath.Join("Server", "src")} {
 		if !h.tt.HasText(label) {
 			t.Errorf("search results do not distinguish root %q: %q", label, h.tt.Texts())
 		}
