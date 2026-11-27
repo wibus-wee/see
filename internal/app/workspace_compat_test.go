@@ -308,6 +308,23 @@ func TestSearchExcludeFalseOverridesInheritedFilesExclude(t *testing.T) {
 	}
 }
 
+func TestCodeWorkspaceOpensWithMissingMemberSoItCanBeRepaired(t *testing.T) {
+	base := t.TempDir()
+	present := filepath.Join(base, "present")
+	if err := os.MkdirAll(present, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	workspaceFile := filepath.Join(base, "broken.code-workspace")
+	if err := os.WriteFile(workspaceFile, []byte(`{"folders":[{"path":"present"},{"path":"missing"}]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	h := newHarness(t, "")
+	h.a.openWorkspace(workspaceFile)
+	if len(h.a.workspaceFolders) != 2 || h.a.workspaceFolders[1].Path != filepath.Join(base, "missing") {
+		t.Fatalf("missing member blocked workspace repair: %+v notice=%q", h.a.workspaceFolders, h.a.notice)
+	}
+}
+
 func TestSingleRootCodeWorkspaceKeepsItsProjectItemInTree(t *testing.T) {
 	base := t.TempDir()
 	root := filepath.Join(base, "Project")

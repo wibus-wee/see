@@ -168,7 +168,7 @@ func exclusionMatch(patterns map[string]bool, clauses map[string]string, rel str
 func siblingClauseMatches(when, rel string, hasSibling func(string) bool) bool {
 	base := path.Base(rel)
 	name := strings.TrimSuffix(base, path.Ext(base))
-	return hasSibling(strings.ReplaceAll(when, "$(basename)", name))
+	return hasSibling(strings.Replace(when, "$(basename)", name, 1))
 }
 
 // ExceptionMayReveal reports whether an enabled exception may name rel or a
