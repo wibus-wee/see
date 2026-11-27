@@ -229,7 +229,7 @@ func (a *App) findUsagesPinned() {
 		return
 	}
 	rl.noServer = false
-	if !a.cfg.IsTrusted(a.root) {
+	if !a.workspaceTrusted() {
 		rl.pending = true
 		a.trustAsk = true
 		a.afterTrust = func() { a.findUsagesPinned() }
@@ -506,10 +506,10 @@ func (a *App) referencesView(c *ui.Context) {
 			ui.Text(c, locales.MsgNoLanguageServerIsConfiguredForThisFile()).FontSize(12).TextColor(pal.Muted).Padding(12)
 		case rl.pending && a.trustAsk:
 			ui.Column(c).FillWidth().Padding(8, 12).Gap(8).Children(func() {
-				ui.Text(c, locales.TrustBannerLead(filepath.Base(a.root))).FontSize(12).FontWeight(600).FillWidth()
+				ui.Text(c, a.trustBannerLead()).FontSize(12).FontWeight(600).FillWidth()
 				ui.Text(c, locales.TrustBannerDetail()).FontSize(11).TextColor(pal.Muted).FillWidth()
 				ui.Row(c).Gap(8).Children(func() {
-					ui.Button(c, locales.TrustFolder()).Label(locales.TrustFolder()).OnClick(a.trust)
+					ui.Button(c, a.trustButtonLabel()).Label(a.trustButtonLabel()).OnClick(a.trust)
 					ui.Button(c, locales.NotNow()).Label(locales.NotNow()).OnClick(func() {
 						a.trustAsk, a.afterTrust, rl.pending = false, nil, false
 						a.trustDismissed = true

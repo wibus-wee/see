@@ -422,23 +422,41 @@ func (a *App) scanGitRepositories() {
 	a.git.repositoryScanLoading = true
 	seq, gen, scopeSeq, ctx, workspaceRoot := a.git.repositoryScanSeq, a.gen, a.git.scopeSeq, a.wsCtx, a.realRoot
 	roots := a.workspaceFolderPaths()
+	autoDiscover := a.cfg.GitAutoDiscover
 	go func() {
 		var repositories []string
 		var err error
 		if len(roots) > 1 {
 			seen := map[string]bool{}
 			for _, folderRoot := range roots {
-				s, syncErr := git.Sync(ctx, folderRoot, false)
-				if syncErr != nil {
-					if ctx.Err() != nil {
-						err = ctx.Err()
-						break
+				if autoDiscover {
+					found, discoverErr := git.DiscoverRepositories(ctx, folderRoot)
+					if discoverErr != nil {
+						if ctx.Err() != nil {
+							err = ctx.Err()
+							break
+						}
+						continue
 					}
-					continue
-				}
-				if s.Root != "" && !seen[s.Root] {
-					seen[s.Root] = true
-					repositories = append(repositories, s.Root)
+					for _, root := range found {
+						if !seen[root] {
+							seen[root] = true
+							repositories = append(repositories, root)
+						}
+					}
+				} else {
+					s, syncErr := git.Sync(ctx, folderRoot, false)
+					if syncErr != nil {
+						if ctx.Err() != nil {
+							err = ctx.Err()
+							break
+						}
+						continue
+					}
+					if s.Root != "" && !seen[s.Root] {
+						seen[s.Root] = true
+						repositories = append(repositories, s.Root)
+					}
 				}
 			}
 			slices.Sort(repositories)

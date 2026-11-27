@@ -123,7 +123,7 @@ func (a *App) showHierarchyAt(g *group, types bool) {
 		a.note(locales.MsgNoLanguageServerIsConfiguredForThisFile(), false)
 		return
 	}
-	if !a.cfg.IsTrusted(a.root) {
+	if !a.workspaceTrusted() {
 		a.trustAsk = true
 		a.afterTrust = func() { a.showHierarchyAt(g, types) }
 		return

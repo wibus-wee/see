@@ -91,7 +91,7 @@ func (a *App) formatAt(g *group, d *doc, st *editor.State, selection bool) {
 		a.note(locales.MsgNoLanguageServerIsConfiguredForThisFile(), false)
 		return
 	}
-	if !a.cfg.IsTrusted(a.root) {
+	if !a.workspaceTrusted() {
 		a.trustAsk = true
 		a.afterTrust = func() { a.formatAt(g, d, st, selection) }
 		return

@@ -140,7 +140,7 @@ func (a *App) showProblems() {
 }
 
 func (a *App) startProjectDiagnostics() {
-	if a.root == "" || a.problems.started || !a.cfg.IsTrusted(a.root) {
+	if a.root == "" || a.problems.started || !a.workspaceTrusted() {
 		return
 	}
 	a.problems.started = true
@@ -233,10 +233,10 @@ func (a *App) problemsNavigator(c *ui.Context) {
 	})
 	rows := a.problemLocations()
 	if len(rows) == 0 {
-		if a.root != "" && !a.cfg.IsTrusted(a.root) {
+		if a.root != "" && !a.workspaceTrusted() {
 			ui.Column(c).Padding(6, 10).Gap(6).Children(func() {
-				ui.Text(c, problemText("problemsTrust")).TextColor(colors(c).Muted).FillWidth()
-				ui.Button(c, locales.TrustFolder()).OnClick(func() { a.trustAsk = true })
+				ui.Text(c, a.trustProblemDetail()).TextColor(colors(c).Muted).FillWidth()
+				ui.Button(c, a.trustButtonLabel()).OnClick(func() { a.trustAsk = true })
 			})
 			return
 		}

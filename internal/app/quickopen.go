@@ -63,8 +63,8 @@ func (a *App) quickOpenPanel(c *ui.Context) {
 					ui.Text(c, locales.Catalog.Format(i18n.Locale(), "goToLineHint", nil)).TextColor(colors(c).Muted).Padding(8)
 				case !commandMode && !lineMode && a.root == "":
 					ui.Text(c, locales.MsgOpenAFolderToSearchFilesOrType()).TextColor(colors(c).Muted).Padding(8)
-				case symbolMode && !a.cfg.IsTrusted(a.root):
-					if ui.Button(c, locales.MsgTrustFolderToSearchSymbols()).Clicked() {
+				case symbolMode && !a.workspaceTrusted():
+					if ui.Button(c, a.trustSearchButton()).Clicked() {
 						query := q.query
 						q.open = false
 						a.trustAsk = true
@@ -153,8 +153,13 @@ func (a *App) quickRow(c *ui.Context, i int) {
 		})
 		return
 	}
-	dir, name := filepath.Split(filepath.FromSlash(r.Path))
-	row := ui.Row(c).FillWidth().Padding(5, 8).Gap(10).AlignItems(ui.Center).Radius(8)
+	label := a.workspacePath(r.Path)
+	hits := r.Hits
+	if q.fileMatchLabels[r.Path] != label {
+		hits = nil
+	}
+	dir, name := filepath.Split(filepath.FromSlash(label))
+	row := ui.Row(c.Key(r.Path)).FillWidth().Padding(5, 8).Gap(10).AlignItems(ui.Center).Radius(8)
 	if i == q.sel {
 		row.Background(c.Theme().Accent)
 	}
@@ -162,13 +167,13 @@ func (a *App) quickRow(c *ui.Context, i int) {
 	row.Children(func() {
 		fileIcon(c, name, 22)
 		ui.Column(c).Grow(1).Shrink(1).Children(func() {
-			nameStart := len(r.Path) - len(name)
-			highlightText(c, name, r.Hits, nameStart, i == q.sel)
+			nameStart := len(label) - len(name)
+			highlightText(c, name, hits, nameStart, i == q.sel)
 			color := colors(c).Muted
 			if i == q.sel {
 				color = ui.RGBA(0xff, 0xff, 0xff, 0.75)
 			}
-			highlightTextStyle(c, strings.TrimSuffix(filepath.ToSlash(dir), "/"), r.Hits, 0, 11, color)
+			highlightTextStyle(c, strings.TrimSuffix(filepath.ToSlash(dir), "/"), hits, 0, 11, color)
 		})
 	})
 }

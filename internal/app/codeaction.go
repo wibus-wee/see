@@ -93,7 +93,7 @@ func (a *App) codeActionAtPoint(g *group, d *doc, st *editor.State, caret bool) 
 		a.note(locales.MsgNoLanguageServerIsConfiguredForThisFile(), false)
 		return
 	}
-	if !a.cfg.IsTrusted(a.root) {
+	if !a.workspaceTrusted() {
 		a.trustAsk = true
 		a.afterTrust = func() { a.codeActionAt(g, d, st) }
 		return

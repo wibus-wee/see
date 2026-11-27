@@ -187,7 +187,7 @@ func (a *App) requestCompletions(g *group, d *doc, st *editor.State, req editor.
 	cs.refreshAfterEdit = nil
 	a.resetCompletionMetadata(cs)
 	if g != a.focus || g.active != d.path || a.docs[d.path] != d || d.buf == nil ||
-		st == nil || st.Buffer != d.buf || st.ReadOnly || !a.cfg.IsTrusted(a.root) {
+		st == nil || st.Buffer != d.buf || st.ReadOnly || !a.workspaceTrusted() {
 		return
 	}
 	m := a.serverFor(d.path)
@@ -262,7 +262,7 @@ func (a *App) finishCompletions(groupID int, path string, d *doc, req editor.Com
 	valid := generation == a.gen && a.focus != nil && a.focus.id == groupID && a.focus.active == path &&
 		a.docs[path] == d && cs.doc == d && cs.path == path && st != nil && st == a.activeEditor() &&
 		d.buf != nil && d.buf.Version() == version && st.Buffer == d.buf && st.Cursor() == req.Offset &&
-		!st.ReadOnly && a.cfg.IsTrusted(a.root)
+		!st.ReadOnly && a.workspaceTrusted()
 	if valid {
 		sels := st.Selections()
 		valid = len(sels) == 1 && sels[0].Empty()
@@ -470,7 +470,7 @@ func (a *App) completionResolveCurrent(g *group, cs *completionState, st *editor
 		cs.manager == nil || a.serverFor(cs.path) != cs.manager ||
 		cs.resultSeq == 0 || cs.resultSeq != cs.seq ||
 		cs.resultGeneration != a.gen || cs.doc.buf.Version() != cs.resultVersion ||
-		st.Cursor() != cs.resultOffset || st.ReadOnly || !a.cfg.IsTrusted(a.root) {
+		st.Cursor() != cs.resultOffset || st.ReadOnly || !a.workspaceTrusted() {
 		return false
 	}
 	selections := st.Selections()

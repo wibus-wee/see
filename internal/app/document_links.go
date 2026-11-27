@@ -49,7 +49,7 @@ const docLinkSettle = 150 * time.Millisecond
 // it is, so no waiting applies.
 func (a *App) syncDocumentLinks(d *doc, st *editor.State) {
 	m := a.serverFor(d.path)
-	served := m != nil && a.cfg.IsTrusted(a.root)
+	served := m != nil && a.workspaceTrusted()
 	if !served && isMarkdown(d.path) && d.buf != nil && !d.lossy && !d.plain && st != nil {
 		// linkVersion cannot mark a parsed version: a fresh buffer's is 0,
 		// as linkVersion's. linkLocal says the parse ran for linkBufVer.
@@ -220,7 +220,7 @@ func (a *App) openDocLinkTarget(d *doc, l *docLink) {
 // not reach.
 func (a *App) resolveAndOpenDocLink(d *doc, l *docLink) {
 	m := a.serverFor(d.path)
-	if m == nil || !a.cfg.IsTrusted(a.root) {
+	if m == nil || !a.workspaceTrusted() {
 		return
 	}
 	gen, seq := a.gen, d.linkSeq

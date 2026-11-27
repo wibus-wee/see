@@ -19,6 +19,52 @@ func (a *App) workspaceFolderPaths() []string {
 	return paths
 }
 
+func (a *App) workspaceTrusted() bool {
+	if len(a.workspaceFolders) == 0 {
+		return a.root != "" && a.cfg.IsTrusted(a.root)
+	}
+	for _, folder := range a.workspaceFolders {
+		if !a.cfg.IsTrusted(folder.Path) {
+			return false
+		}
+	}
+	return true
+}
+
+func (a *App) trustBannerLead() string {
+	if len(a.workspaceFolders) > 1 {
+		return locales.Catalog.Format(i18n.Locale(), "trustWorkspaceLead", nil)
+	}
+	return locales.TrustBannerLead(filepath.Base(a.root))
+}
+
+func (a *App) trustButtonLabel() string {
+	if len(a.workspaceFolders) > 1 {
+		return locales.Catalog.Format(i18n.Locale(), "trustWorkspace", nil)
+	}
+	return locales.TrustFolder()
+}
+
+func (a *App) trustProblemDetail() string {
+	if len(a.workspaceFolders) > 1 {
+		return locales.Catalog.Format(i18n.Locale(), "problemsTrustWorkspace", nil)
+	}
+	return locales.Catalog.Format(i18n.Locale(), "problemsTrust", nil)
+}
+
+func (a *App) trustSearchButton() string {
+	if len(a.workspaceFolders) > 1 {
+		return locales.Catalog.Format(i18n.Locale(), "trustWorkspaceSearchSymbols", nil)
+	}
+	return locales.MsgTrustFolderToSearchSymbols()
+}
+
+func workspaceUpdateFailed(path string, err error) string {
+	return locales.Catalog.Format(i18n.Locale(), "workspaceUpdateFailed", map[string]any{
+		"path": path, "reason": err.Error(),
+	})
+}
+
 func (a *App) gitRepositorySelectionEnabled() bool {
 	return len(a.workspaceFolders) > 1 || a.cfg.GitAutoDiscover
 }

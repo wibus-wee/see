@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -27,7 +28,11 @@ func ReadCodeWorkspace(path string) ([]Folder, error) {
 	if err != nil {
 		return nil, err
 	}
-	data, err = cleanWorkspaceJSON(data)
+	return parseCodeWorkspace(data, absolute)
+}
+
+func parseCodeWorkspace(data []byte, absolute string) ([]Folder, error) {
+	data, err := cleanWorkspaceJSON(data)
 	if err != nil {
 		return nil, fmt.Errorf("parse workspace: %w", err)
 	}
@@ -72,6 +77,442 @@ func ReadCodeWorkspace(path string) ([]Folder, error) {
 		return nil, errors.New("workspace has no folders")
 	}
 	return folders, nil
+}
+
+// AddCodeWorkspaceFolder updates the on-disk workspace using its latest contents.
+func AddCodeWorkspaceFolder(path string, folder Folder) ([]Folder, error) {
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return nil, err
+	}
+	data, err := os.ReadFile(absolute)
+	if err != nil {
+		return nil, err
+	}
+	folders, err := parseCodeWorkspace(data, absolute)
+	if err != nil {
+		return nil, err
+	}
+	root, err := CanonicalRoot(folder.Path)
+	if err != nil {
+		return nil, err
+	}
+	for _, existing := range folders {
+		if existing.Path == root {
+			return folders, nil
+		}
+	}
+	array, err := parseWorkspaceFolderArray(data, absolute)
+	if err != nil {
+		return nil, err
+	}
+	entryPath, err := filepath.Rel(filepath.Dir(absolute), root)
+	if err != nil || filepath.IsAbs(entryPath) {
+		entryPath = root
+	}
+	entry := struct {
+		Path string `json:"path"`
+		Name string `json:"name,omitempty"`
+	}{Path: filepath.ToSlash(entryPath), Name: strings.TrimSpace(folder.Name)}
+	if entry.Name == "" {
+		entry.Name = filepath.Base(root)
+	}
+	encoded, err := json.Marshal(entry)
+	if err != nil {
+		return nil, err
+	}
+	updated, err := insertWorkspaceFolder(data, array, encoded)
+	if err != nil {
+		return nil, err
+	}
+	updatedFolders, err := parseCodeWorkspace(updated, absolute)
+	if err != nil {
+		return nil, err
+	}
+	if err := writeWorkspaceFile(absolute, data, updated); err != nil {
+		return nil, err
+	}
+	return updatedFolders, nil
+}
+
+// RemoveCodeWorkspaceFolder removes only references to root from the file.
+func RemoveCodeWorkspaceFolder(path, root string) ([]Folder, error) {
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return nil, err
+	}
+	data, err := os.ReadFile(absolute)
+	if err != nil {
+		return nil, err
+	}
+	folders, err := parseCodeWorkspace(data, absolute)
+	if err != nil {
+		return nil, err
+	}
+	target, err := CanonicalRoot(root)
+	if err != nil {
+		return nil, err
+	}
+	array, err := parseWorkspaceFolderArray(data, absolute)
+	if err != nil {
+		return nil, err
+	}
+	remove := make([]bool, len(array.elements))
+	removed := 0
+	for i, entry := range array.elements {
+		entryRoot := entry.path
+		if !filepath.IsAbs(entryRoot) {
+			entryRoot = filepath.Join(filepath.Dir(absolute), filepath.FromSlash(entryRoot))
+		}
+		canonical, canonicalErr := CanonicalRoot(entryRoot)
+		if canonicalErr == nil && canonical == target {
+			remove[i] = true
+			removed++
+		}
+	}
+	if removed == 0 {
+		return folders, nil
+	}
+	if len(array.elements)-removed == 0 {
+		return nil, errors.New("workspace must contain at least one folder")
+	}
+	updated := removeWorkspaceFolders(data, array, remove)
+	updatedFolders, err := parseCodeWorkspace(updated, absolute)
+	if err != nil {
+		return nil, err
+	}
+	if err := writeWorkspaceFile(absolute, data, updated); err != nil {
+		return nil, err
+	}
+	return updatedFolders, nil
+}
+
+type workspaceFolderElement struct {
+	start, end int
+	comma      int
+	path, name string
+}
+
+type workspaceFolderArray struct {
+	start, end int
+	elements   []workspaceFolderElement
+}
+
+func parseWorkspaceFolderArray(data []byte, path string) (workspaceFolderArray, error) {
+	i := 0
+	if bytes.HasPrefix(data, []byte{0xef, 0xbb, 0xbf}) {
+		i = 3
+	}
+	i = skipWorkspaceTrivia(data, i)
+	if i >= len(data) || data[i] != '{' {
+		return workspaceFolderArray{}, errors.New("parse workspace: expected object")
+	}
+	for i++; ; {
+		i = skipWorkspaceTrivia(data, i)
+		if i >= len(data) || data[i] == '}' {
+			break
+		}
+		keyEnd, err := scanWorkspaceString(data, i)
+		if err != nil {
+			return workspaceFolderArray{}, err
+		}
+		var key string
+		if err := json.Unmarshal(data[i:keyEnd], &key); err != nil {
+			return workspaceFolderArray{}, err
+		}
+		i = skipWorkspaceTrivia(data, keyEnd)
+		if i >= len(data) || data[i] != ':' {
+			return workspaceFolderArray{}, errors.New("parse workspace: expected colon")
+		}
+		valueStart := skipWorkspaceTrivia(data, i+1)
+		valueEnd, err := scanWorkspaceValue(data, valueStart)
+		if err != nil {
+			return workspaceFolderArray{}, err
+		}
+		if key == "folders" {
+			if data[valueStart] != '[' {
+				return workspaceFolderArray{}, errors.New("parse workspace: folders must be an array")
+			}
+			return parseWorkspaceFolderElements(data, valueStart, valueEnd, path)
+		}
+		i = skipWorkspaceTrivia(data, valueEnd)
+		if i < len(data) && data[i] == ',' {
+			i++
+			continue
+		}
+		if i >= len(data) || data[i] != '}' {
+			return workspaceFolderArray{}, errors.New("parse workspace: expected comma or object end")
+		}
+		break
+	}
+	return workspaceFolderArray{}, errors.New("parse workspace: missing folders array")
+}
+
+func parseWorkspaceFolderElements(data []byte, start, end int, path string) (workspaceFolderArray, error) {
+	array := workspaceFolderArray{start: start, end: end}
+	for i := skipWorkspaceTrivia(data, start+1); i < end-1; {
+		if data[i] == ']' {
+			break
+		}
+		valueEnd, err := scanWorkspaceValue(data, i)
+		if err != nil || valueEnd > end-1 {
+			return workspaceFolderArray{}, errors.New("parse workspace: invalid folder entry")
+		}
+		clean, err := cleanWorkspaceJSON(data[i:valueEnd])
+		if err != nil {
+			return workspaceFolderArray{}, err
+		}
+		var entry struct {
+			Path string `json:"path"`
+			Name string `json:"name"`
+		}
+		if err := json.Unmarshal(clean, &entry); err != nil || strings.TrimSpace(entry.Path) == "" {
+			return workspaceFolderArray{}, fmt.Errorf("parse workspace: invalid folder entry in %s", path)
+		}
+		next := skipWorkspaceTrivia(data, valueEnd)
+		comma := -1
+		if next < end-1 && data[next] == ',' {
+			comma = next
+			next++
+		} else if next >= end || data[next] != ']' {
+			return workspaceFolderArray{}, errors.New("parse workspace: expected comma or folders end")
+		}
+		array.elements = append(array.elements, workspaceFolderElement{start: i, end: valueEnd, comma: comma, path: entry.Path, name: entry.Name})
+		i = skipWorkspaceTrivia(data, next)
+	}
+	return array, nil
+}
+
+func skipWorkspaceTrivia(data []byte, i int) int {
+	for i < len(data) {
+		switch data[i] {
+		case ' ', '\t', '\r', '\n':
+			i++
+		case '/':
+			if i+1 >= len(data) {
+				return i
+			}
+			switch data[i+1] {
+			case '/':
+				i += 2
+				for i < len(data) && data[i] != '\n' && data[i] != '\r' {
+					i++
+				}
+			case '*':
+				end := bytes.Index(data[i+2:], []byte("*/"))
+				if end < 0 {
+					return len(data)
+				}
+				i += end + 4
+			default:
+				return i
+			}
+		default:
+			return i
+		}
+	}
+	return i
+}
+
+func scanWorkspaceString(data []byte, start int) (int, error) {
+	if start >= len(data) || data[start] != '"' {
+		return 0, errors.New("parse workspace: expected string")
+	}
+	for i := start + 1; i < len(data); i++ {
+		if data[i] == '\\' {
+			i++
+			continue
+		}
+		if data[i] == '"' {
+			return i + 1, nil
+		}
+	}
+	return 0, errors.New("parse workspace: unterminated string")
+}
+
+func scanWorkspaceValue(data []byte, start int) (int, error) {
+	if start >= len(data) {
+		return 0, errors.New("parse workspace: missing value")
+	}
+	if data[start] == '"' {
+		return scanWorkspaceString(data, start)
+	}
+	if data[start] != '{' && data[start] != '[' {
+		for i := start; i < len(data); i++ {
+			if data[i] == ',' || data[i] == '}' || data[i] == ']' || data[i] == ' ' || data[i] == '\t' || data[i] == '\r' || data[i] == '\n' || data[i] == '/' {
+				return i, nil
+			}
+		}
+		return len(data), nil
+	}
+	stack := []byte{data[start]}
+	for i := start + 1; i < len(data); i++ {
+		switch data[i] {
+		case '"':
+			end, err := scanWorkspaceString(data, i)
+			if err != nil {
+				return 0, err
+			}
+			i = end - 1
+		case '/':
+			if i+1 < len(data) && data[i+1] == '/' {
+				i += 2
+				for i < len(data) && data[i] != '\n' && data[i] != '\r' {
+					i++
+				}
+			} else if i+1 < len(data) && data[i+1] == '*' {
+				end := bytes.Index(data[i+2:], []byte("*/"))
+				if end < 0 {
+					return 0, errors.New("parse workspace: unterminated comment")
+				}
+				i += end + 3
+			}
+		case '{', '[':
+			stack = append(stack, data[i])
+		case '}', ']':
+			open := stack[len(stack)-1]
+			if (open == '{' && data[i] != '}') || (open == '[' && data[i] != ']') {
+				return 0, errors.New("parse workspace: mismatched delimiter")
+			}
+			stack = stack[:len(stack)-1]
+			if len(stack) == 0 {
+				return i + 1, nil
+			}
+		}
+	}
+	return 0, errors.New("parse workspace: unterminated value")
+}
+
+func insertWorkspaceFolder(data []byte, array workspaceFolderArray, encoded []byte) ([]byte, error) {
+	newline := []byte("\n")
+	if bytes.Contains(data, []byte("\r\n")) {
+		newline = []byte("\r\n")
+	}
+	indent := workspaceArrayIndent(data, array)
+	var at int
+	var fragment []byte
+	if len(array.elements) == 0 {
+		at = array.end - 1
+		closeIndent := lineIndent(data, at)
+		if bytes.Contains(data[array.start:array.end], []byte("\n")) {
+			fragment = append(append(append(append([]byte(nil), newline...), indent...), encoded...), newline...)
+			fragment = append(fragment, closeIndent...)
+		} else {
+			fragment = append([]byte(nil), encoded...)
+		}
+	} else {
+		last := array.elements[len(array.elements)-1]
+		if last.comma >= 0 {
+			at = last.comma
+			at++
+			fragment = append(append(append([]byte(nil), newline...), indent...), encoded...)
+			fragment = append(fragment, ',')
+		} else {
+			at = last.end
+			fragment = append([]byte{','}, newline...)
+			fragment = append(fragment, indent...)
+			fragment = append(fragment, encoded...)
+		}
+	}
+	return spliceWorkspaceBytes(data, at, at, fragment), nil
+}
+
+func removeWorkspaceFolders(data []byte, array workspaceFolderArray, remove []bool) []byte {
+	type span struct{ start, end int }
+	var spans []span
+	for i := 0; i < len(remove); {
+		if !remove[i] {
+			i++
+			continue
+		}
+		start, end := i, i
+		for end+1 < len(remove) && remove[end+1] {
+			end++
+		}
+		for j := start; j <= end; j++ {
+			entry := array.elements[j]
+			spans = append(spans, span{entry.start, entry.end})
+			if j < end && entry.comma >= 0 {
+				spans = append(spans, span{entry.comma, entry.comma + 1})
+			}
+		}
+		if end < len(remove)-1 {
+			if comma := array.elements[end].comma; comma >= 0 {
+				spans = append(spans, span{comma, comma + 1})
+			}
+		} else if start > 0 {
+			if comma := array.elements[start-1].comma; comma >= 0 {
+				spans = append(spans, span{comma, comma + 1})
+			}
+		}
+		i = end + 1
+	}
+	slices.SortFunc(spans, func(a, b span) int { return b.start - a.start })
+	for _, span := range spans {
+		data = spliceWorkspaceBytes(data, span.start, span.end, nil)
+	}
+	return data
+}
+
+func workspaceArrayIndent(data []byte, array workspaceFolderArray) []byte {
+	if len(array.elements) > 0 {
+		return lineIndent(data, array.elements[0].start)
+	}
+	return []byte("  ")
+}
+
+func lineIndent(data []byte, at int) []byte {
+	start := bytes.LastIndex(data[:at], []byte("\n")) + 1
+	for i := start; i < at; i++ {
+		if data[i] != ' ' && data[i] != '\t' {
+			return nil
+		}
+	}
+	return append([]byte(nil), data[start:at]...)
+}
+
+func spliceWorkspaceBytes(data []byte, start, end int, insert []byte) []byte {
+	result := make([]byte, 0, len(data)-(end-start)+len(insert))
+	result = append(result, data[:start]...)
+	result = append(result, insert...)
+	result = append(result, data[end:]...)
+	return result
+}
+
+func writeWorkspaceFile(path string, expected, data []byte) error {
+	info, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+	temp, err := os.CreateTemp(filepath.Dir(path), ".code-workspace-*")
+	if err != nil {
+		return err
+	}
+	tempPath := temp.Name()
+	defer os.Remove(tempPath)
+	if err := temp.Chmod(info.Mode().Perm()); err != nil {
+		temp.Close()
+		return err
+	}
+	if _, err := temp.Write(data); err != nil {
+		temp.Close()
+		return err
+	}
+	if err := temp.Sync(); err != nil {
+		temp.Close()
+		return err
+	}
+	if err := temp.Close(); err != nil {
+		return err
+	}
+	current, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(current, expected) {
+		return errors.New("workspace file changed during membership update")
+	}
+	return os.Rename(tempPath, path)
 }
 
 func cleanWorkspaceJSON(data []byte) ([]byte, error) {

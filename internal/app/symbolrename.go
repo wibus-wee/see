@@ -105,7 +105,7 @@ func (a *App) renameSymbolAt(g *group, d *doc, st *editor.State) {
 		a.note(locales.MsgNoLanguageServerIsConfiguredForThisFile(), false)
 		return
 	}
-	if !a.cfg.IsTrusted(a.root) {
+	if !a.workspaceTrusted() {
 		a.trustAsk = true
 		a.afterTrust = func() { a.renameSymbolAt(g, d, st) }
 		return

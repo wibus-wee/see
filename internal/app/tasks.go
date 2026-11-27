@@ -38,7 +38,7 @@ func (a *App) runGoTask(kind tasks.Kind) {
 	if a.root == "" || kind.Args() == nil {
 		return
 	}
-	if !a.cfg.IsTrusted(a.root) {
+	if !a.workspaceTrusted() {
 		a.trustAsk = true
 		a.afterTrust = func() { a.runGoTask(kind) }
 		return

@@ -188,9 +188,7 @@ func (a *App) runFind() {
 				return
 			}
 			a.post.Post(func() {
-				if a.gen == gen && a.find.seq == seq {
-					a.addFindResults(b)
-				}
+				a.addFindResultsForSearch(gen, seq, b)
 			})
 		}
 		limit := opts.MaxMatches
@@ -229,7 +227,7 @@ func (a *App) runFind() {
 		}
 		flush()
 		a.post.Post(func() {
-			if a.gen != gen || a.find.seq != seq {
+			if !a.findResultCurrent(gen, seq) {
 				return
 			}
 			a.find.running, a.find.cancel = false, nil
@@ -239,6 +237,16 @@ func (a *App) runFind() {
 			}
 		})
 	}()
+}
+
+func (a *App) findResultCurrent(gen int, seq int) bool {
+	return a.gen == gen && a.find.seq == seq
+}
+
+func (a *App) addFindResultsForSearch(gen int, seq int, files []search.File) {
+	if a.findResultCurrent(gen, seq) {
+		a.addFindResults(files)
+	}
 }
 
 // addFindResults puts files of results in path order, open.
@@ -292,32 +300,35 @@ func (a *App) openMatch(k findKey) {
 // ----- Open Quickly: files by name, ranked by sahilm/fuzzy -----
 
 type quickOpen struct {
-	open          bool
-	query         string
-	ranked        string // the query results are of
-	files         []string
-	listing       bool
-	truncated     bool
-	err           error
-	results       []search.Scored
-	commands      []command // palette rows results indexes, command mode only
-	list          ui.ListState
-	sel           int
-	line          int // line to open, from a trailing :N in the query
-	col           int // column to open, from a trailing :N:N
-	gen           int
-	symbols       []quickSymbol
-	symbolCancel  context.CancelFunc
-	symbolLoading bool
-	symbolErr     error
-	filePath      string
-	fileVersion   uint64
-	fileSymbols   []quickSymbol
-	fileLoaded    bool
-	targetQuery   string
-	targetFiles   []string
-	targetPath    string
-	targetLoading bool
+	open            bool
+	query           string
+	ranked          string // the query results are of
+	files           []string
+	listing         bool
+	filesSeq        uint64
+	filesCancel     context.CancelFunc
+	fileMatchLabels map[string]string
+	truncated       bool
+	err             error
+	results         []search.Scored
+	commands        []command // palette rows results indexes, command mode only
+	list            ui.ListState
+	sel             int
+	line            int // line to open, from a trailing :N in the query
+	col             int // column to open, from a trailing :N:N
+	gen             int
+	symbols         []quickSymbol
+	symbolCancel    context.CancelFunc
+	symbolLoading   bool
+	symbolErr       error
+	filePath        string
+	fileVersion     uint64
+	fileSymbols     []quickSymbol
+	fileLoaded      bool
+	targetQuery     string
+	targetFiles     []string
+	targetPath      string
+	targetLoading   bool
 }
 
 type quickSymbol struct {
@@ -360,9 +371,13 @@ func (a *App) ensureFiles() {
 	}
 	q.listing = true
 	gen := a.gen
+	rootsEpoch := a.workspaceRootsEpoch
+	q.filesSeq++
+	seq := q.filesSeq
 	roots := a.workspaceFolderPaths()
 	rg, _ := findRipgrep(a.root) // "" lists by walking
-	ctx := a.wsCtx
+	ctx, cancel := context.WithCancel(a.wsCtx)
+	q.filesCancel = cancel
 	ignored := make(map[string]*git.Ignored, len(a.ignored))
 	for root, ig := range a.ignored {
 		ignored[root] = ig
@@ -399,20 +414,90 @@ func (a *App) ensureFiles() {
 				break
 			}
 		}
-		a.post.Post(func() {
-			if a.gen != gen {
-				return
-			}
-			q.listing, q.files, q.truncated, q.err = false, files, truncated, err
-			if q.files == nil {
-				q.files = []string{}
-			}
-			if !strings.HasPrefix(q.query, ">") && !strings.HasPrefix(q.query, "#") && !strings.HasPrefix(q.query, "@") {
-				q.ranked = "\x00" // rank files again
-			}
-			a.filter.forQuery = "" // filter again over the new list
-		})
+		a.post.Post(func() { a.finishQuickFileListing(gen, rootsEpoch, seq, files, truncated, err, cancel) })
 	}()
+}
+
+func (a *App) finishQuickFileListing(gen int, rootsEpoch, seq uint64, files []string, truncated bool, err error, cancel context.CancelFunc) {
+	q := &a.quick
+	if a.gen != gen || a.workspaceRootsEpoch != rootsEpoch || q.filesSeq != seq {
+		return
+	}
+	cancel()
+	q.filesCancel = nil
+	q.listing, q.files, q.truncated, q.err = false, files, truncated, err
+	if q.files == nil {
+		q.files = []string{}
+	}
+	if !strings.HasPrefix(q.query, ">") && !strings.HasPrefix(q.query, "#") && !strings.HasPrefix(q.query, "@") {
+		q.ranked = "\x00" // rank files again
+	}
+	a.filter.forQuery = "" // filter again over the new list
+}
+
+func (a *App) invalidateQuickFiles() {
+	q := &a.quick
+	if q.filesCancel != nil {
+		q.filesCancel()
+		q.filesCancel = nil
+	}
+	q.filesSeq++
+	q.listing, q.files, q.truncated, q.err = false, nil, false, nil
+	q.fileMatchLabels = nil
+	q.targetQuery, q.targetFiles, q.targetPath = "", nil, ""
+	q.ranked = "\x00"
+}
+
+func (a *App) searchWorkspaceFiles(files []string, query string, limit int) []search.Scored {
+	if limit <= 0 {
+		return nil
+	}
+	type candidate struct {
+		path, label string
+	}
+	var paths []string
+	owners := make(map[string][]candidate)
+	for _, path := range files {
+		root := a.workspaceRootForPath(path)
+		rel := path
+		if root != "" {
+			rel = workspace.RelPath(root, path)
+		}
+		labels := []string{a.workspacePath(path)}
+		if len(a.workspaceFolders) > 1 && root != "" {
+			labels = append(labels, filepath.ToSlash(filepath.Join(a.workspaceFolderName(root), filepath.FromSlash(rel))), filepath.ToSlash(filepath.Join(filepath.Base(root), filepath.FromSlash(rel))), rel)
+		}
+		labels = slices.Compact(labels)
+		for _, label := range labels {
+			paths = append(paths, label)
+			owners[label] = append(owners[label], candidate{path: path, label: label})
+		}
+	}
+	matches := search.Files(paths, query, min(len(paths), limit*4))
+	results := make([]search.Scored, 0, min(limit, len(matches)))
+	seen := make(map[string]bool)
+	labels := make(map[string]string)
+	used := make(map[string]int)
+	for _, match := range matches {
+		candidates := owners[match.Path]
+		index := used[match.Path]
+		if index >= len(candidates) {
+			continue
+		}
+		used[match.Path] = index + 1
+		owner := candidates[index]
+		if seen[owner.path] {
+			continue
+		}
+		seen[owner.path] = true
+		labels[owner.path] = owner.label
+		results = append(results, search.Scored{Path: owner.path, Hits: match.Hits})
+		if len(results) == limit {
+			break
+		}
+	}
+	a.quick.fileMatchLabels = labels
+	return results
 }
 
 // rankCommands lists the commands the palette offers, ranked against
@@ -485,13 +570,13 @@ func (a *App) rankQuick() {
 		a.ensureFiles()
 		if fileQuery != q.targetQuery || len(q.files) != len(q.targetFiles) || len(q.files) > 0 && &q.files[0] != &q.targetFiles[0] {
 			q.targetQuery, q.targetFiles, q.targetPath = fileQuery, q.files, ""
-			if files := search.Files(q.files, fileQuery, 60); len(files) > 0 {
+			if files := a.searchWorkspaceFiles(q.files, fileQuery, 60); len(files) > 0 {
 				q.targetPath = a.docPath(a.workspaceFilePath(files[0].Path))
 			}
 		}
 		path, version, loading := q.targetPath, uint64(0), false
 		if path != "" {
-			if a.cfg.IsTrusted(a.root) {
+			if a.workspaceTrusted() {
 				d := a.docs[path]
 				if d == nil {
 					d = &doc{path: path, uri: uriOf(path), name: filepath.Base(path)}
@@ -545,7 +630,7 @@ func (a *App) rankQuick() {
 		q.commands, q.results = a.rankCommands(strings.TrimSpace(q.query[1:]))
 	} else if strings.HasPrefix(q.query, "@") || targeted {
 		q.results = nil
-		if q.filePath != "" && a.cfg.IsTrusted(a.root) {
+		if q.filePath != "" && a.workspaceTrusted() {
 			if d := a.docs[q.filePath]; targeted && d != nil && d.loading {
 				q.symbolLoading = true
 			} else if targeted && a.docs[q.filePath] != nil && a.docs[q.filePath].err != nil {
@@ -558,7 +643,7 @@ func (a *App) rankQuick() {
 		}
 	} else if strings.HasPrefix(q.query, "#") {
 		q.results = nil
-		if a.root != "" && a.cfg.IsTrusted(a.root) && strings.TrimSpace(q.query[1:]) != "" {
+		if a.root != "" && a.workspaceTrusted() && strings.TrimSpace(q.query[1:]) != "" {
 			a.searchSymbols(strings.TrimSpace(q.query[1:]))
 		}
 	} else {
@@ -572,7 +657,7 @@ func (a *App) rankQuick() {
 		if query == "" {
 			q.results = a.recentTabs()
 		} else {
-			q.results = search.Files(q.files, query, 60)
+			q.results = a.searchWorkspaceFiles(q.files, query, 60)
 		}
 	}
 	q.sel = 0

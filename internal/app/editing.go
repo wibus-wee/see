@@ -459,7 +459,7 @@ func (a *App) saveUntitled(d *doc, done func(bool)) {
 						}
 					}
 					if m := a.serverFor(path); m != nil {
-						if a.cfg.IsTrusted(a.root) {
+						if a.workspaceTrusted() {
 							go a.openLanguageDocument(m, a.wsCtx, d, d.uri)
 						} else if !a.trustDismissed {
 							a.trustAsk = true

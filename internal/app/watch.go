@@ -51,6 +51,9 @@ func (a *App) startWatchFolder(root string) {
 	ctx, cancel := context.WithCancel(a.wsCtx)
 	a.watchCancels[root] = cancel
 	gen := a.gen
+	current := func() bool {
+		return a.gen == gen && ctx.Err() == nil && a.isWorkspaceFolder(root)
+	}
 	go func() {
 		// What git ignores is left out first, as build output, so that a
 		// large project stays within what a watch can follow file by file.
@@ -58,7 +61,7 @@ func (a *App) startWatchFolder(root string) {
 		// a tab.
 		ignored := readIgnored(ctx, root)
 		a.post.Post(func() {
-			if a.gen == gen {
+			if current() {
 				if a.ignored == nil {
 					a.ignored = map[string]*git.Ignored{}
 				}
@@ -74,7 +77,7 @@ func (a *App) startWatchFolder(root string) {
 			w, err = watchFiles(ctx, root, mygo.FileWatchOptions{Recursive: true, Ignore: ignore, HintsOnly: true})
 		}
 		a.post.Post(func() {
-			if a.gen == gen {
+			if current() {
 				a.watching, a.watchErr = err == nil, err
 			}
 		})
@@ -90,7 +93,7 @@ func (a *App) startWatchFolder(root string) {
 						err = errors.New("the folder was removed or moved")
 					}
 					a.post.Post(func() {
-						if a.gen == gen {
+						if current() {
 							a.watching, a.watchErr = false, err
 						}
 					})
@@ -98,7 +101,7 @@ func (a *App) startWatchFolder(root string) {
 				return
 			}
 			a.post.Post(func() {
-				if a.gen == gen {
+				if current() {
 					a.applyEventsAt(root, evs)
 				}
 			})
@@ -235,10 +238,11 @@ func (a *App) rereadIgnored() {
 }
 
 func (a *App) rereadIgnoredAt(root string, ctx context.Context, gen int) {
+	rootsEpoch := a.workspaceRootsEpoch
 	go func() {
 		ig := readIgnored(ctx, root)
 		a.post.Post(func() {
-			if a.gen == gen {
+			if a.gen == gen && a.workspaceRootsEpoch == rootsEpoch && a.isWorkspaceFolder(root) {
 				if a.ignored == nil {
 					a.ignored = map[string]*git.Ignored{}
 				}

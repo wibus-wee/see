@@ -170,7 +170,7 @@ func TestCodeWorkspaceSelectsEachConfiguredRepositoryWithoutNestedDiscovery(t *t
 	h := newHarness(t, workspaceFile)
 	h.a.refreshGitDiscovery()
 	h.settle(func() bool {
-		return h.a.dirs[backend] != nil && h.a.dirs[backend].loaded && h.a.git.repositoriesLoaded && len(h.a.git.repositories) == 2 && !h.a.git.loading
+		return h.a.dirs[backend] != nil && h.a.dirs[backend].loaded && h.a.git.repositoriesLoaded && len(h.a.git.repositories) == 2
 	})
 	if h.a.cfg.GitAutoDiscover || !h.a.gitRepositorySelectionEnabled() || !slices.Equal(h.a.git.repositories, []string{backend, frontend}) {
 		t.Fatalf("configured repository selection = enabled %v, repositories %v, nested discovery %v", h.a.gitRepositorySelectionEnabled(), h.a.git.repositories, h.a.cfg.GitAutoDiscover)
@@ -199,6 +199,32 @@ func TestCodeWorkspaceSelectsEachConfiguredRepositoryWithoutNestedDiscovery(t *t
 	})
 	if view := h.a.focus.diffs[diffTab(change.Path, false)]; view.root != backend {
 		t.Fatalf("selected repository diff root = %q, want %q", view.root, backend)
+	}
+}
+
+func TestCodeWorkspacePreservesNestedDiscoveryForEachRoot(t *testing.T) {
+	base := t.TempDir()
+	workspaceDir := filepath.Join(base, "comparison")
+	if err := os.MkdirAll(workspaceDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	frontend := nestedGitRepo(t, filepath.Join(base, "frontend"), "main.go", "base\n", "frontend change\n")
+	backend := nestedGitRepo(t, filepath.Join(base, "backend"), "main.go", "base\n", "backend change\n")
+	nested := nestedGitRepo(t, filepath.Join(frontend, "tools"), "tool.go", "base\n", "tool change\n")
+	workspaceFile := filepath.Join(workspaceDir, "repositories.code-workspace")
+	if err := os.WriteFile(workspaceFile, []byte(`{"folders":[{"path":"../frontend"},{"path":"../backend"}]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	h := newHarness(t, workspaceFile)
+	h.a.cfg.GitAutoDiscover = true
+	h.a.refreshGitDiscovery()
+	h.settle(func() bool {
+		return h.a.git.repositoriesLoaded && len(h.a.git.repositories) == 3 && !h.a.git.repositoryScanLoading
+	})
+	want := []string{backend, frontend, nested}
+	slices.Sort(want)
+	if !slices.Equal(h.a.git.repositories, want) {
+		t.Fatalf("auto-discovered repositories = %v, want %v", h.a.git.repositories, want)
 	}
 }
 
