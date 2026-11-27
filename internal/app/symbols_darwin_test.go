@@ -13,7 +13,7 @@ func TestSystemSymbolsLoad(t *testing.T) {
 		icSearch, icSidebar, icSplitH, icSplitV, icBack, icForward, icClose, icMinus,
 		icRefresh, icGit, icCollapse, icMarkdown, icRelated, icChevron, icPanel,
 		icHammer, icGear, icLines, icSparkle, icCommand, icPlus, icTrash,
-		icMaximize, icRestore, icPrompt, icLink, icCheck}
+		icMaximize, icRestore, icPrompt, icLink, icCheck, icKey, icOpenInTab}
 	for _, icon := range icons {
 		name := symbolName(icon)
 		if name == "" {

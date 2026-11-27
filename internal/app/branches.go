@@ -625,7 +625,7 @@ func (a *App) branchPreviewContents(c *ui.Context) {
 			}
 			for i, commit := range p.preview.Commits {
 				ui.Column(c.Key(fmt.Sprintf("branch-preview-commit-%d", i))).FillWidth().Gap(2).Children(func() {
-					ui.Text(c, commit.Subject).FontSize(12).SingleLine().Ellipsis("…").MinWidth(0).Tooltip(commit.Subject)
+					commitSubject(c, commit.Subject, commitSubjectRow).Tooltip(commit.Subject)
 					ui.Row(c).FillWidth().Gap(6).Children(func() {
 						ui.Text(c, commit.Short).FontSize(10).TextColor(colors(c).Muted).Shrink(0)
 						ui.Text(c, commit.Author).FontSize(10).TextColor(colors(c).Muted).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1).Tooltip(commit.Author)
@@ -784,7 +784,7 @@ func (a *App) branchRow(c *ui.Context, items []branchItem, i int, hoveredBranch 
 			if b.Track != "" {
 				detail = b.Track + " · " + detail
 			}
-			ui.Text(c, detail).FontSize(11).TextColor(sub).SingleLine().Ellipsis("…")
+			commitSubject(c, detail, commitSubjectCaption).TextColor(sub)
 		})
 		if !b.Date.IsZero() {
 			ui.Text(c, relativeTime(b.Date, time.Now())).FontSize(11).TextColor(sub).SingleLine().Shrink(0)

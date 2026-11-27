@@ -9,6 +9,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"see/internal/git"
+	"see/locales"
 )
 
 // Stashing from the Changes header names the stash, lists it under
@@ -50,7 +51,13 @@ func TestStashChangesBrowseApplyDrop(t *testing.T) {
 	if v.name != "parser work" || len(v.commit.details.Files) != 2 || v.commit.details.Files[0].Path != "a.txt" || v.commit.details.Files[1].Path != "new.txt" {
 		t.Fatalf("stash tab %q %+v", v.name, v.commit.details)
 	}
-	if err := h.tt.Click("new.txt"); err != nil {
+	if len(v.commit.files) != 2 || v.commit.files[1].path != "new.txt" || v.commit.files[1].diff == nil {
+		t.Fatalf("stash files %+v", v.commit.files)
+	}
+	if err := h.tt.RightClick("new.txt"); err != nil {
+		t.Fatal(err)
+	}
+	if err := h.tt.ChooseMenuItem(locales.MsgCommitFileOpenDiff()); err != nil {
 		t.Fatal(err)
 	}
 	newFileTab := commitFileTab(v.commit.details.Files[1].Commit, "new.txt")

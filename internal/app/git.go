@@ -162,6 +162,14 @@ func (v *gitDiffTab) diffStates() []*editor.DiffState {
 	switch {
 	case v.state != nil:
 		return []*editor.DiffState{v.state}
+	case v.commit != nil:
+		var out []*editor.DiffState
+		for _, f := range v.commit.files {
+			if f.diff != nil {
+				out = append(out, f.diff)
+			}
+		}
+		return out
 	case v.log != nil && v.log.detail != nil:
 		var out []*editor.DiffState
 		for _, f := range v.log.detail.files {

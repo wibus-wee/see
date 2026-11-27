@@ -41,13 +41,23 @@ type gitHistory struct {
 	incoming map[string]bool
 }
 
-// commitView is a commit open in an editor.
+// commitView is a commit's details, in a tab or under the log.
 type commitView struct {
-	commit  git.Commit
-	details git.CommitDetails
-	loading bool
-	err     string
-	scroll  ui.ScrollState
+	commit       git.Commit
+	details      git.CommitDetails
+	message      git.Message
+	files        []commitFile
+	filesLoaded  bool
+	filesLoading bool
+	shown        int
+	collapsed    map[string]bool
+	loading      bool
+	err          string
+	scroll       ui.ScrollState
+}
+
+func newCommitView(cm git.Commit) *commitView {
+	return &commitView{commit: cm, loading: true, shown: commitFilesAtOnce, collapsed: map[string]bool{}}
 }
 
 // commitTab and commitFileTab are the keys of a commit's tab and of the
@@ -322,7 +332,7 @@ func (a *App) historyRow(c *ui.Context, i int) {
 		a.commitAvatars(c, cm, avatarSize)
 		ui.Column(c).Grow(1).Shrink(1).Gap(1).Children(func() {
 			ui.Row(c).FillWidth().Gap(4).AlignItems(ui.Center).Children(func() {
-				ui.Text(c, cm.Subject).FontSize(12).Bold().SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
+				commitSubject(c, cm.Subject, commitSubjectRow)
 				if unpushed {
 					ui.Text(c, "↑").FontSize(11).Bold().TextColor(c.Theme().Accent).Shrink(0)
 				}
@@ -339,8 +349,9 @@ func (a *App) historyRow(c *ui.Context, i int) {
 // tags at it but the one checked out, when, and who.
 func (a *App) commitByline(cm git.Commit) string {
 	var parts []string
-	for _, ref := range cm.Refs {
-		if ref != "HEAD" && ref != a.git.branch {
+	shown, active := visibleCommitRefs(cm, a.git.branch)
+	for _, ref := range shown {
+		if ref != active {
 			parts = append(parts, ref)
 		}
 	}
@@ -470,7 +481,7 @@ func (a *App) openCommit(cm git.Commit) {
 		a.activateIn(g, key)
 		return
 	}
-	v := &commitView{commit: cm, loading: true}
+	v := newCommitView(cm)
 	g.diffs[key] = &gitDiffTab{name: cm.Subject, rev: cm.Short, hash: cm.Hash, commit: v}
 	// One commit at a time takes the preview tab, as files do.
 	if old := g.preview; old != "" && old != key && strings.HasPrefix(old, diffTabPrefix+"commit:") {
@@ -480,17 +491,53 @@ func (a *App) openCommit(cm git.Commit) {
 	g.preview = key
 	a.activateIn(g, key)
 	a.term.maximized = false
+	a.loadCommitView(v)
+}
+
+// loadCommitView reads a commit's message and files into v.
+func (a *App) loadCommitView(v *commitView) { a.loadCommitViewWhen(v, nil) }
+
+// loadCommitViewWhen is loadCommitView for a view still current when
+// valid says so, as the log's chosen commit is while it stays chosen.
+func (a *App) loadCommitViewWhen(v *commitView, valid func() bool) {
+	cm := v.commit
+	v.loading, v.err = true, ""
+	v.filesLoaded, v.filesLoading = false, false
 	gen, scopeSeq, ctx, root := a.gen, a.git.scopeSeq, a.wsCtx, a.git.root
 	go func() {
-		d, err := git.Show(ctx, root, cm.Hash)
+		d, msg, files, err := a.readCommitDetails(ctx, root, cm.Hash, cm.Email)
 		a.post.Post(func() {
 			if a.gen != gen || a.git.scopeSeq != scopeSeq {
 				return
 			}
-			v.loading, v.details = false, d
+			if valid != nil && !valid() {
+				return
+			}
+			v.loading, v.details, v.message, v.files = false, d, msg, files
+			v.filesLoaded = err == nil
 			if err != nil {
 				v.err = gitErrLine(err)
 			}
+		})
+	}()
+}
+
+// loadCommitFilesView reads a commit's diffs after its summary, as a
+// restored tab does when it first shows.
+func (a *App) loadCommitFilesView(v *commitView) {
+	if v.filesLoaded || v.filesLoading {
+		return
+	}
+	v.filesLoading = true
+	cm, d := v.commit, v.details
+	gen, scopeSeq, ctx, root := a.gen, a.git.scopeSeq, a.wsCtx, a.git.root
+	go func() {
+		files := a.readCommitFiles(ctx, root, cm.Hash, d)
+		a.post.Post(func() {
+			if a.gen != gen || a.git.scopeSeq != scopeSeq {
+				return
+			}
+			v.files, v.filesLoaded, v.filesLoading = files, true, false
 		})
 	}()
 }
@@ -584,149 +631,12 @@ func indexOf(s []string, v string) int {
 // commitContent is a commit's tab: its message, who made it and when,
 // and the files it changed.
 func (a *App) commitContent(c *ui.Context, g *group, v *commitView) {
-	cm, d := v.commit, v.details
+	cm := v.commit
 	ui.Scroll(c.Key(cm.Hash)).Grow(1).FillWidth().TrackScroll(&v.scroll).Children(func() {
 		ui.Column(c).FillWidth().Padding(20, 24).Gap(14).Children(func() {
-			ui.Text(c, cm.Subject).FontSize(18).Bold().Selectable()
-			when := fullDate(cm.Date)
-			if d.Committer != "" && d.Committer != cm.Author {
-				when += " · " + locales.Catalog.Format(i18n.Locale(), "gitCommittedBy", map[string]any{"name": d.Committer})
-			}
-			ui.Column(c).FillWidth().Gap(8).Children(func() {
-				a.personLine(c, git.Person{Name: cm.Author, Email: cm.Email}, "", when)
-				for _, p := range cm.CoAuthors {
-					a.personLine(c.Key(p.Email), p, locales.MsgCoAuthor(), p.Email)
-				}
-			})
-			ui.Row(c).FillWidth().Gap(6).AlignItems(ui.Center).Wrap().Children(func() {
-				ui.Text(c, cm.Hash).FontSize(12).TextColor(colors(c).Muted).Selectable()
-				if glyphButton(c, icCopy, locales.MsgCopyCommitHash(), locales.MsgCopyCommitHash(), false, false).Clicked() {
-					c.Services().WriteClipboard(cm.Hash)
-					a.note(locales.MsgCopied()+cm.Short+".", false)
-				}
-				for _, ref := range cm.Refs {
-					if ref != "HEAD" {
-						refBadge(c, ref, ref == a.git.branch)
-					}
-				}
-				if link := a.commitLink(cm.Hash); link != "" {
-					ui.Box(c).Grow(1)
-					host := hostName(a.git.web)
-					if ui.Button(c, locales.Catalog.Format(i18n.Locale(), "editorContextOpenOnHost", map[string]any{"host": host})).FontSize(12).Tooltip(link).Clicked() {
-						c.Services().OpenURL(link)
-					}
-				}
-			})
-			if len(cm.Parents) > 0 {
-				ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
-					label := locales.GitParent()
-					if len(cm.Parents) > 1 {
-						label = locales.GitParents()
-					}
-					ui.Text(c, label).FontSize(12).TextColor(colors(c).Muted)
-					for _, parent := range cm.Parents {
-						short := parent[:min(len(parent), len(cm.Short))]
-						link := ui.ButtonBase(c.Key(parent)).Label(locales.MsgOpenParent() + short).Cursor(ui.CursorPointer)
-						link.Children(func() { ui.Text(c, short).FontSize(12).TextColor(c.Theme().Accent) })
-						if link.Clicked() {
-							if pc, ok := a.historyCommit(parent); ok {
-								a.openCommit(pc)
-							} else {
-								a.note(locales.MsgThatCommitIsFurtherBackThanTheHistory(), false)
-							}
-						}
-					}
-				})
-			}
-			if body := messageBody(d.Body, cm.Subject); body != "" {
-				ui.Text(c, body).FontSize(13).Selectable().FillWidth()
-			}
-			ui.Box(c).Height(1).FillWidth().Background(colors(c).Separator)
-			switch {
-			case v.loading:
-				ui.Row(c).Gap(8).Children(func() {
-					ui.Spinner(c)
-					ui.Text(c, locales.MsgReadingTheCommit()).FontSize(12).TextColor(colors(c).Muted)
-				})
-			case v.err != "":
-				ui.Text(c, v.err).FontSize(12).TextColor(colors(c).Err)
-			default:
-				a.commitFiles(c, g, v)
-			}
+			a.commitDetailContent(c, g, v, false)
 		})
 	})
-}
-
-// commitFiles lists a commit's files, with the lines each added and
-// deleted; a click opens the file's diff.
-func (a *App) commitFiles(c *ui.Context, g *group, v *commitView) {
-	files := v.details.Files
-	added, deleted := 0, 0
-	for _, f := range files {
-		added += max(f.Added, 0)
-		deleted += max(f.Deleted, 0)
-	}
-	ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-		ui.Text(c, locales.MsgDFileSChanged(len(files))).FontSize(13).Bold()
-		ui.Text(c, fmt.Sprintf("+%d", added)).FontSize(12).TextColor(a.gitStatusColor('A'))
-		ui.Text(c, fmt.Sprintf("−%d", deleted)).FontSize(12).TextColor(a.gitStatusColor('D'))
-	})
-	ui.Column(c).FillWidth().Gap(1).Children(func() {
-		for _, f := range files {
-			key := commitFileTab(fileCommit(v.commit, f), f.Path)
-			row := ui.Row(c.Key(key)).FillWidth().Padding(5, 8).Gap(8).Radius(6).AlignItems(ui.Center).
-				Cursor(ui.CursorPointer).Label(f.Path).Tooltip(f.Path)
-			if g.has(key) {
-				row.Background(colors(c).SelectedRow)
-			} else if row.Hovered() {
-				row.Background(colors(c).Pill)
-			}
-			row.OnClick(func() { a.openCommitFile(g, v.commit, f) })
-			row.Children(func() {
-				fileIcon(c, filepath.Base(f.Path), 15)
-				ui.Text(c, filepath.Base(f.Path)).FontSize(12).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(0)
-				dir := filepath.Dir(f.Path)
-				if f.OldPath != "" {
-					dir = f.OldPath + " →"
-				}
-				if dir != "." {
-					ui.Text(c, filepath.ToSlash(dir)).FontSize(11).TextColor(colors(c).Dim).SingleLine().Shrink(1)
-				}
-				ui.Box(c).Grow(1)
-				if f.Added < 0 {
-					ui.Text(c, locales.MsgBinary()).FontSize(11).TextColor(colors(c).Muted)
-					return
-				}
-				ui.Text(c, fmt.Sprintf("+%d", f.Added)).FontSize(11).TextColor(a.gitStatusColor('A'))
-				ui.Text(c, fmt.Sprintf("−%d", f.Deleted)).FontSize(11).TextColor(a.gitStatusColor('D'))
-				statBar(c, f.Added, f.Deleted, a.gitStatusColor('A'), a.gitStatusColor('D'), colors(c).Pill)
-			})
-		}
-	})
-}
-
-// statBar is GitHub's five squares: how much of a file's change was
-// added and how much deleted.
-func statBar(c *ui.Context, added, deleted int, add, del, none ui.Color) {
-	const n = 5
-	total := added + deleted
-	greens := 0
-	if total > 0 {
-		filled := min(n, max(1, total*n/max(total, 20)))
-		greens = (added*filled + total/2) / total
-		ui.Row(c).Gap(1).Shrink(0).Children(func() {
-			for i := range n {
-				color := none
-				switch {
-				case i < greens:
-					color = add
-				case i < filled:
-					color = del
-				}
-				ui.Box(c).Size(7, 7).Radius(1.5).Background(color)
-			}
-		})
-	}
 }
 
 // historyCommit is a commit of the history read, by hash.
@@ -737,16 +647,4 @@ func (a *App) historyCommit(hash string) (git.Commit, bool) {
 		}
 	}
 	return git.Commit{}, false
-}
-
-// messageBody is a commit message without its subject, nor the
-// Co-authored-by trailers its people show above.
-func messageBody(message, subject string) string {
-	var keep []string
-	for line := range strings.SplitSeq(strings.TrimPrefix(message, subject), "\n") {
-		if !strings.HasPrefix(strings.ToLower(strings.TrimSpace(line)), "co-authored-by:") {
-			keep = append(keep, line)
-		}
-	}
-	return strings.TrimSpace(strings.Join(keep, "\n"))
 }

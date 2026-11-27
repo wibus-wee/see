@@ -9694,6 +9694,48 @@ func (msgs Messages) MsgCoAuthor() string {
 	return Catalog.Format(msgs.locale, "msgCoAuthor", nil)
 }
 
+// MsgCommitSignatureKeyID says "GPG Key ID {key}"
+// in the language the app shows.
+func MsgCommitSignatureKeyID(key string) string {
+	return In(i18n.Locale()).MsgCommitSignatureKeyID(key)
+}
+
+// MsgCommitSignatureKeyID says "GPG Key ID {key}"
+// in the language of msgs.
+func (msgs Messages) MsgCommitSignatureKeyID(key string) string {
+	return Catalog.Format(msgs.locale, "msgCommitSignatureKeyID", map[string]any{"key": key})
+}
+
+// MsgCommitFileFoldHint says "Click to fold; right-click to open its diff"
+// in the language the app shows.
+func MsgCommitFileFoldHint() string { return In(i18n.Locale()).MsgCommitFileFoldHint() }
+
+// MsgCommitFileFoldHint says "Click to fold; right-click to open its diff"
+// in the language of msgs.
+func (msgs Messages) MsgCommitFileFoldHint() string {
+	return Catalog.Format(msgs.locale, "msgCommitFileFoldHint", nil)
+}
+
+// MsgCommitFileUnfoldHint says "Click to unfold; right-click to open its diff"
+// in the language the app shows.
+func MsgCommitFileUnfoldHint() string { return In(i18n.Locale()).MsgCommitFileUnfoldHint() }
+
+// MsgCommitFileUnfoldHint says "Click to unfold; right-click to open its diff"
+// in the language of msgs.
+func (msgs Messages) MsgCommitFileUnfoldHint() string {
+	return Catalog.Format(msgs.locale, "msgCommitFileUnfoldHint", nil)
+}
+
+// MsgCommitFileOpenDiff says "Open diff in a tab"
+// in the language the app shows.
+func MsgCommitFileOpenDiff() string { return In(i18n.Locale()).MsgCommitFileOpenDiff() }
+
+// MsgCommitFileOpenDiff says "Open diff in a tab"
+// in the language of msgs.
+func (msgs Messages) MsgCommitFileOpenDiff() string {
+	return Catalog.Format(msgs.locale, "msgCommitFileOpenDiff", nil)
+}
+
 // MsgSaveOrRevertUnsavedEditsFirst says "Save or revert unsaved edits first: stashing changes the files on disk."
 // in the language the app shows.
 func MsgSaveOrRevertUnsavedEditsFirst() string {

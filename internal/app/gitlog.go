@@ -4,13 +4,11 @@ import (
 	"fmt"
 	"path/filepath"
 	"see/locales"
-	"slices"
 	"strings"
 	"time"
 
 	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
-	"github.com/egoist/mygo/ui/editor"
 
 	"see/internal/git"
 	"see/internal/workspace"
@@ -24,10 +22,6 @@ import (
 // gitLogTab is the log's tab. It is not kept between launches.
 const gitLogTab = diffTabPrefix + "log"
 
-// logFilesAtOnce is how many of a commit's files show as diffs before
-// the rest wait for a click, so that a large commit opens quickly.
-const logFilesAtOnce = 20
-
 type gitLogView struct {
 	pending    string
 	reading    bool
@@ -36,28 +30,7 @@ type gitLogView struct {
 	selected   string // the commit chosen, by hash
 	list       ui.ListState
 	horizontal ui.ScrollState
-	detail     *logCommit
-}
-
-// logCommit is the commit the log shows under its rows.
-type logCommit struct {
-	hash    string
-	commit  git.Commit
-	body    string
-	files   []logFile
-	shown   int // files shown as diffs
-	loading bool
-	err     string
-	scroll  ui.ScrollState
-}
-
-// logFile is a file of a commit, and its diff unless git has no lines
-// of it to show.
-type logFile struct {
-	path, oldPath  string
-	added, deleted int // -1 each for a binary file
-	diff           *editor.DiffState
-	patch          editor.FilePatch
+	detail     *commitView
 }
 
 // openGitLog shows the log in the focused group, where it is already
@@ -134,61 +107,13 @@ func logMatches(cm git.Commit, q string) bool {
 // message and its patch.
 func (a *App) chooseLogCommit(v *gitLogView, cm git.Commit) {
 	v.pending = ""
-	if v.detail != nil && v.detail.hash == cm.Hash {
+	if v.detail != nil && v.detail.commit.Hash == cm.Hash {
 		return
 	}
 	v.selected = cm.Hash
-	lc := &logCommit{hash: cm.Hash, commit: cm, loading: true, shown: logFilesAtOnce}
+	lc := newCommitView(cm)
 	v.detail = lc
-	gen, scopeSeq, ctx, root := a.gen, a.git.scopeSeq, a.wsCtx, a.git.root
-	go func() {
-		d, err := git.Show(ctx, root, cm.Hash)
-		var patches []editor.FilePatch
-		if err == nil {
-			var out []byte
-			if out, err = git.CommitPatch(ctx, root, cm.Hash); err == nil {
-				patches, _ = editor.ParsePatch(string(out))
-			}
-		}
-		a.post.Post(func() {
-			if a.gen != gen || a.git.scopeSeq != scopeSeq || v.detail != lc {
-				return
-			}
-			lc.loading = false
-			if err != nil {
-				lc.err = gitErrLine(err)
-				return
-			}
-			lc.body = d.Body
-			lc.files = a.logFiles(d.Files, patches)
-		})
-	}()
-}
-
-// logFiles are a commit's files in git's order, each with the diff of
-// its patch.
-func (a *App) logFiles(stats []git.FileStat, patches []editor.FilePatch) []logFile {
-	byName := map[string]editor.FilePatch{}
-	for _, p := range patches {
-		name := p.NewName
-		if name == "" {
-			name = p.OldName
-		}
-		byName[name] = p
-	}
-	files := make([]logFile, 0, len(stats))
-	for _, f := range stats {
-		lf := logFile{path: f.Path, oldPath: f.OldPath, added: f.Added, deleted: f.Deleted}
-		if p, ok := byName[f.Path]; ok && !p.Binary && len(p.Hunks) > 0 {
-			d := &editor.DiffState{Theme: a.edTheme, FitContent: true}
-			a.setDiffPatch(d, p, false)
-			a.applyDiffPrefs(d)
-			lf.diff = d
-			lf.patch = p
-		}
-		files = append(files, lf)
-	}
-	return files
+	a.loadCommitViewWhen(lc, func() bool { return v.detail == lc })
 }
 
 // gitLogContent is the log's tab: a filter over the rows of the
@@ -411,13 +336,7 @@ func (a *App) logRow(c *ui.Context, v *gitLogView, cm git.Commit, columns logTab
 
 	row.Children(func() {
 		ui.Row(c).Width(columns.refs).Shrink(0).Gap(4).AlignItems(ui.Center).Tooltip(strings.Join(cm.Refs, "\n")).Children(func() {
-			refs := slices.DeleteFunc(slices.Clone(cm.Refs), func(ref string) bool { return ref == "HEAD" })
-			for _, ref := range refs[:min(2, len(refs))] {
-				refBadge(c.Key(ref), ref, ref == a.git.branch)
-			}
-			if len(refs) > 2 {
-				ui.Text(c, fmt.Sprintf("+%d", len(refs)-2)).FontSize(10).TextColor(colors(c).Muted).Shrink(0)
-			}
+			a.commitRefs(c, cm)
 		})
 		graph := ui.Box(c).Size(columns.graph, logRowHeight).Shrink(0)
 		if graphVisible {
@@ -431,7 +350,7 @@ func (a *App) logRow(c *ui.Context, v *gitLogView, cm git.Commit, columns logTab
 			}
 		}
 		ui.Row(c).Grow(1).Shrink(1).Basis(0).Gap(5).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, cm.Subject).FontSize(12).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
+			commitSubject(c, cm.Subject, commitSubjectRow)
 			h := &a.git.history
 			mainline := h.mainline == nil || h.mainline[cm.Hash]
 			if mainline && h.unpushed[cm.Hash] {
@@ -453,103 +372,11 @@ func (a *App) logRow(c *ui.Context, v *gitLogView, cm git.Commit, columns logTab
 
 // logCommitContent is the chosen commit: its message, who and when, and
 // its files' diffs one after another.
-func (a *App) logCommitContent(c *ui.Context, g *group, lc *logCommit) {
+func (a *App) logCommitContent(c *ui.Context, g *group, lc *commitView) {
 	cm := lc.commit
 	ui.Scroll(c.Key(cm.Hash)).Grow(1).FillWidth().TrackScroll(&lc.scroll).Label(locales.MsgCommit()).Children(func() {
 		ui.Column(c).FillWidth().Padding(16, 20).Gap(12).Children(func() {
-			ui.Row(c).FillWidth().Gap(10).AlignItems(ui.Center).Children(func() {
-				ui.Text(c, cm.Subject).FontSize(16).Bold().Selectable().Grow(1).Shrink(1)
-				if ui.Button(c, locales.MsgOpenInTab()).FontSize(12).Clicked() {
-					a.openCommit(cm)
-				}
-			})
-			ui.Row(c).FillWidth().Gap(16).AlignItems(ui.Center).Wrap().Children(func() {
-				ui.Box(c).Grow(1).Shrink(1).Basis(240).Children(func() {
-					a.personLine(c, git.Person{Name: cm.Author, Email: cm.Email}, "", fullDate(cm.Date))
-				})
-				ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
-					ui.Text(c, cm.Short).FontSize(12).TextColor(colors(c).Muted).Selectable()
-					if glyphButton(c, icCopy, locales.MsgCopyCommitHash(), locales.MsgCopyCommitHash(), false, false).Clicked() {
-						c.Services().WriteClipboard(cm.Hash)
-						a.note(locales.MsgCopied()+cm.Short+".", false)
-					}
-				})
-			})
-			if body := messageBody(lc.body, cm.Subject); body != "" {
-				ui.Text(c, body).FontSize(13).Selectable().FillWidth()
-			}
-			switch {
-			case lc.loading:
-				ui.Row(c).Gap(8).Children(func() {
-					ui.Spinner(c)
-					ui.Text(c, locales.MsgReadingTheCommit()).FontSize(12).TextColor(colors(c).Muted)
-				})
-			case lc.err != "":
-				ui.Text(c, lc.err).FontSize(12).TextColor(colors(c).Err)
-			default:
-				a.logCommitFiles(c, g, lc)
-			}
+			a.commitDetailContent(c, g, lc, true)
 		})
 	})
-}
-
-// logCommitFiles are a commit's files, each under a head with its path
-// and its lines added and deleted, the first ones as diffs.
-func (a *App) logCommitFiles(c *ui.Context, g *group, lc *logCommit) {
-	added, deleted := 0, 0
-	for _, f := range lc.files {
-		plus, minus := a.diffStats(f.diff, f.added, f.deleted)
-		added += max(plus, 0)
-		deleted += max(minus, 0)
-	}
-	ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-		ui.Text(c, locales.MsgDFileSChanged(len(lc.files))).FontSize(13).Bold()
-		ui.Text(c, fmt.Sprintf("+%d", added)).FontSize(12).TextColor(a.gitStatusColor('A'))
-		ui.Text(c, fmt.Sprintf("−%d", deleted)).FontSize(12).TextColor(a.gitStatusColor('D'))
-	})
-	for i, f := range lc.files {
-		if i >= lc.shown {
-			rest := len(lc.files) - lc.shown
-			if ui.Button(c, locales.MsgShowDMoreFileS(rest)).FontSize(12).Clicked() {
-				lc.shown += logFilesAtOnce
-			}
-			return
-		}
-		ui.Column(c.Key(f.path)).FillWidth().Radius(6).BorderWidth(1).BorderColor(colors(c).Separator).Children(func() {
-			head := ui.Row(c).FillWidth().Height(30).Padding(0, 10).Gap(8).AlignItems(ui.Center).Background(colors(c).Pill).
-				Cursor(ui.CursorPointer).Label(f.path).Tooltip(locales.MsgOpen2() + f.path + locales.MsgAsADiff())
-			head.OnClick(func() {
-				a.openCommitFile(g, lc.commit, git.FileStat{Path: f.path, OldPath: f.oldPath, Added: f.added, Deleted: f.deleted})
-			})
-			head.Children(func() {
-				fileIcon(c, filepath.Base(f.path), 14)
-				name := filepath.ToSlash(f.path)
-				if f.oldPath != "" {
-					name = filepath.ToSlash(f.oldPath) + " → " + name
-				}
-				ui.Text(c, name).FontSize(12).Bold().SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
-				ui.Box(c).Grow(1)
-				if f.added < 0 {
-					ui.Text(c, locales.MsgBinary()).FontSize(11).TextColor(colors(c).Muted)
-					return
-				}
-				added, deleted := a.diffStats(f.diff, f.added, f.deleted)
-				ui.Text(c, fmt.Sprintf("+%d", added)).FontSize(11).TextColor(a.gitStatusColor('A'))
-				ui.Text(c, fmt.Sprintf("−%d", deleted)).FontSize(11).TextColor(a.gitStatusColor('D'))
-			})
-			if f.diff == nil {
-				what := locales.MsgNoChangesToShow()
-				if f.added < 0 {
-					what = locales.MsgBinaryFileNotShown()
-				}
-				ui.Text(c, what).FontSize(12).TextColor(colors(c).Muted).Padding(10, 12)
-				return
-			}
-			if a.diffChangesHidden(f.diff) {
-				a.hiddenWhitespaceDiff(c)
-			} else {
-				editor.DiffView(c, f.diff).FillWidth()
-			}
-		})
-	}
 }
