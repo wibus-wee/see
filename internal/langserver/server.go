@@ -154,6 +154,9 @@ func (s *Server) Status() (State, error) {
 	return s.state, s.err
 }
 
+// Name is what errors and logs call the server, as configured.
+func (s *Server) Name() string { return s.o.Name }
+
 // Current returns the initialized client without starting the server.
 func (s *Server) Current() Client {
 	s.mu.Lock()
@@ -364,10 +367,15 @@ func (s *Server) afterRestart(delay time.Duration) {
 }
 
 // Retry forgets a failure, so the next request starts the server again.
+// It is the user's deliberate act — typically after reinstalling or
+// reconfiguring the server — so the crash budget starts over with it:
+// counting pre-fix crashes against the post-Retry session would durably
+// fail a server after one fresh crash.
 func (s *Server) Retry() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.state == Failed {
+		s.retries = 0
 		s.setState(Off, nil)
 	}
 }
@@ -475,6 +483,12 @@ func (s *Server) completeSync(docURI string, d *document, result *syncResult, er
 		} else if s.client != nil && !s.closed {
 			s.setState(Degraded, err)
 		}
+	}
+	// A successful delivery after a failure clears Degraded: changes are
+	// full-text, so whatever the failure cost, the server now holds this
+	// document at the buffer's own version again.
+	if err == nil && s.state == Degraded && s.client != nil && !s.closed {
+		s.setState(Ready, nil)
 	}
 	s.mu.Unlock()
 }

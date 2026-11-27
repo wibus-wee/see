@@ -51,6 +51,8 @@ func (c *fakeClient) DidChange(uri string, version int, text string) error {
 	if err := c.record("change " + text); err != nil {
 		return err
 	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	return c.changeErr
 }
 func (c *fakeClient) DidClose(uri string) error { return c.record("close") }
