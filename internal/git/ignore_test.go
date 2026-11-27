@@ -53,7 +53,7 @@ func TestReadIgnoredSourcesSeparatesGlobalAndParentRules(t *testing.T) {
 		t.Fatal(err)
 	}
 	globalIgnore := filepath.Join(configDir, ".gitignore")
-	write(t, configDir, ".gitignore", "scratch/\n")
+	write(t, configDir, ".gitignore", "scratch/\nparent-only/\n")
 	write(t, home, ".gitconfig", "[core]\n\texcludesFile = "+filepath.ToSlash(globalIgnore)+"\n")
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
@@ -82,8 +82,12 @@ func TestReadIgnoredSourcesSeparatesGlobalAndParentRules(t *testing.T) {
 	if err != nil || !ig.Dir("parent-only") {
 		t.Fatalf("parent ignore missing: %+v %v", ig, err)
 	}
-	ig, err = ReadIgnoredSources(context.Background(), sub, true, false)
+	ig, err = ReadIgnoredSources(context.Background(), sub, false, false)
 	if err != nil || ig.Dir("parent-only") {
 		t.Fatalf("parent ignore survived disablement: %+v %v", ig, err)
+	}
+	ig, err = ReadIgnoredSources(context.Background(), sub, true, false)
+	if err != nil || !ig.Dir("parent-only") {
+		t.Fatalf("enabled global ignore hidden by disabled parent rule: %+v %v", ig, err)
 	}
 }
