@@ -64,6 +64,37 @@ func TestEditorGroupMoveRemovesEmptySource(t *testing.T) {
 	}
 }
 
+func TestEditorGroupOpaqueOverWindowMaterial(t *testing.T) {
+	for _, kind := range []string{"markdown", "hex"} {
+		t.Run(kind, func(t *testing.T) {
+			h := newHarness(t, writeTree(t, map[string]string{"readme.md": "# Preview\n\ntext\n", "bytes.txt": "hex bytes"}))
+			switch kind {
+			case "markdown":
+				h.open("readme.md")
+				h.a.openMarkdownTab(h.a.focus)
+			case "hex":
+				d := h.open("bytes.txt")
+				h.a.focus.hexPreview = map[string]bool{d.path: true}
+			}
+			h.tt.SetVibrancy(true)
+			h.tt.Frame()
+
+			img := h.tt.Image()
+			transparent := 0
+			for y := 100; y < 650; y += 25 {
+				for x := 500; x < 1050; x += 25 {
+					if img.RGBAAt(x, y).A != 255 {
+						transparent++
+					}
+				}
+			}
+			if transparent != 0 {
+				t.Fatalf("%s leaves %d sampled editor pixels transparent over the window material", kind, transparent)
+			}
+		})
+	}
+}
+
 func TestEditorGroupFocusNonTextViews(t *testing.T) {
 	var pixels bytes.Buffer
 	if err := png.Encode(&pixels, image.NewRGBA(image.Rect(0, 0, 1, 1))); err != nil {
