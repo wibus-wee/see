@@ -2,6 +2,26 @@
 
 User-facing changes are grouped by release. Earlier releases are documented on the [Releases page](https://github.com/wibus-wee/see/releases).
 
+## 0.3.11
+
+### Added
+
+- Discover nested Git repositories in immediate child folders when enabled; Changes can group their files with repository-scoped diffs, staging, discarding, and commit composers while Files and Search stay rooted at the workspace.
+- Switch working-copy changes between a collapsible folder tree and a flat list, with section-level stage, unstage, and confirmed discard actions.
+- Merge project windows into native macOS window tabs with Window → Merge All Windows while keeping each project's editor state separate.
+- Choose whether full-file diffs fold unchanged lines, from the diff toolbar or General settings.
+
+### Changed
+
+- Resize Call Hierarchy's source preview and call list with a draggable divider.
+- Use the desktop portal file chooser on Linux when available, while preserving explicit `GTK_USE_PORTAL` settings.
+
+### Fixed
+
+- Keep the current Jump Bar symbol visible on deep paths; collapsed crumbs move into an overflow menu in narrow panes.
+- Replace transient previews without loading flashes or layout jumps, keeping the outgoing preview visible until its replacement is ready.
+- Remove mixed-language and untranslated copy across the Git sidebar, commit views, dates, link actions, empty states, and tab commands.
+
 ## 0.3.10
 
 ### Added
