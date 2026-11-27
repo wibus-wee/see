@@ -140,6 +140,8 @@ func (a *App) gitLogContent(c *ui.Context, g *group, v *gitLogView) {
 		width = 900
 	}
 	columns := logColumns(width, h.lanesW)
+	columns.refs = max(columns.refs, logRefsWidth(c, a.git.branch, h.commits, rows))
+	columns.date = max(columns.date, logDateWidth(c))
 	graphVisible := strings.TrimSpace(v.query) == ""
 	ui.Column(c).Grow(1).FillWidth().Children(func() {
 		ui.Row(c).Shrink(0).FillWidth().Height(36).Padding(0, 12).Gap(8).AlignItems(ui.Center).
@@ -278,6 +280,42 @@ func logColumns(width float32, lanes int) logTableColumns {
 	return columns
 }
 
+// logRefsWidth is the room the refs column needs to show the badges of
+// the rows whole: the widest set of branches and tags one commit has, at
+// the size and padding refBadge draws them. The column takes it as its
+// width, so a long branch name is not middle-truncated.
+func logRefsWidth(c *ui.Context, branch string, commits []git.Commit, rows []int) float32 {
+	var width float32
+	for _, i := range rows {
+		cm := commits[i]
+		if len(cm.Refs) == 0 {
+			continue
+		}
+		shown, _ := visibleCommitRefs(cm, branch)
+		var w float32
+		for j, ref := range shown {
+			textW, _ := c.MeasureText(0, ui.Span{Text: ref, Size: 10, Weight: 700})
+			w += textW + 10 // the badge's padding, 5 each side
+			if j > 0 {
+				w += 4 // the gap between badges
+			}
+		}
+		width = max(width, w)
+	}
+	return width
+}
+
+// logDate is when a commit was made, to the second: the log's date
+// column has room for the whole stamp, unlike the navigator's byline.
+func logDate(t time.Time) string { return t.Format("2006-01-02 15:04:05") }
+
+// logDateWidth is the room the date column needs for a stamp, at the
+// size logRow draws it.
+func logDateWidth(c *ui.Context) float32 {
+	w, _ := c.MeasureText(0, ui.Span{Text: logDate(time.Now()), Size: 11})
+	return w + 2
+}
+
 func (columns logTableColumns) minimumWidth() float32 {
 	count := 4
 	if columns.author > 0 {
@@ -363,7 +401,7 @@ func (a *App) logRow(c *ui.Context, v *gitLogView, cm git.Commit, columns logTab
 		if columns.author > 0 {
 			ui.Text(c, authors(cm)).Width(columns.author).Shrink(0).FontSize(12).TextColor(colors(c).Muted).SingleLine().Tooltip(authors(cm))
 		}
-		ui.Text(c, shortDate(cm.Date, time.Now())).Width(columns.date).Shrink(0).FontSize(11).TextColor(colors(c).Muted).SingleLine().Tooltip(cm.Date.Format(time.RFC1123))
+		ui.Text(c, logDate(cm.Date)).Width(columns.date).Shrink(0).FontSize(11).TextColor(colors(c).Muted).SingleLine().Tooltip(cm.Date.Format(time.RFC1123))
 		if columns.hash > 0 {
 			ui.Text(c, cm.Short).Width(columns.hash).Shrink(0).FontSize(11).TextColor(colors(c).Dim).SingleLine()
 		}

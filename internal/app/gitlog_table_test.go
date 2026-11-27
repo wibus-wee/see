@@ -87,6 +87,28 @@ func saveLogPreview(t *testing.T, h *harness, path string) {
 	}
 }
 
+func TestGitLogRefsColumnFitsLongBranchNames(t *testing.T) {
+	root := historyRepo(t)
+	const name = "feat/commit-detail-shared-preview"
+	gitRun(t, root, "branch", name, "HEAD~2")
+	h := newHarness(t, root)
+	h.a.sidebarOff = true
+	h.readGit()
+	h.a.openGitLog()
+	h.settle(func() bool { return !h.a.git.history.loading })
+	h.tt.Frame()
+	h.tt.Frame()
+	badge, ok := h.tt.Find(name)
+	if !ok {
+		t.Fatalf("the long branch is not shown: %v", h.tt.Texts())
+	}
+	// The column's old fixed width cut this name; it now takes the room
+	// the badge needs.
+	if badge.W <= 150 {
+		t.Fatalf("long branch badge is %v wide: %+v", badge.W, badge)
+	}
+}
+
 func TestGitLogFilteredHistoryCanLoadMore(t *testing.T) {
 	h := newHarness(t, historyRepo(t))
 	h.readGit()
