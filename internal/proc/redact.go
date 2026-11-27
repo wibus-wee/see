@@ -93,29 +93,71 @@ type Tail struct {
 	mu      sync.Mutex
 	max     int
 	buf     []byte
+	pending []byte
 	secrets []string
+	hold    int
 }
 
 // NewTail makes a Tail holding at most max bytes, redacting secrets found
 // in env from its output.
 func NewTail(max int, env []string) *Tail {
-	return &Tail{max: max, secrets: secretsInEnv(env)}
+	secrets := secretsInEnv(env)
+	hold := 0
+	for _, secret := range secrets {
+		if len(secret) > hold {
+			hold = len(secret)
+		}
+	}
+	return &Tail{max: max, secrets: secrets, hold: hold}
 }
 
+// Write redacts p before it enters the window, then keeps the last max
+// bytes. Redaction must precede the trim: a secret longer than the window
+// can never match inside it afterwards, so trimming first would expose
+// oversized secrets — PEM bundles, certificate chains — wholesale. The
+// replacement is shorter than any secret, so redacting first can only
+// shrink what the window holds. A secret split across writes is held back
+// until it either completes or is disproven, bounded by the longest
+// secret, since partial output at the end of a write cannot yet be told
+// from the start of one.
 func (t *Tail) Write(p []byte) (int, error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	t.buf = append(t.buf, p...)
+	t.redact(append(t.pending, p...), false)
+	return len(p), nil
+}
+
+// redact absorbs data, replacing every secret that appears, and moves
+// what no future byte can still complete into the window. final flushes
+// the holdback: no more input can complete a partial secret there.
+func (t *Tail) redact(data []byte, final bool) {
+	if len(data) == 0 {
+		return
+	}
+	s := string(data)
+	for _, secret := range t.secrets {
+		s = strings.ReplaceAll(s, secret, "<redacted>")
+	}
+	// A secret already redacted cannot complete again, and a partial
+	// match can only live in the last len(secret)-1 bytes, so holding
+	// back exactly that much disproves nothing redaction missed.
+	emit := len(s)
+	if !final {
+		holdback := max(t.hold-1, 0)
+		emit = max(len(s)-holdback, 0)
+	}
+	t.buf = append(t.buf, s[:emit]...)
+	t.pending = append(t.pending[:0], s[emit:]...)
 	if len(t.buf) > t.max {
 		t.buf = append([]byte(nil), t.buf[len(t.buf)-t.max:]...)
 	}
-	return len(p), nil
 }
 
 // String returns the redacted tail as whole lines: a partial first line
 // left by the bound is dropped.
 func (t *Tail) String() string {
 	t.mu.Lock()
+	t.redact(t.pending, true)
 	s := string(t.buf)
 	full := len(t.buf) == t.max
 	t.mu.Unlock()
@@ -127,9 +169,5 @@ func (t *Tail) String() string {
 			s = s[i+1:]
 		}
 	}
-	s = strings.TrimRight(s, "\n")
-	for _, secret := range t.secrets {
-		s = strings.ReplaceAll(s, secret, "<redacted>")
-	}
-	return s
+	return strings.TrimRight(s, "\n")
 }

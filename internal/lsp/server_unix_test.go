@@ -128,6 +128,43 @@ func TestStartWithoutExecutePermission(t *testing.T) {
 	}
 }
 
+// A secret longer than the 4 KiB stderr digest must not leak either:
+// redaction runs as bytes arrive, so the window's size does not bound
+// what can be redacted. The child prints the secret one byte at a time,
+// which also covers secrets split across pipe reads.
+func TestStartCrashRedactsOversizeStderrSecret(t *testing.T) {
+	secret := strings.Repeat("k", 5000) // longer than the 4 KiB digest
+	t.Setenv("SEE_TEST_KEY", secret)
+	const response = `{"jsonrpc":"2.0","id":1,"result":{"capabilities":{}}}`
+	script := readInitialize + fmt.Sprintf(`printf 'Content-Length: %d\r\n\r\n%%s' '%s'; `, len(response), response) +
+		`echo "fatal: key rejected" >&2; i=0; while [ $i -lt 5000 ]; do printf k >&2; i=$((i+1)); done; printf '\n' >&2; echo "check the config" >&2; exit 1`
+	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+	defer cancel()
+	exitErr := make(chan error, 1)
+	c, err := Start(ctx, "/bin/sh", []string{"-c", script}, Options{OnExit: func(err error) { exitErr <- err }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Kill()
+	select {
+	case err := <-exitErr:
+		text := err.Error()
+		for i := 0; i+64 <= len(secret); i += 64 {
+			if strings.Contains(text, secret[i:i+64]) {
+				t.Fatalf("oversize secret fragment leaked into exit error: %.200q", text)
+			}
+		}
+		if !strings.Contains(text, "check the config") {
+			t.Fatalf("stderr digest missing from exit error: %v", err)
+		}
+		if !strings.Contains(text, "fatal: key rejected") {
+			t.Fatalf("harmless stderr line lost: %v", err)
+		}
+	case <-ctx.Done():
+		t.Fatal("server exit not reported")
+	}
+}
+
 func TestStartCrashReportsRedactedStderr(t *testing.T) {
 	t.Setenv("SEE_TEST_SECRET", "testsecretvalue123")
 	const response = `{"jsonrpc":"2.0","id":1,"result":{"capabilities":{}}}`

@@ -10,7 +10,13 @@ import (
 
 var ErrUntrustedExecutable = errors.New("workspace executable denied")
 
-// ValidateExecutable checks a resolved launch candidate, including symlink targets.
+// ValidateExecutable checks a resolved launch candidate, including
+// symlink targets. Comparison is by the disk's own spelling of what
+// exists: EvalSymlinks resolves links but not the volume's case or
+// Unicode normalization, so on a case-insensitive file system a wrongly
+// cased path into the workspace names the workspace's bytes while
+// differing lexically — denying only the exact spelling would execute
+// the same executable through its variant.
 func ValidateExecutable(root, executable string) error {
 	if !filepath.IsAbs(executable) {
 		return operr.New(operr.InvalidInput, operr.Permanent, errors.New("expected absolute executable path"))
@@ -19,6 +25,8 @@ func ValidateExecutable(root, executable string) error {
 	if err != nil {
 		return operr.Classify(err)
 	}
+	real = diskSpelling(real)
+	spelled := diskSpelling(executable)
 	if root == "" {
 		return nil
 	}
@@ -30,7 +38,9 @@ func ValidateExecutable(root, executable string) error {
 	if err != nil {
 		return err
 	}
-	if workspace.Within(root, executable) || workspace.Within(resolved, real) {
+	root = diskSpelling(root)
+	resolved = diskSpelling(resolved)
+	if workspace.Within(root, spelled) || workspace.Within(resolved, real) {
 		return operr.New(operr.PermissionDenied, operr.Permanent, ErrUntrustedExecutable)
 	}
 	return nil
