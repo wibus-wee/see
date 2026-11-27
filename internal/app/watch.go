@@ -306,7 +306,7 @@ func (a *App) applyEventsAt(root string, evs []mygo.FileEvent) {
 		a.refreshDir(dir)
 	}
 	if len(evs) > 0 {
-		a.quick.files = nil // Open Quickly lists them again when next opened
+		a.quick.files, a.quick.err = nil, nil // Open Quickly lists them again when next opened
 		a.filter.forQuery = ""
 	}
 }

@@ -396,6 +396,9 @@ func (a *App) openQuickPanel(query string) {
 	q.line, q.col = 0, 0
 	q.fileLoaded = false
 	q.fileSymbols = nil
+	// Opening the panel is the user's retry after a scan failure: the
+	// sticky error clears here, so the scan below can run again.
+	q.err = nil
 	q.list.Selected = &q.sel
 	if !strings.HasPrefix(query, ":") && !strings.HasPrefix(query, "@") {
 		a.ensureFiles()
@@ -404,10 +407,14 @@ func (a *App) openQuickPanel(query string) {
 
 // ensureFiles lists the workspace's files for Open Quickly and the tree's
 // filter, once: the list lasts until the workspace changes or a refresh
-// forgets it.
+// forgets it. A scan failure is sticky — q.err holds it — because anything
+// else re-scans every frame forever: the failure post invalidates the
+// ranking, the re-rank calls here, and the loop never ends. Opening Open
+// Quickly and workspace invalidations clear the error, which is where a
+// scan gets retried.
 func (a *App) ensureFiles() {
 	q := &a.quick
-	if q.files != nil || q.listing || a.root == "" {
+	if q.files != nil || q.listing || q.err != nil || a.root == "" {
 		return
 	}
 	q.listing = true
@@ -485,7 +492,15 @@ func (a *App) finishQuickFileListing(gen int, rootsEpoch, seq uint64, files []st
 	cancel()
 	q.filesCancel = nil
 	q.listing, q.files, q.truncated, q.err = false, files, truncated, err
-	if q.files == nil {
+	if err != nil {
+		// A failed scan leaves no file list behind: a partial list
+		// would pass for the workspace's contents while it is not,
+		// and an empty non-nil list would pass for an empty
+		// workspace. files stays nil — no valid list exists — and
+		// err stays set, sticky until the panel is opened or the
+		// workspace changes, so this frame does not re-scan forever.
+		q.files = nil
+	} else if q.files == nil {
 		q.files = []string{}
 	}
 	if !strings.HasPrefix(q.query, ">") && !strings.HasPrefix(q.query, "#") && !strings.HasPrefix(q.query, "@") {
