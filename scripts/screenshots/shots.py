@@ -520,7 +520,7 @@ def config_dir(home):
 
 # ---------------------------------------------------------------- scenes
 
-def hero_session(root, width=1440, height=900):
+def hero_session(root, width=1440, height=860):
     """The hero composition: a Go file beside the readme's rendered
     markdown, the terminal open at the bottom."""
     return {
@@ -695,11 +695,14 @@ def run_scene(see, name, scene, out_dir, work, screencapture=False):
                 with open(meta, "w") as f:
                     json.dump({"bounds": w["bounds"], "captureWidth": width,
                                "captureHeight": height, "scale": scale}, f)
-                if screencapture and name.startswith("hero"):
+                if screencapture:
                     screen = os.path.join(out_dir, name + "-screen.png")
                     subprocess.run(["screencapture", "-x", screen], check=True)
-                    hero = os.path.join(out_dir, name + "-wallpaper.png")
-                    compose_hero(screen, meta, hero)
+                    compose_hero(screen, meta, os.path.join(
+                        out_dir, name + "-native.png"), margin_dips=0)
+                    if name.startswith("hero"):
+                        compose_hero(screen, meta, os.path.join(
+                            out_dir, name + "-wallpaper.png"))
     finally:
         proc.terminate()
         try:
