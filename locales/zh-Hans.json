@@ -1217,5 +1217,9 @@
   "gitNoRepositoryFound": "未找到 Git 仓库，或 Git 不可用。",
   "gitStashedChanges": "已贮藏更改。",
   "gitRemote": "远程",
-  "relativeFullDate": "{date} {weekday} {time}"
+  "relativeFullDate": "{date} {weekday} {time}",
+  "denied": "已拒绝",
+  "msgDegraded": "已降级 · ",
+  "msgDegradedExplanation": "一次文档同步失败；下次更改送达服务器后恢复。",
+  "msgServerCrashedRepeatedly": "反复崩溃 — 点“重试”重新启动"
 }

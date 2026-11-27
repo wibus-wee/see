@@ -275,6 +275,8 @@ func (a *App) activityView(c *ui.Context) {
 			dot = c.Theme().Accent
 		case a.noticeError, state == langserver.Failed, a.watchErr != nil:
 			dot = colors(c).Err
+		case state == langserver.Degraded:
+			dot = ui.RGB(0xff, 0x95, 0x00)
 		}
 		if dot != colors(c).Muted {
 			ui.Box(c).Size(6, 6).Radius(3).Background(dot).Shrink(0)
@@ -329,6 +331,8 @@ func (a *App) activityView(c *ui.Context) {
 			}
 		case a.watchErr != nil:
 			ui.Text(c, locales.MsgNotWatchingForChanges()).FontSize(12).TextColor(colors(c).Muted).Tooltip(a.watchErr.Error())
+		case state == langserver.Degraded:
+			ui.Text(c, locales.MsgDegraded()+name).FontSize(12).TextColor(ui.RGB(0xff, 0x95, 0x00)).Tooltip(locales.MsgDegradedExplanation())
 		case state == langserver.Ready:
 			ui.Text(c, locales.MsgReady2()+name).FontSize(12).TextColor(colors(c).Muted)
 		default:

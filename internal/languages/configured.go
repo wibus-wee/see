@@ -3,7 +3,6 @@ package languages
 import (
 	"context"
 	"fmt"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
@@ -14,7 +13,6 @@ import (
 	"see/internal/lsp"
 	"see/internal/shellpath"
 	"see/internal/uri"
-	"see/internal/workspace"
 )
 
 // configuredExtensions maps the spec's extensions, lowercased and dotted,
@@ -89,7 +87,9 @@ func fileLanguage(path string) string {
 }
 
 // FindConfigured resolves the server's executable as the built-in finders
-// do: on PATH, never inside the workspace.
+// do: on PATH, never inside the workspace. The command is one the user
+// configured, so the trust boundary denying it is reported as the denial
+// it is — the software is installed; it is where it is that cannot run.
 func FindConfigured(root string, spec config.LSPConfig) (string, error) {
 	if len(spec.Command) == 0 {
 		return "", fmt.Errorf("%s is not configured with a command", spec.Name)
@@ -102,18 +102,10 @@ func FindConfigured(root string, spec config.LSPConfig) (string, error) {
 		}
 		p = found
 	}
-	resolved, err := filepath.EvalSymlinks(p)
-	if err != nil {
-		return "", fmt.Errorf("%s is not installed", spec.Name)
-	}
-	realRoot := root
-	if r, err := filepath.EvalSymlinks(root); err == nil {
-		realRoot = r
-	}
-	if root != "" && (workspace.Within(root, p) || workspace.Within(realRoot, resolved)) {
-		return "", fmt.Errorf("%s is not installed", spec.Name)
-	}
-	if fi, err := os.Stat(resolved); err != nil || !fi.Mode().IsRegular() {
+	if err, denied := validateCandidate(root, p); err != nil {
+		if denied {
+			return "", err
+		}
 		return "", fmt.Errorf("%s is not installed", spec.Name)
 	}
 	return p, nil

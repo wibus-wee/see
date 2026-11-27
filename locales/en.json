@@ -949,7 +949,8 @@
   "msgNoSFound": "No {name} found.",
   "msgCoAuthor": "Co-author",
   "msgSaveOrRevertUnsavedEditsFirst": "Save or revert unsaved edits first: stashing changes the files on disk.",
-  "msgCouldNotOpenSPath": "Could not open {path}: {reason}",  "msgGo": "Go",
+  "msgCouldNotOpenSPath": "Could not open {path}: {reason}",
+  "msgGo": "Go",
   "msgSearchCanceled": "Search canceled.",
   "msgNoMatchAfterTheCurrentByte": "No match after the current byte.",
   "msgSearchFailed": "Search failed: ",
@@ -1216,5 +1217,9 @@
   "gitNoRepositoryFound": "No Git repository found, or Git is unavailable.",
   "gitStashedChanges": "Stashed changes.",
   "gitRemote": "Remote",
-  "relativeFullDate": "{weekday}, {date} at {time}"
+  "relativeFullDate": "{weekday}, {date} at {time}",
+  "denied": "Denied",
+  "msgDegraded": "Degraded · ",
+  "msgDegradedExplanation": "Document sync failed once; it recovers when the next change reaches the server.",
+  "msgServerCrashedRepeatedly": "crashed repeatedly — restart it with Retry"
 }
