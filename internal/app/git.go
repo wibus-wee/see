@@ -1019,9 +1019,9 @@ func (a *App) showGitDiffInRepository(root string, ch git.Change, staged bool, t
 
 func (a *App) gitNavigator(c *ui.Context) {
 	if a.git.root == "" && !a.cfg.GitAutoDiscover {
-		msg := "Looking for a Git repository…"
+		msg := locales.GitLookingForRepository()
 		if a.git.err != "" {
-			msg = "No Git repository found, or Git is unavailable."
+			msg = locales.GitNoRepositoryFound()
 		}
 		ui.Text(c, msg).TextColor(colors(c).Muted).FontSize(12).Padding(12, 10).Tooltip(a.git.err)
 		return
@@ -1036,12 +1036,12 @@ func (a *App) gitNavigator(c *ui.Context) {
 		return
 	}
 	if a.git.root == "" {
-		msg := "Looking for a Git repository…"
+		msg := locales.GitLookingForRepository()
 		if a.cfg.GitAutoDiscover && len(a.git.repositories) > 0 {
 			msg = locales.GitSelectRepositoryToSeeChanges()
 		}
 		if a.git.err != "" {
-			msg = "No Git repository found, or Git is unavailable."
+			msg = locales.GitNoRepositoryFound()
 		}
 		ui.Text(c, msg).TextColor(colors(c).Muted).FontSize(12).Padding(12, 10).Tooltip(a.git.err)
 		return
@@ -1242,7 +1242,8 @@ func (a *App) toggleGitChangeFolder(workingCopy *gitWorkingCopy, key string) {
 func (a *App) gitFolderRow(c *ui.Context, key, name, path string, depth int, closed bool, toggle func()) {
 	row := ui.Row(c.Key(key)).FillWidth().Height(gitSidebarRowHeight).
 		PaddingStart(treeInset(gitChangesInset, depth)).
-		Gap(4).Radius(4).AlignItems(ui.Center).Label(name).Tooltip(filepath.ToSlash(path))
+		Gap(4).Radius(4).AlignItems(ui.Center).Role(ui.RoleTreeItem).Level(depth + 1).Expanded(!closed).
+		Label(name).Description(filepath.ToSlash(path))
 	if row.Hovered() {
 		row.Background(colors(c).Pill)
 	}

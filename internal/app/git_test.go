@@ -274,6 +274,27 @@ func TestGitChangesSwitchBetweenTreeAndList(t *testing.T) {
 	}
 }
 
+func TestGitSectionHeaderExposesExpandedState(t *testing.T) {
+	root := gitRepo(t, map[string]string{"a.txt": "base\n"})
+	writeFile(t, root, "a.txt", "changed\n")
+	h := newHarness(t, root)
+	h.readGit()
+	h.a.navigator, h.a.git.historyClosed = navGit, true
+	h.tt.Frame()
+	header, ok := h.tt.AccessByRole(ui.RoleButton, locales.MsgChanges())
+	if !ok || !header.Expanded {
+		t.Fatalf("open changes header is not expanded: %+v (%v)", header, ok)
+	}
+	if err := h.tt.Click(locales.MsgChanges()); err != nil {
+		t.Fatal(err)
+	}
+	h.tt.Frame()
+	header, ok = h.tt.AccessByRole(ui.RoleButton, locales.MsgChanges())
+	if !ok || header.Expanded {
+		t.Fatalf("closed changes header is still expanded: %+v (%v)", header, ok)
+	}
+}
+
 func TestGitChangeRowsNestInCollapsibleFolders(t *testing.T) {
 	const nestedPath = "packages/web/src/features/conversations/components/MessageHistoryPanel.tsx"
 	const longBasename = "ExtremelyLongGeneratedStateMachineSidebarAvailabilityControllerConfiguration.tsx"

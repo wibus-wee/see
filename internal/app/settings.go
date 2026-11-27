@@ -436,9 +436,9 @@ func iconTile(c *ui.Context, icon *ui.SVG, color ui.Color, size float32) {
 
 func (a *App) versionLabel() string {
 	if a.version == "" {
-		return "Settings"
+		return locales.Settings()
 	}
-	return "Version " + a.version
+	return locales.MsgVersion() + a.version
 }
 
 func (a *App) settingsContent(c *ui.Context, bar ui.TitleBar) {

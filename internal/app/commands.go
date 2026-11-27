@@ -213,10 +213,10 @@ func commandsFor(goos string) []command {
 		addEditorCommand("transform.trimTrailingWhitespace", "Trim Trailing Whitespace", editor.TrimTrailingWhitespace),
 	)
 	for n := 1; n <= 9; n++ {
-		label := fmt.Sprintf("Select Tab %d", n)
+		label := locales.CommandSelectTab(n)
 		id := fmt.Sprintf("tab.select%d", n)
 		if n == 9 {
-			label = "Select Last Tab"
+			label = locales.CommandSelectLastTab()
 			id = "tab.selectLast"
 		}
 		cmds = append(cmds, command{id, label, "Cmd+", fmt.Sprint(n), ui.Cmd, ui.Key1 + ui.Key(n-1), func(a *App) { a.activateTabNumber(n) }})

@@ -1204,5 +1204,14 @@
   "gitCherryPicked": "已拣选提交 {commit}。",
   "gitCherryPickPaused": "如有冲突，请先解决，再运行 git cherry-pick --continue。也可运行 git cherry-pick --skip 跳过提交，或运行 git cherry-pick --abort 取消。",
   "msgListView": "列表视图",
-  "msgTreeView": "树形视图"
+  "msgTreeView": "树形视图",
+  "gitCommittedBy": "由 {name} 提交",
+  "gitParent": "父提交",
+  "gitParents": "父提交",
+  "gitLogTitle": "Git 日志",
+  "gitLookingForRepository": "正在查找 Git 仓库…",
+  "gitNoRepositoryFound": "未找到 Git 仓库，或 Git 不可用。",
+  "gitStashedChanges": "已贮藏更改。",
+  "gitRemote": "远程",
+  "relativeFullDate": "{date} {weekday} {time}"
 }
