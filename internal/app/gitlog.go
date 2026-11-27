@@ -150,7 +150,7 @@ func (a *App) gitLogContent(c *ui.Context, g *group, v *gitLogView) {
 			BorderWidth(0, 0, 1, 0).BorderColor(colors(c).Separator).Children(func() {
 			if v.path != "" {
 				chip := ui.Row(c).Gap(4).AlignItems(ui.Center).Padding(3, 4, 3, 7).Radius(5).Background(colors(c).Pill).Shrink(0).
-					Label(logText("gitLogFileScope") + " " + v.path).Tooltip(v.path)
+					Label(logText("gitLogFileScope") + " " + v.path)
 				chip.Children(func() {
 					fileIcon(c, filepath.Base(v.path), 13)
 					ui.Text(c, v.path).FontSize(11).TextColor(colors(c).Muted).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(1).MaxWidth(200)
@@ -372,7 +372,7 @@ func logTableHeader(c *ui.Context, columns logTableColumns) {
 func (a *App) logRow(c *ui.Context, v *gitLogView, cm git.Commit, columns logTableColumns, graphVisible bool) {
 	chosen := v.selected == cm.Hash
 	row := ui.Row(c.Key(cm.Hash)).FillWidth().Height(logRowHeight).Padding(0, 12).Gap(12).AlignItems(ui.Center).
-		Label(cm.Subject).Tooltip(cm.Short + " " + cm.Subject)
+		Label(cm.Subject)
 	if chosen {
 		row.Background(c.Theme().Accent.Alpha(0.18))
 	} else if row.Hovered() {
@@ -419,8 +419,8 @@ func (a *App) logRow(c *ui.Context, v *gitLogView, cm git.Commit, columns logTab
 				ui.Text(c, "↓").FontSize(11).Bold().TextColor(c.Theme().Accent).Shrink(0).Tooltip(logText("gitIncomingCommit"))
 			}
 		})
-		ui.Text(c, authors(cm)).Width(columns.author).Shrink(0).FontSize(12).TextColor(colors(c).Muted).SingleLine().Tooltip(authors(cm))
-		ui.Text(c, logDate(cm.Date)).Width(columns.date).Shrink(0).FontSize(11).TextColor(colors(c).Muted).SingleLine().Tooltip(cm.Date.Format(time.RFC1123))
+		ui.Text(c, authors(cm)).Width(columns.author).Shrink(0).FontSize(12).TextColor(colors(c).Muted).SingleLine()
+		ui.Text(c, logDate(cm.Date)).Width(columns.date).Shrink(0).FontSize(11).TextColor(colors(c).Muted).SingleLine()
 		ui.Text(c, cm.Short).Width(columns.hash).Shrink(0).FontSize(11).TextColor(colors(c).Dim).SingleLine()
 	})
 }

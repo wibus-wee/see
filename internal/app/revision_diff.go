@@ -253,8 +253,7 @@ func (a *App) revisionTimeline(c *ui.Context, v *gitDiffTab) {
 					a.selectRevision(v, index)
 				}
 			}
-			working := ui.Row(c).Width(70).Height(32).Gap(4).AlignItems(ui.Center).Justify(ui.End).
-				Tooltip(localHistoryText("localHistoryWorkingTree"))
+			working := ui.Row(c).Width(70).Height(32).Gap(4).AlignItems(ui.Center).Justify(ui.End)
 			working.Children(func() {
 				ui.Box(c).Width(3).Height(16).Radius(2).Background(palette.Muted)
 				ui.Text(c, localHistoryText("localHistoryWorkingTree")).FontSize(9).TextColor(palette.Muted).SingleLine()

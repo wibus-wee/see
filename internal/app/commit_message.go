@@ -216,7 +216,7 @@ func (a *App) commitSignatureBadge(c *ui.Context, sig git.CommitSignature) {
 	}
 	label := locales.MsgCommitSignatureKeyID(sig.Key)
 	badge := ui.Row(c).Height(18).Padding(0, 6).Radius(4).Gap(4).AlignItems(ui.Center).Shrink(0).
-		Background(colors(c).Pill).Tooltip(sig.Key).Label(label)
+		Background(colors(c).Pill).Label(label)
 	badge.Children(func() {
 		symbolIcon(c, icKey, 11, colors(c).Muted)
 		ui.Text(c, label).FontSize(11).TextColor(colors(c).Muted).SingleLine().Shrink(0)

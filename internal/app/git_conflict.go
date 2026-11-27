@@ -42,7 +42,7 @@ func (a *App) gitConflictTabKey(root, path string) string {
 func (a *App) gitConflictRowIn(c *ui.Context, root string, workingCopy *gitWorkingCopy, ch git.Change, depth int, name string, showPath bool) {
 	label := fmt.Sprintf(gitConflictText("gitResolveFile"), ch.Path)
 	tabKey := a.gitConflictTabKey(root, ch.Path)
-	row := ui.ButtonBase(c.Key(tabKey)).Label(label).Tooltip(label).
+	row := ui.ButtonBase(c.Key(tabKey)).Label(label).
 		FillWidth().Height(gitSidebarRowHeight).
 		PaddingStart(treeInset(gitChangesInset, depth)).Radius(4)
 	if a.focus.active == tabKey {
@@ -381,7 +381,7 @@ func (a *App) gitConflictPane(c *ui.Context, title, label string, st *editor.Sta
 			ui.Box(c).Size(6, 6).Radius(3).Shrink(0).Background(tint)
 			ui.Text(c, title).FontSize(11).Bold().SingleLine()
 			if label != "" {
-				ui.Text(c, label).FontSize(11).TextColor(colors(c).Muted).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1).Tooltip(label)
+				ui.Text(c, label).FontSize(11).TextColor(colors(c).Muted).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 			}
 		})
 		if st != nil {

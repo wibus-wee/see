@@ -298,15 +298,8 @@ func (a *App) historyRow(c *ui.Context, i int) {
 	mainline := h.mainline == nil || h.mainline[cm.Hash]
 	unpushed := mainline && h.unpushed[cm.Hash]
 	incoming := mainline && h.incoming[cm.Hash]
-	tip := cm.Short + " " + cm.Subject
-	if unpushed {
-		tip += "\n\nNot pushed yet"
-	}
-	if incoming {
-		tip += "\n\n" + logText("gitIncomingCommit")
-	}
 	row := ui.Row(c.Key(cm.Hash)).FillWidth().Height(historyRowHeight).Padding(0, 8, 0, 0).Gap(historyGap).AlignItems(ui.Center).Radius(6).
-		Label(cm.Subject).Tooltip(tip)
+		Label(cm.Subject)
 	// A light selection, for the graph to show through.
 	switch {
 	case open:
@@ -334,10 +327,10 @@ func (a *App) historyRow(c *ui.Context, i int) {
 			ui.Row(c).FillWidth().Gap(4).AlignItems(ui.Center).Children(func() {
 				commitSubject(c, cm.Subject, commitSubjectRow)
 				if unpushed {
-					ui.Text(c, "↑").FontSize(11).Bold().TextColor(c.Theme().Accent).Shrink(0)
+					ui.Text(c, "↑").FontSize(11).Bold().TextColor(c.Theme().Accent).Shrink(0).Tooltip(locales.MsgNotPushedYet())
 				}
 				if incoming {
-					ui.Text(c, "↓").FontSize(11).Bold().TextColor(c.Theme().Accent).Shrink(0)
+					ui.Text(c, "↓").FontSize(11).Bold().TextColor(c.Theme().Accent).Shrink(0).Tooltip(logText("gitIncomingCommit"))
 				}
 			})
 			ui.Text(c, a.commitByline(cm)).FontSize(11).TextColor(colors(c).Muted).SingleLine()

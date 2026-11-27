@@ -81,7 +81,7 @@ func (a *App) personAvatar(c *ui.Context, name, email string, size float32) ui.E
 // co-author's over the corner, a ring of the background's color between
 // them, as GitHub stacks them.
 func (a *App) commitAvatars(c *ui.Context, cm git.Commit, size float32) {
-	ui.Box(c).Size(size, size).Shrink(0).Tooltip(authors(cm)).Children(func() {
+	ui.Box(c).Size(size, size).Shrink(0).Children(func() {
 		a.personAvatar(c, cm.Author, cm.Email, size)
 		if len(cm.CoAuthors) > 0 {
 			co := cm.CoAuthors[0]

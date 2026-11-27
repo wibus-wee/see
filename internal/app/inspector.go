@@ -358,7 +358,7 @@ func (a *App) inspectorHistoryPage(c *ui.Context) {
 						if i > 0 {
 							inspectorHairline(c)
 						}
-						row := ui.ButtonBase(c).Label(cm.Subject).Tooltip(cm.Short+" "+cm.Subject).
+						row := ui.ButtonBase(c).Label(cm.Subject).
 							FillWidth().Padding(7, 10)
 						if row.Hovered() {
 							row.Background(colors(c).Pill)
