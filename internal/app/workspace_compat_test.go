@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -565,7 +566,9 @@ func TestReloadCodeWorkspaceAppliesExternalMembershipEdits(t *testing.T) {
 	oldWatchFiles := watchFiles
 	t.Cleanup(func() { watchFiles = oldWatchFiles })
 	workspaceWatch := make(chan chan []mygo.FileEvent, 1)
+	var watchCalls atomic.Int64
 	watchFiles = func(ctx context.Context, root string, opts mygo.FileWatchOptions) (fileWatcher, error) {
+		watchCalls.Add(1)
 		events := make(chan []mygo.FileEvent, 1)
 		if !opts.Recursive && root == filepath.Dir(workspaceFile) {
 			workspaceWatch <- events
@@ -581,6 +584,16 @@ func TestReloadCodeWorkspaceAppliesExternalMembershipEdits(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("the workspace file itself was not watched")
 	}
+	waitForWatchCalls := func(n int64) {
+		t.Helper()
+		for deadline := time.Now().Add(2 * time.Second); time.Now().Before(deadline); time.Sleep(time.Millisecond) {
+			if watchCalls.Load() >= n {
+				return
+			}
+		}
+		t.Fatalf("only %d watchers started", watchCalls.Load())
+	}
+	waitForWatchCalls(3) // the workspace file plus its two initial roots
 
 	updated := `{
 		// Edited while See has the workspace open.
@@ -598,6 +611,7 @@ func TestReloadCodeWorkspaceAppliesExternalMembershipEdits(t *testing.T) {
 	if len(h.a.workspaceFolders) != 3 || h.a.workspaceFolders[2].Path != extra || h.a.workspaceFolders[2].Name != "Extra" {
 		t.Fatalf("external membership edit was not applied: %+v", h.a.workspaceFolders)
 	}
+	waitForWatchCalls(4) // no watcher goroutine may still be entering the replaced test hook
 
 	if err := os.WriteFile(workspaceFile, []byte(`{"folders": [`), 0o600); err != nil {
 		t.Fatal(err)
