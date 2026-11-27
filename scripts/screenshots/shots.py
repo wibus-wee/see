@@ -424,7 +424,7 @@ def fixture(root):
         "samples := make(chan string, p.lanes*64)",
         "samples := make(chan string, p.lanes*128)"))
     write(root, "internal/store/store.go", STORE_GO.replace(
-        "mean %8.2f  peak %8.2f  n %d", "mean %8.2f  peak %8.2f  last %8.2f  n %d"))
+        "%-24s mean", "%-28s mean"))
     write(root, "internal/pipe/alerts.go",
           "package pipe\n\n// WIP: alert rules evaluated over the window.\n")
     git(root, "add", "internal/store/store.go")
@@ -584,16 +584,29 @@ def palette(client, text):
     client.idle()
 
 
+def terminal_steps(client):
+    """Type `go test ./...` into the terminal and run it: the hero's
+    panel shows real output rather than an empty prompt. The click lands
+    in the bottom panel, whose geometry the seeded session fixes."""
+    client.click(720, 800)
+    client.idle()
+    client.text("go test ./...")
+    client.idle()
+    client.key("Enter")
+    time.sleep(4)  # the run's output settles
+    client.idle()
+
+
 SCENES = {
     "hero-light": {
         "appearance": "light",
         "session": hero_session,
-        "steps": [],
+        "steps": [("terminal", None)],
     },
     "hero-dark": {
         "appearance": "dark",
         "session": hero_session,
-        "steps": [],
+        "steps": [("terminal", None)],
     },
     "diff": {
         "appearance": "light",
@@ -653,6 +666,8 @@ def run_scene(see, name, scene, out_dir, work, screencapture=False):
             kind, arg = step
             if kind == "palette":
                 palette(client, arg)
+            elif kind == "terminal":
+                terminal_steps(client)
         time.sleep(1.0)
         client.idle(timeout=10)
         out = os.path.join(out_dir, name + ".png")
