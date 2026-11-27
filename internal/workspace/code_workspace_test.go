@@ -301,3 +301,38 @@ func TestWorkspaceMembershipEditUsesSymlinkTargetBase(t *testing.T) {
 		t.Fatalf("workspace entry is not target-relative: %s", data)
 	}
 }
+
+func TestWorkspaceMembershipEditKeepsParentDirectoryAlias(t *testing.T) {
+	base := t.TempDir()
+	realDir := filepath.Join(base, "real")
+	aliasDir := filepath.Join(base, "alias")
+	if err := os.Mkdir(realDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(realDir, "root"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(realDir, aliasDir); err != nil {
+		t.Skipf("symlink: %v", err)
+	}
+	workspaceFile := filepath.Join(aliasDir, "team.code-workspace")
+	if err := os.WriteFile(filepath.Join(realDir, "team.code-workspace"), []byte(`{"folders":[{"path":"root"}]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := AddCodeWorkspaceFolder(workspaceFile, Folder{Path: filepath.Join(aliasDir, "added")}); err == nil {
+		t.Fatal("adding a missing folder unexpectedly succeeded")
+	}
+	if err := os.Mkdir(filepath.Join(realDir, "added"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := AddCodeWorkspaceFolder(workspaceFile, Folder{Path: filepath.Join(aliasDir, "added")}); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(realDir, "team.code-workspace"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `"path":"added"`) {
+		t.Fatalf("parent alias was canonicalized into member paths: %s", data)
+	}
+}

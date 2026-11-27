@@ -115,10 +115,30 @@ func workspaceFilePath(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if resolved, err := filepath.EvalSymlinks(absolute); err == nil {
-		return filepath.Clean(resolved), nil
+	return resolveWorkspaceFileLink(filepath.Clean(absolute)), nil
+}
+
+// resolveWorkspaceFileLink follows the workspace file's own symlink chain
+// without canonicalizing its parent directories. Workspace roots deliberately
+// keep symlink aliases, so resolving a parent alias here would make relative
+// members jump to a different spelling of the same directory.
+func resolveWorkspaceFileLink(path string) string {
+	current := filepath.Clean(path)
+	for range 255 {
+		target, err := os.Readlink(current)
+		if err != nil {
+			return current
+		}
+		if !filepath.IsAbs(target) {
+			target = filepath.Join(filepath.Dir(current), target)
+		}
+		next := filepath.Clean(target)
+		if next == current {
+			return current
+		}
+		current = next
 	}
-	return filepath.Clean(absolute), nil
+	return current
 }
 
 // ReadCodeWorkspace reads a VS Code .code-workspace file.
@@ -604,9 +624,7 @@ func spliceWorkspaceBytes(data []byte, start, end int, insert []byte) []byte {
 }
 
 func writeWorkspaceFile(path string, expected, data []byte) error {
-	if resolved, err := filepath.EvalSymlinks(path); err == nil {
-		path = resolved
-	}
+	path = resolveWorkspaceFileLink(path)
 	info, err := os.Stat(path)
 	if err != nil {
 		return err
