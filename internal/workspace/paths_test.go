@@ -100,6 +100,14 @@ func TestJoinRelConfines(t *testing.T) {
 	if _, err := JoinRel(root, "a/../../outside"); !errors.Is(err, ErrOutsideRoot) {
 		t.Error("root/a/../../outside must be refused")
 	}
+	// Components ending in a dot or a space are refused on every
+	// platform: Win32 normalization strips them at open time, so the
+	// lexical join cannot confine them.
+	for _, rel := range []string{".. /x", "notes.", "file ", "d /f"} {
+		if got, err := JoinRel(root, rel); !errors.Is(err, ErrOutsideRoot) {
+			t.Errorf("JoinRel(%q) = %q, %v; want ErrOutsideRoot", rel, got, err)
+		}
+	}
 }
 
 func TestValidRel(t *testing.T) {
@@ -114,6 +122,10 @@ func TestValidRel(t *testing.T) {
 		"a/../../b":    false,
 		"a\x00b":       false,
 		"../../../etc": false,
+		"file ":        false,
+		"notes.":        false,
+		"a.b/file.txt":  true,
+		"my file.txt":   true,
 	} {
 		if ValidRel(rel) != want {
 			t.Errorf("ValidRel(%q) = %v, want %v", rel, !want, want)

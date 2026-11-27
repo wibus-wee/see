@@ -73,34 +73,44 @@ func TestAdversarialEscapeVariants(t *testing.T) {
 	}
 }
 
-// TestAdversarialTrailingDotComponents documents the Windows hazard: a
-// component like `.. ` (dotdot trailing space) is lexically inside the
-// root on every platform, but the Win32 file namespace strips trailing
-// spaces and dots from components. Whether that creates an escape on
-// Windows depends on Go's \\?\ prefix usage; this test records the POSIX
-// behavior (literal directory name) so the semantic is explicit.
+// TestAdversarialTrailingDotComponents pins the resolution of the
+// Windows hazard the verifier demonstrated: a component like `.. `
+// (dotdot trailing space) is lexically inside the root, but the Win32
+// file namespace strips trailing spaces and dots from components at
+// open time, so `.. ` opens as `..` and the join escapes. As the strip
+// is a property of the volume's namespace, not the OS the app runs on —
+// a POSIX client of an SMB or exFAT volume shares it — the confined
+// join refuses every component ending in a dot or a space on every
+// platform. POSIX file systems carry such names literally, so this is
+// a superset rejection there; trailing-dot and trailing-space names are
+// absent from ordinary projects, and impossible to create on Windows.
 func TestAdversarialTrailingDotComponents(t *testing.T) {
 	root := t.TempDir()
-	evil := filepath.Join(filepath.Dir(root), "evil-trailingspace.txt")
-	_ = os.Remove(evil)
-	// On POSIX, `.. ` is a literal directory name. Create it inside root
-	// to prove the join targets the literal name and never the parent.
-	sub := filepath.Join(root, ".. ")
-	if err := os.MkdirAll(sub, 0o755); err != nil {
-		t.Fatalf("cannot create literal '.. ' dir on this platform: %v", err)
+	for _, rel := range []string{
+		".. /x.txt",    // the escape: strips to `..` under Win32 rules
+		"notes.",       // strips to `notes`, another name than joined
+		"notes./x.txt", // the strip in an intermediate component
+		"file ",
+		"dir /file.txt",
+		"...",
+		" . ",
+	} {
+		if got, err := JoinRel(root, rel); err == nil {
+			t.Errorf("JoinRel(%q) = %q, want refusal: Win32 would strip the trailing dot/space", rel, got)
+		}
+		if ValidRel(rel) {
+			t.Errorf("ValidRel(%q) = true, want false", rel)
+		}
 	}
-	writeFile(t, filepath.Join(sub, "x.txt"), "in-literal-dir\n")
-	got, err := JoinRel(root, ".. /x.txt")
-	if err != nil {
-		t.Fatalf("JoinRel('.. /x.txt') rejected: %v — POSIX-wise it is a literal name", err)
-	}
-	data, rerr := os.ReadFile(got)
-	t.Logf("join of '.. /x.txt' = %q; read err=%v data=%q", got, rerr, data)
-	if rerr == nil && string(data) != "in-literal-dir\n" {
-		t.Errorf("the join read something OTHER than the literal '.. ' directory: %q", data)
-	}
-	if _, err := os.Lstat(evil); err == nil {
-		t.Error("join reached outside the root")
+	// Honest names keep joining: dots and spaces inside a component are
+	// fine, only a trailing one is unrepresentable under Win32 rules.
+	for _, rel := range []string{"a.b/file.txt", "my file.txt", ".hidden", "sub/.hidden/x.txt"} {
+		if _, err := JoinRel(root, rel); err != nil {
+			t.Errorf("JoinRel(%q) refused an honest name: %v", rel, err)
+		}
+		if !ValidRel(rel) {
+			t.Errorf("ValidRel(%q) = false, want true", rel)
+		}
 	}
 }
 
