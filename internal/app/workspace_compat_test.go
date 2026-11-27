@@ -368,3 +368,62 @@ func TestAddedRootRequiresWorkspaceTrustBeforeLSP(t *testing.T) {
 		t.Fatalf("untrusted independent root was served: trusted=%v trustAsk=%v server=%v", h.a.workspaceTrusted(), h.a.trustAsk, h.a.lsp.Current())
 	}
 }
+
+func TestNestedCodeWorkspaceRootsKeepOneFileIdentity(t *testing.T) {
+	if _, err := findRipgrep(""); err != nil {
+		t.Skip(err)
+	}
+	base := t.TempDir()
+	parent := filepath.Join(base, "parent")
+	child := filepath.Join(parent, "child")
+	if err := os.MkdirAll(filepath.Join(child, "src"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	file := filepath.Join(child, "src", "main.go")
+	if err := os.WriteFile(file, []byte("package main\n// needle\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	workspaceFile := filepath.Join(base, "nested.code-workspace")
+	if err := os.WriteFile(workspaceFile, []byte(`{"folders":[{"path":"parent"},{"path":"parent/child"}]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	h := newHarness(t, "")
+	h.a.openWorkspace(workspaceFile)
+	h.settle(func() bool {
+		return h.a.dirs[parent] != nil && h.a.dirs[parent].loaded && h.a.dirs[child] != nil && h.a.dirs[child].loaded
+	})
+	src := filepath.Join(child, "src")
+	h.a.tree.Open.Add(src)
+	h.a.loadDir(src)
+	h.settle(func() bool { return h.a.dirs[src] != nil && h.a.dirs[src].loaded })
+	h.tt.Frame()
+	if !h.treeHas(parent) || !h.treeHas(child) || !h.treeHas(file) {
+		t.Fatalf("nested workspace tree lost a root or file: %q", h.tt.Texts())
+	}
+
+	h.a.ensureFiles()
+	h.settle(func() bool { return !h.a.quick.listing && h.a.quick.files != nil })
+	quickCount := 0
+	for _, path := range h.a.quick.files {
+		if path == file {
+			quickCount++
+		}
+	}
+	if quickCount != 1 {
+		t.Fatalf("quick open lists the overlapping file %d times: %v", quickCount, h.a.quick.files)
+	}
+
+	h.a.find.opts = search.Options{Query: "needle"}
+	h.a.runFind()
+	h.settle(func() bool { return !h.a.find.running })
+	resultCount := 0
+	for _, result := range h.a.find.results {
+		if result.Path == file {
+			resultCount++
+		}
+	}
+	if resultCount != 1 || h.a.find.stats.Files != 1 || h.a.find.stats.Matches != 1 {
+		t.Fatalf("overlapping search duplicated the file: count=%d stats=%+v results=%+v", resultCount, h.a.find.stats, h.a.find.results)
+	}
+}

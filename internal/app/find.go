@@ -231,7 +231,12 @@ func (a *App) runFind() {
 				return
 			}
 			a.find.running, a.find.cancel = false, nil
-			a.find.stats = total
+			a.find.stats.Files = len(a.find.results)
+			a.find.stats.Matches = 0
+			for _, file := range a.find.results {
+				a.find.stats.Matches += len(file.Matches)
+			}
+			a.find.stats.Truncated = total.Truncated
 			if searchErr != nil && !errors.Is(searchErr, context.Canceled) {
 				a.find.err = searchErr
 			}
@@ -249,16 +254,45 @@ func (a *App) addFindResultsForSearch(gen int, seq int, files []search.File) {
 	}
 }
 
-// addFindResults puts files of results in path order, open.
+// addFindResults puts files of results in path order, open. Overlapping
+// workspace roots can find the same file twice; its matches merge into one
+// file identity instead of becoming two replace targets.
 func (a *App) addFindResults(files []search.File) {
 	f := &a.find
 	for _, file := range files {
-		i, _ := slices.BinarySearchFunc(f.results, file.Path, func(r search.File, p string) int { return strings.Compare(r.Path, p) })
+		i, found := slices.BinarySearchFunc(f.results, file.Path, func(r search.File, p string) int { return strings.Compare(r.Path, p) })
+		if found {
+			before := len(f.results[i].Matches)
+			f.results[i].Matches = mergeFindMatches(f.results[i].Matches, file.Matches)
+			f.stats.Matches += len(f.results[i].Matches) - before
+			continue
+		}
 		f.results = slices.Insert(f.results, i, file)
 		f.tree.Open.Add(findKey{path: file.Path, match: -1})
 		f.stats.Files++
 		f.stats.Matches += len(file.Matches)
 	}
+}
+
+func mergeFindMatches(base, extra []search.Match) []search.Match {
+	type key struct{ line, col, end int }
+	seen := make(map[key]bool, len(base)+len(extra))
+	out := make([]search.Match, 0, len(base)+len(extra))
+	for _, m := range slices.Concat(base, extra) {
+		k := key{m.Line, m.Col, m.End}
+		if seen[k] {
+			continue
+		}
+		seen[k] = true
+		out = append(out, m)
+	}
+	slices.SortFunc(out, func(a, b search.Match) int {
+		if a.Line != b.Line {
+			return a.Line - b.Line
+		}
+		return a.Col - b.Col
+	})
+	return out
 }
 
 func (a *App) findFile(path string) *search.File {
@@ -384,6 +418,7 @@ func (a *App) ensureFiles() {
 	}
 	go func() {
 		var files []string
+		seenFiles := map[string]bool{}
 		var truncated bool
 		var err error
 		for _, root := range roots {
@@ -408,7 +443,12 @@ func (a *App) ensureFiles() {
 					rootFiles[i] = filepath.Join(root, filepath.FromSlash(rel))
 				}
 			}
-			files = append(files, rootFiles...)
+			for _, file := range rootFiles {
+				if !seenFiles[file] {
+					seenFiles[file] = true
+					files = append(files, file)
+				}
+			}
 			truncated = truncated || rootTruncated
 			if rootTruncated {
 				break

@@ -926,6 +926,12 @@ func (a *App) entryPaths(d *dirState) []string {
 	}
 	out := make([]string, 0, len(d.entries))
 	for _, e := range d.entries {
+		// A nested workspace root is owned by its own top-level branch. Showing
+		// it inside the enclosing root too would give one filesystem node two
+		// tree identities and duplicate every scan under it.
+		if a.isWorkspaceFolder(e.Path) {
+			continue
+		}
 		if !a.hiddenPath(e.Path) && !nestedChild[e.Path] {
 			out = append(out, e.Path)
 		}
