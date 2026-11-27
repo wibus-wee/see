@@ -1,0 +1,84 @@
+name: Screenshots
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  capture:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Install gopls
+        run: go install golang.org/x/tools/gopls@v0.24.0
+      - name: Build See with automation
+        run: go build -tags e2e -o build/see-e2e .
+      - name: Install Pillow
+        run: pip3 install --user pillow
+      - name: Display information
+        run: system_profiler SPDisplaysDataType || true
+      - name: Capture the scenes
+        run: python3 scripts/screenshots/shots.py capture --see build/see-e2e --out shots --hero-screencapture
+      - uses: actions/upload-artifact@v7
+        with:
+          name: shots
+          path: shots/
+          if-no-files-found: error
+
+  update:
+    needs: capture
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v7
+        with:
+          name: shots
+          path: shots
+      - name: Install webp
+        run: sudo apt-get update && sudo apt-get install -y webp
+      - name: Convert and place the screenshots
+        run: |
+          set -e
+          mkdir -p website/shots
+          hero=shots/hero-light-wallpaper.png
+          test -f "$hero" || hero=shots/hero-light.png
+          cwebp -q 90 "$hero" -o resources/screenshot.webp
+          cp resources/screenshot.webp website/screenshot.webp
+          for shot in shots/*.png; do
+            name=$(basename "$shot" .png)
+            case "$name" in
+              hero-light|hero-light-wallpaper|*-screen) continue ;;
+            esac
+            cwebp -q 90 "$shot" -o "website/shots/$name.webp"
+          done
+      - name: Open the screenshots pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          branch=screenshots/update
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          if git diff --quiet resources website; then
+            echo "Screenshots unchanged."
+            exit 0
+          fi
+          git checkout -b "$branch"
+          git add resources/screenshot.webp website/screenshot.webp website/shots/
+          git commit -m "Update screenshots [skip ci]"
+          git push -f origin "$branch"
+          if gh pr view "$branch" >/dev/null 2>&1; then
+            echo "Pull request for $branch updated."
+          else
+            gh pr create --title "Update screenshots" \
+              --body "Screenshots captured by the [screenshots workflow](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})." \
+              --head "$branch"
+          fi
