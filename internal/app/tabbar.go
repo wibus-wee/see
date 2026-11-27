@@ -47,7 +47,12 @@ func (a *App) tabFileMenu(c *ui.Context, m *ui.Menu, tab string, d *doc, diff *g
 
 func (a *App) tabBar(c *ui.Context, g *group) {
 	// Names shown by more than one tab get their folder too.
+	type tabNameParent struct {
+		name   string
+		parent string
+	}
 	count := map[string]int{}
+	parentCount := map[tabNameParent]int{}
 	seen := map[string]bool{}
 	for _, p := range g.order {
 		path := tabPath(p)
@@ -55,7 +60,10 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 			path = v.localHistory.path
 		}
 		if !seen[path] {
-			count[filepath.Base(path)]++
+			name := filepath.Base(path)
+			parent := filepath.Base(filepath.Dir(path))
+			count[name]++
+			parentCount[tabNameParent{name: name, parent: parent}]++
 			seen[path] = true
 		}
 	}
@@ -179,7 +187,11 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 					name.TextColor(colors(c).Muted)
 				}
 				if count[d.name] > 1 {
-					ui.Text(c, filepath.Base(filepath.Dir(path))).FontSize(11).TextColor(colors(c).Dim).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(2)
+					parent := filepath.Base(filepath.Dir(path))
+					if parentCount[tabNameParent{name: filepath.Base(path), parent: parent}] > 1 {
+						parent = a.workspacePath(filepath.Dir(path))
+					}
+					ui.Text(c, parent).FontSize(11).TextColor(colors(c).Dim).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(2)
 				}
 				if d.loadingVisible {
 					ui.Spinner(c).FontSize(10)

@@ -142,6 +142,27 @@ func TestSingleRootCodeWorkspaceKeepsItsProjectItemInTree(t *testing.T) {
 	}
 }
 
+func TestDuplicateTabSuffixesQualifyCollidingWorkspaceRoots(t *testing.T) {
+	workspaceFile, client, server := codeWorkspaceFixture(t)
+	h := newHarness(t, "")
+	h.a.openWorkspace(workspaceFile)
+	h.settle(func() bool {
+		return h.a.dirs[client] != nil && h.a.dirs[client].loaded && h.a.dirs[server] != nil && h.a.dirs[server].loaded
+	})
+	for _, path := range []string{filepath.Join(client, "src", "main.go"), filepath.Join(server, "src", "main.go")} {
+		h.a.userOpen(path)
+		d := h.a.docs[path]
+		if d == nil {
+			t.Fatalf("file was not opened: %q", path)
+		}
+		h.settle(func() bool { return !d.loading })
+	}
+	h.tt.Frame()
+	if len(h.a.focus.order) != 2 || !h.tt.HasText("main.go") || !h.tt.HasText("Client/src") || !h.tt.HasText("Server/src") {
+		t.Fatalf("colliding tab suffixes do not identify both workspace roots: %q", h.tt.Texts())
+	}
+}
+
 func TestRemovingCodeWorkspaceFolderOnlyRemovesItsReference(t *testing.T) {
 	if _, err := findRipgrep(""); err != nil {
 		t.Skip(err)

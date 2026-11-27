@@ -64,7 +64,7 @@ func treeIcon(c *ui.Context, name string, dir, open bool, size float32) {
 // callers to decorate as their tree needs.
 func treeLabel(c *ui.Context, o treeLabelOptions) ui.Element {
 	if o.Project {
-		symbolIcon(c, icLayers, o.IconSize, colors(c).Muted)
+		symbolIcon(c, icRelated, o.IconSize, colors(c).Muted)
 	} else {
 		treeIcon(c, o.Name, o.Dir, o.Open, o.IconSize)
 	}
