@@ -13,7 +13,9 @@ const (
 	IssueReadFailed IssueKind = "read_failed"
 	// IssueParseFailed: the file is not a JSON object. The original
 	// bytes are untouched, a backup copy was attempted, and the
-	// in-memory configuration fell back to defaults.
+	// in-memory configuration fell back to defaults. When the backup
+	// copy failed, overwriting the original is refused until one
+	// succeeds: it is the only copy of what the user had.
 	IssueParseFailed IssueKind = "parse_failed"
 	// IssueSchemaInvalid: one key's value does not fit its field's
 	// type, such as a string where a number belongs. The key keeps
@@ -21,7 +23,10 @@ const (
 	IssueSchemaInvalid IssueKind = "schema_invalid"
 	// IssueValidationFailed: one key decodes but falls outside its
 	// contractual domain, such as an unknown enum name. The key keeps
-	// its default in memory and its original text on write-back.
+	// its default in memory. The invalid value is representable in
+	// memory, so write-back converges the file to the in-memory truth
+	// rather than preserving the value the user is warned about —
+	// otherwise a repair to the default could never reach the file.
 	IssueValidationFailed IssueKind = "validation_failed"
 	// IssueVersionNewer: the file declares a schema version newer
 	// than this build understands. Known keys still load; keys the
