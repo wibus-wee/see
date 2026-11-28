@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"see/internal/operr"
 	"strings"
 	"testing"
@@ -106,9 +107,14 @@ func TestAttemptAndTotalDeadline(t *testing.T) {
 
 func TestMissingProcessIsSafeToDisplay(t *testing.T) {
 	secret := "token-must-not-appear"
-	err := (Handle{}).Run(context.Background(), t.TempDir()+"/"+secret, t.TempDir(), Build, new(Output))
+	err := (Handle{}).Run(context.Background(), filepath.Join(t.TempDir(), secret), t.TempDir(), Build, new(Output))
 	e := operr.Classify(fmt.Errorf("task boundary: %w", err))
-	if e == nil || e.Kind != operr.NotFound || e.Status != operr.Permanent || e.Operation != "go-build" || !errors.Is(err, os.ErrNotExist) || strings.Contains(err.Error(), secret) || len(e.Trace) != 0 {
+	// What reports the miss is the platform's: POSIX fails the fork with
+	// ENOENT, while Windows fails the PATHEXT resolution ahead of any
+	// start and exec.ErrNotFound carries no Is relation to os.ErrNotExist
+	// there. Both classify as the one not-found kind.
+	missing := errors.Is(err, os.ErrNotExist) || errors.Is(err, exec.ErrNotFound)
+	if e == nil || e.Kind != operr.NotFound || e.Status != operr.Permanent || e.Operation != "go-build" || !missing || strings.Contains(err.Error(), secret) || len(e.Trace) != 0 {
 		t.Fatal(e)
 	}
 }

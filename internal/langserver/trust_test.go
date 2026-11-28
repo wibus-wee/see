@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -15,11 +16,27 @@ import (
 
 func TestWorkspaceExecutableNeverStarts(t *testing.T) {
 	root := t.TempDir()
-	executable := filepath.Join(root, "tool")
-	if err := os.WriteFile(executable, []byte("#!/bin/sh\n: > started\n"), 0755); err != nil {
+	// The planted executable must resolve on the running platform, or the
+	// denial the test measures never gets to fire: resolution fails first,
+	// which is not the trust decision. Windows resolves executables by
+	// PATHEXT extension, so the file is tool.exe there and carries the test
+	// binary's own bytes — a valid program whose running is exactly what
+	// the denial exists to prevent. POSIX keeps the shell script, whose
+	// marker write proves nothing ran.
+	name, content := "tool", []byte("#!/bin/sh\n: > started\n")
+	if runtime.GOOS == "windows" {
+		name = "tool.exe"
+		own, err := os.ReadFile(os.Args[0])
+		if err != nil {
+			t.Fatal(err)
+		}
+		content = own
+	}
+	executable := filepath.Join(root, name)
+	if err := os.WriteFile(executable, content, 0755); err != nil {
 		t.Fatal(err)
 	}
-	alias := filepath.Join(t.TempDir(), "tool")
+	alias := filepath.Join(t.TempDir(), name)
 	if err := os.Symlink(executable, alias); err != nil {
 		t.Skip(err)
 	}

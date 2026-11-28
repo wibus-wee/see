@@ -197,6 +197,12 @@ func TestFindRipgrepDeniesWorkspaceVariants(t *testing.T) {
 	}
 	// No PATH ripgrep may answer these probes.
 	t.Setenv("PATH", t.TempDir())
+	// verify.sh exports the machine's own rg as SEE_RG for the real-rg
+	// integration tests, and SEE_RG precedes the explicit candidates of
+	// a resolution — the override it exists as. These probes pass their
+	// candidates explicitly, so the ambient override must not answer in
+	// their place.
+	t.Setenv("SEE_RG", "")
 
 	// The exact spelling inside the workspace is denied — the control
 	// that the exclusion still fires for the plain case.
@@ -232,7 +238,6 @@ func TestFindRipgrepDeniesWorkspaceVariants(t *testing.T) {
 		t.Skip(err)
 	}
 	t.Setenv("PATH", path)
-	t.Setenv("SEE_RG", "")
 	if got, err := FindRipgrep(root); err == nil {
 		t.Fatalf("PATH rg inside the workspace was used: %q", got)
 	} else if errors.Is(err, proc.ErrUntrustedExecutable) {
