@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/egoist/mygo"
+
 	"see/internal/config"
 	"see/internal/langserver"
 	"see/internal/lsp"
@@ -213,6 +215,100 @@ func TestQuickOpenRetriesAfterAScanError(t *testing.T) {
 	}
 	if len(h.a.quick.files) != 1 || h.a.quick.files[0] != "healed.go" {
 		t.Fatalf("files = %v after the retry", h.a.quick.files)
+	}
+}
+
+// The second deliberate retry point: a workspace invalidation. Events
+// mean the file list no longer matches the disk, so the sticky error
+// clears with the list — and the open panel must re-scan by itself,
+// because the user fixing permissions in another terminal is precisely
+// the moment a retry has a chance. A panel that instead waited for a
+// retype or reopen would sit on a dead error while the filesystem
+// healed underneath it, and the invalidation would be a retry point in
+// name only (the verifier's D3).
+func TestQuickOpenInvalidationRetriesScan(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the failing scanner is a shell script")
+	}
+	root := writeTree(t, map[string]string{"a.go": "package a\n"})
+	dir := t.TempDir()
+	state := filepath.Join(dir, "state")
+	count := filepath.Join(dir, "count")
+	scanner := filepath.Join(dir, "broken-rg")
+	script := "#!/bin/sh\necho x >> \"$SEE_SCANNER_COUNT\"\nif [ -s \"$SEE_SCANNER_STATE\" ]; then echo healed.go; else echo partial.go; exit 2; fi\n"
+	if err := os.WriteFile(scanner, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(state, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("SEE_RG", scanner)
+	t.Setenv("SEE_SCANNER_STATE", state) // empty: broken
+	t.Setenv("SEE_SCANNER_COUNT", count)
+	h := newHarness(t, root)
+	h.a.trust()
+	scans := func() int {
+		data, err := os.ReadFile(count)
+		if err != nil {
+			return 0
+		}
+		return strings.Count(string(data), "x")
+	}
+
+	// Scan fails; the error is sticky across frames, as before.
+	h.a.openQuickly()
+	h.settle(func() bool { return !h.a.quick.listing })
+	if h.a.quick.err == nil {
+		t.Fatal("a broken scanner reported no error")
+	}
+	before := scans()
+	if before == 0 {
+		t.Fatal("the scanner never ran")
+	}
+
+	// An empty event batch is not an invalidation: nothing changes,
+	// nothing retries.
+	h.a.applyEvents(nil)
+	for i := 0; i < 5; i++ {
+		h.tt.Frame()
+	}
+	if h.a.quick.err == nil {
+		t.Fatal("an empty event batch cleared the sticky error")
+	}
+	if scans() != before {
+		t.Fatal("an empty event batch retried the scan")
+	}
+
+	// A real event invalidates: the error clears, and the open panel
+	// re-scans without any further user action. One invalidation means
+	// one retry, not a resumption of the hot loop — the retried scan
+	// fails the same way and goes sticky again.
+	h.a.applyEvents([]mygo.FileEvent{{Op: mygo.FileWrite, Path: "a.go"}})
+	h.tt.Frame()
+	h.settle(func() bool { return scans() > before })
+	if scans() != before+1 {
+		t.Fatalf("one invalidation caused %d scans, want exactly one retry", scans()-before)
+	}
+	h.settle(func() bool { return !h.a.quick.listing })
+	if h.a.quick.err == nil {
+		t.Fatal("the retried scan's error did not go sticky again")
+	}
+
+	// The user heals the scanner in another terminal; the next filesystem
+	// event is the retry that succeeds — files arrive with the panel
+	// never closed and the query never retyped.
+	if err := os.WriteFile(state, []byte("ok"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	before = scans()
+	h.a.applyEvents([]mygo.FileEvent{{Op: mygo.FileWrite, Path: "a.go"}})
+	h.tt.Frame()
+	h.settle(func() bool { return scans() > before && !h.a.quick.listing })
+	if h.a.quick.err != nil {
+		t.Fatalf("the healed scanner still errored: %v", h.a.quick.err)
+	}
+	if len(h.a.quick.files) != 1 || h.a.quick.files[0] != "healed.go" {
+		t.Fatalf("files = %v after the invalidation retry", h.a.quick.files)
 	}
 }
 
