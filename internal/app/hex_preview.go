@@ -1,12 +1,14 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"see/locales"
 
 	"github.com/egoist/mygo/ui"
 	"see/internal/hexview"
+	"see/internal/rangeio"
 	"see/internal/workspace"
 )
 
@@ -16,7 +18,22 @@ type hexPage struct {
 	data []byte
 	used uint64
 }
+
+// hexViewSize is the size the hex view works with: the pinned version's
+// when a session exists, the document's metadata otherwise.
+func hexViewSize(d *doc) int64 {
+	if d.hex != nil && d.hex.sess != nil {
+		return d.hex.sess.Size()
+	}
+	return d.size
+}
+
+// hexState is one view of one version of the file: every page and every
+// scan goes through the session, so the view never mixes bytes of two
+// versions. A file change fails the reads, the state is dropped, and the
+// next frame pins the version then on disk.
 type hexState struct {
+	sess    *rangeio.Session
 	pages   map[int64]*hexPage
 	pending map[int64]bool
 	clock   uint64
@@ -30,7 +47,14 @@ func (a *App) canViewBytes(path string) bool {
 
 func (a *App) hexView(c *ui.Context, g *group, d *doc) {
 	if d.hex == nil {
-		d.hex = &hexState{pages: map[int64]*hexPage{}, pending: map[int64]bool{}}
+		h := &hexState{pages: map[int64]*hexPage{}, pending: map[int64]bool{}}
+		sess, err := rangeio.Open(d.path)
+		if err != nil {
+			h.err = err
+		} else {
+			h.sess = sess
+		}
+		d.hex = h
 	}
 	h := d.hex
 	if g.hexLists == nil {
@@ -64,20 +88,27 @@ func (a *App) hexView(c *ui.Context, g *group, d *doc) {
 		delta int64
 	}{{ui.KeyLeft, -1}, {ui.KeyRight, 1}, {ui.KeyUp, -16}, {ui.KeyDown, 16}} {
 		item := item
-		state.Handle.OnShortcut(c, 0, item.key, func() { control.move(item.delta, d.size, false, state) })
-		state.Handle.OnShortcut(c, ui.Shift, item.key, func() { control.move(item.delta, d.size, true, state) })
+		state.Handle.OnShortcut(c, 0, item.key, func() { control.move(item.delta, hexViewSize(d), false, state) })
+		state.Handle.OnShortcut(c, ui.Shift, item.key, func() { control.move(item.delta, hexViewSize(d), true, state) })
 	}
 	state.Handle.OnShortcut(c, ui.Cmd, ui.KeyC, func() { a.copyHex(d, control, services) })
 	if a.focusGroupTarget == g {
 		state.Handle.Focus(c)
 	}
-	count := hexview.Rows(d.size)
+	// Rows, jumps and selection bounds all follow the pinned version, not
+	// the document's metadata, so the view is consistent within itself
+	// even while the document is a reload behind.
+	viewSize := d.size
+	if h.sess != nil {
+		viewSize = h.sess.Size()
+	}
+	count := hexview.Rows(viewSize)
 	if count > int64(math.MaxInt) {
 		count = int64(math.MaxInt)
 	}
 	needed := map[int64]bool{}
 	charWidth, _ := c.MeasureText(0, ui.Span{Text: "0", Font: "monospace", Size: 12})
-	digits := hexOffsetDigits(d.size)
+	digits := hexOffsetDigits(viewSize)
 	offsetWidth := float32(digits+3) * charWidth
 	hexWidth := float32(49) * charWidth
 	rowWidth := 32 + offsetWidth + hexWidth + 16*charWidth
@@ -87,10 +118,10 @@ func (a *App) hexView(c *ui.Context, g *group, d *doc) {
 			ui.Box(c).Width(1).Height(18).Background(colors(c).Separator).Shrink(0)
 			jump := ui.TextInput(c, &control.jump).Label(locales.MsgHexOffset()).Placeholder(locales.MsgOffset()).Width(105).Height(26).FontSize(12)
 			if jump.Submitted() {
-				a.jumpHex(control, state, d.size)
+				a.jumpHex(control, state, viewSize)
 			}
 			if ui.Button(c, locales.MsgGo()).Height(26).Clicked() {
-				a.jumpHex(control, state, d.size)
+				a.jumpHex(control, state, viewSize)
 			}
 			ui.Box(c).Width(1).Height(18).Background(colors(c).Separator).Shrink(0)
 			search := ui.TextInput(c, &control.query).Label(locales.MsgFindBytes()).Placeholder(locales.MsgFindTextOrHex00FF()).Grow(1).MinWidth(80).Height(26).FontSize(12)
@@ -158,7 +189,7 @@ func (a *App) hexView(c *ui.Context, g *group, d *doc) {
 		}
 		ui.Row(c).FillWidth().Padding(6, 16).Gap(12).AlignItems(ui.Center).Background(colors(c).TabBar).BorderWidth(1, 0, 0, 0).BorderColor(colors(c).Hairline).Children(func() {
 			ui.Text(c, locales.MsgREADONLY()).FontSize(10).Bold().TextColor(colors(c).Muted)
-			ui.Text(c, size(d.size)).FontSize(11).TextColor(colors(c).Muted)
+			ui.Text(c, size(viewSize)).FontSize(11).TextColor(colors(c).Muted)
 			if control.selected {
 				lo, hi := control.bounds()
 				ui.Text(c, fmt.Sprintf("0x%X – 0x%X  ·  %s", lo, hi-1, hexSelectionSize(hi-lo))).Font("monospace").FontSize(11).TextColor(colors(c).Text)
@@ -176,18 +207,31 @@ func (a *App) hexView(c *ui.Context, g *group, d *doc) {
 }
 
 func (a *App) requestHexPage(d *doc, h *hexState, offset int64) {
-	if h.err != nil || h.pending[offset] || len(h.pending) >= hexCachePages {
+	if h.err != nil || h.sess == nil || h.pending[offset] || len(h.pending) >= hexCachePages {
 		return
 	}
 	h.pending[offset] = true
-	path, size, gen, seq := d.path, d.size, a.gen, d.seq
+	path, sess, gen, seq, ctx := d.path, h.sess, a.gen, d.seq, a.wsCtx
 	go func() {
-		data, err := hexview.ReadPage(path, offset, size)
+		data, _, err := sess.ReadAt(ctx, offset, hexview.PageLen(offset, sess.Size()))
 		a.post.Post(func() {
+			// The read is over whatever the completion finds: pending
+			// must clear even for a dropped result, or the page is
+			// never asked for again. A refresh of the unchanged file
+			// moves d.seq without resetting d.hex (the reload takes
+			// loadDoc's stamp shortcut), so guarding the delete on the
+			// state being current would wedge the page forever.
+			delete(h.pending, offset)
 			if a.gen != gen || a.docs[path] != d || d.seq != seq || d.hex != h {
 				return
 			}
-			delete(h.pending, offset)
+			if errors.Is(err, rangeio.ErrChanged) {
+				// The pinned version is gone, so the view built of it
+				// is dropped entirely and the next frame pins the
+				// version then on disk.
+				d.hex = nil
+				return
+			}
 			if err != nil {
 				h.err = err
 				return
