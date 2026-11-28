@@ -848,9 +848,8 @@ def run_scene(see, name, scene, out_dir, work, screencapture=False):
                         continue
                     compose_hero(screen, meta, os.path.join(
                         out_dir, name + "-native.png"), margin_dips=0)
-                    if name.startswith("hero"):
-                        compose_hero(screen, meta, os.path.join(
-                            out_dir, name + "-wallpaper.png"))
+                    compose_hero(screen, meta, os.path.join(
+                        out_dir, name + "-wallpaper.png"))
     finally:
         proc.terminate()
         try:
