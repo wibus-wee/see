@@ -1,0 +1,137 @@
+name: Screenshots
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  capture:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Install gopls
+        run: go install golang.org/x/tools/gopls@v0.24.0
+      - name: Build See with automation
+        run: |
+          go build -tags e2e -o build/see-e2e .
+          # A bare executable shows the generic icon everywhere macOS
+          # shows one; a minimal .app bundle carries the real one, and
+          # the terminal's library in its resources.
+          app=build/See.app/Contents
+          mkdir -p "$app/MacOS" "$app/Resources"
+          cp build/see-e2e "$app/MacOS/See"
+          mkdir -p /tmp/see.iconset
+          for size in 16 32 128 256 512; do
+            sips -z $size $size resources/icon.png --out "/tmp/see.iconset/icon_${size}x${size}.png" >/dev/null
+            double=$((size * 2))
+            sips -z $double $double resources/icon.png --out "/tmp/see.iconset/icon_${size}x${size}@2x.png" >/dev/null
+          done
+          iconutil -c icns /tmp/see.iconset -o "$app/Resources/icon.icns"
+          printf '%s\n' \
+            '<?xml version="1.0" encoding="UTF-8"?>' \
+            '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' \
+            '<plist version="1.0"><dict>' \
+            '<key>CFBundleExecutable</key><string>See</string>' \
+            '<key>CFBundleIdentifier</key><string>io.github.wibus-wee.see</string>' \
+            '<key>CFBundleName</key><string>See</string>' \
+            '<key>CFBundleDisplayName</key><string>See</string>' \
+            '<key>CFBundleIconFile</key><string>icon</string>' \
+            '<key>CFBundlePackageType</key><string>APPL</string>' \
+            '<key>CFBundleShortVersionString</key><string>dev</string>' \
+            '<key>LSMinimumSystemVersion</key><string>12.0</string>' \
+            '</dict></plist>' > "$app/Info.plist"
+          # libghostty-vt: packaged apps never download it, they expect it
+          # among the resources; the pin lives in mygo's plugin manifest.
+          moddir=$(go list -m -f '{{.Dir}}' github.com/wibus-wee/mygo 2>/dev/null || go list -m -f '{{.Dir}}' github.com/egoist/mygo)
+          url=$(python3 -c "import json; print(json.load(open('$moddir/plugins/terminal/mygo-plugin.json'))['libraries'][0]['files']['darwin-arm64']['url'])")
+          curl -sL "$url" -o "$app/Resources/libghostty-vt.dylib"
+          ls -la "$app/Resources/"
+      - name: Install Pillow
+        run: pip3 install --user --break-system-packages pillow
+      - name: Display information
+        run: system_profiler SPDisplaysDataType || true
+      - name: Set the display to 1920x1080
+        run: |
+          # The runner's VM display is 1024x768 by default; 1920x1080 is
+          # the largest mode it offers, and no HiDPI modes exist.
+          brew install displayplacer
+          displayplacer "id:1 res:1920x1080 hz:60 color_depth:7 scaling:off origin:(0,0) degree:0"
+      - name: Set a desktop picture
+        run: |
+          ls "/System/Library/Desktop Pictures" 2>/dev/null || true
+          # macOS's own pictures ship with the runner; take the first of
+          # them, the generated gradient only as a fallback.
+          picture=$(ls "/System/Library/Desktop Pictures"/*.heic 2>/dev/null | head -1)
+          if [ -z "$picture" ]; then
+            python3 scripts/screenshots/shots.py wallpaper /tmp/wallpaper.png
+            picture=/tmp/wallpaper.png
+          fi
+          echo "Desktop picture: $picture"
+          osascript -e "tell application \"System Events\" to set picture of every desktop to POSIX file \"$picture\"" || true
+      - name: Capture the scenes
+        run: python3 scripts/screenshots/shots.py capture --see build/See.app/Contents/MacOS/See --out shots --screencapture
+      - uses: actions/upload-artifact@v7
+        with:
+          name: shots
+          path: shots/
+          if-no-files-found: error
+
+  update:
+    needs: capture
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v7
+        with:
+          name: shots
+          path: shots
+      - name: Install webp
+        run: sudo apt-get update && sudo apt-get install -y webp
+      - name: Convert and place the screenshots
+        run: |
+          set -e
+          mkdir -p website/shots
+          hero=shots/hero-light-wallpaper.png
+          test -f "$hero" || hero=shots/hero-light.png
+          cwebp -q 90 "$hero" -o resources/screenshot.webp
+          cp resources/screenshot.webp website/screenshot.webp
+          # The native screen crops are what the screen really shows; the
+          # automation captures stay as fallbacks.
+          for scene in hero-dark diff gitlog; do
+            png="shots/$scene-wallpaper.png"
+            test -f "$png" || png="shots/$scene-native.png"
+            test -f "$png" || png="shots/$scene.png"
+            test -f "$png" && cwebp -q 90 "$png" -o "website/shots/$scene.webp"
+          done
+      - name: Open the screenshots pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          branch=screenshots/update
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          if git diff --quiet resources website; then
+            echo "Screenshots unchanged."
+            exit 0
+          fi
+          git checkout -B "$branch"
+          git add resources/screenshot.webp website/screenshot.webp website/shots/
+          git commit -m "chore: update screenshots"
+          git push -f origin "$branch"
+          if [ -n "$(gh pr list --head "$branch" --state open --json number --jq '.[0].number')" ]; then
+            echo "Pull request for $branch updated."
+          else
+            gh pr create --title "chore: update screenshots" \
+              --body "Screenshots captured by the [screenshots workflow](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})." \
+              --head "$branch"
+          fi

@@ -389,6 +389,8 @@
   "settings": "设置",
   "general": "通用",
   "appearance": "外观",
+  "sidebarVibrancy": "边栏毛玻璃",
+  "sidebarVibrancyDescription": "在边栏后方显示系统的半透明模糊材质。",
   "light": "浅色",
   "dark": "深色",
   "files": "文件",
@@ -1224,5 +1226,12 @@
   "gitNoRepositoryFound": "未找到 Git 仓库，或 Git 不可用。",
   "gitStashedChanges": "已贮藏更改。",
   "gitRemote": "远程",
-  "relativeFullDate": "{date} {weekday} {time}"
+  "relativeFullDate": "{date} {weekday} {time}",
+  "betaFeatures": "Beta 功能",
+  "betaFeaturesDescription": "试用尚未完成的功能。它们可能变化或移除；转为正式功能时，相关设置会自动迁移。",
+  "betaVibrancyMaterial": "材质",
+  "betaVibrancyMaterialDescription": "选择项目窗口后方的实验性系统材质。",
+  "betaVibrancyMaterialSidebar": "边栏",
+  "betaVibrancyMaterialWindow": "窗口",
+  "betaVibrancyMaterialGlass": "玻璃"
 }

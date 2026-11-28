@@ -3,6 +3,8 @@ package app
 import (
 	"testing"
 
+	"see/internal/config"
+
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui/editor"
@@ -12,13 +14,18 @@ import (
 type fakeProjectTabWindow struct {
 	handle    uintptr
 	destroyed bool
+	updates   int
+	vibrancy  []mygo.Vibrancy
 }
 
 func (w *fakeProjectTabWindow) Show()                 {}
 func (w *fakeProjectTabWindow) Focus()                {}
-func (w *fakeProjectTabWindow) Update(func())         {}
+func (w *fakeProjectTabWindow) Update(func())         { w.updates++ }
 func (w *fakeProjectTabWindow) IsDestroyed() bool     { return w.destroyed }
 func (w *fakeProjectTabWindow) NativeHandle() uintptr { return w.handle }
+func (w *fakeProjectTabWindow) SetVibrancy(v mygo.Vibrancy) {
+	w.vibrancy = append(w.vibrancy, v)
+}
 
 type fakeProjectWindowTabGroup struct {
 	groups   map[uintptr][]uintptr
@@ -111,10 +118,11 @@ func TestProjectWindowHandlesExcludeEmptyDestroyedAndDuplicateWindows(t *testing
 
 type fakeProjectWindowWithoutHandle struct{}
 
-func (fakeProjectWindowWithoutHandle) Show()             {}
-func (fakeProjectWindowWithoutHandle) Focus()            {}
-func (fakeProjectWindowWithoutHandle) Update(func())     {}
-func (fakeProjectWindowWithoutHandle) IsDestroyed() bool { return false }
+func (fakeProjectWindowWithoutHandle) Show()                     {}
+func (fakeProjectWindowWithoutHandle) Focus()                    {}
+func (fakeProjectWindowWithoutHandle) Update(func())             {}
+func (fakeProjectWindowWithoutHandle) IsDestroyed() bool         { return false }
+func (fakeProjectWindowWithoutHandle) SetVibrancy(mygo.Vibrancy) {}
 
 func TestProjectWindowMergeUsesActiveAnchorAndPreservesDirtyBuffer(t *testing.T) {
 	buffer := editor.NewBuffer("saved")
@@ -167,5 +175,38 @@ func TestProjectWindowMergeSkipsExistingTabsAndIsIdempotent(t *testing.T) {
 	tabs.groups[2] = []uintptr{2}
 	if !canMergeWindowHandles(windows, 2, tabs) {
 		t.Fatal("Merge All Windows did not become available after a tab was detached")
+	}
+}
+
+func TestApplyVibrancyToProjectsUpdatesEveryOpenWindow(t *testing.T) {
+	first := &fakeProjectTabWindow{handle: 1}
+	second := &fakeProjectTabWindow{handle: 2}
+	destroyed := &fakeProjectTabWindow{handle: 3, destroyed: true}
+	projects := []*projectWindow{{app: &App{}, win: first}, {app: &App{}, win: second}, {app: &App{}, win: destroyed}}
+
+	cfg := config.Load("")
+	cfg.SetBetaEnabled(config.BetaSidebarVibrancy, true)
+	if got := projectWindowVibrancy(cfg); got != mygo.VibrancySidebar {
+		t.Fatalf("default beta material = %q", got)
+	}
+	cfg.SetBetaSetting(config.BetaSidebarVibrancy, "material", "glass")
+	if got := projectWindowVibrancy(cfg); got != mygo.VibrancyGlass {
+		t.Fatalf("configured beta material = %q", got)
+	}
+	cfg.SetBetaSetting(config.BetaSidebarVibrancy, "material", "sidebar")
+	applyVibrancyToProjects(projects, cfg)
+	for i, window := range []*fakeProjectTabWindow{first, second} {
+		if len(window.vibrancy) != 1 || window.vibrancy[0] != mygo.VibrancySidebar || window.updates != 1 {
+			t.Fatalf("window %d vibrancy=%v updates=%d", i, window.vibrancy, window.updates)
+		}
+	}
+	if len(destroyed.vibrancy) != 0 || destroyed.updates != 0 {
+		t.Fatalf("destroyed window vibrancy=%v updates=%d", destroyed.vibrancy, destroyed.updates)
+	}
+
+	cfg.SetBetaEnabled(config.BetaSidebarVibrancy, false)
+	applyVibrancyToProjects(projects, cfg)
+	if got := first.vibrancy[1]; got != mygo.VibrancyNone {
+		t.Fatalf("disabled material = %q, want none", got)
 	}
 }

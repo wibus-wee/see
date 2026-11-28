@@ -1,16 +1,41 @@
 package app
 
+import (
+	"github.com/egoist/mygo"
+
+	"see/internal/config"
+)
+
 type projectWindowHost interface {
 	Show()
 	Focus()
 	Update(func())
 	IsDestroyed() bool
+	SetVibrancy(mygo.Vibrancy)
 }
 
 // projectWindow owns the state and native window of one open workspace.
 type projectWindow struct {
 	app *App
 	win projectWindowHost
+}
+
+func projectWindowVibrancy(cfg *config.Config) mygo.Vibrancy {
+	if !cfg.BetaEnabled(config.BetaSidebarVibrancy) {
+		return mygo.VibrancyNone
+	}
+	return mygo.Vibrancy(cfg.BetaString(config.BetaSidebarVibrancy, "material"))
+}
+
+func applyVibrancyToProjects(projects []*projectWindow, cfg *config.Config) {
+	material := projectWindowVibrancy(cfg)
+	for _, project := range projects {
+		if project == nil || project.win == nil || project.win.IsDestroyed() {
+			continue
+		}
+		project.win.SetVibrancy(material)
+		project.win.Update(func() {})
+	}
 }
 
 func applyEditorPrefsToProjects(projects []*projectWindow) {

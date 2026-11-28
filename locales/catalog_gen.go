@@ -3884,6 +3884,26 @@ func (msgs Messages) Appearance() string {
 	return Catalog.Format(msgs.locale, "appearance", nil)
 }
 
+// SidebarVibrancy says "Sidebar Vibrancy"
+// in the language the app shows.
+func SidebarVibrancy() string { return In(i18n.Locale()).SidebarVibrancy() }
+
+// SidebarVibrancy says "Sidebar Vibrancy"
+// in the language of msgs.
+func (msgs Messages) SidebarVibrancy() string {
+	return Catalog.Format(msgs.locale, "sidebarVibrancy", nil)
+}
+
+// SidebarVibrancyDescription says "Show the system material behind the sidebar."
+// in the language the app shows.
+func SidebarVibrancyDescription() string { return In(i18n.Locale()).SidebarVibrancyDescription() }
+
+// SidebarVibrancyDescription says "Show the system material behind the sidebar."
+// in the language of msgs.
+func (msgs Messages) SidebarVibrancyDescription() string {
+	return Catalog.Format(msgs.locale, "sidebarVibrancyDescription", nil)
+}
+
 // Light says "Light"
 // in the language the app shows.
 func Light() string { return In(i18n.Locale()).Light() }
@@ -12358,4 +12378,76 @@ func RelativeFullDate(weekday string, date string, time_ string) string {
 // in the language of msgs.
 func (msgs Messages) RelativeFullDate(weekday string, date string, time_ string) string {
 	return Catalog.Format(msgs.locale, "relativeFullDate", map[string]any{"weekday": weekday, "date": date, "time": time_})
+}
+
+// BetaFeatures says "Beta Features"
+// in the language the app shows.
+func BetaFeatures() string { return In(i18n.Locale()).BetaFeatures() }
+
+// BetaFeatures says "Beta Features"
+// in the language of msgs.
+func (msgs Messages) BetaFeatures() string {
+	return Catalog.Format(msgs.locale, "betaFeatures", nil)
+}
+
+// BetaFeaturesDescription says "Try unfinished features. They may change or disappear, and their settings move automatically when they become stable."
+// in the language the app shows.
+func BetaFeaturesDescription() string { return In(i18n.Locale()).BetaFeaturesDescription() }
+
+// BetaFeaturesDescription says "Try unfinished features. They may change or disappear, and their settings move automatically when they become stable."
+// in the language of msgs.
+func (msgs Messages) BetaFeaturesDescription() string {
+	return Catalog.Format(msgs.locale, "betaFeaturesDescription", nil)
+}
+
+// BetaVibrancyMaterial says "Material"
+// in the language the app shows.
+func BetaVibrancyMaterial() string { return In(i18n.Locale()).BetaVibrancyMaterial() }
+
+// BetaVibrancyMaterial says "Material"
+// in the language of msgs.
+func (msgs Messages) BetaVibrancyMaterial() string {
+	return Catalog.Format(msgs.locale, "betaVibrancyMaterial", nil)
+}
+
+// BetaVibrancyMaterialDescription says "Choose the experimental system material behind project windows."
+// in the language the app shows.
+func BetaVibrancyMaterialDescription() string {
+	return In(i18n.Locale()).BetaVibrancyMaterialDescription()
+}
+
+// BetaVibrancyMaterialDescription says "Choose the experimental system material behind project windows."
+// in the language of msgs.
+func (msgs Messages) BetaVibrancyMaterialDescription() string {
+	return Catalog.Format(msgs.locale, "betaVibrancyMaterialDescription", nil)
+}
+
+// BetaVibrancyMaterialSidebar says "Sidebar"
+// in the language the app shows.
+func BetaVibrancyMaterialSidebar() string { return In(i18n.Locale()).BetaVibrancyMaterialSidebar() }
+
+// BetaVibrancyMaterialSidebar says "Sidebar"
+// in the language of msgs.
+func (msgs Messages) BetaVibrancyMaterialSidebar() string {
+	return Catalog.Format(msgs.locale, "betaVibrancyMaterialSidebar", nil)
+}
+
+// BetaVibrancyMaterialWindow says "Window"
+// in the language the app shows.
+func BetaVibrancyMaterialWindow() string { return In(i18n.Locale()).BetaVibrancyMaterialWindow() }
+
+// BetaVibrancyMaterialWindow says "Window"
+// in the language of msgs.
+func (msgs Messages) BetaVibrancyMaterialWindow() string {
+	return Catalog.Format(msgs.locale, "betaVibrancyMaterialWindow", nil)
+}
+
+// BetaVibrancyMaterialGlass says "Glass"
+// in the language the app shows.
+func BetaVibrancyMaterialGlass() string { return In(i18n.Locale()).BetaVibrancyMaterialGlass() }
+
+// BetaVibrancyMaterialGlass says "Glass"
+// in the language of msgs.
+func (msgs Messages) BetaVibrancyMaterialGlass() string {
+	return Catalog.Format(msgs.locale, "betaVibrancyMaterialGlass", nil)
 }
