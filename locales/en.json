@@ -1237,5 +1237,6 @@
   "betaVibrancyMaterialDescription": "Choose the experimental system material behind project windows.",
   "betaVibrancyMaterialSidebar": "Sidebar",
   "betaVibrancyMaterialWindow": "Window",
-  "betaVibrancyMaterialGlass": "Glass"
+  "betaVibrancyMaterialGlass": "Glass",
+  "msgConfigLoadProblem": "Some settings could not be loaded and were reset to defaults: {detail}"
 }
