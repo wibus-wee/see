@@ -329,3 +329,41 @@ with the assertions unchanged.
 Nothing intentional. The spec documents themselves (`docs/specs/*.md`,
 excluding conformance matrices) are absent from every implementation lane
 by construction — they are #168's content, independent of this chain.
+
+## Merged — chain landed on main (2026-11-28)
+
+The full chain was merged into `main` in dependency order, each layer a
+squash commit per repository convention:
+
+| PR | Content | Merge commit | Final CI gate before merge |
+| --- | --- | --- | --- |
+| #168 | spec documents (SPEC-000..009) | `e216f6b` | three-platform green at `f3d214c` |
+| #170 | lane D — streaming and range IO | `01b5849` | three-platform green at `7513025` |
+| #171 | lane B — resource identity and paths | `8a5627b` | three-platform green at `60b27a0` |
+| #169 | lane C — transactional writes, config | `c0171d0` | three-platform green at `be034dd` |
+| #172 | lane A — LSP operations, processes | `45029bb` | three-platform green at `ee79bc8` (healed) |
+| #173 | lane E — round-2 mechanisms | `2d409a7` | three-platform green at `9f2384f` (healed) |
+| #174 | integration — wiring, digests, fuzz | `abf5dea` | three-platform green at `4848959` (healed) |
+
+"Squash" here means each lane's content entered main as a single commit;
+the stack's upper layers were healed before merging by merging main into
+the lane branch (no history rewritten): conflict regions resolved toward
+the integrated tree — this report's own evidence base — while main's own
+drift (the multi-root and keyboard-focus fixes that landed after the
+chain forked) was preserved. Verified before each push by audit against
+the integration tree, and after the final merge by tree equality: main
+at `abf5dea` is byte-identical to the integration branch tip `4848959`
+whose three-platform CI was green, and `CGO_ENABLED=0 go test -count=1
+./...` passes all 29 packages on darwin/arm64 at that revision.
+
+Post-integration platform fixes that landed during the merge window:
+
+- atomicfile's publish boundary tolerates what a Windows reader can hold
+  open (`be034dd`, lane C), merged into integration as `cb44fe6`.
+- An LSP connection is not done until its last answer is sent —
+  `4848959`, fixing the teardown race `TestTypeHierarchyEmptyAndUnsupported`
+  exposed on Windows.
+
+Branch archaeology: the `spec-*` lane branches and the `verify-lane-*` /
+`reverify-lane-*` chains are intentionally kept as the verification
+evidence trail; the conformance matrices above reference them.
