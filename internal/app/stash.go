@@ -152,7 +152,7 @@ func (a *App) openStash(s git.Stash) {
 				return
 			}
 			if err != nil {
-				a.note(locales.MsgGit()+" "+gitErrLine(err), true)
+				a.fail(locales.MsgGit() + " " + gitErrLine(err))
 				return
 			}
 			cm.Subject = s.Message
@@ -201,7 +201,7 @@ func (a *App) stashJob(done string, job func() error, ok func()) {
 		return
 	}
 	if len(a.dirtyDocs()) > 0 {
-		a.note(locales.MsgSaveOrRevertUnsavedEditsFirst(), true)
+		a.fail(locales.MsgSaveOrRevertUnsavedEditsFirst())
 		return
 	}
 	a.runBranchJob(done, func() error {

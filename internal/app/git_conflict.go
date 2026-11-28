@@ -184,7 +184,7 @@ func (a *App) saveGitConflict(v *gitDiffTab) {
 	ctx, gen, scopeSeq := a.wsCtx, a.gen, a.git.scopeSeq
 	path := workspace.DocPath(a.root, a.realRoot, filepath.Join(root, filepath.FromSlash(v.name)))
 	if d := a.docs[path]; d != nil && (d.saving || d.buf != nil && d.buf.Modified()) {
-		a.note(locales.MsgSaveOrCloseTheFileSUnsavedEdits(), true)
+		a.fail(locales.MsgSaveOrCloseTheFileSUnsavedEdits())
 		return
 	}
 	if groupScoped {
@@ -226,7 +226,7 @@ func (a *App) saveGitConflict(v *gitDiffTab) {
 				} else {
 					a.git.diffSeq++
 				}
-				a.note(gitConflictText("gitConflictStaged"), false)
+				a.flash(gitConflictText("gitConflictStaged"))
 			}
 			if d := a.docs[path]; d != nil {
 				a.reloadDoc(d)

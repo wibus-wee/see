@@ -254,7 +254,7 @@ func (s *settingsWindow) PickTerminalApp() {
 				return
 			}
 			if err != nil {
-				a.note(locales.MsgCouldNotChooseTerminalApp()+err.Error(), true)
+				a.fail(locales.MsgCouldNotChooseTerminalApp() + err.Error())
 				a.post.Post(func() {})
 				return
 			}

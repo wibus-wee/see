@@ -47,7 +47,7 @@ func (a *App) requestTrash(path string) {
 						return
 					}
 					if err != nil {
-						a.note(locales.MsgCouldNotMoveToTrash()+err.Error(), true)
+						a.fail(locales.MsgCouldNotMoveToTrash() + err.Error())
 						return
 					}
 					a.removed(path)
@@ -167,7 +167,7 @@ func (a *App) submitEntry(q *entryPrompt) {
 				if a.createEntry == nil {
 					a.createEntry = q
 				} else {
-					a.note(q.err, true)
+					a.fail(q.err)
 				}
 				return
 			}
@@ -188,7 +188,7 @@ func (a *App) openDropped(g *group, zone side, paths []string) {
 	for _, path := range paths {
 		info, err := os.Stat(path)
 		if err != nil || !info.Mode().IsRegular() {
-			a.note(locales.MsgCouldNotOpenDroppedFile()+path, true)
+			a.fail(locales.MsgCouldNotOpenDroppedFile() + path)
 			continue
 		}
 		if zone != sideNone {
@@ -219,7 +219,7 @@ func (a *App) copyInto(dir string, paths []string) {
 			a.filter.forQuery = ""
 			a.tree.Open.Add(dir)
 			if len(failures) > 0 {
-				a.note(locales.MsgCouldNotCopy()+strings.Join(failures, "; "), true)
+				a.fail(locales.MsgCouldNotCopy() + strings.Join(failures, "; "))
 			}
 		})
 	}()

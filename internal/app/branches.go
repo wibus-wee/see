@@ -75,7 +75,7 @@ func (it branchItem) choosable() bool { return it.heading == "" }
 // openBranchPicker shows the branches, read again each time it opens.
 func (a *App) openBranchPicker(at ui.Rect) {
 	if a.git.root == "" {
-		a.note(locales.MsgThisFolderIsNotInAGitRepository(), true)
+		a.fail(locales.MsgThisFolderIsNotInAGitRepository())
 		return
 	}
 	p := &a.git.picker
@@ -376,9 +376,9 @@ func (a *App) runBranchJob(done string, job func() error) {
 			}
 			a.git.busy = false
 			if err != nil {
-				a.note(locales.MsgGit()+gitErrLine(err), true)
+				a.fail(locales.MsgGit() + gitErrLine(err))
 			} else {
-				a.note(done, false)
+				a.flash(done)
 				if !a.watching {
 					a.refreshAll()
 				}

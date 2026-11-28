@@ -93,7 +93,7 @@ func (a *App) codeActionAtPoint(g *group, d *doc, st *editor.State, caret bool) 
 	a.observeFocusedGroup(g)
 	m := a.serverFor(d.path)
 	if m == nil {
-		a.note(locales.MsgNoLanguageServerIsConfiguredForThisFile(), false)
+		a.flash(locales.MsgNoLanguageServerIsConfiguredForThisFile())
 		return
 	}
 	if !a.workspaceTrusted() {
@@ -103,12 +103,12 @@ func (a *App) codeActionAtPoint(g *group, d *doc, st *editor.State, caret bool) 
 	}
 	c := m.Current()
 	if c == nil {
-		a.note(locales.MsgCodeActionUnavailable(), false)
+		a.flash(locales.MsgCodeActionUnavailable())
 		return
 	}
 	ca, ok := c.(codeActionClient)
 	if !ok || !ca.HasCodeActions() {
-		a.note(locales.CodeActionUnsupported(), false)
+		a.flash(locales.CodeActionUnsupported())
 		return
 	}
 	a.cancelNav()
@@ -129,7 +129,6 @@ func (a *App) codeActionAtPoint(g *group, d *doc, st *editor.State, caret bool) 
 	a.navCancel = cancel
 	a.finding = true
 	a.findingLabel = locales.CodeActionFinding()
-	a.notice = ""
 	go func() {
 		defer cancel()
 		if err := m.Sync(ctx, c, d.uri, snap); err != nil {
@@ -155,7 +154,7 @@ func (a *App) codeActionAtPoint(g *group, d *doc, st *editor.State, caret bool) 
 				return
 			}
 			if len(actions) == 0 {
-				a.note(locales.CodeActionEmpty(), false)
+				a.flash(locales.CodeActionEmpty())
 				return
 			}
 			a.codeActions = &codeActions{doc: d, server: m, client: ca, line: line, version: version, anchor: anchor, list: actions, open: true}
@@ -385,7 +384,7 @@ func (a *App) resolveCodeAction(cs *codeActions, action lsp.CodeAction) {
 func (a *App) applyCodeAction(cs *codeActions, action *lsp.CodeAction) {
 	if action.Edit != nil {
 		if n := action.Edit.ResourceChanges(); n > 0 {
-			a.note(locales.CodeActionResourceChanges(strconv.Itoa(n)), true)
+			a.fail(locales.CodeActionResourceChanges(strconv.Itoa(n)))
 		}
 		if err := a.applyWorkspaceEdit(action.Edit, cs.server); err != nil {
 			a.lspFailure(err)
@@ -394,7 +393,7 @@ func (a *App) applyCodeAction(cs *codeActions, action *lsp.CodeAction) {
 	}
 	if action.Command != nil {
 		if ec, ok := cs.client.(interface{ HasExecuteCommand() bool }); !ok || !ec.HasExecuteCommand() {
-			a.note(locales.CodeActionNoCommands(), false)
+			a.flash(locales.CodeActionNoCommands())
 			return
 		}
 		a.executeCommand(cs, *action.Command)

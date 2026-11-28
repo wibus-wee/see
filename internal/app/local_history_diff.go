@@ -46,7 +46,7 @@ func (a *App) showActiveLocalHistory() {
 
 func (a *App) showLocalHistory(g *group, d *doc) {
 	if g == nil || !a.localHistorySupported(d) {
-		a.note(localHistoryText("localHistoryUnsupported"), true)
+		a.fail(localHistoryText("localHistoryUnsupported"))
 		return
 	}
 	if st := g.eds[d.path]; st == nil || st.Buffer != d.buf {
@@ -202,7 +202,7 @@ func (a *App) restoreLocalHistorySelected(g *group, key string, v *gitDiffTab) {
 	lh.version, lh.currentText = lh.buffer.Version(), lh.buffer.Snapshot().String()
 	a.selectLocalHistorySnapshot(v, lh.selected)
 	lh.restored = true
-	a.note(localHistoryText("localHistoryRestored"), false)
+	a.flash(localHistoryText("localHistoryRestored"))
 }
 
 func applyLocalHistoryEdits(buffer *editor.Buffer, version uint64, edits []editor.Edit) bool {

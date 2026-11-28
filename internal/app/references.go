@@ -249,7 +249,6 @@ func (a *App) findUsagesPinned() {
 	a.navCancel = cancel
 	a.finding = true
 	a.findingLabel = "Finding references…"
-	a.notice = ""
 	seq, gen := a.navSeq, a.gen
 	version := snap.Version()
 	go func() {

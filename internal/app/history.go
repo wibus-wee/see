@@ -554,10 +554,10 @@ func (a *App) openCommitFile(g *group, cm git.Commit, f git.FileStat) {
 			}
 			switch {
 			case err != nil:
-				a.note(locales.MsgGitDiff()+gitErrLine(err), true)
+				a.fail(locales.MsgGitDiff() + gitErrLine(err))
 				return
 			case parseErr != nil || len(patches) == 0 || patches[0].Binary:
-				a.note(locales.MsgNoTextDiffAvailableFor()+f.Path, true)
+				a.fail(locales.MsgNoTextDiffAvailableFor() + f.Path)
 				return
 			}
 			v := a.newGitDiffTab(patches[0], f.Path, false)

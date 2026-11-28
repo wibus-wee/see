@@ -758,12 +758,12 @@ func (a *App) gitAction(args ...string) {
 			}
 			a.git.busy = false
 			if err != nil {
-				a.note(locales.MsgGit()+err.Error(), true)
+				a.fail(locales.MsgGit() + err.Error())
 			} else {
 				a.git.diffSeq++
 				if args[0] == "commit" {
 					a.git.message = ""
-					a.note(locales.MsgCommittedStagedChanges(), false)
+					a.flash(locales.MsgCommittedStagedChanges())
 				}
 			}
 			a.refreshGit()
@@ -809,7 +809,7 @@ func (a *App) discardGitChange(ch git.Change) {
 	}
 	path := workspace.DocPath(a.root, a.realRoot, joined)
 	if d := a.docs[path]; d != nil && d.buf != nil && d.buf.Modified() {
-		a.note(locales.MsgSaveOrCloseTheFileSUnsavedEdits(), true)
+		a.fail(locales.MsgSaveOrCloseTheFileSUnsavedEdits())
 		return
 	}
 	message := locales.DiscardFileQuestion(ch.Path)
@@ -824,7 +824,7 @@ func (a *App) discardGitChange(ch git.Change) {
 			}
 			a.deleteConfirm = nil
 			if d := a.docs[path]; d != nil && d.buf != nil && d.buf.Modified() {
-				a.note(locales.MsgSaveOrCloseTheFileSUnsavedEdits(), true)
+				a.fail(locales.MsgSaveOrCloseTheFileSUnsavedEdits())
 				return
 			}
 			a.git.busy = true
@@ -842,7 +842,7 @@ func (a *App) discardGitChange(ch git.Change) {
 					}
 					a.git.busy = false
 					if err != nil {
-						a.note(locales.MsgCouldNotDiscardGitChanges()+err.Error(), true)
+						a.fail(locales.MsgCouldNotDiscardGitChanges() + err.Error())
 					} else {
 						a.git.diffSeq++
 						if ch.Index == '?' {
@@ -878,7 +878,7 @@ func (a *App) discardGitChanges(chs []git.Change) {
 		}
 		path := workspace.DocPath(a.root, a.realRoot, joined)
 		if d := a.docs[path]; d != nil && d.buf != nil && d.buf.Modified() {
-			a.note(locales.MsgSaveOrCloseTheFileSUnsavedEdits(), true)
+			a.fail(locales.MsgSaveOrCloseTheFileSUnsavedEdits())
 			return
 		}
 	}
@@ -928,7 +928,7 @@ func (a *App) discardGitChanges(chs []git.Change) {
 					}
 					a.git.busy = false
 					if firstErr != nil {
-						a.note(locales.MsgCouldNotDiscardGitChanges()+firstErr.Error(), true)
+						a.fail(locales.MsgCouldNotDiscardGitChanges() + firstErr.Error())
 					} else {
 						a.git.diffSeq++
 						a.quick.files = nil
@@ -1118,11 +1118,11 @@ func (a *App) showGitDiffInRepository(root string, ch git.Change, staged bool, t
 				return
 			}
 			if err != nil {
-				a.note(locales.MsgGitDiff()+err.Error(), true)
+				a.fail(locales.MsgGitDiff() + err.Error())
 				return
 			}
 			if view.file.OldName == "" && view.file.NewName == "" {
-				a.note(locales.MsgNoTextDiffAvailableFor()+ch.Path, true)
+				a.fail(locales.MsgNoTextDiffAvailableFor() + ch.Path)
 				return
 			}
 			v := &gitDiffTab{name: ch.Path, root: root, staged: staged, change: true}

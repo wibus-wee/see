@@ -120,7 +120,7 @@ func (a *App) showHierarchyAt(g *group, types bool) {
 	}
 	m := a.serverFor(d.path)
 	if m == nil {
-		a.note(locales.MsgNoLanguageServerIsConfiguredForThisFile(), false)
+		a.flash(locales.MsgNoLanguageServerIsConfiguredForThisFile())
 		return
 	}
 	if !a.workspaceTrusted() {

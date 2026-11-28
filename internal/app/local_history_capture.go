@@ -127,7 +127,7 @@ func (a *App) writeLocalHistory(d *doc, text string, at time.Time) {
 	store, path, post := a.localHistoryStore, d.path, a.post.Post
 	go func() {
 		if _, _, err := store.Add(path, text, at); err != nil {
-			post(func() { a.note(localHistoryText("localHistoryWriteError")+err.Error(), true) })
+			post(func() { a.fail(localHistoryText("localHistoryWriteError") + err.Error()) })
 		}
 	}()
 }

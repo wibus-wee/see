@@ -75,7 +75,7 @@ func (a *App) openFileLog(rel string) {
 func (a *App) showFileHistory(path string) {
 	rel, ok := a.gitRelPath(path)
 	if !ok {
-		a.note(locales.MsgNoHistoryFor()+a.workspacePath(path)+locales.MsgNotInTheRepository(), true)
+		a.fail(locales.MsgNoHistoryFor() + a.workspacePath(path) + locales.MsgNotInTheRepository())
 		return
 	}
 	a.openFileLog(rel)

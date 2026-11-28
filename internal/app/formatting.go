@@ -88,7 +88,7 @@ func (a *App) formatAt(g *group, d *doc, st *editor.State, selection bool) {
 	a.observeFocusedGroup(g)
 	m := a.serverFor(d.path)
 	if m == nil {
-		a.note(locales.MsgNoLanguageServerIsConfiguredForThisFile(), false)
+		a.flash(locales.MsgNoLanguageServerIsConfiguredForThisFile())
 		return
 	}
 	if !a.workspaceTrusted() {
@@ -98,12 +98,12 @@ func (a *App) formatAt(g *group, d *doc, st *editor.State, selection bool) {
 	}
 	c := m.Current()
 	if c == nil {
-		a.note(locales.MsgCodeActionUnavailable(), false)
+		a.flash(locales.MsgCodeActionUnavailable())
 		return
 	}
 	f, ok := c.(formatClient)
 	if !ok || selection && !f.HasDocumentRangeFormatting() || !selection && !f.HasDocumentFormatting() {
-		a.note(locales.FormattingUnsupported(), false)
+		a.flash(locales.FormattingUnsupported())
 		return
 	}
 	a.cancelNav()
@@ -119,7 +119,6 @@ func (a *App) formatAt(g *group, d *doc, st *editor.State, selection bool) {
 	a.navCancel = cancel
 	a.finding = true
 	a.findingLabel = locales.FormattingFinding()
-	a.notice = ""
 	go func() {
 		defer cancel()
 		if err := m.Sync(ctx, c, d.uri, snap); err != nil {
@@ -157,7 +156,7 @@ func (a *App) formatAt(g *group, d *doc, st *editor.State, selection bool) {
 			}
 			d.buf.EditRemote(bufEdits...)
 			m.Changed(d.uri, d.buf.Snapshot())
-			a.note(locales.FormattingApplied(), false)
+			a.flash(locales.FormattingApplied())
 		})
 	}()
 }

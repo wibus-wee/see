@@ -101,7 +101,7 @@ func (a *App) commitMeta(c *ui.Context, v *commitView) {
 		ui.Text(c, cm.Short).FontSize(12).TextColor(colors(c).Muted).Selectable().Tooltip(cm.Hash)
 		if glyphButton(c, icCopy, locales.MsgCopyCommitHash(), locales.MsgCopyCommitHash(), false, false).Clicked() {
 			c.Services().WriteClipboard(cm.Hash)
-			a.note(locales.MsgCopied()+cm.Short+".", false)
+			a.flash(locales.MsgCopied() + cm.Short + ".")
 		}
 		a.commitSignatureBadge(c, d.Signature)
 		a.commitRefs(c, cm)

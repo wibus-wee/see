@@ -75,7 +75,7 @@ func (a *App) cacheRecovery(d *doc) {
 	cache := d.cache
 	name, err := recoveryPath(a.root, d.path)
 	if err != nil {
-		a.note(locales.MsgCouldNotCacheUnsavedFile()+err.Error(), true)
+		a.fail(locales.MsgCouldNotCacheUnsavedFile() + err.Error())
 		return
 	}
 	snap := d.buf.Snapshot()
@@ -109,7 +109,7 @@ func (a *App) cacheRecovery(d *doc) {
 			cache.version = snap.Version()
 			post(func() {})
 		} else {
-			post(func() { a.note(locales.MsgCouldNotCacheUnsavedFile()+err.Error(), true) })
+			post(func() { a.fail(locales.MsgCouldNotCacheUnsavedFile() + err.Error()) })
 		}
 	}()
 }
