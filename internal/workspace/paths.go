@@ -128,11 +128,11 @@ func cleanRel(rel string) (string, bool) {
 		// anyway.
 		return "", false
 	}
-	if runtime.GOOS == "windows" && strings.HasPrefix(rel, `\\`) {
+	if runtime.GOOS == "windows" && strings.HasPrefix(rel, "\\") {
 		// A leading separator is volume-anchored on Windows (\x is
 		// the current drive's root) even where filepath.IsAbs cannot
 		// call it absolute, since the drive is missing. UNC roots
-		// (\\server\share) are the same case with a volume.
+		// (\\server\share) share the leading separator.
 		return "", false
 	}
 	var parts []string
