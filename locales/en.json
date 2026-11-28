@@ -479,6 +479,7 @@
   "msgSearchingSymbols": "Searching symbols…",
   "msgListingFiles": "Listing files…",
   "msgNoMatches": "No Matches",
+  "msgOnlyTheFirstCountFilesAreListed": "Only the first {count} files are listed — type more of the name.",
   "msgImagePreviewArea": "Image preview area",
   "msgImagePreview": "Image preview",
   "msgCouldNotCopyFile": "Could not copy file: ",
