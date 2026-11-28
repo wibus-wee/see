@@ -72,6 +72,15 @@ func TestFindAcrossChunks(t *testing.T) {
 	if _, err := Pattern("hex: 0"); err == nil {
 		t.Fatal("accepted odd hex")
 	}
+
+	// A negative start is an error like Scan's and ReadAt's, never a
+	// match outside the file — an empty pattern included.
+	if _, err := Find(context.Background(), s, -5, nil); err == nil {
+		t.Fatal("empty pattern matched at a negative start")
+	}
+	if _, err := Find(context.Background(), s, -5, []byte("needle")); err == nil {
+		t.Fatal("accepted a negative start")
+	}
 }
 
 func TestFindReportsTheFileChanging(t *testing.T) {

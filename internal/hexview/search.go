@@ -33,11 +33,15 @@ func Pattern(query string) ([]byte, error) {
 }
 
 // Find scans the pinned version of the file for the first occurrence of
-// pattern at or after start. The scan streams in order, so memory stays
-// at one chunk no matter the file, and it fails with rangeio.ErrChanged
-// rather than mixing bytes of two versions into one match position. An
-// empty pattern matches at start.
+// pattern at or after start. The scan streams in order, so live memory
+// stays bounded by one chunk plus the pattern no matter the file, and it
+// fails with rangeio.ErrChanged rather than mixing bytes of two versions
+// into one match position. An empty pattern matches at start; a negative
+// start is an error, as Scan and ReadAt contract.
 func Find(ctx context.Context, s *rangeio.Session, start int64, pattern []byte) (int64, error) {
+	if start < 0 {
+		return -1, fmt.Errorf("rangeio: negative start %d", start)
+	}
 	if len(pattern) == 0 {
 		if start <= s.Size() {
 			return start, nil
