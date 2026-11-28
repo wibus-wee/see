@@ -30,8 +30,14 @@ var ErrChanged = errors.New("file changed on disk")
 
 // Stamp identifies one version of a file by the metadata a local
 // filesystem reports. Two reads of one file share its content version as
-// long as size and modification time both stay the same; writes in place
-// that preserve both are not detectable on any common filesystem.
+// long as size and modification time both stay the same. Any replacement
+// that preserves both escapes detection, however the bytes change: a
+// write in place that restores the modification time, or a rename of a
+// crafted copy over the file as rsync -t and tar extraction do, the
+// usual shape of archive and sync tooling. Detection also leans on the
+// filesystem's timestamp granularity: where modification time resolves
+// coarsely (seconds on some filesystems), even unwitting quick rewrites
+// can land inside one tick.
 type Stamp struct {
 	Size    int64
 	ModTime time.Time
