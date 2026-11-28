@@ -346,6 +346,7 @@ type quickOpen struct {
 	ranked          string // the query results are of
 	files           []string
 	listing         bool
+	scanGen         int // invalidations observed by the in-flight scan
 	filesSeq        uint64
 	filesCancel     context.CancelFunc
 	fileMatchLabels map[string]string
@@ -420,6 +421,7 @@ func (a *App) ensureFiles() {
 		return
 	}
 	q.listing = true
+	scanGen := q.scanGen
 	gen := a.gen
 	rootsEpoch := a.workspaceRootsEpoch
 	q.filesSeq++
@@ -482,18 +484,33 @@ func (a *App) ensureFiles() {
 				break
 			}
 		}
-		a.post.Post(func() { a.finishQuickFileListing(gen, rootsEpoch, seq, files, truncated, err, cancel) })
+		a.post.Post(func() { a.finishQuickFileListing(gen, rootsEpoch, seq, scanGen, files, truncated, err, cancel) })
 	}()
 }
 
-func (a *App) finishQuickFileListing(gen int, rootsEpoch, seq uint64, files []string, truncated bool, err error, cancel context.CancelFunc) {
+func (a *App) finishQuickFileListing(gen int, rootsEpoch, seq uint64, scanGen int, files []string, truncated bool, err error, cancel context.CancelFunc) {
 	q := &a.quick
 	if a.gen != gen || a.workspaceRootsEpoch != rootsEpoch || q.filesSeq != seq {
 		return
 	}
 	cancel()
 	q.filesCancel = nil
-	q.listing, q.files, q.truncated, q.err = false, files, truncated, err
+	q.listing = false
+	if scanGen != q.scanGen {
+		// The workspace changed while this scan ran: its result is
+		// behind the disk by at least one event, and committing it
+		// would serve that stale list indefinitely. Discard
+		// instead: files stays nil, and the ranking is invalidated
+		// so a consuming panel or filter re-enters the scan on its
+		// next pass — without this the nil list would already have
+		// been ranked, and nothing would scan again.
+		if !strings.HasPrefix(q.query, ">") && !strings.HasPrefix(q.query, "#") && !strings.HasPrefix(q.query, "@") {
+			q.ranked = "\x00"
+		}
+		a.filter.forQuery = ""
+		return
+	}
+	q.files, q.truncated, q.err = files, truncated, err
 	if err != nil {
 		// A failed scan leaves no file list behind: a partial list
 		// would pass for the workspace's contents while it is not,

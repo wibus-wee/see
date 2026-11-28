@@ -129,6 +129,13 @@ func (a *App) selectLocalHistorySnapshot(v *gitDiffTab, index int) {
 	lh := v.localHistory
 	lh.selected = index
 	snapshot := lh.snapshots[index]
+	if snapshot.Corrupt {
+		// Corrupt snapshots never become a diff: there is no trustworthy
+		// content to show, and a nil state leaves restore with nothing
+		// to apply.
+		lh.state, v.state = nil, nil
+		return
+	}
 	old := editor.NewBuffer(snapshot.Text)
 	current := editor.NewBuffer(lh.currentText)
 	lang := languageFor(lh.name, snapshot.Text)
@@ -184,6 +191,11 @@ func (a *App) restoreLocalHistorySelected(g *group, key string, v *gitDiffTab) {
 	}
 	lh := v.localHistory
 	if lh.loading || lh.loadErr != nil || lh.targetErr != "" || !a.localHistoryTargetCurrent(lh) {
+		return
+	}
+	if lh.selected >= 0 && lh.selected < len(lh.snapshots) && lh.snapshots[lh.selected].Corrupt {
+		// Integrity failures are final: no edit derived from corrupt
+		// bytes may reach the buffer, whatever the diff state says.
 		return
 	}
 	edits := localHistorySelectedEdits(lh.state)
@@ -413,6 +425,11 @@ func (a *App) localHistoryContent(c *ui.Context, g *group, v *gitDiffTab) {
 				if a.focusGroupTarget == nil && view.FocusWithin() {
 					a.observeFocusedGroup(g)
 				}
+			} else if lh.selected >= 0 && lh.selected < len(lh.snapshots) && lh.snapshots[lh.selected].Corrupt {
+				ui.Column(c).Grow(1).FillWidth().Center().Gap(8).Children(func() {
+					ui.Text(c, localHistoryText("localHistoryCorrupt")).FontSize(13).TextColor(colors(c).Err)
+					ui.Text(c, localHistoryText("localHistoryCorruptDetail")).FontSize(12).TextColor(colors(c).Dim)
+				})
 			} else {
 				ui.Box(c).Grow(1)
 			}
@@ -443,8 +460,13 @@ func (a *App) localHistoryStatusBar(c *ui.Context, g *group, v *gitDiffTab) {
 		picker.PopoverMenuButton(func(menu *ui.Menu) {
 			for i, snapshot := range lh.snapshots {
 				label := snapshot.CreatedAt.Local().Format("2006-01-02 15:04:05")
-				lines := localHistoryFormat("localHistorySnapshotLines", map[string]any{"lines": localHistoryLineCount(snapshot.Text)})
-				if menu.Item(fmt.Sprintf("%s  ·  %s", label, lines)).Chosen() {
+				if snapshot.Corrupt {
+					label += "  ·  " + localHistoryText("localHistoryCorruptTag")
+				} else {
+					lines := localHistoryFormat("localHistorySnapshotLines", map[string]any{"lines": localHistoryLineCount(snapshot.Text)})
+					label = fmt.Sprintf("%s  ·  %s", label, lines)
+				}
+				if menu.Item(label).Chosen() {
 					a.selectLocalHistorySnapshot(v, i)
 				}
 			}

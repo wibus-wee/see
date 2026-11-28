@@ -120,7 +120,10 @@ type Config struct {
 	// extras holds what the in-memory state cannot represent: keys this
 	// build does not know, and values that do not fit their key's type.
 	// Save writes them back unchanged, so a downgrade or an upgrade never
-	// silently discards what the file said. Values that fit their type
+	// silently discards what the file said — with one exception: hiddenNames
+	// is the struct's only non-omitempty field, so it always emits and wins
+	// its collision, and a wrongly typed hiddenNames converges to the
+	// default instead of surviving. Values that fit their type
 	// but fail validation are not preserved — they are representable, and
 	// the in-memory truth is authoritative for them; see MarshalJSON.
 	extras map[string]json.RawMessage

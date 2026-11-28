@@ -160,6 +160,7 @@ type Conn struct {
 	err     error
 	done    chan struct{}
 	serving chan struct{}
+	serveWG sync.WaitGroup
 }
 
 // NewConn makes a connection that writes to w. Call Run with the stream
@@ -213,6 +214,11 @@ func (c *Conn) Run(r io.Reader) error {
 	}
 	c.mu.Unlock()
 
+	// Done must mean the connection is over entirely: a request being
+	// answered can still be writing its reply when the input stream
+	// ends, and whoever waits on Done — a test's teardown, the process
+	// supervisor — must not unmake the connection's world under it.
+	c.serveWG.Wait()
 	close(c.done)
 	return err
 }
@@ -230,7 +236,9 @@ func (c *Conn) dispatch(body []byte) error {
 		default:
 			return ErrBusy
 		}
+		c.serveWG.Add(1)
 		go func() {
+			defer c.serveWG.Done()
 			defer func() { <-c.serving }()
 			c.serve(*m.ID, m.Method, m.Params)
 		}()
