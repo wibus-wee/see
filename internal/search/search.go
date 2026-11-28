@@ -26,25 +26,42 @@ import (
 var ErrNoRipgrep = errors.New("ripgrep (rg) is not installed")
 
 // FindRipgrep finds rg: $SEE_RG, then the candidates an installation added
-// (in the order given), then PATH. One inside the workspace is never used.
+// (in the order given), then PATH. One inside the workspace is never used —
+// inside means what the candidate resolves to in the disk's own spelling,
+// the identity check the launch boundary applies, not the lexical shape of
+// the path: a case variant of a workspace path on a case-insensitive volume,
+// or a symlink anywhere pointing into the workspace, names the workspace's
+// bytes. A copy discovered on PATH that resolves inside the workspace is
+// skipped silently — the user never pointed at it; one the user or an
+// installation pointed at is the typed denial proc.ErrUntrustedExecutable,
+// as the language-server finders report theirs.
 func FindRipgrep(root string, installed ...string) (string, error) {
-	var candidates []string
+	type candidate struct {
+		path     string
+		explicit bool
+	}
+	var candidates []candidate
 	if p := os.Getenv("SEE_RG"); p != "" {
-		candidates = append(candidates, p)
+		candidates = append(candidates, candidate{p, true})
 	}
-	candidates = append(candidates, installed...)
+	for _, p := range installed {
+		candidates = append(candidates, candidate{p, true})
+	}
 	if p, err := exec.LookPath("rg"); err == nil {
-		candidates = append(candidates, p)
+		candidates = append(candidates, candidate{p, false})
 	}
-	for _, p := range candidates {
-		if !filepath.IsAbs(p) {
+	for _, c := range candidates {
+		if !filepath.IsAbs(c.path) {
 			continue
 		}
-		if rel, err := filepath.Rel(root, p); root != "" && err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		if err := proc.ValidateExecutable(root, c.path); err != nil {
+			if errors.Is(err, proc.ErrUntrustedExecutable) && c.explicit {
+				return "", err
+			}
 			continue
 		}
-		if fi, err := os.Stat(p); err == nil && fi.Mode().IsRegular() {
-			return p, nil
+		if fi, err := os.Stat(c.path); err == nil && fi.Mode().IsRegular() {
+			return c.path, nil
 		}
 	}
 	return "", ErrNoRipgrep

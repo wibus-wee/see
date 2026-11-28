@@ -25,8 +25,8 @@ func ValidateExecutable(root, executable string) error {
 	if err != nil {
 		return operr.Classify(err)
 	}
-	real = diskSpelling(real)
-	spelled := diskSpelling(executable)
+	real = workspace.DiskSpelling(real)
+	spelled := workspace.DiskSpelling(executable)
 	if root == "" {
 		return nil
 	}
@@ -38,8 +38,8 @@ func ValidateExecutable(root, executable string) error {
 	if err != nil {
 		return err
 	}
-	root = diskSpelling(root)
-	resolved = diskSpelling(resolved)
+	root = workspace.DiskSpelling(root)
+	resolved = workspace.DiskSpelling(resolved)
 	if workspace.Within(root, spelled) || workspace.Within(resolved, real) {
 		return operr.New(operr.PermissionDenied, operr.Permanent, ErrUntrustedExecutable)
 	}

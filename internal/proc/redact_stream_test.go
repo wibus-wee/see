@@ -7,6 +7,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"see/internal/workspace"
 )
 
 // A secret longer than the digest window must still never appear in it:
@@ -147,18 +149,18 @@ func TestDiskSpellingCorrectsCaseVariants(t *testing.T) {
 	if _, err := os.Lstat(variant); err != nil {
 		t.Skipf("filesystem is case-sensitive; nothing to correct: %v", err)
 	}
-	// diskSpelling is lexical — it never resolves symlinks — so the
+	// DiskSpelling is lexical — it never resolves symlinks — so the
 	// expectation is spelled from the same root the inputs are.
 	want := filepath.Join(base, "MixedCaseRoot", "sub")
-	if got := diskSpelling(filepath.Join(dir, "sub")); got != want {
+	if got := workspace.DiskSpelling(filepath.Join(dir, "sub")); got != want {
 		t.Fatalf("control failed: exact spelling changed: %q", got)
 	}
-	if got := diskSpelling(variant); got != want {
+	if got := workspace.DiskSpelling(variant); got != want {
 		t.Fatalf("case variant not corrected: %q, want %q", got, want)
 	}
 	// What does not exist keeps its spelling: nothing deeper can be probed.
 	missing := filepath.Join(base, "mixedcaseroot", "sub", "NoSuchThing")
-	if got := diskSpelling(missing); got != filepath.Join(want, "NoSuchThing") {
+	if got := workspace.DiskSpelling(missing); got != filepath.Join(want, "NoSuchThing") {
 		t.Fatalf("missing component not preserved verbatim under a corrected parent: %q", got)
 	}
 }
@@ -182,7 +184,7 @@ func TestDiskSpellingCorrectsUnicodeNormalization(t *testing.T) {
 	if _, err := os.Lstat(filepath.Join(base, nfd)); err != nil {
 		t.Skipf("volume is normalization-sensitive: %v", err)
 	}
-	if got := diskSpelling(filepath.Join(base, nfd)); got != dir {
+	if got := workspace.DiskSpelling(filepath.Join(base, nfd)); got != dir {
 		t.Fatalf("normalization variant not corrected: %q, want %q", got, dir)
 	}
 }
