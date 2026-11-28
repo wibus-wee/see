@@ -150,6 +150,116 @@ func TestCheckNeverMixesIdentityAttributes(t *testing.T) {
 	}
 }
 
+// The regression the wiring contract nearly shipped: the commit-time
+// re-observation is digest-less (plain ObservePath), the expectation
+// carries the digest, and the content changed in a way only the digest
+// catches — same length, mtime restored. Check must refuse to evaluate
+// the weakened condition loudly, never pass it silently: a silent pass
+// here is a save that overwrites a concurrent writer's bytes while
+// reporting the condition held.
+func TestCheckRefusesToDropExpectationAttributes(t *testing.T) {
+	root := t.TempDir()
+	p := filepath.Join(root, "a.txt")
+	writeFile(t, p, "hello")
+	info := stat(t, p)
+	digest, err := DigestFileSHA256(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := Observed(SourceRead, p, info, time.Now()).WithDigest(digest)
+
+	// Same-length replacement with the mtime put back: invisible to
+	// size+mtime, visible only to the digest.
+	writeFile(t, p, "HELLO")
+	if err := os.Chtimes(p, info.ModTime(), info.ModTime()); err != nil {
+		t.Fatal(err)
+	}
+
+	current, err := ObservePath(SourceRead, p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := current.Digest(); ok {
+		t.Fatal("the test needs the re-observation digest-less, as plain ObservePath is")
+	}
+	err = Check(expected, current)
+	if !errors.Is(err, ErrIncomparableIdentity) {
+		t.Fatalf("digest-less re-observation against digest expectation = %v, want incomparable", err)
+	}
+	if errors.Is(err, ErrConditionMismatch) {
+		t.Fatal("an unevaluated condition must not masquerade as a mismatch either")
+	}
+
+	// The honest wiring — the re-observation digests, as ObserveContent
+	// does — evaluates at full strength and catches the change.
+	strong, err := ObserveContent(SourceRead, p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := Check(expected, strong); !errors.Is(err, ErrConditionMismatch) {
+		t.Fatalf("digest-carrying comparison = %v, want mismatch", err)
+	}
+}
+
+// Asymmetry is the contract: the expectation fixes the strength, and a
+// current observation that measures more than the expectation asks is
+// fully comparable — the extras are unused information, not a weakened
+// condition.
+func TestCheckIgnoresAttributesBeyondTheExpectation(t *testing.T) {
+	root := t.TempDir()
+	p := filepath.Join(root, "a.txt")
+	writeFile(t, p, "hello")
+	weak := Observed(SourceRead, p, stat(t, p), time.Now())
+	strong, err := ObserveContent(SourceRead, p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := Check(weak, strong); err != nil {
+		t.Fatalf("weak expectation against a richer observation = %v, want nil", err)
+	}
+	if err := Check(strong, weak); !errors.Is(err, ErrIncomparableIdentity) {
+		t.Fatalf("the same pair reversed = %v, want incomparable", err)
+	}
+}
+
+func TestObserveContentCarriesTheDigest(t *testing.T) {
+	root := t.TempDir()
+	p := filepath.Join(root, "a.txt")
+	writeFile(t, p, "hello")
+	obs, err := ObserveContent(SourceRead, p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest, err := DigestFileSHA256(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, ok := obs.Digest()
+	if !ok || got != digest {
+		t.Fatal("ObserveContent lost the digest")
+	}
+	if size, ok := obs.Size(); !ok || size != 5 {
+		t.Fatalf("ObserveContent size = %d, %v", size, ok)
+	}
+	// Absence is still an observation, not an error, and carries nothing.
+	missing, err := ObserveContent(SourceRead, filepath.Join(root, "gone.txt"))
+	if err != nil || missing.Exists() {
+		t.Fatalf("absent file = %v, %v", missing.Exists(), err)
+	}
+	// A broken path — a child of a file — is a failure, not an observation.
+	if _, err := ObserveContent(SourceRead, filepath.Join(p, "child")); err == nil {
+		t.Fatal("a broken path produced an observation")
+	}
+	// Both ends digest-carrying: unchanged content holds the condition.
+	again, err := ObserveContent(SourceRead, p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := Check(obs, again); err != nil {
+		t.Fatalf("unchanged content broke a digest-strength condition: %v", err)
+	}
+}
+
 func TestStaleRequiresLaterObservationOfSameSubject(t *testing.T) {
 	root := t.TempDir()
 	p := filepath.Join(root, "a.txt")

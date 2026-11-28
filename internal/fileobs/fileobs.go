@@ -112,6 +112,12 @@ func Missing(source Source, path string, at time.Time) Observation {
 // ObservePath stats path and snapshots it as source sees it now. A file
 // that does not exist is an absence observation, not an error; other
 // filesystem failures are errors, because they say nothing about the file.
+//
+// The observation carries size and modification time but never the
+// content digest: it is a weak observation, and a condition that must
+// distinguish same-size same-mtime content needs the digest — use
+// ObserveContent for those, which is what the save path's wiring contract
+// requires at both ends (lane-e-integration-notes.md §B).
 func ObservePath(source Source, path string) (Observation, error) {
 	info, err := os.Stat(path)
 	if errors.Is(err, os.ErrNotExist) {
@@ -121,6 +127,34 @@ func ObservePath(source Source, path string) (Observation, error) {
 		return Observation{}, err
 	}
 	return Observed(source, path, info, time.Now()), nil
+}
+
+// ObserveContent is ObservePath with the full-content digest measured as
+// part of the observation: the observation of an existing file always
+// carries the digest, so a content-strength condition built on it can
+// never degrade silently. One open file serves both the stat and the
+// digest, so both attributes describe the same opened file object even
+// when the path is replaced mid-read — a concurrent writer can still
+// produce a mismatch, but never a Frankenstein observation that matches
+// content it never was.
+func ObserveContent(source Source, path string) (Observation, error) {
+	f, err := os.Open(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return Missing(source, path, time.Now()), nil
+	}
+	if err != nil {
+		return Observation{}, err
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		return Observation{}, err
+	}
+	digest, err := DigestSHA256(f)
+	if err != nil {
+		return Observation{}, err
+	}
+	return Observed(source, path, info, time.Now()).WithDigest(digest), nil
 }
 
 // WithDigest returns a copy of o that also carries the full-content
@@ -198,11 +232,13 @@ func (o Observation) Deleted() Tri { return o.deleted }
 // path instead of reporting an absence that is not one (REQ-COND-030).
 var ErrConditionMismatch = errors.New("the file no longer matches the observed state")
 
-// ErrIncomparableIdentity means two identity tokens cannot be compared:
-// they come from different sources, or they share no attribute at all.
-// Treating such a pair as matching, or as mismatching, would both invent
-// information, so a condition that cannot be evaluated must surface as an
-// error rather than as a silent pass or fail (REQ-META-040).
+// ErrIncomparableIdentity means two identity tokens cannot be compared as
+// the caller asked: they come from different sources, they share no
+// attribute at all, or the current observation lacks an attribute the
+// expectation carries. Treating such a pair as matching, or as
+// mismatching, would both invent information, so a condition that cannot
+// be evaluated must surface as an error rather than as a silent pass or
+// fail (REQ-META-040).
 var ErrIncomparableIdentity = errors.New("identity tokens cannot be compared")
 
 // Check compares the expectation an operation was conditioned on with the
@@ -215,10 +251,31 @@ var ErrIncomparableIdentity = errors.New("identity tokens cannot be compared")
 //     own token contract;
 //   - existence must agree — a file that appeared or vanished is a
 //     mismatch before any attribute is looked at;
+//   - every attribute the expectation carries must also be carried by the
+//     current observation. The expectation fixes the condition's strength:
+//     if the re-observation skips an attribute — a commit-time
+//     ObservePath that never digested, against an expectation that
+//     carries the digest — comparing what remains would evaluate a weaker
+//     condition than the caller conditioned on, and the weakening would
+//     be silent in exactly the same-content-different-bytes cases the
+//     stronger attribute exists to catch. A condition that cannot be
+//     evaluated at full strength is incomparable, so the mistake fails
+//     loudly at commit instead of passing as a match;
+//   - attributes the current observation carries beyond the expectation
+//     are ignored: the expectation chose the condition's strength, and a
+//     richer measurement does not weaken it;
 //   - every attribute both observations carry must be equal, byte for
 //     byte for digests and verbatim for etags and versions;
 //   - with no shared attribute there is nothing to compare, which is
 //     incomparable rather than a match.
+//
+// Nothing in Check can prove the expectation itself is as strong as the
+// operation needs: a condition built on a digest-less expectation is a
+// size+mtime comparison by construction, evaluated correctly and silently.
+// Wiring that needs content strength must build the expectation from a
+// digest-carrying observation — see ObserveContent — and
+// lane-e-integration-notes.md §B prescribes exactly that for the save
+// path.
 func Check(expected, current Observation) error {
 	if expected.source != current.source {
 		return fmt.Errorf("%w: %q tokens cannot be compared with %q tokens",
@@ -229,6 +286,10 @@ func Check(expected, current Observation) error {
 	}
 	if !expected.exists {
 		return nil // both agree the file was absent
+	}
+	if missing := expected.attrs &^ current.attrs; missing != 0 {
+		return fmt.Errorf("%w: the expectation carries %s, which the current observation does not measure",
+			ErrIncomparableIdentity, attrNames(missing))
 	}
 	shared := expected.attrs & current.attrs
 	if shared == 0 {
@@ -252,9 +313,37 @@ func Check(expected, current Observation) error {
 	return nil
 }
 
+// attrNames names the presence bits for error messages.
+func attrNames(attrs uint16) string {
+	names := []struct {
+		bit  uint16
+		name string
+	}{
+		{hasSize, "size"},
+		{hasMtime, "mtime"},
+		{hasDigest, "digest"},
+		{hasETag, "etag"},
+		{hasVersion, "version"},
+	}
+	out := ""
+	for _, n := range names {
+		if attrs&n.bit != 0 {
+			if out != "" {
+				out += ","
+			}
+			out += n.name
+		}
+	}
+	return out
+}
+
 // Stale reports whether other proves o outdated: the same source observed
-// the same path later, and the state no longer matches. An incomparable or
-// unchanged observation is not staleness.
+// the same path later, and the state no longer matches. An unchanged
+// observation is not staleness, but an incomparable one counts as stale:
+// a consumer that cannot evaluate whether its observation still holds
+// must refresh rather than trust it — staleness is the fail-safe reading,
+// and "incomparable is not staleness" would let a poisoned comparison
+// keep a cache entry alive forever.
 func (o Observation) Stale(later Observation) bool {
 	return o.path == later.path && o.source == later.source &&
 		later.at.After(o.at) && Check(o, later) != nil
