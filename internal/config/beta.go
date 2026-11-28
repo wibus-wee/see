@@ -15,31 +15,17 @@ type BetaFeature struct {
 	Enabled  bool           `json:"enabled,omitempty"`
 	Settings map[string]any `json:"settings,omitempty"`
 
-	extra map[string]json.RawMessage
+	raw json.RawMessage
 }
 
-// MarshalJSON preserves envelope fields unknown namespaces gain in newer
-// versions instead of rewriting them away on load.
+// MarshalJSON writes unregistered features byte-for-byte so settings belonging
+// to a newer See build survive an older build's unrelated config save.
 func (f BetaFeature) MarshalJSON() ([]byte, error) {
-	fields := make(map[string]json.RawMessage, len(f.extra)+2)
-	for key, value := range f.extra {
-		fields[key] = value
+	if len(f.raw) > 0 {
+		return f.raw, nil
 	}
-	if f.Enabled {
-		enabled, err := json.Marshal(f.Enabled)
-		if err != nil {
-			return nil, err
-		}
-		fields["enabled"] = enabled
-	}
-	if len(f.Settings) > 0 {
-		settings, err := json.Marshal(f.Settings)
-		if err != nil {
-			return nil, err
-		}
-		fields["settings"] = settings
-	}
-	return json.Marshal(fields)
+	type persisted BetaFeature
+	return json.Marshal(persisted(f))
 }
 
 type BetaSettingKind int
@@ -383,6 +369,9 @@ func parseBetaFeatures(data json.RawMessage) (map[string]BetaFeature, bool) {
 			continue
 		}
 		var feature BetaFeature
+		if _, registered := betaFeatures[id]; !registered {
+			feature.raw = append(json.RawMessage(nil), raw...)
+		}
 		for key, value := range object {
 			switch key {
 			case "enabled":
@@ -400,10 +389,7 @@ func parseBetaFeatures(data json.RawMessage) (map[string]BetaFeature, bool) {
 					changed = true
 				}
 			default:
-				if feature.extra == nil {
-					feature.extra = map[string]json.RawMessage{}
-				}
-				feature.extra[key] = value
+				changed = true
 			}
 		}
 		features[id] = feature
@@ -416,8 +402,7 @@ func parseBetaFeatures(data json.RawMessage) (map[string]BetaFeature, bool) {
 
 func normalizeBetaSettings(feature BetaFeature, spec betaFeatureSpec) (BetaFeature, bool) {
 	changed := feature.Settings != nil && len(feature.Settings) == 0
-	changed = changed || len(feature.extra) > 0
-	feature.extra = nil
+	feature.raw = nil
 	settings := map[string]any{}
 	for key, value := range feature.Settings {
 		setting, registered := spec.settings[key]

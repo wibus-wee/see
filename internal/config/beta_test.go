@@ -5,6 +5,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -232,7 +233,7 @@ func TestBetaMigrationRetiresFeatureAndKeepsFutureUnknownFeatures(t *testing.T) 
 	p := writeConfig(t, `{
 		"betaFeatures": {
 			"retired-feature": {"enabled": true, "settings": {"obsolete": 1}},
-			"future-feature": {"enabled": true, "futureFlag": {"version": 2}, "settings": {"unknown-shape": {"nested": true}}}
+			"future-feature": {"enabled": true, "futureFlag": {"version": 2}, "settings": {"unknown-shape": {"nested": true, "large": 9007199254740993}}}
 		}
 	}`)
 
@@ -247,6 +248,13 @@ func TestBetaMigrationRetiresFeatureAndKeepsFutureUnknownFeatures(t *testing.T) 
 	feature := readConfigJSON(t, p)["betaFeatures"].(map[string]any)["future-feature"].(map[string]any)
 	if flag, ok := feature["futureFlag"].(map[string]any); !ok || flag["version"] != float64(2) {
 		t.Fatalf("unknown envelope fields were rewritten away: %+v", feature)
+	}
+	data, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "9007199254740993") {
+		t.Fatalf("unknown numeric setting lost precision: %s", data)
 	}
 }
 
