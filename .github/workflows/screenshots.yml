@@ -107,7 +107,8 @@ jobs:
           # The native screen crops are what the screen really shows; the
           # automation captures stay as fallbacks.
           for scene in hero-dark diff gitlog; do
-            png="shots/$scene-native.png"
+            png="shots/$scene-wallpaper.png"
+            test -f "$png" || png="shots/$scene-native.png"
             test -f "$png" || png="shots/$scene.png"
             test -f "$png" && cwebp -q 90 "$png" -o "website/shots/$scene.webp"
           done
