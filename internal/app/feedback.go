@@ -42,18 +42,6 @@ type feedbackEntry struct {
 // user saw. Production leaves it nil.
 var feedbackLog *[]feedbackEntry
 
-// note records msg as feedback, an error when isErr, and still the
-// notice its legacy readers expect. The migration of the call sites to
-// flash and fail, and of the readers to the feedback itself, ends it.
-func (a *App) note(msg string, isErr bool) {
-	if isErr {
-		a.fail(msg)
-	} else {
-		a.flash(msg)
-	}
-	a.notice, a.noticeError = msg, isErr
-}
-
 // flash records a success or information event for the next frame's
 // toasts.
 func (a *App) flash(msg string) {

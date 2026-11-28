@@ -197,8 +197,6 @@ type App struct {
 	trustAsk       bool   // asking whether to trust the workspace
 	afterTrust     func() // what to do once trusted
 	feedback       feedbackState
-	notice         string // the last message for the user, the legacy slot note still fills
-	noticeError    bool
 
 	symbolHighlights symbolHighlightState
 
