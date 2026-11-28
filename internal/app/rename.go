@@ -28,7 +28,7 @@ func (a *App) beginRename(path string) {
 
 func (a *App) renameField(c *ui.Context, q *renamePrompt) {
 	ui.Column(c).Grow(1).Children(func() {
-		field := ui.TextInput(c, &q.name).Label(locales.MsgRename()+filepath.Base(q.path)).Grow(1).Height(20).Padding(0, 4).FontSize(12).AutoFocus()
+		field := ui.TextInput(c, &q.name).Label(locales.MsgRename()+filepath.Base(q.path)).Grow(1).Height(20).Padding(0, 4).FontSize(12).TextColor(colors(c).Text).AutoFocus()
 		if !q.selected {
 			q.selected = true
 			stem := strings.TrimSuffix(q.name, filepath.Ext(q.name))

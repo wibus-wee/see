@@ -39,11 +39,13 @@ func TestEditorFontSizeCommands(t *testing.T) {
 			}
 		}
 	}
-	// A command at a bound must not attempt another save.
+	// A command at a bound must not attempt another save. The file made
+	// read-only makes any attempt fail, so the log would tell.
 	h.a.cfg.FontSize = 28
-	if err := os.Mkdir(h.a.cfg.Path()+".tmp", 0700); err != nil {
+	if err := os.Chmod(h.a.cfg.Path(), 0400); err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { _ = os.Chmod(h.a.cfg.Path(), 0600) })
 	h.a.logf = func(string, ...any) { t.Error("no-op tried to save configuration") }
 	jumpShortcut(t, "Bigger").run(h.a)
 }
@@ -63,8 +65,10 @@ func TestEditorFontSizeSaveFailure(t *testing.T) {
 	h := newHarness(t, "")
 	h.a.cfg.SetPath(filepath.Join(t.TempDir(), "config.json"))
 	h.a.setEditorFontSize(14)
-	staging := h.a.cfg.Path() + ".tmp"
-	if err := os.Mkdir(staging, 0700); err != nil {
+	// A read-only configuration file makes every save fail, as a
+	// permission problem does; the failure must surface in the log and
+	// leave the last saved settings untouched.
+	if err := os.Chmod(h.a.cfg.Path(), 0400); err != nil {
 		t.Fatal(err)
 	}
 	logged := false
@@ -73,7 +77,7 @@ func TestEditorFontSizeSaveFailure(t *testing.T) {
 	if !logged || h.a.cfg.FontSize != 15 || config.Load(h.a.cfg.Path()).FontSize != 14 {
 		t.Fatal("failed save must report the error and preserve the last saved settings")
 	}
-	if err := os.Remove(staging); err != nil {
+	if err := os.Chmod(h.a.cfg.Path(), 0600); err != nil {
 		t.Fatal(err)
 	}
 	h.a.changeEditorFontSize(1)
