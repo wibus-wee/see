@@ -199,10 +199,15 @@ func (c *Config) unmarshal(data []byte) (bool, error) {
 	}
 	betaRaw, hasBeta := raw["betaFeatures"]
 	delete(raw, "betaFeatures")
-	legacyVibrancy, adoptVibrancy := raw["vibrancy"]
-	adoptVibrancy = adoptVibrancy && betaFeatures[BetaSidebarVibrancy].active()
+	legacyVibrancy, hasLegacyVibrancy := raw["vibrancy"]
+	legacyVibrancyKey := "vibrancy"
+	if !hasLegacyVibrancy {
+		legacyVibrancy, hasLegacyVibrancy = raw["Vibrancy"]
+		legacyVibrancyKey = "Vibrancy"
+	}
+	adoptVibrancy := hasLegacyVibrancy && betaFeatures[BetaSidebarVibrancy].active()
 	if adoptVibrancy {
-		delete(raw, "vibrancy")
+		delete(raw, legacyVibrancyKey)
 	}
 	stableData, err := json.Marshal(raw)
 	if err != nil {

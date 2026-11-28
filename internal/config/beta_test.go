@@ -78,6 +78,13 @@ func TestUnreleasedStableVibrancyMovesIntoBeta(t *testing.T) {
 	}
 }
 
+func TestCapitalizedUnreleasedStableVibrancyMovesIntoBeta(t *testing.T) {
+	p := writeConfig(t, `{"Vibrancy": true}`)
+	if !Load(p).BetaEnabled(BetaSidebarVibrancy) {
+		t.Fatal("capitalized legacy vibrancy setting did not move into beta")
+	}
+}
+
 func TestBetaSettingsPersistNamespacedAndTyped(t *testing.T) {
 	withBetaFeature(t, "test-feature", betaFeatureSpec{settings: map[string]betaSettingSpec{
 		"enabledExtra": {kind: BetaBoolSetting, defaultValue: true},
