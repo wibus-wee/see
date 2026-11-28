@@ -60,9 +60,9 @@ Document: `SECURITY-THREAT-MODEL.md` (repository root).
 | --- | --- | --- | --- |
 | REQ-SEC-010 | implemented | The document defines system model, trust boundaries, in-scope/conditional/out-of-scope; every claim cites the enforcing code or a behavioral test | — |
 | REQ-SEC-020 | implemented | See holds no credentials of its own; trust state is per-workspace-path; configured server env travels only into that server's process. No cross-context token use exists to violate | — |
-| REQ-SEC-030 | implemented (app side) / documented (server speech) | `TestConfiguredServerSecretsStayOutOfTheLog`: a configured server whose env and command carry token-shaped values starts, runs, and exits — the tokens never appear in the log. Server stderr passing through verbatim is documented as the server's own speech boundary | Future-drift defense (no redaction layer exists — noted in integration notes §F; correct today because secret-shaped inputs are never logged at all) |
+| REQ-SEC-030 | implemented (See's own speech) / pending wiring (server stderr) | `TestConfiguredServerSecretsStayOutOfTheLog`: a configured server whose env and command carry token-shaped values starts, runs, and exits — the tokens never appear in the log. Server stderr is untrusted content that may echo those secrets — cross-lane decision (integration notes §F item 1): it enters the log redacted through Lane A's streaming redactor, the single redaction layer after integration. Until integration it still passes verbatim; recorded as a defect, not a boundary | Lane A redactor wired as the single layer (§G checklist item 3) |
 | REQ-SEC-040 | implemented (owned surface) / partial (LSP parser) | Fuzz evidence over the parsing/slicing code Lane E owns (above); three real defects found and fixed. The LSP frame parser — the highest-value target — is specified but unwired because Lane A owns it mid-construction | Wire LSP frame fuzz target at integration (contract ready) |
-| REQ-SEC-050 | implemented | Threat model documents: workspace binary execution rejected via symlink-resolved path containment (`TestConfiguredServerInsideWorkspaceNeverStarts`); local history `0700`/`0600` permissions; install staging uses same-directory temp + rename; trust gating of tasks/LSP verified by inspection of the gates | — |
+| REQ-SEC-050 | partial — workspace-binary denial provisional | Threat model documents: workspace binary execution rejected via symlink-resolved path containment (`TestConfiguredServerInsideWorkspaceNeverStarts`); local history `0700`/`0600` permissions; install staging uses same-directory temp + rename; trust gating of tasks/LSP verified by inspection of the gates. Independent verification refuted the denial's completeness: on case-insensitive volumes a case-variant path spelling evades the lexical comparison end-to-end (the verifier's D1). The fix mechanism exists in Lane A's branch (`diskSpelling`); the threat model marks the invariant provisional and the integration checklist (§G item 2) carries extending it to every executable resolver | disk-spelling comparison across `languages.FindConfigured` and `search.FindRipgrep` at integration |
 | REQ-SEC-060 | implemented (documented conditional) | Built-in bounds enumerated in the threat model (scan caps, column caps, download caps, log ring, playground budgets); beyond-capacity exhaustion is documented conditional | — |
 | REQ-SEC-070 | partial | The document itself mandates updating with new surfaces (its intro), and this delivery is its first instance. Enforcement is process, not mechanism — no CI gate exists | — |
 
@@ -91,6 +91,19 @@ retry) and workspace invalidations. All invalidation sites updated;
 additional scans while the error stands; reopening retries exactly once;
 a healed scanner yields its files through the same path.
 
+Independent verification found the second retry point incomplete for the
+quick open panel (the verifier's D3): invalidation cleared the error and
+the file list, but the panel's ranking was keyed on the query, which had
+not changed — so nothing re-entered `ensureFiles` and the panel sat on
+its error while the filesystem changed underneath it. (The tree filter
+did retry: its rebuild path reaches `ensureFiles` unconditionally.) The
+respin invalidates the open panel's ranking for file-consuming queries
+at the same invalidation sites, so the re-rank reaches the retry.
+`TestQuickOpenInvalidationRetriesScan` pins: an empty event batch retries
+nothing, one invalidation retries exactly once, a healed scanner's files
+arrive with the panel never closed and the query never retyped — and the
+test fails without the ranking invalidation.
+
 ## Section B — FileObservation (contract package only, per dispatch)
 
 | Req ID | Status | Evidence | Gap |
@@ -98,7 +111,7 @@ a healed scanner yields its files through the same path.
 | REQ-META-010 | implemented (package) | `Observation` fields are private; construction/enrichment copy; `internal/fileobs/fileobs_test.go` proves enrichment never mutates the original | Wiring belongs to other lanes per contract |
 | REQ-META-020 | implemented (package) | `Tri` three-state; `WithVersion` accepts `TriUnknown` and never fabricates false | — |
 | REQ-META-030 | implemented (package) | ETag/version stored verbatim; digest byte-exact; comparison is byte equality | — |
-| REQ-META-040 | implemented (package) | `Check` refuses cross-source comparison with `ErrIncomparableIdentity`; shared attributes must all agree; no-attribute pairs are incomparable, never matching | — |
+| REQ-META-040 | implemented (package) | `Check` refuses cross-source comparison with `ErrIncomparableIdentity`; shared attributes must all agree; no-attribute pairs are incomparable, never matching. Since the respin `Check` is fail-closed on asymmetric strength: an attribute the expectation carries but the current observation does not measure is incomparable, never a silently dropped term of the condition — verified against the wiring trap the integration contract originally prescribed (same-length content replacement with restored mtime must fail loudly, and does) | — |
 | REQ-META-050 | missing (deferred) | Copy/rename metadata preservation semantics are not yet defined anywhere; the contract notes (integration notes §B) frame the decision | Deliberate — decision belongs with the operations' owners |
 | REQ-META-060 | implemented (package) | Presence bits separate absent from empty; tests cover empty-ETag vs no-ETag distinction | — |
 
@@ -125,9 +138,14 @@ settles.
   local-history half of CHK-030 is a Lane C wiring item with a complete
   contract.
 - Section E MUST requirements: 6/6 implemented with run evidence.
-- Section F MUST requirements: 5/7 implemented, 1 documented-conditional
-  (SEC-060), 1 partial-process (SEC-070); SEC-040 partial pending the LSP
-  fuzz wiring at integration.
+- Section F MUST requirements: SEC-010/020 implemented; SEC-030
+  implemented for See's own speech with the server-stderr half pending
+  the integration wiring of Lane A's redactor; SEC-040 partial pending
+  the LSP fuzz wiring at integration; SEC-050 partial — the
+  workspace-binary invariant is provisional until disk-spelling
+  comparison covers every resolver at integration; SEC-060
+  documented-conditional; SEC-070 partial-process. Each gap is marked at
+  the claim in the threat model rather than only here.
 - Section G MUST requirements: 4/6 implemented, 2 partial (LIST-010 and
   LIST-050 — both narrowed-by-design with the narrowing documented).
 - Section B: contract package implemented and tested; subsystem wiring is
@@ -139,7 +157,26 @@ settles.
 
 ## Deviations requiring reproduction steps
 
-None outstanding in Lane E's scope: the three fuzz-found defects and the
-scan hot-loop defect were fixed in this lane with regression evidence
-committed. Open items are all integration-phase wiring with contracts
-written, tracked in lane-e-integration-notes.md.
+- **Workspace-binary denial is evadable by case-variant path spellings on
+  case-insensitive volumes** (independent verification's D1): configure a
+  server whose command path is a case-rotated spelling of a binary inside
+  a mixed-case workspace directory on default macOS APFS; the lexical
+  rejection does not fire where the exact spelling is rejected.
+  Reproduction exists as `TestVerifyCaseVariantWorkspaceBinaryResolution`
+  on the verification branch. Deliberately not fixed in this lane: the
+  mechanism (`diskSpelling`) is Lane A's, shipped on Lane A's branch, and
+  re-implementing it here would collide at merge. The threat model marks
+  the invariant provisional and integration notes §G item 2 carries the
+  coverage check.
+- **Server stderr enters the log unredacted** (cross-lane contradiction
+  C1, resolved in favor of Lane A's position): run a configured server
+  that echoes its environment to stderr; token values from
+  `LSPConfig.Env` reach the log panel verbatim on this branch. Wiring
+  Lane A's redactor is integration work; the decision and the single-layer
+  rule are recorded in integration notes §F item 1.
+
+Everything else in Lane E's scope stands verified: the three fuzz-found
+defects, the scan hot-loop defect, and the quick-open retry point are
+fixed in this lane with regression evidence committed. Remaining open
+items are integration-phase wiring with contracts written, tracked in
+lane-e-integration-notes.md.

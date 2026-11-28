@@ -2,8 +2,12 @@
 
 This document defines what See protects against, what it deliberately does
 not, and which behaviors are conditional. It satisfies REQ-SEC-010 of
-SPEC-009, and every claim in it is tied to code that exists today — the
-file is a description of the system's real boundary, not an aspiration.
+SPEC-009, and every claim in it is tied to code that exists — the file is
+a description of the system's real boundary, not an aspiration. Where
+verification has shown a claim does not yet hold on a supported platform,
+the document says so at the claim itself and names the mechanism and
+integration state that close the gap; silently scoping claims down or
+leaving aspirational ones unmarked are both worse than an honest deficit.
 When a new external surface appears (a protocol, an installer, a new
 process See launches), this document is part of that change's deliverables
 (REQ-SEC-070).
@@ -67,6 +71,22 @@ installer:
   from workspace content — there is no workspace-level configuration
   mechanism at all, by design.
 
+  **This invariant is currently provisional — known defect, fix in
+  flight.** The comparison is lexical over `EvalSymlinks` output, and on
+  case-insensitive volumes (default macOS APFS) `EvalSymlinks` does not
+  normalize case: a case-variant spelling of the workspace path names
+  the same bytes while comparing lexically outside it, so the denial is
+  defeated end-to-end on the platform this document was verified on.
+  What holds today is the exact-spelling rejection — what the test
+  pins. The mechanism that closes the hole (comparing paths in the
+  disk's own spelling, probed per component with `os.SameFile`) exists
+  in Lane A's branch — `proc.ValidateExecutable`'s `diskSpelling`,
+  mirroring Lane B's `workspace.DiskSpelling` — and takes effect when
+  the lanes integrate; the integration notes (§G item 2) carry the
+  checklist item that it must cover every executable resolver, not just
+  the one Lane A owns. Until integration this paragraph describes the
+  target boundary, not the shipped one.
+
 ### The install boundary
 
 See downloads and installs ripgrep, and builds gopls, into its own
@@ -93,11 +113,23 @@ See itself holds no credentials. What flows through it:
 - **Configured server environment variables** (`LSPConfig.Env`) may carry
   tokens. See passes them to the server process verbatim. See does not
   log them, echo them, or include them in diagnostics (verified by
-  `TestConfiguredServerSecretsStayOutOfTheLog`). The server itself is
-  user-configured trusted code; what *it* writes to its own stderr is its
-  speech, and stderr is passed through to the log verbatim — a server
-  that prints its environment leaks it by its own choice, outside See's
-  boundary.
+  `TestConfiguredServerSecretsStayOutOfTheLog`).
+- **Server stderr is untrusted content that may carry those same
+  secrets.** The server runs with the user's environment; a crashing,
+  misbehaving, or compromised server can echo its environment or
+  fragments of it, and the log panel is a paste-into-issues surface.
+  Server stderr therefore enters See's log **redacted against the
+  process environment** (secret-named variables, long token-shaped
+  values, URL userinfo passwords), with redaction applied as bytes
+  arrive so a secret split across pipe reads still completes. This is
+  a cross-lane decision recorded in lane-e-integration-notes.md §F: the
+  redactor is Lane A's (`proc.Tail`), it is the single redaction layer
+  after integration, and See's own logging must never bypass it — nor
+  does redaction excuse logging secret-shaped inputs in See's own
+  speech. Until the lanes integrate, stderr still passes verbatim —
+  this paragraph, like the binary-denial one, describes the boundary
+  the integration ships, and the gap is a recorded defect rather than
+  an oversight.
 - **Server stderr and log messages** are attacker-influenced text (the
   server may be compromised upstream). They are stored in a bounded
   in-memory ring (1000 entries × 8192 bytes) and displayed; they are
@@ -128,7 +160,9 @@ escape the text they point into. Enforcement is layered:
    substituted tooling to be installed or executed**, and must not
    destroy a working installation.
 3. **Secrets the user places in server configuration must not leak into
-   See's own logging.**
+   See's logging** — neither through See's own speech (verified today)
+   nor through server stderr passing into the log (redacted per the
+   credential boundary; mechanism lands with Lane A's integration).
 4. **Hostile file content, process output, and scan input must not crash
    the editor or corrupt its display** through memory-unsafe parsing or
    arithmetic.
@@ -183,16 +217,22 @@ escape the text they point into. Enforcement is layered:
    configuration, not to See.
 5. **What trusted servers do.** A language server the user configured or
    trusted is user-chosen code running with the user's privileges; its
-   own behavior — including what it logs — is outside See's boundary.
+   own behavior is outside See's boundary — including what it writes to
+   its own files, its own network peers, and its own logs. What is *not*
+   out of scope is what its bytes become once they cross into See's
+   surfaces: server stderr entering See's log is in scope (item 3) and
+   is redacted, because at that point it is See's logging, not the
+   server's.
 
 ## Verification and evidence
 
 | Claim | Evidence |
 | --- | --- |
 | Untrusted workspace executes nothing | trust gates in `internal/app/tasks.go`, `internal/app/app.go`; language servers never start untrusted |
-| Workspace binaries never execute | `TestConfiguredServerInsideWorkspaceNeverStarts`; resolver rejection in `internal/languages/` |
-| Secrets out of logs | `TestConfiguredServerSecretsStayOutOfTheLog` |
+| Workspace binaries never execute — exact-spelling rejection holds; case-variant evasion is a known defect closed at integration (Lane A's disk-spelling comparison) | `TestConfiguredServerInsideWorkspaceNeverStarts`; resolver rejection in `internal/languages/` |
+| Secrets out of See's own logging | `TestConfiguredServerSecretsStayOutOfTheLog` |
+| Secrets out of server stderr in the log | Lane A's redactor wired at integration — pending; see lane-e-integration-notes.md §G item 3 |
 | Checksum mismatch never installs | `TestInstallRipgrepRejectsAnotherChecksum`, `TestInstallRipgrepChecksumMismatchCannotReachTheToolDirectory` |
 | Existing installs cannot be displaced | `TestInstallRipgrepChecksumMismatchCannotReachTheToolDirectory`; refusal-to-overwrite in `TestInstallRipgrepInstallsReleaseBinary` |
 | Hostile input does not crash parsers | fuzz corpus and regression seeds in `internal/search`, `internal/regexplayground` |
-| Scan failure ≠ empty workspace | `TestQuickOpenRetriesAfterAScanError`, `TestQuickOpenScanCancellationLeavesNoPartialList` |
+| Scan failure ≠ empty workspace | `TestQuickOpenRetriesAfterAScanError`, `TestQuickOpenInvalidationRetriesScan`, `TestQuickOpenScanCancellationLeavesNoPartialList` |

@@ -53,7 +53,14 @@ evidence supports it.
   presence-tracked size/mtime/SHA-256/ETag/version, three-state
   current/deleted. Construction copies; nothing mutates.
 - `Check(expected, current)` — the conditional-operation primitive:
-  nil / `ErrConditionMismatch` / `ErrIncomparableIdentity`.
+  nil / `ErrConditionMismatch` / `ErrIncomparableIdentity`. Fail-closed:
+  an attribute the expectation carries but the current observation does
+  not measure is incomparable, never a silently weakened comparison.
+  The expectation fixes the condition's strength; extras in the current
+  observation are ignored.
+- `ObserveContent` — `ObservePath` with the content digest measured
+  atomically with the stat: the strong-observation constructor the save
+  wiring uses. `ObservePath` alone is a weak observation.
 - `Stale`, `DigestSHA256`, `DigestFileSHA256`, `VerifyDigest`,
   `VerifyContentDigest` — integrity primitives.
 
@@ -66,23 +73,53 @@ shape: the check and the write are two separate system calls, so a writer
 racing between them lands its bytes and then has them silently overwritten
 (REQ-COND-050 violated in the small window).
 
-The wiring contract, once Lane C's atomic write primitive exists:
+The wiring contract, once Lane C's atomic write primitive exists —
+**instructions for the Lane C integrator, load-bearing in every step**:
 
-1. `d.diskText`'s snapshot becomes an `Observation{source: SourceRead}`
-   enriched with `WithDigest` — note the digest is over the *on-disk
-   bytes* (including BOM), not the decoded text.
+1. `d.diskText`'s snapshot becomes an observation built by
+   `fileobs.ObserveContent(SourceRead, path)` at load time (and rebuilt
+   the same way after every successful save) — never plain
+   `ObservePath`. Note the digest is over the *on-disk bytes*
+   (including BOM), not the decoded text.
 2. Save becomes: stage buffer → at commit, evaluate
-   `fileobs.Check(expected, fileobs.ObservePath(SourceRead, path))` —
-   i.e., the check inside the same atomic-commit boundary as the write,
-   per REQ-COND-050/060.
+   `fileobs.Check(expected, observed)` where `observed` comes from
+   `fileobs.ObserveContent(SourceRead, path)` — i.e., the check inside
+   the same atomic-commit boundary as the write, per REQ-COND-050/060.
+   **The re-observation must be `ObserveContent`, not `ObservePath`.**
+   `ObservePath` is a weak observation: it carries size+mtime and never
+   the digest. Since the respin of this contract, `Check` fails closed
+   on exactly that mistake — an expectation carrying the digest checked
+   against a digest-less observation is `ErrIncomparableIdentity`, not
+   a silently weakened size+mtime comparison — so literal-minded wiring
+   with `ObservePath` fails loudly at the first save rather than
+   shipping the regression. Do not "fix" that error by weakening the
+   expectation; fix it by re-observing with the digest.
 3. `ErrConditionMismatch` surfaces as the existing conflict UI (no UX
    change needed — the type only makes the error category correct and
-   testable).
+   testable). `ErrIncomparableIdentity` is a wiring bug and must never
+   reach the UI as a file conflict: if it appears, the wiring deviated
+   from steps 1–2.
 4. **Important semantic note**: the content comparison `saveDoc` does
    today is stronger than size+mtime. Any migration to observation-based
    checking must use the digest attribute, not regress to mtime — mtime
    granularity and clock skew make it strictly weaker than what users
-   have now.
+   have now. This is why both ends of the condition are digest-carrying
+   observations: a digest-less expectation makes `Check` evaluate a
+   weak condition *correctly and silently* — no strictness in `Check`
+   can detect an expectation that was never strong.
+
+Why the contract is written this way (the failure it is designed
+against): independent verification demonstrated that wiring step 2
+literally with `ObservePath` — the shape this section originally showed
+— regressed save-conflict detection from content comparison to mtime
+comparison: a same-length content replacement with the mtime restored
+passed the check, because the comparison silently dropped every
+attribute the re-observation did not carry. Two layers now prevent it:
+the contract prescribes `ObserveContent` at both ends, and `Check`
+refuses to evaluate any condition whose expectation attributes the
+current observation does not measure. The first layer is the design;
+the second exists because a contract a type system does not enforce is
+a contract that depends on the reader's memory.
 
 ### Wiring contract for the watcher (owner: Lane B / app)
 
@@ -121,9 +158,14 @@ The contract the integration phase must satisfy:
 
 1. **Evaluation point**: conditions evaluate at commit/publish, never at
    stage/begin (REQ-COND-060). For a single-file save that means: the
-   atomic-write primitive receives the expected `Observation`, re-observes
-   inside the same critical section as the rename, and refuses with
-   `ErrConditionMismatch` before the rename happens.
+   commit closure passed to Lane C's atomic-write primitive
+   (`atomicfile.CommitIf`) re-observes with
+   `fileobs.ObserveContent(SourceRead, path)` — the digest-carrying
+   observation, see §B — evaluates `fileobs.Check` against the
+   expectation, and refusal with `ErrConditionMismatch` happens before
+   the rename. Lane C's `cond func() error` shape leaves the
+   re-observation to the caller, so the digest discipline in §B lives
+   entirely in this closure: there is no second place that enforces it.
 2. **Best-effort honesty**: POSIX cannot make observe+rename truly atomic
    without kernel support. The honest degradation is a small-window race
    documented in the contract — REQ-COND-070 requires exactly this
@@ -197,29 +239,82 @@ wiring order recommended for the integration phase:
    detection has adversarial-input evidence.
 4. Hex paging math and edit-sequence oracles — valuable but lower risk.
 
-## §F Security findings beyond Lane E's ownership
+## §F Security decisions beyond Lane E's ownership
 
-Verified during threat-model review; recorded here rather than fixed
-because the files belong to other lanes:
+Recorded here rather than implemented because the files belong to other
+lanes:
 
-1. **Server stderr passes verbatim into logs** (`internal/lsp/client.go`
-   `tail.Write`). This is documented in the threat model as the server's
-   own speech. It is the correct design — but `window/logMessage` and
-   stderr both mean a *compromised* (not malicious-workspace, but
-   compromised-upstream) server can flood or inject misleading text into
-   the log panel. The 1000×8192 ring bounds the memory; the UI impact is
-   accepted. No change recommended; the boundary is documented.
-2. **No redaction layer exists anywhere** (verified by grep). Today this
-   is correct *because* See never logs the secret-shaped inputs it holds
-   (env values, command arguments) — verified by behavioral test. The
-   risk is future drift: any future logging of process arguments or
-   environment would bypass review. Consider, at integration time, a
-   lint or a narrow logging-helper contract rather than a redaction
-   layer: redaction after the fact is strictly weaker than never logging.
-3. **`saveDoc`'s non-atomic check-then-write** — see §C. It is the most
+1. **Server stderr is untrusted input and must be redacted — cross-lane
+   decision, resolved.** Lane E originally streamed server stderr into
+   the log verbatim (`internal/lsp/client.go` `tail.Write`), documented
+   as the server's own speech. That position contradicts the threat
+   model's own in-scope item 3 — server configuration env carries real
+   tokens, and a crashing or compromised server can echo them — and
+   Lane A independently built the opposite: `proc.Tail` redacts stderr
+   against the process environment as bytes arrive (secret-named
+   variables, long token-shaped values, URL userinfo passwords;
+   split-write-safe, so a secret straddling pipe reads still completes).
+   **Resolved in favor of Lane A's position**: server stderr is
+   attacker-influenced content that may carry secrets, and it enters
+   See's log redacted. Integration wiring:
+   - Lane A's streaming redactor is the **only** redaction layer —
+     route server stderr through it exactly once, at the tail before
+     the log write. See's own logging must not bypass it, and no
+     second redactor may be stacked on top: layered redaction is how
+     redaction gaps hide.
+   - Nothing else changes in the boundary: the log panel remains a
+     bounded in-memory ring, and stderr text is still never interpreted
+     as commands or markup.
+2. **The redactor complements, never replaces, not-logging.** See's own
+   speech must continue to never format secret-shaped inputs (env
+   values, command arguments) — verified by
+   `TestConfiguredServerSecretsStayOutOfTheLog`. Redaction after the
+   fact is strictly weaker than never logging: it protects against the
+   server's speech and future drift, not as a license to log argv/env.
+3. **Case-variant paths evade lexical workspace containment** — verified
+   defect, fixed in Lane A's lane, not here. On case-insensitive volumes
+   (default macOS APFS) `EvalSymlinks` does not normalize case, so a
+   case-variant spelling of a workspace path names the same bytes while
+   comparing lexically outside the workspace: the workspace-binary
+   denial in `languages.FindConfigured` (and the same lexical shape in
+   `search.FindRipgrep`) is defeated end-to-end. Lane A fixed the same
+   defect in `proc.ValidateExecutable` with `diskSpelling` — per-component
+   `os.SameFile` probing, mirroring Lane B's `workspace.DiskSpelling` —
+   on its own branch. Lane E deliberately does not re-implement it (two
+   implementations of one primitive would collide at merge). The
+   integration checklist below carries the coverage check.
+4. **`saveDoc`'s non-atomic check-then-write** — see §C. It is the most
    consequential correctness gap adjacent to security (silent overwrite
    of a concurrent writer's bytes), but its fix belongs to Lane C's
    pipeline.
+
+## §G Integration checklist
+
+Load-bearing checks the integration phase must confirm before the merged
+state ships. Each one is cheap to verify and expensive to discover later.
+
+1. **Save wiring uses digest-carrying observations at both ends** — §B
+   steps 1–2 verbatim: `ObserveContent` at load/post-save for the
+   expectation and at commit for the re-observation. If any
+   `ErrIncomparableIdentity` reaches the save path, the wiring deviated;
+   do not paper over it.
+2. **Lane A's `diskSpelling` (or Lane B's `workspace.DiskSpelling` they
+   converge into) covers every executable resolver**, not just
+   `proc.ValidateExecutable`: `languages.FindConfigured` and
+   `search.FindRipgrep`'s workspace exclusion have the same lexical
+   shape and must compare in the disk's spelling too. Until then the
+   threat model's workspace-binary invariant is provisional — the
+   document says so explicitly, and this check is what un-provisions it.
+3. **Server stderr flows through Lane A's redactor exactly once** — the
+   single redaction layer, per §F item 1. Verify with a server that
+   echoes its own environment: the token must not appear in the log
+   panel, and `TestConfiguredServerSecretsStayOutOfTheLog` must still
+   pass unmodified (it tests See's own speech, which the redactor does
+   not excuse).
+4. **One `diskSpelling` implementation survives the merge.** Lane A's
+   NOTE says it mirrors Lane B's; keeping both is a fork of a security
+   primitive. Whichever survives, the loser's callers move in the same
+   integration wave.
 
 ## Cross-lane repair suggestions (not implemented — owner decision)
 
@@ -228,4 +323,5 @@ because the files belong to other lanes:
 | Save check/write race window | Lane C | Move condition into atomic commit; see §C | high correctness value |
 | localhistory semantic corruption undetectable | Lane C | content digest at restore; see §D | medium |
 | LSP frame parser has no fuzz coverage | Lane A | wire target per lane-e-fuzzing.md | medium |
-| No regression defense against future secret logging | shared | logging-helper contract or lint | low — preventive |
+| Server stderr enters the log unredacted today | Lane A (mechanism) / integration (wiring) | resolved: wire Lane A's redactor as the single layer; see §F item 1 | medium — wiring is the deliverable |
+| Case-variant paths evade workspace-binary denial | Lane A/B (mechanism) / integration (coverage) | extend disk-spelling comparison to all resolvers; see §G item 2 | medium — provisional until covered |
