@@ -91,13 +91,18 @@ type Config struct {
 
 	SavedFindQueries map[string][]SavedFindQuery `json:"savedFindQueries,omitempty"`
 
+	// Beta contains unfinished features by id, each with its own settings
+	// namespace. Registered migrations graduate or retire these entries.
+	Beta map[string]BetaFeature `json:"betaFeatures,omitempty"`
+
 	// LSP lists language servers the user configured, started for files
 	// a built-in server does not cover. Same role as the servers See
 	// wires in code, given by hand in the configuration file.
 	LSP []LSPConfig `json:"lsp,omitempty"`
 
-	path     string // where it is saved; "" saves nowhere, as in tests
-	onRecent func() // called when the recent folders change
+	path       string // where it is saved; "" saves nowhere, as in tests
+	onRecent   func() // called when the recent folders change
+	stableKeys map[string]bool
 }
 
 type SavedFindQuery struct {
@@ -158,19 +163,55 @@ func Path() string {
 }
 
 // Load reads the configuration at p; a missing or broken file gives the
-// defaults.
+// defaults. Beta configuration is decoded separately so unfinished features
+// cannot invalidate stable settings, then converged on the current lifecycle
+// registry and written back when migration changed it.
 func Load(p string) *Config {
 	c := &Config{path: p, HiddenNames: ".DS_Store"}
 	if p == "" {
 		return c
 	}
 	if data, err := os.ReadFile(p); err == nil {
-		if json.Unmarshal(data, c) != nil {
+		betaChanged, err := c.unmarshal(data)
+		if err != nil {
 			*c = Config{HiddenNames: ".DS_Store"}
 		}
 		c.path = p
+		if err == nil {
+			migrated := c.migrateBeta()
+			if migrated || betaChanged {
+				if err := c.Save(); err != nil {
+					log.Printf("saving migrated settings: %v", err)
+				}
+			}
+		}
 	}
 	return c
+}
+
+func (c *Config) unmarshal(data []byte) (bool, error) {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return false, err
+	}
+	c.stableKeys = make(map[string]bool, len(raw))
+	for key := range raw {
+		c.stableKeys[key] = true
+	}
+	betaRaw, hasBeta := raw["betaFeatures"]
+	delete(raw, "betaFeatures")
+	stableData, err := json.Marshal(raw)
+	if err != nil {
+		return false, err
+	}
+	if err := json.Unmarshal(stableData, c); err != nil {
+		return false, err
+	}
+	betaChanged := false
+	if hasBeta {
+		c.Beta, betaChanged = parseBetaFeatures(betaRaw)
+	}
+	return betaChanged, nil
 }
 
 // save writes the configuration, through a temporary file so a crash
