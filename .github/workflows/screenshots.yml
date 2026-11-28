@@ -125,9 +125,9 @@ jobs:
           fi
           git checkout -B "$branch"
           git add resources/screenshot.webp website/screenshot.webp website/shots/
-          git commit -m "chore: update screenshots [skip ci]"
+          git commit -m "chore: update screenshots"
           git push -f origin "$branch"
-          if gh pr view "$branch" >/dev/null 2>&1; then
+          if [ -n "$(gh pr list --head "$branch" --state open --json number --jq '.[0].number')" ]; then
             echo "Pull request for $branch updated."
           else
             gh pr create --title "chore: update screenshots" \
