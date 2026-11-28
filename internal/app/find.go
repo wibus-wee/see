@@ -331,8 +331,10 @@ func (a *App) openQuickPanel(query string) {
 // forgets it. A scan failure is sticky — q.err holds it — because anything
 // else re-scans every frame forever: the failure post invalidates the
 // ranking, the re-rank calls here, and the loop never ends. Opening Open
-// Quickly and workspace invalidations clear the error, which is where a
-// scan gets retried.
+// Quickly clears the error, and workspace invalidations clear it alongside
+// the file list — and invalidate the open panel's ranking, so the re-rank
+// reaches this function and the scan is retried there. Those are the two
+// deliberate retry points; anywhere else the error stands.
 func (a *App) ensureFiles() {
 	q := &a.quick
 	if q.files != nil || q.listing || q.err != nil || a.root == "" {
