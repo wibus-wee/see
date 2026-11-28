@@ -374,6 +374,11 @@ func (a *App) markdownHeadingLine(path, name string) int {
 	if t := a.docs[path]; t != nil && t.buf != nil {
 		return markdownAnchorLine(t.buf.String(), name)
 	}
+	// The size is checked before reading, not after: a file over the
+	// cap must not be held in memory only to be dropped.
+	if fi, err := os.Stat(path); err != nil || fi.Size() > workspace.MaxSize {
+		return -1
+	}
 	data, err := os.ReadFile(path)
 	if err != nil || len(data) > workspace.MaxSize {
 		return -1
