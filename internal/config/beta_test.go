@@ -287,6 +287,34 @@ func TestBetaMigrationRetiresFeatureAndKeepsFutureUnknownFeatures(t *testing.T) 
 	}
 }
 
+func TestBetaIntSettingPreservesLargeJSONNumber(t *testing.T) {
+	withBetaFeature(t, "test-feature", betaFeatureSpec{settings: map[string]betaSettingSpec{
+		"count": {kind: BetaIntSetting},
+	}})
+	p := writeConfig(t, `{
+		"betaFeatures": {"test-feature": {"enabled": true, "settings": {"count": 9007199254740993}}}
+	}`)
+
+	c := Load(p)
+	data, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var saved map[string]any
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	if err := decoder.Decode(&saved); err != nil {
+		t.Fatal(err)
+	}
+	count := saved["betaFeatures"].(map[string]any)["test-feature"].(map[string]any)["settings"].(map[string]any)["count"]
+	if count.(json.Number).String() != "9007199254740993" {
+		t.Fatalf("large integer setting lost precision: %#v", count)
+	}
+	if !c.BetaEnabled("test-feature") {
+		t.Fatal("valid enabled state was discarded with the invalid integer")
+	}
+}
+
 func TestBetaMigrationDropsEmptySettingObjects(t *testing.T) {
 	withBetaFeature(t, "test-feature", betaFeatureSpec{settings: map[string]betaSettingSpec{
 		"count": {kind: BetaIntSetting},

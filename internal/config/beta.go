@@ -1,11 +1,13 @@
 package config
 
 import (
+	"bytes"
 	"encoding/json"
 	"math"
 	"reflect"
 	"slices"
 	"sort"
+	"strconv"
 )
 
 // BetaFeature is one feature's unfinished configuration. Everything a beta
@@ -167,6 +169,13 @@ func (spec betaSettingSpec) normalize(value any) (any, bool) {
 		v, ok := betaFloat(value)
 		return v, ok && finite(v)
 	case BetaIntSetting:
+		if number, ok := value.(json.Number); ok {
+			v, err := strconv.ParseInt(number.String(), 10, 0)
+			if err != nil {
+				return nil, false
+			}
+			return int(v), true
+		}
 		v, ok := betaFloat(value)
 		if !ok || !finite(v) || math.Trunc(v) != v || v < math.MinInt || v > math.MaxInt {
 			return nil, false
@@ -187,6 +196,9 @@ func betaFloat(value any) (float64, bool) {
 	switch v := value.(type) {
 	case float64:
 		return v, true
+	case json.Number:
+		n, err := v.Float64()
+		return n, err == nil
 	case float32:
 		return float64(v), true
 	case int:
@@ -388,7 +400,9 @@ func parseBetaFeatures(data json.RawMessage) (map[string]BetaFeature, bool) {
 				}
 			case "settings":
 				var settings map[string]any
-				if err := json.Unmarshal(value, &settings); err == nil && settings != nil {
+				decoder := json.NewDecoder(bytes.NewReader(value))
+				decoder.UseNumber()
+				if err := decoder.Decode(&settings); err == nil && settings != nil {
 					feature.Settings = settings
 				} else if registered {
 					changed = true
