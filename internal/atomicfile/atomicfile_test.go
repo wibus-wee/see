@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -381,6 +382,18 @@ func TestConcurrentReadersNeverSeeTornContent(t *testing.T) {
 			}
 			data, err := os.ReadFile(path)
 			if err != nil {
+				// Windows publishes with MoveFileEx, not a rename of one
+				// directory entry: at the publish boundary an open can lose
+				// to the move in flight and be refused, or meet the moment
+				// the target is unlinked. Neither is torn content — the
+				// contract under test — and both pass with the boundary,
+				// so they cost a read rather than fail the test.
+				if runtime.GOOS == "windows" && (errors.Is(err, os.ErrNotExist) || errors.Is(err, syscall.Errno(32))) {
+					// Errno 32 is ERROR_SHARING_VIOLATION; it maps to no
+					// portable error, and comparing the Errno itself
+					// compiles on every platform, where it matches nothing.
+					continue
+				}
 				failures <- "reader error: " + err.Error()
 				return
 			}
