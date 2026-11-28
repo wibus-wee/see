@@ -287,6 +287,8 @@ type doc struct {
 	markdownCached  bool
 	hex             *hexState
 
+	previewOpened     bool // previewed open: the editor's birth does not take the keyboard
+	focusOnLoad       bool // the opener asked the keyboard once its editor exists
 	loading           bool
 	loadingVisible    bool
 	loadingSeq        uint64
@@ -1362,6 +1364,12 @@ func (a *App) showLoaded(g *group, d *doc) {
 	if st == nil {
 		st = a.newEditor(g, d)
 		g.eds[d.path] = st
+		if d.focusOnLoad {
+			d.focusOnLoad = false
+			if g == a.focus {
+				a.focusEditor = st
+			}
+		}
 		if g.pending[d.path].folds == nil && a.cfg.EditorFoldImports {
 			st.FoldImports()
 		}
@@ -1701,7 +1709,10 @@ func (a *App) here() (nav.Entry, bool) {
 // userOpen opens a file because the user asked, as from the tree.
 func (a *App) userOpen(path string) {
 	a.cancelNav()
-	a.openFile(path, nil)
+	d := a.openFile(path, nil)
+	if d != nil {
+		d.previewOpened, d.focusOnLoad = false, false
+	}
 	a.focusImage = ""
 	if isImagePath(a.activePath()) {
 		a.focusImage = a.activePath()
@@ -1711,7 +1722,11 @@ func (a *App) userOpen(path string) {
 	}
 }
 
-func (a *App) previewOpen(path string) {
+// previewOpen previews path in the focused group. focus asks the
+// keyboard for the document once it shows, as Open Quickly does; without
+// it the keyboard stays where it is, as in the tree the click came from.
+func (a *App) previewOpen(path string, focus ...bool) {
+	focusEditor := len(focus) > 0 && focus[0]
 	g := a.focus
 	path = a.docPath(path)
 	if d := a.docs[path]; d != nil {
@@ -1728,13 +1743,21 @@ func (a *App) previewOpen(path string) {
 		a.cancelPendingPreview(g)
 	}
 	if g.has(path) {
-		a.userActivateIn(g, path)
+		if focusEditor {
+			a.userActivateIn(g, path)
+		} else {
+			a.activateIn(g, path)
+		}
 		a.focusImage = ""
 		return
 	}
 	for _, other := range a.groups() {
 		if other != g && other.hasDocument(path) {
-			a.userOpen(path)
+			if focusEditor {
+				a.userOpen(path)
+			} else {
+				a.openIn(other, path, goTo{})
+			}
 			a.focusImage = ""
 			return
 		}
@@ -1764,10 +1787,10 @@ func (a *App) previewOpen(path string) {
 	}
 	path = d.path
 	if d.loading && d.buf == nil && g.has(outgoing) {
-		if st := g.eds[outgoing]; st != nil {
-			a.focusEditor = st
+		g.pendingPreview = &previewTransition{doc: d, outgoing: outgoing, replaced: old, replaceable: replaceable, focusSeq: g.focusSeq, focusEditor: focusEditor}
+		if !focusEditor {
+			d.previewOpened = true
 		}
-		g.pendingPreview = &previewTransition{doc: d, outgoing: outgoing, replaced: old, replaceable: replaceable, focusSeq: g.focusSeq}
 		return
 	}
 	if replaceable {
@@ -1783,8 +1806,14 @@ func (a *App) previewOpen(path string) {
 	g.preview = path
 	a.activateIn(g, path)
 	a.showLoaded(g, d)
-	if st := g.eds[path]; st != nil {
-		a.focusEditor = st
+	if focusEditor {
+		if st := g.eds[path]; st != nil {
+			a.focusEditor = st
+		} else if d.loading {
+			d.focusOnLoad = true
+		}
+	} else {
+		d.previewOpened = true
 	}
 }
 

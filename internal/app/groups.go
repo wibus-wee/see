@@ -66,6 +66,7 @@ type previewTransition struct {
 	replaced    string
 	replaceable bool
 	focusSeq    uint64
+	focusEditor bool // the opener asked the keyboard for it, as Open Quickly
 }
 
 // goTo is a place to show in a document: a position of the buffer, or
@@ -204,8 +205,12 @@ func (a *App) finishPendingPreview(d *doc) {
 		g.preview = d.path
 		a.showLoaded(g, d)
 		a.activateIn(g, d.path)
-		if st := g.eds[d.path]; st != nil {
-			a.focusEditor = st
+		if p.focusEditor {
+			if st := g.eds[d.path]; st != nil {
+				a.focusEditor = st
+			}
+		} else {
+			d.previewOpened = true
 		}
 		return
 	}
