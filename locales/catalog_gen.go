@@ -158,6 +158,48 @@ func (msgs Messages) GitSelectRepositoryToSeeChanges() string {
 	return Catalog.Format(msgs.locale, "gitSelectRepositoryToSeeChanges", nil)
 }
 
+// WorkspaceRequiresBeta says "Multi-root workspaces are a beta feature. Enable them in Settings > Beta Features."
+// in the language the app shows.
+func WorkspaceRequiresBeta() string { return In(i18n.Locale()).WorkspaceRequiresBeta() }
+
+// WorkspaceRequiresBeta says "Multi-root workspaces are a beta feature. Enable them in Settings > Beta Features."
+// in the language of msgs.
+func (msgs Messages) WorkspaceRequiresBeta() string {
+	return Catalog.Format(msgs.locale, "workspaceRequiresBeta", nil)
+}
+
+// WorkspaceAddFolder says "Add Folder to Workspace…"
+// in the language the app shows.
+func WorkspaceAddFolder() string { return In(i18n.Locale()).WorkspaceAddFolder() }
+
+// WorkspaceAddFolder says "Add Folder to Workspace…"
+// in the language of msgs.
+func (msgs Messages) WorkspaceAddFolder() string {
+	return Catalog.Format(msgs.locale, "workspaceAddFolder", nil)
+}
+
+// WorkspaceUpdateFailed says "Could not update workspace file “{path}”: {reason}"
+// in the language the app shows.
+func WorkspaceUpdateFailed(path string, reason string) string {
+	return In(i18n.Locale()).WorkspaceUpdateFailed(path, reason)
+}
+
+// WorkspaceUpdateFailed says "Could not update workspace file “{path}”: {reason}"
+// in the language of msgs.
+func (msgs Messages) WorkspaceUpdateFailed(path string, reason string) string {
+	return Catalog.Format(msgs.locale, "workspaceUpdateFailed", map[string]any{"path": path, "reason": reason})
+}
+
+// WorkspaceRemoveFolder says "Remove Folder from Workspace"
+// in the language the app shows.
+func WorkspaceRemoveFolder() string { return In(i18n.Locale()).WorkspaceRemoveFolder() }
+
+// WorkspaceRemoveFolder says "Remove Folder from Workspace"
+// in the language of msgs.
+func (msgs Messages) WorkspaceRemoveFolder() string {
+	return Catalog.Format(msgs.locale, "workspaceRemoveFolder", nil)
+}
+
 // CommandToggleReaderMode says "Toggle Reader Mode"
 // in the language the app shows.
 func CommandToggleReaderMode() string { return In(i18n.Locale()).CommandToggleReaderMode() }
@@ -3062,6 +3104,46 @@ func ProblemsTrust() string { return In(i18n.Locale()).ProblemsTrust() }
 // in the language of msgs.
 func (msgs Messages) ProblemsTrust() string {
 	return Catalog.Format(msgs.locale, "problemsTrust", nil)
+}
+
+// ProblemsTrustWorkspace says "Trust all workspace folders to run language servers."
+// in the language the app shows.
+func ProblemsTrustWorkspace() string { return In(i18n.Locale()).ProblemsTrustWorkspace() }
+
+// ProblemsTrustWorkspace says "Trust all workspace folders to run language servers."
+// in the language of msgs.
+func (msgs Messages) ProblemsTrustWorkspace() string {
+	return Catalog.Format(msgs.locale, "problemsTrustWorkspace", nil)
+}
+
+// TrustWorkspaceLead says "Trust this workspace to run language servers?"
+// in the language the app shows.
+func TrustWorkspaceLead() string { return In(i18n.Locale()).TrustWorkspaceLead() }
+
+// TrustWorkspaceLead says "Trust this workspace to run language servers?"
+// in the language of msgs.
+func (msgs Messages) TrustWorkspaceLead() string {
+	return Catalog.Format(msgs.locale, "trustWorkspaceLead", nil)
+}
+
+// TrustWorkspace says "Trust Workspace"
+// in the language the app shows.
+func TrustWorkspace() string { return In(i18n.Locale()).TrustWorkspace() }
+
+// TrustWorkspace says "Trust Workspace"
+// in the language of msgs.
+func (msgs Messages) TrustWorkspace() string {
+	return Catalog.Format(msgs.locale, "trustWorkspace", nil)
+}
+
+// TrustWorkspaceSearchSymbols says "Trust workspace to search symbols"
+// in the language the app shows.
+func TrustWorkspaceSearchSymbols() string { return In(i18n.Locale()).TrustWorkspaceSearchSymbols() }
+
+// TrustWorkspaceSearchSymbols says "Trust workspace to search symbols"
+// in the language of msgs.
+func (msgs Messages) TrustWorkspaceSearchSymbols() string {
+	return Catalog.Format(msgs.locale, "trustWorkspaceSearchSymbols", nil)
 }
 
 // ProblemsStarting says "Starting project diagnostics…"
@@ -12398,6 +12480,28 @@ func BetaFeaturesDescription() string { return In(i18n.Locale()).BetaFeaturesDes
 // in the language of msgs.
 func (msgs Messages) BetaFeaturesDescription() string {
 	return Catalog.Format(msgs.locale, "betaFeaturesDescription", nil)
+}
+
+// BetaMultiRootWorkspaces says "Multi-root Workspaces"
+// in the language the app shows.
+func BetaMultiRootWorkspaces() string { return In(i18n.Locale()).BetaMultiRootWorkspaces() }
+
+// BetaMultiRootWorkspaces says "Multi-root Workspaces"
+// in the language of msgs.
+func (msgs Messages) BetaMultiRootWorkspaces() string {
+	return Catalog.Format(msgs.locale, "betaMultiRootWorkspaces", nil)
+}
+
+// BetaMultiRootWorkspacesDescription says "Open and edit VS Code workspaces with multiple folders. Applies when a workspace is opened."
+// in the language the app shows.
+func BetaMultiRootWorkspacesDescription() string {
+	return In(i18n.Locale()).BetaMultiRootWorkspacesDescription()
+}
+
+// BetaMultiRootWorkspacesDescription says "Open and edit VS Code workspaces with multiple folders. Applies when a workspace is opened."
+// in the language of msgs.
+func (msgs Messages) BetaMultiRootWorkspacesDescription() string {
+	return Catalog.Format(msgs.locale, "betaMultiRootWorkspacesDescription", nil)
 }
 
 // BetaVibrancyMaterial says "Material"

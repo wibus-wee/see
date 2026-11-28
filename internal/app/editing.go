@@ -27,7 +27,7 @@ func (a *App) openFileDialog() {
 			case err != nil:
 				a.note(locales.MsgCouldNotShowTheFileDialog()+err.Error(), true)
 			case p != "":
-				if strings.EqualFold(filepath.Ext(p), ".code-workspace") {
+				if a.multiRootWorkspacesEnabled() && strings.EqualFold(filepath.Ext(p), ".code-workspace") {
 					a.openWorkspace(p)
 				} else if a.root == "" {
 					a.showWelcome = false

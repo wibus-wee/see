@@ -461,7 +461,7 @@ func (a *App) openFolderDialog() {
 }
 
 func (a *App) addWorkspaceFolderDialog() {
-	if a.find.replacing {
+	if a.find.replacing || !a.multiRootWorkspacesEnabled() {
 		return
 	}
 	pick := a.host.PickFolder
@@ -479,7 +479,7 @@ func (a *App) addWorkspaceFolderDialog() {
 }
 
 func (a *App) addWorkspaceFolder(path string) {
-	if a.find.replacing {
+	if a.find.replacing || !a.multiRootWorkspacesEnabled() {
 		return
 	}
 	root, err := workspace.CanonicalRoot(path)
@@ -690,10 +690,14 @@ func (a *App) openWorkspace(dir string) {
 	var settings workspace.Settings
 	isCodeWorkspace := strings.EqualFold(filepath.Ext(workspaceID), ".code-workspace")
 	if isCodeWorkspace {
-		var parsed *workspace.CodeWorkspace
-		parsed, err = workspace.ReadCodeWorkspace(workspaceID)
-		if err == nil {
-			folders, settings = parsed.Folders, parsed.Settings
+		if !a.multiRootWorkspacesEnabled() {
+			err = errors.New(locales.WorkspaceRequiresBeta())
+		} else {
+			var parsed *workspace.CodeWorkspace
+			parsed, err = workspace.ReadCodeWorkspace(workspaceID)
+			if err == nil {
+				folders, settings = parsed.Folders, parsed.Settings
+			}
 		}
 	} else {
 		var root string
@@ -704,7 +708,7 @@ func (a *App) openWorkspace(dir string) {
 		}
 	}
 	if err == nil && !isCodeWorkspace {
-		if saved := a.cfg.Workspaces[workspaceID]; len(saved.Folders) > 0 {
+		if saved := a.cfg.Workspaces[workspaceID]; a.multiRootWorkspacesEnabled() && len(saved.Folders) > 0 {
 			if persisted, folderErr := loadSavedWorkspaceFolders(saved.Folders); folderErr == nil && len(persisted) > 0 {
 				folders = persisted
 			}
@@ -728,7 +732,7 @@ func (a *App) openWorkspace(dir string) {
 	a.workspaceID = workspaceID
 	a.workspaceFolders = folders
 	a.workspaceSettings = normalizedWorkspaceSettings(settings)
-	a.workspaceChanged = !isCodeWorkspace && len(a.cfg.Workspaces[workspaceID].Folders) > 0
+	a.workspaceChanged = !isCodeWorkspace && a.multiRootWorkspacesEnabled() && len(a.cfg.Workspaces[workspaceID].Folders) > 0
 	a.workspaceRootsEpoch++
 	a.invalidateQuickFiles()
 	a.root = folders[0].Path

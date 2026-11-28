@@ -191,7 +191,7 @@ func (a *App) treeHeading(c *ui.Context) {
 			ui.Text(c, detail).FontSize(11).TextColor(colors(c).Dim).SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 		}
 		ui.Box(c).Grow(1)
-		if len(a.workspaceFolders) > 0 && glyphButton(c, icFolder, workspaceAddFolderLabel(), workspaceAddFolderLabel(), false, a.find.replacing).Clicked() {
+		if len(a.workspaceFolders) > 0 && a.multiRootWorkspacesEnabled() && glyphButton(c, icFolder, workspaceAddFolderLabel(), workspaceAddFolderLabel(), false, a.find.replacing).Clicked() {
 			a.addWorkspaceFolderDialog()
 		}
 		if glyphButton(c, icAdd, commandLabel("file.new"), locales.MsgNewFileInProject(), false, false).Clicked() {
@@ -461,7 +461,7 @@ func (a *App) treeItem(c *ui.Context, p string) {
 	})
 	services := c.Services()
 	row.ContextMenu(func(m *ui.Menu) {
-		if isWorkspaceRoot {
+		if isWorkspaceRoot && a.multiRootWorkspacesEnabled() {
 			if m.Item(workspaceAddFolderLabel()).Disabled(a.find.replacing).Chosen() {
 				a.addWorkspaceFolderDialog()
 			}

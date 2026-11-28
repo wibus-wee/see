@@ -210,7 +210,7 @@ func Main() {
 			a.showWelcome = false
 			wins.sync(nil)
 			if path != "" && !forceNewWindow {
-				if strings.EqualFold(filepath.Ext(path), ".code-workspace") {
+				if a.multiRootWorkspacesEnabled() && strings.EqualFold(filepath.Ext(path), ".code-workspace") {
 					if identity, err := filepath.Abs(path); err == nil {
 						for _, p := range projects {
 							if p.app.workspaceID == filepath.Clean(identity) {
@@ -335,7 +335,7 @@ func Main() {
 				p.win.Update(func() {}) // draws the file
 				return
 			}
-			if strings.EqualFold(filepath.Ext(path), ".code-workspace") {
+			if a.multiRootWorkspacesEnabled() && strings.EqualFold(filepath.Ext(path), ".code-workspace") {
 				if a.root == "" {
 					a.openWorkspace(path)
 					wins.sync(nil)
@@ -459,7 +459,7 @@ func Main() {
 					return
 				}
 				path := req.Path
-				if strings.EqualFold(filepath.Ext(path), ".code-workspace") {
+				if a.multiRootWorkspacesEnabled() && strings.EqualFold(filepath.Ext(path), ".code-workspace") {
 					forceNewWindow = req.NewWindow
 					p := openProject(path)
 					forceNewWindow = false

@@ -174,7 +174,7 @@ func TestCodeWorkspaceSelectsEachConfiguredRepositoryWithoutNestedDiscovery(t *t
 	if err := os.WriteFile(workspaceFile, []byte(`{"folders":[{"name":"Frontend","path":"../frontend"},{"name":"Backend","path":"../backend"}]}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	h := newHarness(t, workspaceFile)
+	h := newMultiRootHarness(t, workspaceFile)
 	h.a.refreshGitDiscovery()
 	h.settle(func() bool { return h.a.git.repositoriesLoaded && !h.a.git.repositoryScanLoading })
 	if h.a.cfg.GitAutoDiscover || !h.a.gitRepositorySelectionEnabled() || !slices.Equal(h.a.git.repositories, []string{backend, frontend}) {
@@ -220,7 +220,7 @@ func TestCodeWorkspacePreservesNestedDiscoveryForEachRoot(t *testing.T) {
 	if err := os.WriteFile(workspaceFile, []byte(`{"folders":[{"path":"../frontend"},{"path":"../backend"}]}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	h := newHarness(t, workspaceFile)
+	h := newMultiRootHarness(t, workspaceFile)
 	h.a.cfg.GitAutoDiscover = true
 	h.a.refreshGitDiscovery()
 	h.settle(func() bool {

@@ -25,6 +25,10 @@ func lspWorkspaceFolders(folders []workspace.Folder) []lsp.WorkspaceFolder {
 	return out
 }
 
+func (a *App) multiRootWorkspacesEnabled() bool {
+	return a.cfg.BetaEnabled(config.BetaMultiRootWorkspaces)
+}
+
 func (a *App) workspaceFolderPaths() []string {
 	paths := make([]string, len(a.workspaceFolders))
 	for i, folder := range a.workspaceFolders {

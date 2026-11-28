@@ -100,6 +100,9 @@ func (a *App) captureSession() {
 		a.mergeStandaloneSession(workspace)
 		return
 	}
+	if len(workspace.Folders) == 0 && !a.workspaceChanged && !a.isCodeWorkspace() {
+		workspace.Folders = slices.Clone(a.cfg.Workspaces[a.workspaceID].Folders)
+	}
 	a.cfg.Workspaces[a.workspaceID] = workspace
 }
 

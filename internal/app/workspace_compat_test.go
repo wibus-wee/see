@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo"
+	"github.com/egoist/mygo/ui"
 
 	"see/internal/config"
 	"see/internal/git"
@@ -22,6 +23,7 @@ import (
 	"see/internal/search"
 	"see/internal/uri"
 	"see/internal/workspace"
+	"see/locales"
 )
 
 type channelWatcher struct {
@@ -70,12 +72,97 @@ func codeWorkspaceFixture(t *testing.T) (string, string, string) {
 	return workspaceFile, client, server
 }
 
+func TestMultiRootWorkspaceRequiresBetaOptIn(t *testing.T) {
+	workspaceFile, client, server := codeWorkspaceFixture(t)
+	h := newHarness(t, "")
+	h.a.openWorkspace(workspaceFile)
+	if h.a.workspaceID != "" || len(h.a.workspaceFolders) != 0 {
+		t.Fatalf("workspace opened without beta opt-in: id=%q folders=%v", h.a.workspaceID, h.a.workspaceFolders)
+	}
+	if !strings.Contains(h.a.welcomeNote, locales.WorkspaceRequiresBeta()) {
+		t.Fatalf("missing beta guidance: %q", h.a.welcomeNote)
+	}
+
+	h.a.cfg.SetBetaEnabled(config.BetaMultiRootWorkspaces, true)
+	h.a.openWorkspace(workspaceFile)
+	h.settle(func() bool {
+		return h.a.dirs[client] != nil && h.a.dirs[client].loaded && h.a.dirs[server] != nil && h.a.dirs[server].loaded
+	})
+	if h.a.workspaceID != workspaceFile || len(h.a.workspaceFolders) != 2 {
+		t.Fatalf("workspace did not open after beta opt-in: id=%q folders=%v", h.a.workspaceID, h.a.workspaceFolders)
+	}
+}
+
+func TestCodeWorkspaceCLIStaysAPlainFileWithoutBetaOptIn(t *testing.T) {
+	workspaceFile, _, _ := codeWorkspaceFixture(t)
+	h := newHarness(t, "")
+	h.a.openCLIPath(workspaceFile)
+	root := filepath.Dir(workspaceFile)
+	if h.a.workspaceID != root || len(h.a.workspaceFolders) != 1 || h.a.docs[workspaceFile] == nil {
+		t.Fatalf("workspace file did not keep stable file behavior: id=%q folders=%v docs=%v", h.a.workspaceID, h.a.workspaceFolders, h.a.docs)
+	}
+}
+
+func TestPlainWorkspaceMultiRootStateRequiresBetaOptIn(t *testing.T) {
+	base := t.TempDir()
+	root := filepath.Join(base, "root")
+	extra := filepath.Join(base, "extra")
+	for _, dir := range []string{root, extra} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cfg := &config.Config{ConfirmClose: true, Workspaces: map[string]config.Workspace{
+		root: {Folders: []config.WorkspaceFolder{{Path: root, Name: "Root"}, {Path: extra, Name: "Extra"}}},
+	}}
+	h := newHarnessWithConfig(t, "", cfg)
+	h.a.openWorkspace(root)
+	if len(h.a.workspaceFolders) != 1 || h.a.workspaceChanged {
+		t.Fatalf("saved multi-root state activated without beta opt-in: folders=%v changed=%v", h.a.workspaceFolders, h.a.workspaceChanged)
+	}
+
+	h.a.cfg.SetBetaEnabled(config.BetaMultiRootWorkspaces, true)
+	h.a.openWorkspace(root)
+	if len(h.a.workspaceFolders) != 2 || !h.a.workspaceChanged {
+		t.Fatalf("saved multi-root state did not activate after beta opt-in: folders=%v changed=%v", h.a.workspaceFolders, h.a.workspaceChanged)
+	}
+}
+
+func TestAddWorkspaceFolderRequiresBetaOptIn(t *testing.T) {
+	base := t.TempDir()
+	root := filepath.Join(base, "root")
+	extra := filepath.Join(base, "extra")
+	for _, dir := range []string{root, extra} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	h := newHarness(t, root)
+	if _, ok := h.tt.AccessByRole(ui.RoleButton, workspaceAddFolderLabel()); ok {
+		t.Fatal("add workspace folder control is visible without beta opt-in")
+	}
+	h.a.addWorkspaceFolder(extra)
+	if len(h.a.workspaceFolders) != 1 {
+		t.Fatalf("folder added without beta opt-in: %v", h.a.workspaceFolders)
+	}
+
+	h.a.cfg.SetBetaEnabled(config.BetaMultiRootWorkspaces, true)
+	h.tt.Frame()
+	if _, ok := h.tt.AccessByRole(ui.RoleButton, workspaceAddFolderLabel()); !ok {
+		t.Fatal("add workspace folder control is hidden after beta opt-in")
+	}
+	h.a.addWorkspaceFolder(extra)
+	if len(h.a.workspaceFolders) != 2 {
+		t.Fatalf("folder was not added after beta opt-in: %v", h.a.workspaceFolders)
+	}
+}
+
 func TestCodeWorkspaceTreeAndSearchKeepDuplicateFilesUnderTheirRoots(t *testing.T) {
 	if _, err := findRipgrep(""); err != nil {
 		t.Skip(err)
 	}
 	workspaceFile, client, server := codeWorkspaceFixture(t)
-	h := newHarness(t, "")
+	h := newMultiRootHarness(t, "")
 	h.a.openWorkspace(workspaceFile)
 	h.settle(func() bool {
 		return h.a.dirs[client] != nil && h.a.dirs[client].loaded && h.a.dirs[server] != nil && h.a.dirs[server].loaded
@@ -175,7 +262,7 @@ func TestWorkspaceSettingsControlIgnoreFilesAndExplorerGitIgnore(t *testing.T) {
 	if out, err := init.CombinedOutput(); err != nil {
 		t.Skipf("git init: %v: %s", err, out)
 	}
-	h := newHarness(t, "")
+	h := newMultiRootHarness(t, "")
 	h.a.openWorkspace(workspaceFile)
 	h.settle(func() bool { return h.a.dirs[root] != nil && h.a.dirs[root].loaded })
 	ignored, err := git.ReadIgnored(context.Background(), root)
@@ -233,7 +320,7 @@ func TestWorkspaceSiblingClauseExcludesGeneratedSibling(t *testing.T) {
 	if err := os.WriteFile(workspaceFile, []byte(data), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	h := newHarness(t, "")
+	h := newMultiRootHarness(t, "")
 	h.a.openWorkspace(workspaceFile)
 	h.settle(func() bool { return h.a.dirs[root] != nil && h.a.dirs[root].loaded })
 	if !h.a.hiddenPath(filepath.Join(root, "foo.js")) || h.a.hiddenPath(filepath.Join(root, "bar.js")) {
@@ -254,7 +341,7 @@ func TestWorkspaceSiblingClauseExcludesGeneratedSibling(t *testing.T) {
 
 func TestWorkspaceSafetyRegressions(t *testing.T) {
 	root := writeTree(t, map[string]string{"go.mod": "module example.com/safety\n", "main.go": "package main\n"})
-	h := newHarness(t, root)
+	h := newMultiRootHarness(t, root)
 	before := h.a.lsp
 	h.a.startProblemServer(filepath.Join(root, "main.go"))
 	if state, _ := before.Status(); state != langserver.Off {
@@ -288,7 +375,7 @@ func TestDocPathMapsSecondaryRealRootToOpenedAlias(t *testing.T) {
 	if err := os.WriteFile(workspaceFile, []byte(data), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	h := newHarness(t, "")
+	h := newMultiRootHarness(t, "")
 	h.a.openWorkspace(workspaceFile)
 	realRoot, err := filepath.EvalSymlinks(real)
 	if err != nil {
@@ -332,7 +419,7 @@ func TestCodeWorkspaceOpensWithMissingMemberSoItCanBeRepaired(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(present, "present.txt"), []byte("present"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	h := newHarness(t, "")
+	h := newMultiRootHarness(t, "")
 	h.a.openWorkspace(workspaceFile)
 	if len(h.a.workspaceFolders) != 2 || h.a.workspaceFolders[1].Path != filepath.Join(base, "missing") {
 		t.Fatalf("missing member blocked workspace repair: %+v notice=%q", h.a.workspaceFolders, h.a.notice)
@@ -355,7 +442,7 @@ func TestSingleRootCodeWorkspaceKeepsItsProjectItemInTree(t *testing.T) {
 	if err := os.WriteFile(workspaceFile, []byte(`{"folders":[{"name":"Project","path":"Project"}]}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	h := newHarness(t, "")
+	h := newMultiRootHarness(t, "")
 	h.a.openWorkspace(workspaceFile)
 	h.settle(func() bool { return h.a.dirs[root] != nil && h.a.dirs[root].loaded })
 	h.tt.Frame()
@@ -369,7 +456,7 @@ func TestSingleRootCodeWorkspaceKeepsItsProjectItemInTree(t *testing.T) {
 
 func TestDuplicateTabSuffixesQualifyCollidingWorkspaceRoots(t *testing.T) {
 	workspaceFile, client, server := codeWorkspaceFixture(t)
-	h := newHarness(t, "")
+	h := newMultiRootHarness(t, "")
 	h.a.openWorkspace(workspaceFile)
 	h.settle(func() bool {
 		return h.a.dirs[client] != nil && h.a.dirs[client].loaded && h.a.dirs[server] != nil && h.a.dirs[server].loaded
@@ -393,7 +480,7 @@ func TestRemovingCodeWorkspaceFolderOnlyRemovesItsReference(t *testing.T) {
 		t.Skip(err)
 	}
 	workspaceFile, client, server := codeWorkspaceFixture(t)
-	h := newHarness(t, "")
+	h := newMultiRootHarness(t, "")
 	configPath := filepath.Join(t.TempDir(), "settings.json")
 	h.a.cfg.SetPath(configPath)
 	h.a.openWorkspace(workspaceFile)
@@ -456,10 +543,13 @@ func TestCodeWorkspaceUsesDiskMembershipAndExternalEditsDuringAdd(t *testing.T) 
 		workspaceFile: {Folders: []config.WorkspaceFolder{{Path: stale, Name: "Stale"}}},
 	}}
 	cfg.SetPath(filepath.Join(t.TempDir(), "settings.json"))
-	h := newHarnessWithConfig(t, "", cfg)
+	h := newMultiRootHarnessWithConfig(t, "", cfg)
 	h.a.openWorkspace(workspaceFile)
 	if !slices.Equal(h.a.workspaceFolderPaths(), []string{client, server}) {
 		t.Fatalf("opening .code-workspace used stale See config: %v", h.a.workspaceFolderPaths())
+	}
+	if len(h.a.cfg.Workspaces[workspaceFile].Folders) != 0 {
+		t.Fatalf("workspace-file membership kept a stale See-private override: %+v", h.a.cfg.Workspaces[workspaceFile].Folders)
 	}
 
 	data := `{"folders":[{"name":"Server","path":"../server"}],"settings":{"editor.tabSize":2}}`
@@ -483,7 +573,7 @@ func TestCodeWorkspaceEditFailureDoesNotChangeMembership(t *testing.T) {
 	if err := os.Mkdir(third, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	h := newHarness(t, "")
+	h := newMultiRootHarness(t, "")
 	h.a.cfg.SetPath(filepath.Join(t.TempDir(), "settings.json"))
 	h.a.openWorkspace(workspaceFile)
 	before := slices.Clone(h.a.workspaceFolderPaths())
@@ -506,7 +596,7 @@ func TestCodeWorkspaceEditFailureDoesNotChangeMembership(t *testing.T) {
 
 func TestQuickOpenMatchesRootAliasesAndKeepsDuplicateFileIdentity(t *testing.T) {
 	workspaceFile, client, server := codeWorkspaceFixture(t)
-	h := newHarness(t, "")
+	h := newMultiRootHarness(t, "")
 	h.a.openWorkspace(workspaceFile)
 	h.a.quick.files = []string{filepath.Join(client, "src", "main.go"), filepath.Join(server, "src", "main.go")}
 	for _, test := range []struct {
@@ -536,7 +626,7 @@ func TestQuickOpenMatchesRootAliasesAndKeepsDuplicateFileIdentity(t *testing.T) 
 
 func TestQuickOpenDropsListingCompletedAfterRootMembershipChanges(t *testing.T) {
 	workspaceFile, client, _ := codeWorkspaceFixture(t)
-	h := newHarness(t, "")
+	h := newMultiRootHarness(t, "")
 	h.a.cfg.SetPath(filepath.Join(t.TempDir(), "settings.json"))
 	h.a.openWorkspace(workspaceFile)
 	h.a.quick.listing = true
@@ -555,7 +645,7 @@ func TestQuickOpenDropsListingCompletedAfterRootMembershipChanges(t *testing.T) 
 
 func TestWorkspaceMembershipRejectsStaleSearchResults(t *testing.T) {
 	workspaceFile, client, _ := codeWorkspaceFixture(t)
-	h := newHarness(t, "")
+	h := newMultiRootHarness(t, "")
 	h.a.openWorkspace(workspaceFile)
 	h.a.find.opts = search.Options{Query: "needle"}
 	h.a.find.rgErr = errors.New("ripgrep unavailable")
@@ -582,7 +672,7 @@ func TestWorkspaceMembershipRejectsStaleSearchResults(t *testing.T) {
 func TestAddedRootRequiresWorkspaceTrustBeforeLSP(t *testing.T) {
 	workspaceFile, client, server := codeWorkspaceFixture(t)
 	cfg := &config.Config{Trusted: []string{client}}
-	h := newHarnessWithConfig(t, "", cfg)
+	h := newMultiRootHarnessWithConfig(t, "", cfg)
 	h.a.openWorkspace(workspaceFile)
 	h.a.userOpen(filepath.Join(server, "src", "main.go"))
 	h.settle(func() bool {
@@ -613,7 +703,7 @@ func TestNestedCodeWorkspaceRootsKeepOneFileIdentity(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	h := newHarness(t, "")
+	h := newMultiRootHarness(t, "")
 	h.a.openWorkspace(workspaceFile)
 	h.settle(func() bool {
 		return h.a.dirs[parent] != nil && h.a.dirs[parent].loaded && h.a.dirs[child] != nil && h.a.dirs[child].loaded
@@ -655,7 +745,7 @@ func TestNestedCodeWorkspaceRootsKeepOneFileIdentity(t *testing.T) {
 
 func TestLanguageServerReceivesEveryWorkspaceFolder(t *testing.T) {
 	workspaceFile, client, server := codeWorkspaceFixture(t)
-	h := newHarness(t, "")
+	h := newMultiRootHarness(t, "")
 	var launched []lsp.WorkspaceFolder
 	h.a.startLSP = func(func(string, ...any)) langserver.Starter {
 		return func(_ context.Context, _ string, folders []lsp.WorkspaceFolder, _ func(error)) (langserver.Client, error) {
@@ -681,7 +771,7 @@ func TestProjectDiagnosticsScanEveryWorkspaceFolder(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(client, "src", "notes.txt"), []byte("notes"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	h := newHarness(t, "")
+	h := newMultiRootHarness(t, "")
 	h.a.openWorkspace(workspaceFile)
 	h.a.trust()
 	h.a.showProblems()
@@ -709,7 +799,7 @@ func TestReloadCodeWorkspaceAppliesExternalMembershipEdits(t *testing.T) {
 		}
 		return channelWatcher{events: events}, nil
 	}
-	h := newHarness(t, "")
+	h := newMultiRootHarness(t, "")
 	h.a.openWorkspace(workspaceFile)
 	h.settle(func() bool { return h.a.dirs[client] != nil && h.a.dirs[server] != nil })
 	var workspaceEvents chan []mygo.FileEvent
@@ -792,7 +882,7 @@ func TestCodeWorkspaceSettingsExcludeTreeSearchAndQuickOpen(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	h := newHarness(t, "")
+	h := newMultiRootHarness(t, "")
 	h.a.openWorkspace(workspaceFile)
 	h.settle(func() bool { return h.a.dirs[client] != nil && h.a.dirs[client].loaded })
 	for _, path := range h.a.entryPaths(h.a.dirs[client]) {
@@ -851,7 +941,7 @@ func TestReloadCodeWorkspaceAppliesSettingsEdits(t *testing.T) {
 	if err := os.WriteFile(workspaceFile, []byte(initial), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	h := newHarness(t, "")
+	h := newMultiRootHarness(t, "")
 	h.a.openWorkspace(workspaceFile)
 	h.settle(func() bool { return h.a.dirs[client] != nil && h.a.dirs[client].loaded })
 	if !slices.Contains(h.a.entryPaths(h.a.dirs[client]), build) {
@@ -893,7 +983,7 @@ func TestRealGoplsMultiRootProjectProblems(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	h := newHarness(t, "")
+	h := newMultiRootHarness(t, "")
 	h.a.startLSP = languages.StartGopls
 	h.a.cfg.Trust(filepath.Join(base, "client"))
 	h.a.cfg.Trust(filepath.Join(base, "server"))
@@ -922,7 +1012,7 @@ func TestAddingFolderToPlainWorkspaceCreatesVSCodeWorkspace(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	h := newHarness(t, primary)
+	h := newMultiRootHarness(t, primary)
 	configPath := filepath.Join(t.TempDir(), "settings.json")
 	h.a.cfg.SetPath(configPath)
 	h.a.addWorkspaceFolder(secondary)
@@ -954,7 +1044,7 @@ func TestPlainWorkspaceReusesExistingWorkspaceFileAndSettings(t *testing.T) {
 	if err := os.WriteFile(workspaceFile, []byte(initial), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	h := newHarness(t, primary)
+	h := newMultiRootHarness(t, primary)
 	h.a.addWorkspaceFolder(secondary)
 	if h.a.workspaceID != workspaceFile || len(h.a.workspaceFolders) != 2 {
 		t.Fatalf("existing workspace file was not reused: id=%q folders=%v notice=%q", h.a.workspaceID, h.a.workspaceFolders, h.a.notice)
@@ -981,7 +1071,7 @@ func TestPlainWorkspaceConversionPreservesRestoredMembership(t *testing.T) {
 	cfg := &config.Config{Workspaces: map[string]config.Workspace{
 		primary: {Folders: []config.WorkspaceFolder{{Path: primary, Name: "primary"}, {Path: second, Name: "second"}}},
 	}}
-	h := newHarnessWithConfig(t, "", cfg)
+	h := newMultiRootHarnessWithConfig(t, "", cfg)
 	h.a.openWorkspace(primary)
 	if !slices.Equal(h.a.workspaceFolderPaths(), []string{primary, second}) {
 		t.Fatalf("restored membership missing: %v", h.a.workspaceFolderPaths())
@@ -1003,7 +1093,7 @@ func TestPlainWorkspaceConversionPreservesRestoredMembership(t *testing.T) {
 
 func TestWatchedFileEventsReachTheirLanguageServer(t *testing.T) {
 	root := writeTree(t, map[string]string{"go.mod": "module example.com/watched\n", "main.go": "package main\n", "main.ts": "const x = 1\n"})
-	h := newHarness(t, root)
+	h := newMultiRootHarness(t, root)
 	h.a.trust()
 	if _, err := h.a.lsp.Get(context.Background()); err != nil {
 		t.Fatal(err)

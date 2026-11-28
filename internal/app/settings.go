@@ -52,7 +52,7 @@ var settingsPanes = []settingsPane{
 	{"terminal", "Terminal", icPrompt, ui.RGB(0x2c, 0x2c, 0x2e), 0, "shell font size copy on select panel external ghostty rex seedmux"},
 	{"notifications", "Notifications", icPrompt, ui.RGB(0xff, 0x95, 0x00), 1, "notify waiting done failed sound dock badge bounce"},
 	{"intelligence", "Code Intelligence", icSparkle, ui.RGB(0xaf, 0x52, 0xde), 1, "gopls tsrs typescript javascript language server go to definition hover trusted folders trust"},
-	{"beta", "Beta Features", icSparkle, ui.RGB(0xff, 0x2d, 0x92), 2, "beta experimental unfinished vibrancy material glass sidebar 测试 实验 边栏 毛玻璃 材质"},
+	{"beta", "Beta Features", icSparkle, ui.RGB(0xff, 0x2d, 0x92), 2, "beta experimental unfinished vibrancy material glass sidebar multi-root workspace folders 测试 实验 边栏 毛玻璃 材质 多根 工作区 文件夹"},
 	{"advanced", "Advanced", icGear, ui.RGB(0x8e, 0x8e, 0x93), 2, "config reset data folder"},
 	{"search", "Search", icSearch, ui.RGB(0xff, 0x95, 0x00), 1, "ripgrep rg find open quickly files"},
 	{"shortcuts", "Shortcuts", icCommand, ui.RGB(0x63, 0x63, 0x66), 2, "keys keyboard"},
@@ -1294,6 +1294,9 @@ func (a *App) shortcutsPane(c *ui.Context) {
 }
 
 func betaFeatureTitle(id string) string {
+	if id == config.BetaMultiRootWorkspaces {
+		return locales.BetaMultiRootWorkspaces()
+	}
 	if id == config.BetaSidebarVibrancy {
 		return locales.SidebarVibrancy()
 	}
@@ -1301,6 +1304,9 @@ func betaFeatureTitle(id string) string {
 }
 
 func betaFeatureDescription(id string) string {
+	if id == config.BetaMultiRootWorkspaces {
+		return locales.BetaMultiRootWorkspacesDescription()
+	}
 	if id == config.BetaSidebarVibrancy {
 		return locales.SidebarVibrancyDescription()
 	}

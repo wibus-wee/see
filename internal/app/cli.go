@@ -27,7 +27,7 @@ func (a *App) openCLIPath(path string) {
 		a.openWorkspace(path)
 		return
 	}
-	if strings.EqualFold(filepath.Ext(path), ".code-workspace") {
+	if a.multiRootWorkspacesEnabled() && strings.EqualFold(filepath.Ext(path), ".code-workspace") {
 		a.openWorkspace(path)
 		return
 	}

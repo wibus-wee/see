@@ -106,6 +106,17 @@ func newHarness(t *testing.T, root string) *harness {
 	return newHarnessWithConfig(t, root, &config.Config{ConfirmClose: true})
 }
 
+func newMultiRootHarness(t *testing.T, root string) *harness {
+	t.Helper()
+	return newMultiRootHarnessWithConfig(t, root, &config.Config{ConfirmClose: true})
+}
+
+func newMultiRootHarnessWithConfig(t *testing.T, root string, cfg *config.Config) *harness {
+	t.Helper()
+	cfg.SetBetaEnabled(config.BetaMultiRootWorkspaces, true)
+	return newHarnessWithConfig(t, root, cfg)
+}
+
 func newHarnessWithConfig(t *testing.T, root string, cfg *config.Config) *harness {
 	t.Helper()
 	h := &harness{t: t, q: make(chan func(), 1024), fc: &fakeClient{enc: lsp.UTF16}, host: &fakeHost{}}
