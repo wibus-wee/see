@@ -224,9 +224,9 @@ func TestEditAllInScopeAfterClosingBytesPreview(t *testing.T) {
 	h.a.rankQuick()
 	h.tt.Frame()
 	h.tt.Key(0, ui.KeyEnter)
-	h.settle(func() bool { return len(st.Selections()) == 3 || h.a.notice != "" })
+	h.settle(func() bool { return len(st.Selections()) == 3 || len(h.feedback) > 0 })
 	if len(st.Selections()) != 3 {
-		t.Fatalf("Edit All in Scope did not select the source occurrences after closing the byte preview: selections=%+v notice=%q", st.Selections(), h.a.notice)
+		t.Fatalf("Edit All in Scope did not select the source occurrences after closing the byte preview: selections=%+v feedback=%v", st.Selections(), h.feedbackTexts())
 	}
 }
 
@@ -269,9 +269,9 @@ func TestEditAllInScopeEditorContextMenuTargetsClickedPane(t *testing.T) {
 	if err := h.tt.ChooseMenuItem(commandLabel("edit.allInScope")); err != nil {
 		t.Fatalf("%v; menu=%v", err, h.tt.Menu())
 	}
-	h.settle(func() bool { return len(targetState.Selections()) == 3 || h.a.notice != "" })
+	h.settle(func() bool { return len(targetState.Selections()) == 3 || len(h.feedback) > 0 })
 	if len(targetState.Selections()) != 3 || len(activeState.Selections()) != 1 {
-		t.Fatalf("context command targeted the active editor: clicked=%+v active=%+v notice=%q", targetState.Selections(), activeState.Selections(), h.a.notice)
+		t.Fatalf("context command targeted the active editor: clicked=%+v active=%+v feedback=%v", targetState.Selections(), activeState.Selections(), h.feedbackTexts())
 	}
 	if h.a.scopeModeState != targetState || h.a.scopeModeGroup != target {
 		t.Fatal("scope mode did not retain the clicked editor target")
@@ -293,9 +293,9 @@ func TestEditAllInScopeSynchronizesLatestSnapshot(t *testing.T) {
 	st := h.a.activeEditor()
 	st.GoTo(d.buf.Pos(offsets[1]))
 	h.a.editAllInScope()
-	h.settle(func() bool { return len(st.Selections()) == 3 || h.a.notice != "" })
+	h.settle(func() bool { return len(st.Selections()) == 3 || len(h.feedback) > 0 })
 	if got := client.synchronizedText(); got != updated || len(st.Selections()) != 3 {
-		t.Fatalf("latest snapshot was not used: synchronized=%q selections=%+v notice=%q", got, st.Selections(), h.a.notice)
+		t.Fatalf("latest snapshot was not used: synchronized=%q selections=%+v feedback=%v", got, st.Selections(), h.feedbackTexts())
 	}
 }
 
@@ -394,12 +394,18 @@ func TestEditAllInScopeNoticesDoNotChangeSelections(t *testing.T) {
 			h.tt.Frame()
 			before := slices.Clone(st.Selections())
 			h.a.editAllInScope()
-			h.settle(func() bool { return h.a.notice != "" })
+			var feedback string
+			h.settle(func() bool {
+				if len(h.feedback) > 0 {
+					feedback = h.feedbackTexts()[len(h.feedback)-1]
+				}
+				return feedback != ""
+			})
 			if got := st.Selections(); !slices.Equal(got, before) {
 				t.Fatalf("failure changed selections: %+v, before %+v", got, before)
 			}
-			if !strings.Contains(h.a.notice, tc.want) {
-				t.Fatalf("notice %q does not contain %q", h.a.notice, tc.want)
+			if !strings.Contains(feedback, tc.want) {
+				t.Fatalf("feedback %q does not contain %q", feedback, tc.want)
 			}
 		})
 	}
@@ -415,9 +421,15 @@ func TestEditAllInScopeNoticesDoNotChangeSelections(t *testing.T) {
 		st.Select(offset, offset+len("名字"))
 		before := slices.Clone(st.Selections())
 		h.a.editAllInScope()
-		h.settle(func() bool { return h.a.notice != "" })
-		if !strings.Contains(h.a.notice, scopeEditText("scopeEditUnsupported", nil)) || !slices.Equal(st.Selections(), before) {
-			t.Fatalf("unsupported provider: notice=%q selections=%+v", h.a.notice, st.Selections())
+		var feedback string
+		h.settle(func() bool {
+			if len(h.feedback) > 0 {
+				feedback = h.feedbackTexts()[len(h.feedback)-1]
+			}
+			return feedback != ""
+		})
+		if !strings.Contains(feedback, scopeEditText("scopeEditUnsupported", nil)) || !slices.Equal(st.Selections(), before) {
+			t.Fatalf("unsupported provider: feedback=%q selections=%+v", feedback, st.Selections())
 		}
 	})
 }
@@ -525,8 +537,8 @@ func TestEditAllInScopeRejectsStaleResults(t *testing.T) {
 			if current != nil && !slices.Equal(current.Selections(), before) {
 				t.Fatalf("stale request changed selections: %+v, before %+v", current.Selections(), before)
 			}
-			if h.a.notice != "" {
-				t.Fatalf("stale request produced a notice: %q", h.a.notice)
+			if len(h.feedback) != 0 {
+				t.Fatalf("stale request produced feedback: %v", h.feedbackTexts())
 			}
 		})
 	}
@@ -562,8 +574,8 @@ func TestEditAllInScopeNewRequestSupersedesPrevious(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("superseded request was not canceled")
 	}
-	if len(st.Selections()) != 3 || h.a.notice != "" {
-		t.Fatalf("new request did not win: selections=%+v notice=%q", st.Selections(), h.a.notice)
+	if len(st.Selections()) != 3 || len(h.feedback) != 0 {
+		t.Fatalf("new request did not win: selections=%+v feedback=%v", st.Selections(), h.feedbackTexts())
 	}
 }
 
@@ -592,8 +604,8 @@ func TestEditAllInScopeEscapeCancelsPendingRequest(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("Escape did not cancel the request context")
 	}
-	if !slices.Equal(st.Selections(), before) || h.a.notice != "" {
-		t.Fatalf("cancel changed editor state: selections=%+v notice=%q", st.Selections(), h.a.notice)
+	if !slices.Equal(st.Selections(), before) || len(h.feedback) != 0 {
+		t.Fatalf("cancel changed editor state: selections=%+v feedback=%v", st.Selections(), h.feedbackTexts())
 	}
 }
 
@@ -691,8 +703,8 @@ func TestEditAllInScopeWithoutLanguageServerDoesNotMutate(t *testing.T) {
 		t.Fatal("command enabled without a language server")
 	}
 	h.a.editAllInScope()
-	if h.a.notice == "" || !slices.Equal(st.Selections(), before) {
-		t.Fatalf("missing-server request changed selections or gave no notice: notice=%q selections=%+v", h.a.notice, st.Selections())
+	if len(h.feedback) == 0 || !slices.Equal(st.Selections(), before) {
+		t.Fatalf("missing-server request changed selections or gave no feedback: feedback=%v selections=%+v", h.feedbackTexts(), st.Selections())
 	}
 }
 
@@ -710,9 +722,9 @@ func TestEditAllInScopeScreenshots(t *testing.T) {
 	h.a.activeEditor().GoTo(d.buf.Pos(offsets[1]))
 	h.tt.Frame()
 	h.a.editAllInScope()
-	h.settle(func() bool { return h.a.notice != "" || len(h.a.activeEditor().Selections()) == 3 })
-	if h.a.notice != "" {
-		t.Fatalf("scope selection failed before screenshot: %q", h.a.notice)
+	h.settle(func() bool { return len(h.feedback) != 0 || len(h.a.activeEditor().Selections()) == 3 })
+	if len(h.feedback) != 0 {
+		t.Fatalf("scope selection failed before screenshot: %v", h.feedbackTexts())
 	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)

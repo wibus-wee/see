@@ -161,8 +161,8 @@ func TestGitPartRejectsStaleDiffAndRefreshesTab(t *testing.T) {
 	h.settle(func() bool { return !h.a.git.busy && !h.a.git.loading })
 	checkPartialGit(t, root, name, "original\n", "external edit\n")
 	v := h.a.focus.diffs[diffTab(name, false)]
-	if !strings.Contains(h.a.notice, gitPartialText("gitPartialDiffChanged")) || v.state.New.String() != "external edit\n" {
-		t.Fatalf("stale diff did not reload: notice %q, text %q", h.a.notice, v.state.New.String())
+	if !h.feedbackContains(gitPartialText("gitPartialDiffChanged")) || v.state.New.String() != "external edit\n" {
+		t.Fatalf("stale diff did not reload: feedback %v, text %q", h.feedbackTexts(), v.state.New.String())
 	}
 }
 

@@ -366,7 +366,7 @@ func TestBranchPickerSwitchesAndCreates(t *testing.T) {
 	h.settle(func() bool { return !h.a.git.busy && !h.a.git.loading })
 	h.readGit()
 	if h.a.git.branch != "feature" || h.a.git.picker.open {
-		t.Fatalf("on %q, picker open %v, notice %q", h.a.git.branch, h.a.git.picker.open, h.a.notice)
+		t.Fatalf("on %q, picker open %v, feedback %v", h.a.git.branch, h.a.git.picker.open, h.feedbackTexts())
 	}
 
 	h.a.openBranchPicker(h.a.git.picker.anchor)
@@ -381,7 +381,7 @@ func TestBranchPickerSwitchesAndCreates(t *testing.T) {
 	h.settle(func() bool { return !h.a.git.busy })
 	h.readGit()
 	if h.a.git.branch != "topic/new" {
-		t.Fatalf("on %q after creating, notice %q", h.a.git.branch, h.a.notice)
+		t.Fatalf("on %q after creating, feedback %v", h.a.git.branch, h.feedbackTexts())
 	}
 }
 
@@ -695,7 +695,7 @@ func TestGitConflictHidesFooterUntilResolvedWithStashAndHistory(t *testing.T) {
 	}
 	h.settle(func() bool { return !h.a.git.loading && !h.a.git.busy })
 	if h.a.git.merging || h.a.git.head == previousHead {
-		t.Fatalf("restored composer could not create the merge commit: merging %v, HEAD %q -> %q, notice %q", h.a.git.merging, previousHead, h.a.git.head, h.a.notice)
+		t.Fatalf("restored composer could not create the merge commit: merging %v, HEAD %q -> %q, feedback %v", h.a.git.merging, previousHead, h.a.git.head, h.feedbackTexts())
 	}
 }
 
@@ -991,7 +991,7 @@ func TestPushFetchPull(t *testing.T) {
 	h.settle(idle)
 	h.readGit()
 	if h.a.git.upstream != "origin/main" {
-		t.Fatalf("upstream %q after the first push, notice %q", h.a.git.upstream, h.a.notice)
+		t.Fatalf("upstream %q after the first push, feedback %v", h.a.git.upstream, h.feedbackTexts())
 	}
 
 	// Someone else pushes a commit.
@@ -1006,13 +1006,13 @@ func TestPushFetchPull(t *testing.T) {
 	h.settle(idle)
 	h.readGit()
 	if h.a.git.behind != 1 {
-		t.Fatalf("behind %d after fetching, notice %q", h.a.git.behind, h.a.notice)
+		t.Fatalf("behind %d after fetching, feedback %v", h.a.git.behind, h.feedbackTexts())
 	}
 	h.a.gitPull()
 	h.settle(idle)
 	h.readGit()
 	if h.a.git.behind != 0 {
-		t.Fatalf("behind %d after pulling, notice %q", h.a.git.behind, h.a.notice)
+		t.Fatalf("behind %d after pulling, feedback %v", h.a.git.behind, h.feedbackTexts())
 	}
 	if _, err := os.Stat(filepath.Join(root, "b.go")); err != nil {
 		t.Fatal("the pull brought no b.go")
@@ -1035,15 +1035,19 @@ func TestGitAutoFetchUpdatesNavigatorTitleAndLog(t *testing.T) {
 	h := newHarness(t, root)
 	t.Cleanup(h.a.wsCancel)
 	h.a.navigator = navGit
-	h.a.note("Reading source", false)
+	h.a.fail("an unacknowledged error")
 	h.a.git.autoFetch = true
 	h.readGit() // the same status refresh used by the periodic poll
+	h.clearFeedback()
 	h.settle(func() bool { return !h.a.git.history.loading && !h.a.git.history.stale })
 	if h.a.git.behind != 1 || !h.tt.HasText("↓1") || !h.tt.HasText("incoming work") || !h.tt.HasText("↓") {
 		t.Fatalf("incoming state: behind=%d, UI=%q", h.a.git.behind, h.tt.Texts())
 	}
-	if h.a.notice != "Reading source" {
-		t.Fatalf("background fetch replaced the notice: %q", h.a.notice)
+	if len(h.feedback) != 0 {
+		t.Fatalf("background fetch produced feedback: %v", h.feedbackTexts())
+	}
+	if len(h.a.feedback.errors) != 1 {
+		t.Fatalf("background fetch erased the error: %+v", h.a.feedback.errors)
 	}
 	if _, err := os.Stat(filepath.Join(root, "incoming.go")); !os.IsNotExist(err) {
 		t.Fatalf("auto-fetch changed the checkout: %v", err)
@@ -1129,11 +1133,15 @@ func TestGitAutoFetchFailureRetriesAndDiscoversRemotes(t *testing.T) {
 		t.Fatal("fetched a repository without remotes")
 	}
 	gitRun(t, root, "remote", "add", "origin", filepath.Join(t.TempDir(), "missing"))
-	h.a.note("Reading source", false)
+	h.a.fail("an unacknowledged error")
+	h.clearFeedback()
 	h.readGit()
 	firstAttempt := h.a.git.lastFetch
-	if firstAttempt.IsZero() || h.a.notice != "Reading source" || h.a.git.busy {
-		t.Fatalf("failed fetch did not settle quietly: %q", h.a.notice)
+	if firstAttempt.IsZero() || len(h.feedback) != 0 || h.a.git.busy {
+		t.Fatalf("failed fetch did not settle quietly: %v", h.feedbackTexts())
+	}
+	if len(h.a.feedback.errors) != 1 {
+		t.Fatalf("failed fetch erased the error: %+v", h.a.feedback.errors)
 	}
 	writeFile(t, root, "a.go", "package changed\n")
 	h.readGit()

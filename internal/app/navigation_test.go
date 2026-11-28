@@ -87,9 +87,9 @@ func TestNavigationCommands(t *testing.T) {
 						t.Fatalf("choices: %+v", h.a.choices)
 					}
 				case "empty":
-					h.settle(func() bool { return h.a.notice == navigationText(kind, "Empty") })
+					h.settle(func() bool { return h.hasFeedback(navigationText(kind, "Empty")) })
 				case "error":
-					h.settle(func() bool { return strings.Contains(h.a.notice, "navigation failed") })
+					h.settle(func() bool { return h.feedbackContains("navigation failed") })
 				}
 			})
 		}

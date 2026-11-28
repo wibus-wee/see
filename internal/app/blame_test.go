@@ -125,8 +125,8 @@ func TestRevealCommitOutsideHistoryAndError(t *testing.T) {
 	h.a.revealLogCommit(strings.Repeat("f", 40))
 	h.tt.Frame()
 	h.settle(func() bool { return v.pending == "" })
-	if !strings.HasPrefix(h.a.notice, logText("blameRevealFailed")) {
-		t.Fatalf("missing error: %q", h.a.notice)
+	if errmsg, isErr := h.feedbackError(); !isErr || !strings.HasPrefix(errmsg, logText("blameRevealFailed")) {
+		t.Fatalf("missing error: %v", h.feedbackTexts())
 	}
 }
 

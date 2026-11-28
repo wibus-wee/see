@@ -637,7 +637,7 @@ func TestNewFileCacheFailureKeepsWelcome(t *testing.T) {
 	if len(h.a.docs) != 0 || !h.a.showWelcome {
 		t.Fatalf("failed cache creation: docs=%d showWelcome=%v", len(h.a.docs), h.a.showWelcome)
 	}
-	if h.a.welcomeNote == "" || !h.a.noticeError {
+	if _, isErr := h.feedbackError(); h.a.welcomeNote == "" || !isErr {
 		t.Fatal("failed cache creation did not expose the existing error feedback")
 	}
 }

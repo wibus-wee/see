@@ -72,11 +72,11 @@ func TestPeekDefinition(t *testing.T) {
 					t.Fatal("several definitions must give the choice list, not a peek")
 				}
 			case "empty":
-				h.settle(func() bool { return h.a.notice == locales.MsgNoDefinitionFound() })
+				h.settle(func() bool { return h.hasFeedback(locales.MsgNoDefinitionFound()) })
 			case "skipped":
-				h.settle(func() bool { return h.a.notice == locales.MsgTheDefinitionIsInAPlaceThatIs() })
+				h.settle(func() bool { return h.hasFeedback(locales.MsgTheDefinitionIsInAPlaceThatIs()) })
 			case "error":
-				h.settle(func() bool { return strings.Contains(h.a.notice, "navigation failed") })
+				h.settle(func() bool { return h.feedbackContains("navigation failed") })
 			}
 		})
 	}

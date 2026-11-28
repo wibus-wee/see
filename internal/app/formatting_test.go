@@ -1,6 +1,7 @@
 package app
 
 import (
+	"see/locales"
 	"testing"
 
 	"github.com/egoist/mygo/ui/editor"
@@ -70,8 +71,8 @@ func TestFormatDocumentAppliesEdits(t *testing.T) {
 	if got := d.buf.Snapshot().Line(4); got != "\t_ = x" {
 		t.Fatalf("line 4: %q", got)
 	}
-	if h.a.finding || h.a.notice == "" {
-		t.Fatal("no formatted note")
+	if h.a.finding || !h.hasFeedback(locales.FormattingApplied()) {
+		t.Fatalf("no formatted feedback: %v", h.feedbackTexts())
 	}
 	_ = st
 	h.settle(func() bool {

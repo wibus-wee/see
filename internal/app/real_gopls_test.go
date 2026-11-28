@@ -79,7 +79,7 @@ func TestRealGopls(t *testing.T) {
 		h.a.goToLocation(h.a.focus, d, offset, step.kind)
 		h.settle(func() bool { return !h.a.finding })
 		if h.a.activeEditor().Cursor() != want {
-			t.Fatalf("%s cursor=%v want byte offset %d; notice=%s", step.kind, h.a.activeEditor().CursorPos(), want, h.a.notice)
+			t.Fatalf("%s cursor=%v want byte offset %d; feedback=%v", step.kind, h.a.activeEditor().CursorPos(), want, h.feedbackTexts())
 		}
 	}
 }
@@ -106,16 +106,16 @@ func TestRealGoplsDocumentHighlights(t *testing.T) {
 	st := h.a.activeEditor()
 	st.GoTo(d.buf.Pos(offsets[1]))
 	h.tt.Frame()
-	h.a.notice = ""
+	h.clearFeedback()
 	h.a.editAllInScope()
-	h.settle(func() bool { return len(st.Selections()) == 3 || h.a.notice != "" })
+	h.settle(func() bool { return len(st.Selections()) == 3 || len(h.feedback) > 0 })
 	want := []editor.Selection{
 		{Anchor: outer[0], Head: outer[0] + len(name)},
 		{Anchor: outer[1], Head: outer[1] + len(name)},
 		{Anchor: outer[2], Head: outer[2] + len(name)},
 	}
 	if !slices.Equal(st.Selections(), want) {
-		t.Fatalf("gopls selections = %+v, want %+v; notice=%q", st.Selections(), want, h.a.notice)
+		t.Fatalf("gopls selections = %+v, want %+v; feedback=%v", st.Selections(), want, h.feedbackTexts())
 	}
 	if primary := st.Selection(); primary.Anchor != outer[1] || primary.Head != outer[1]+len(name) {
 		t.Fatalf("gopls primary selection = %+v, want occurrence at %d", primary, outer[1])

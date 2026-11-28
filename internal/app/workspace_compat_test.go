@@ -422,7 +422,7 @@ func TestCodeWorkspaceOpensWithMissingMemberSoItCanBeRepaired(t *testing.T) {
 	h := newMultiRootHarness(t, "")
 	h.a.openWorkspace(workspaceFile)
 	if len(h.a.workspaceFolders) != 2 || h.a.workspaceFolders[1].Path != filepath.Join(base, "missing") {
-		t.Fatalf("missing member blocked workspace repair: %+v notice=%q", h.a.workspaceFolders, h.a.notice)
+		t.Fatalf("missing member blocked workspace repair: %+v feedback=%v", h.a.workspaceFolders, h.feedbackTexts())
 	}
 	h.a.ensureFiles()
 	h.settle(func() bool { return !h.a.quick.listing && h.a.quick.files != nil })
@@ -559,7 +559,7 @@ func TestCodeWorkspaceUsesDiskMembershipAndExternalEditsDuringAdd(t *testing.T) 
 	h.a.addWorkspaceFolder(third)
 	if !slices.Equal(h.a.workspaceFolderPaths(), []string{server, third}) {
 		data, _ := os.ReadFile(workspaceFile)
-		t.Fatalf("add used stale in-memory folders instead of disk edit: folders=%v notice=%q error=%v file=%s", h.a.workspaceFolderPaths(), h.a.notice, h.a.noticeError, data)
+		t.Fatalf("add used stale in-memory folders instead of disk edit: folders=%v feedback=%v file=%s", h.a.workspaceFolderPaths(), h.feedbackTexts(), data)
 	}
 	got, err := os.ReadFile(workspaceFile)
 	if err != nil || !strings.Contains(string(got), `"settings":{"editor.tabSize":2}`) || !strings.Contains(string(got), `"path":"../tools"`) {
@@ -585,8 +585,8 @@ func TestCodeWorkspaceEditFailureDoesNotChangeMembership(t *testing.T) {
 	if !slices.Equal(h.a.workspaceFolderPaths(), before) {
 		t.Fatalf("failed persistence changed in-memory membership: %v", h.a.workspaceFolderPaths())
 	}
-	if !h.a.noticeError || h.a.notice == "" {
-		t.Fatalf("persistence failure was not shown: error=%v notice=%q", h.a.noticeError, h.a.notice)
+	if _, isErr := h.feedbackError(); !isErr {
+		t.Fatalf("persistence failure was not shown: feedback=%v", h.feedbackTexts())
 	}
 	got, err := os.ReadFile(workspaceFile)
 	if err != nil || !slices.Equal(got, invalid) {
@@ -1019,7 +1019,7 @@ func TestAddingFolderToPlainWorkspaceCreatesVSCodeWorkspace(t *testing.T) {
 	workspaceFile := filepath.Join(base, "primary.code-workspace")
 	h.settle(func() bool { return h.a.dirs[secondary] != nil && h.a.dirs[secondary].loaded })
 	if h.a.workspaceID != workspaceFile || !h.a.isCodeWorkspace() || !slices.Equal(h.a.workspaceFolderPaths(), []string{primary, secondary}) {
-		t.Fatalf("plain workspace did not become a workspace file: id=%q folders=%v notice=%q", h.a.workspaceID, h.a.workspaceFolderPaths(), h.a.notice)
+		t.Fatalf("plain workspace did not become a workspace file: id=%q folders=%v feedback=%v", h.a.workspaceID, h.a.workspaceFolderPaths(), h.feedbackTexts())
 	}
 	parsed, err := workspace.ReadCodeWorkspace(workspaceFile)
 	if err != nil || len(parsed.Folders) != 2 || parsed.Folders[0].Path != primary || parsed.Folders[1].Path != secondary {
@@ -1047,7 +1047,7 @@ func TestPlainWorkspaceReusesExistingWorkspaceFileAndSettings(t *testing.T) {
 	h := newMultiRootHarness(t, primary)
 	h.a.addWorkspaceFolder(secondary)
 	if h.a.workspaceID != workspaceFile || len(h.a.workspaceFolders) != 2 {
-		t.Fatalf("existing workspace file was not reused: id=%q folders=%v notice=%q", h.a.workspaceID, h.a.workspaceFolders, h.a.notice)
+		t.Fatalf("existing workspace file was not reused: id=%q folders=%v feedback=%v", h.a.workspaceID, h.a.workspaceFolders, h.feedbackTexts())
 	}
 	data, err := os.ReadFile(workspaceFile)
 	if err != nil || !strings.Contains(string(data), "files.exclude") || !strings.Contains(string(data), "secondary") {
