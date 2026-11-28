@@ -786,3 +786,155 @@ func waitForLocalHistoryAndDispatch(t *testing.T, h *harness, store *localhistor
 	}
 	t.Fatal("local history did not reach the expected state")
 }
+
+func corruptLocalHistoryRecord(t *testing.T, storeDir, oldText, newText string) {
+	t.Helper()
+	entries, err := os.ReadDir(storeDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if filepath.Ext(entry.Name()) != ".json" {
+			continue
+		}
+		name := filepath.Join(storeDir, entry.Name())
+		data, err := os.ReadFile(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		mutated := strings.Replace(string(data), oldText, newText, 1)
+		if mutated != string(data) {
+			if err := os.WriteFile(name, []byte(mutated), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			return
+		}
+	}
+	t.Fatalf("no history record contains %q", oldText)
+}
+
+func TestLocalHistoryCorruptSnapshotNeverReachesBuffer(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "source.txt")
+	disk := "head\ncurrent\n"
+	if err := os.WriteFile(path, []byte(disk), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	h := newHarness(t, root)
+	storeDir := filepath.Join(t.TempDir(), "history")
+	store := localhistory.New(storeDir)
+	h.a.localHistoryStore = store
+	d := h.open("source.txt")
+	waitForLocalHistory(t, store, path, func(s []localhistory.Snapshot) bool { return len(s) == 1 })
+	if _, _, err := store.Add(path, "head\ntampered-original\n", time.Now().Add(-time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	// Valid JSON, wrong bytes: the stored text no longer matches the
+	// digest written with it.
+	corruptLocalHistoryRecord(t, storeDir, "tampered-original", "forged!!-original")
+	v := openLocalHistoryDiffForTest(t, h, d)
+	corruptIndex, cleanIndex := -1, -1
+	for i, snapshot := range v.localHistory.snapshots {
+		if snapshot.Corrupt {
+			corruptIndex = i
+		} else {
+			cleanIndex = i
+		}
+	}
+	if corruptIndex < 0 {
+		t.Fatalf("corrupt snapshot is missing or unflagged: %+v", v.localHistory.snapshots)
+	}
+	h.a.selectLocalHistorySnapshot(v, corruptIndex)
+	if v.localHistory.state != nil {
+		t.Fatal("a corrupt snapshot must never become a restorable diff")
+	}
+	before := d.buf.String()
+	h.a.restoreLocalHistorySelected(h.a.focus, localHistoryTab(path), v)
+	if d.buf.String() != before {
+		t.Fatalf("corrupt snapshot bytes reached the buffer: %q", d.buf.String())
+	}
+	h.tt.Frame()
+	if !h.tt.HasText("corrupt") {
+		t.Fatalf("corruption is not surfaced in the UI: %v", h.tt.Texts())
+	}
+	if strings.Contains(d.buf.String(), "forged") {
+		t.Fatal("forged bytes reached the buffer")
+	}
+	// The intact snapshot still restores, proving corruption blocks only
+	// the corrupted entry.
+	if cleanIndex < 0 {
+		t.Fatal("clean snapshot missing")
+	}
+	h.a.selectLocalHistorySnapshot(v, cleanIndex)
+	if v.localHistory.state == nil {
+		t.Fatal("clean snapshot lost its diff")
+	}
+}
+
+func TestLocalHistoryLegacySnapshotWithoutDigestRestores(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "source.txt")
+	disk := "head\nnew\n"
+	if err := os.WriteFile(path, []byte(disk), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	h := newHarness(t, root)
+	storeDir := filepath.Join(t.TempDir(), "history")
+	store := localhistory.New(storeDir)
+	h.a.localHistoryStore = store
+	d := h.open("source.txt")
+	waitForLocalHistory(t, store, path, func(s []localhistory.Snapshot) bool { return len(s) == 1 })
+	if _, _, err := store.Add(path, "head\nold\n", time.Now().Add(-time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	// Strip every digest field: the record now looks like one written
+	// before digests existed, valid and unverifiable.
+	entries, err := os.ReadDir(storeDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if filepath.Ext(entry.Name()) != ".json" {
+			continue
+		}
+		name := filepath.Join(storeDir, entry.Name())
+		data, err := os.ReadFile(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var stripped strings.Builder
+		rest := string(data)
+		for {
+			idx := strings.Index(rest, `,"digest":"`)
+			if idx < 0 {
+				stripped.WriteString(rest)
+				break
+			}
+			stripped.WriteString(rest[:idx])
+			end := strings.Index(rest[idx+len(`,"digest":"`):], `"`)
+			rest = rest[idx+len(`,"digest":"`)+end+1:]
+		}
+		if err := os.WriteFile(name, []byte(stripped.String()), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	v := openLocalHistoryDiffForTest(t, h, d)
+	legacyIndex := -1
+	for i, snapshot := range v.localHistory.snapshots {
+		if snapshot.Text == "head\nold\n" {
+			if snapshot.Corrupt {
+				t.Fatal("legacy snapshot must not be flagged corrupt")
+			}
+			legacyIndex = i
+		}
+	}
+	if legacyIndex < 0 {
+		t.Fatalf("legacy snapshot is missing: %+v", v.localHistory.snapshots)
+	}
+	h.a.selectLocalHistorySnapshot(v, legacyIndex)
+	v.localHistory.state.SetSelectedLines(editor.DiffLineRange{Side: editor.DiffOld, Start: 1, End: 1}, true)
+	h.a.restoreLocalHistorySelected(h.a.focus, localHistoryTab(path), v)
+	if got := d.buf.String(); got != "head\nold\n" {
+		t.Fatalf("legacy restore = %q, want %q", got, "head\nold\n")
+	}
+}

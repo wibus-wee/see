@@ -307,6 +307,7 @@ func (a *App) applyEventsAt(root string, evs []mygo.FileEvent) {
 	}
 	if len(evs) > 0 {
 		a.quick.files, a.quick.err = nil, nil // Open Quickly lists them again when next opened
+		a.quick.scanGen++
 		if q := &a.quick; q.open && !strings.HasPrefix(q.query, ">") &&
 			!strings.HasPrefix(q.query, "#") && !strings.HasPrefix(q.query, "@") {
 			// An open panel consuming the file list re-ranks — and with the

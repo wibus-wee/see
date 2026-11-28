@@ -59,11 +59,12 @@ content the user asked to read:
 decision should make opening a folder equivalent to running its
 installer:
 
-- language server binaries are never executed from inside the workspace.
-  Every resolver — built-in TypeScript/gopls/clangd/cmake finders and the
-  user-configured server finder — rejects any executable path inside the
-  workspace root, comparing symlink-resolved paths
-  (`internal/languages/languages.go`, `internal/languages/configured.go`;
+- language server binaries and the search tool are never executed from
+  inside the workspace. Every resolver — the built-in
+  TypeScript/gopls/clangd/cmake finders, the user-configured server
+  finder, and `search.FindRipgrep` — rejects any executable resolving
+  inside the workspace root (`internal/languages/languages.go`,
+  `internal/languages/configured.go`, `internal/search/search.go`;
   verified by `TestConfiguredServerInsideWorkspaceNeverStarts` in
   `internal/app/security_test.go`). A repository cannot ship
   `node_modules/.bin/evil-ls` plus editor configuration and have See run
@@ -71,21 +72,23 @@ installer:
   from workspace content — there is no workspace-level configuration
   mechanism at all, by design.
 
-  **This invariant is currently provisional — known defect, fix in
-  flight.** The comparison is lexical over `EvalSymlinks` output, and on
-  case-insensitive volumes (default macOS APFS) `EvalSymlinks` does not
-  normalize case: a case-variant spelling of the workspace path names
-  the same bytes while comparing lexically outside it, so the denial is
-  defeated end-to-end on the platform this document was verified on.
-  What holds today is the exact-spelling rejection — what the test
-  pins. The mechanism that closes the hole (comparing paths in the
-  disk's own spelling, probed per component with `os.SameFile`) exists
-  in Lane A's branch — `proc.ValidateExecutable`'s `diskSpelling`,
-  mirroring Lane B's `workspace.DiskSpelling` — and takes effect when
-  the lanes integrate; the integration notes (§G item 2) carry the
-  checklist item that it must cover every executable resolver, not just
-  the one Lane A owns. Until integration this paragraph describes the
-  target boundary, not the shipped one.
+  The comparison is by the disk's own spelling, not the lexical shape of
+  the path. `filepath.EvalSymlinks` resolves links but not the volume's
+  case or Unicode normalization, so on case-insensitive volumes (default
+  macOS APFS) a case-variant spelling of a workspace path names the same
+  bytes while comparing lexically outside it — the exact evasion this
+  boundary exists against. Since the lanes integrated, every resolver
+  decides containment through one primitive, `workspace.DiskSpelling`
+  probing each component with `os.SameFile` and full Unicode case
+  folding: `proc.ValidateExecutable` applies it to every language-server
+  candidate, and `search.FindRipgrep` applies the same
+  `ValidateExecutable` to its candidates, including symlinks into the
+  workspace from anywhere. Verified end to end on case-insensitive APFS
+  by `TestValidateExecutableDeniesCaseVariant`,
+  `TestDiskSpellingCorrectsCaseVariants`,
+  `TestDiskSpellingCorrectsUnicodeNormalization` and
+  `TestFindRipgrepDeniesWorkspaceVariants`, each shown to fail when the
+  normalization is removed.
 
 ### The install boundary
 
@@ -123,13 +126,19 @@ See itself holds no credentials. What flows through it:
   values, URL userinfo passwords), with redaction applied as bytes
   arrive so a secret split across pipe reads still completes. This is
   a cross-lane decision recorded in lane-e-integration-notes.md §F: the
-  redactor is Lane A's (`proc.Tail`), it is the single redaction layer
-  after integration, and See's own logging must never bypass it — nor
-  does redaction excuse logging secret-shaped inputs in See's own
-  speech. Until the lanes integrate, stderr still passes verbatim —
-  this paragraph, like the binary-denial one, describes the boundary
-  the integration ships, and the gap is a recorded defect rather than
-  an oversight.
+  redactor is Lane A's (`proc.Tail`), it is the single redaction layer,
+  and See's own logging never bypasses it — nor does redaction excuse
+  logging secret-shaped inputs in See's own speech. The wiring is
+  verified: server stderr pipes through exactly one `proc.Tail` before
+  entering exit diagnostics and the log, with no second streaming path
+  (`internal/lsp/client.go`; `TestConfiguredServerSecretsStayOutOfTheLog`
+  passes unmodified, `TestStartCrashRedactsOversizeStderrSecret` covers
+  secrets longer than the capture window byte by byte). What exact-match
+  redaction cannot cover is admitted, not hidden: a secret echoed in a
+  derived form the environment does not contain (base64-encoded,
+  case-folded) still passes, and a process dying mid-print can leak a
+  strict prefix of up to len(secret)−1 bytes that never completed into
+  the secret.
 - **Server stderr and log messages** are attacker-influenced text (the
   server may be compromised upstream). They are stored in a bounded
   in-memory ring (1000 entries × 8192 bytes) and displayed; they are
@@ -160,9 +169,8 @@ escape the text they point into. Enforcement is layered:
    substituted tooling to be installed or executed**, and must not
    destroy a working installation.
 3. **Secrets the user places in server configuration must not leak into
-   See's logging** — neither through See's own speech (verified today)
-   nor through server stderr passing into the log (redacted per the
-   credential boundary; mechanism lands with Lane A's integration).
+   See's logging** — neither through See's own speech nor through server
+   stderr passing into the log (redacted per the credential boundary).
 4. **Hostile file content, process output, and scan input must not crash
    the editor or corrupt its display** through memory-unsafe parsing or
    arithmetic.
@@ -229,10 +237,10 @@ escape the text they point into. Enforcement is layered:
 | Claim | Evidence |
 | --- | --- |
 | Untrusted workspace executes nothing | trust gates in `internal/app/tasks.go`, `internal/app/app.go`; language servers never start untrusted |
-| Workspace binaries never execute — exact-spelling rejection holds; case-variant evasion is a known defect closed at integration (Lane A's disk-spelling comparison) | `TestConfiguredServerInsideWorkspaceNeverStarts`; resolver rejection in `internal/languages/` |
+| Workspace binaries never execute, in any spelling the file system equates — containment is decided in the disk's own spelling across every executable resolver | `TestConfiguredServerInsideWorkspaceNeverStarts`; `TestValidateExecutableDeniesCaseVariant`; `TestFindRipgrepDeniesWorkspaceVariants`; resolver rejection in `internal/languages/` |
 | Secrets out of See's own logging | `TestConfiguredServerSecretsStayOutOfTheLog` |
-| Secrets out of server stderr in the log | Lane A's redactor wired at integration — pending; see lane-e-integration-notes.md §G item 3 |
+| Secrets out of server stderr in the log — single redaction layer, no bypass | `TestConfiguredServerSecretsStayOutOfTheLog` (unmodified), `TestStartCrashRedactsOversizeStderrSecret`, `TestTailRedactsSecretSplitAcrossWrites`; admitted residual: derived forms and strict prefixes of incomplete secrets |
 | Checksum mismatch never installs | `TestInstallRipgrepRejectsAnotherChecksum`, `TestInstallRipgrepChecksumMismatchCannotReachTheToolDirectory` |
 | Existing installs cannot be displaced | `TestInstallRipgrepChecksumMismatchCannotReachTheToolDirectory`; refusal-to-overwrite in `TestInstallRipgrepInstallsReleaseBinary` |
-| Hostile input does not crash parsers | fuzz corpus and regression seeds in `internal/search`, `internal/regexplayground` |
+| Hostile input does not crash parsers | fuzz corpus and regression seeds in `internal/search`, `internal/regexplayground`; LSP frame parser fuzzed per lane-e-fuzzing.md (`FuzzReadMessage`, 6.09M execs clean) |
 | Scan failure ≠ empty workspace | `TestQuickOpenRetriesAfterAScanError`, `TestQuickOpenInvalidationRetriesScan`, `TestQuickOpenScanCancellationLeavesNoPartialList` |

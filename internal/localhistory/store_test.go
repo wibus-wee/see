@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"see/internal/fileobs"
 )
 
 func TestStoreAddsDeduplicatedNewestFirstSnapshots(t *testing.T) {
@@ -178,5 +180,124 @@ func TestStoreReaddsContentFromExpiredSnapshot(t *testing.T) {
 	snapshots, err := store.List(path)
 	if err != nil || len(snapshots) != 1 || snapshots[0].ID != got.ID {
 		t.Fatalf("snapshots = %+v, err=%v", snapshots, err)
+	}
+}
+
+func TestStoreWritesFullHexDigestAndListsItClean(t *testing.T) {
+	store := New(t.TempDir())
+	path := filepath.Join(t.TempDir(), "source.go")
+	snap, added, err := store.Add(path, "content\n", time.Now())
+	if err != nil || !added {
+		t.Fatalf("add: added=%v err=%v", added, err)
+	}
+	want, err := fileobs.DigestSHA256(strings.NewReader("content\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if snap.Digest != fileobs.HexDigest(want) {
+		t.Fatalf("digest = %q, want %q", snap.Digest, fileobs.HexDigest(want))
+	}
+	if _, err := fileobs.ParseHexDigest(snap.Digest); err != nil {
+		t.Fatalf("digest is not a full hex SHA-256: %v", err)
+	}
+	got, err := store.List(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].Corrupt || got[0].Digest != snap.Digest || got[0].Text != "content\n" {
+		t.Fatalf("snapshots = %+v", got)
+	}
+}
+
+func TestStoreReportsSemanticCorruptionWithoutRestorableText(t *testing.T) {
+	dir := t.TempDir()
+	store := New(dir)
+	path := filepath.Join(t.TempDir(), "source.go")
+	snap, _, err := store.Add(path, "honest bytes\n", time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	canonical, err := canonicalPath(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	name := store.filePath(canonical)
+	data, err := os.ReadFile(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Valid JSON, wrong bytes: the text no longer matches the digest
+	// recorded when the snapshot was written.
+	mutated := strings.Replace(string(data), "honest bytes", "forged bytes", 1)
+	if mutated == string(data) {
+		t.Fatal("mutation did not apply")
+	}
+	if err := os.WriteFile(name, []byte(mutated), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got, err := New(dir).List(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("snapshots = %+v", got)
+	}
+	if !got[0].Corrupt || got[0].ID != snap.ID || got[0].Text != "" {
+		t.Fatalf("corrupt snapshot must keep its identity but no restorable text: %+v", got[0])
+	}
+}
+
+func TestStoreReportsMalformedDigestAsCorrupt(t *testing.T) {
+	dir := t.TempDir()
+	store := New(dir)
+	path := filepath.Join(t.TempDir(), "source.go")
+	canonical, err := canonicalPath(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snap := Snapshot{ID: "x", CreatedAt: time.Now(), Text: "text", Digest: "not-a-digest"}
+	if err := writeHistory(store.filePath(canonical), &fileHistory{Path: canonical, Snapshots: []Snapshot{snap}}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := store.List(path)
+	if err != nil || len(got) != 1 || !got[0].Corrupt || got[0].Text != "" {
+		t.Fatalf("malformed digest must fail closed: snapshots=%+v err=%v", got, err)
+	}
+}
+
+func TestStoreLegacySnapshotsWithoutDigestLoadUnverified(t *testing.T) {
+	dir := t.TempDir()
+	store := New(dir)
+	path := filepath.Join(t.TempDir(), "source.go")
+	canonical, err := canonicalPath(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy := Snapshot{ID: "legacy", CreatedAt: time.Now(), Text: "old record\n"}
+	if err := writeHistory(store.filePath(canonical), &fileHistory{Path: canonical, Snapshots: []Snapshot{legacy}}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := store.List(path)
+	if err != nil || len(got) != 1 || got[0].Corrupt || got[0].Text != "old record\n" {
+		t.Fatalf("legacy snapshots pass through unverified: snapshots=%+v err=%v", got, err)
+	}
+}
+
+func TestStoreStructuralCorruptionStillFailsToLoad(t *testing.T) {
+	dir := t.TempDir()
+	store := New(dir)
+	path := filepath.Join(t.TempDir(), "source.go")
+	canonical, err := canonicalPath(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(store.filePath(canonical), []byte("{not json"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.List(path); err == nil {
+		t.Fatal("invalid JSON must still fail to load")
 	}
 }

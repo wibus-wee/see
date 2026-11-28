@@ -338,3 +338,103 @@ func TestQuickOpenScanCancellationLeavesNoPartialList(t *testing.T) {
 	// Let the death of the scanner process settle, so a leak shows up.
 	time.Sleep(100 * time.Millisecond)
 }
+
+// An invalidation that lands while a scan is in flight must not let the
+// scan commit its stale result: the scan started before the event, so
+// its list is behind the disk by at least that event, and committing it
+// would serve the stale list indefinitely — before the fix, nothing
+// re-entered the scan because the invalidation had already cleared the
+// list. The scan discards instead, and the panel re-scans what the disk
+// says now. Mutation evidence: removing the completion guard in
+// ensureFiles fails this test with scan1.go committed.
+func TestQuickOpenInvalidationDuringScanRescans(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the scanner is a shell script")
+	}
+	root := writeTree(t, map[string]string{"a.go": "package a\n"})
+	dir := t.TempDir()
+	count := filepath.Join(dir, "count")
+	gate := filepath.Join(dir, "gate")
+	scanner := filepath.Join(dir, "slow-rg")
+	script := "#!/bin/sh\n" +
+		"echo start >> \"$SEE_SCANNER_COUNT\"\n" +
+		"while [ ! -f \"$SEE_SCANNER_GATE\" ]; do sleep 0.02; done\n" +
+		"n=$(grep -c start \"$SEE_SCANNER_COUNT\")\n" +
+		"echo \"scan${n}.go\"\n"
+	if err := os.WriteFile(scanner, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("SEE_RG", scanner)
+	t.Setenv("SEE_SCANNER_COUNT", count)
+	t.Setenv("SEE_SCANNER_GATE", gate)
+	h := newHarness(t, root)
+	h.a.trust()
+	scans := func() int {
+		data, err := os.ReadFile(count)
+		if err != nil {
+			return 0
+		}
+		return strings.Count(string(data), "start")
+	}
+
+	// The first scan is in flight, blocked on the gate.
+	h.a.openQuickly()
+	if !waitFor(10*time.Second, func() bool { return scans() == 1 }) {
+		data, _ := os.ReadFile(count)
+		rg, rgerr := findRipgrep(h.a.root)
+		t.Fatalf("scan never started: qerr=%v listing=%v files=%v rg=%q rgerr=%v scanlog=%q",
+			h.a.quick.err, h.a.quick.listing, h.a.quick.files, rg, rgerr, data)
+	}
+	if !h.a.quick.listing {
+		t.Fatal("the first scan is not in flight")
+	}
+
+	// The invalidation lands mid-scan, then the scan completes.
+	h.a.applyEvents([]mygo.FileEvent{{Op: mygo.FileWrite, Path: "a.go"}})
+	if err := os.WriteFile(gate, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// Frames drive the re-rank that re-enters the scan: the discarded
+	// completion leaves files nil, and the open panel's next scan is what
+	// a user watching the panel would see settle.
+	deadline := time.Now().Add(15 * time.Second)
+	for len(h.a.quick.files) != 1 {
+		if time.Now().After(deadline) {
+			t.Fatalf("no list committed: scans=%d listing=%v err=%v", scans(), h.a.quick.listing, h.a.quick.err)
+		}
+		for {
+			select {
+			case fn := <-h.q:
+				fn()
+			default:
+				goto drained
+			}
+		}
+	drained:
+		h.tt.Frame()
+		time.Sleep(30 * time.Millisecond)
+	}
+
+	// The committed list must come from a scan that started after the
+	// invalidation — scan2.go — never the in-flight scan's scan1.go.
+	if scans() != 2 {
+		t.Fatalf("%d scans ran, want the invalidated one discarded and exactly one rescan", scans())
+	}
+	if h.a.quick.files[0] != "scan2.go" {
+		t.Fatalf("the committed list is %v — the stale in-flight scan won", h.a.quick.files)
+	}
+}
+
+// waitFor polls cond until it holds or the timeout expires, returning
+// whether it ever held. settle cannot be used here: nothing is posted
+// while the scan has not started.
+func waitFor(timeout time.Duration, cond func() bool) bool {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if cond() {
+			return true
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	return false
+}

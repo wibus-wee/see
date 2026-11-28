@@ -1151,6 +1151,7 @@ func (a *App) refreshAll() {
 		}
 	}
 	a.quick.files, a.quick.err = nil, nil // listed again when next opened
+	a.quick.scanGen++
 	a.filter.forQuery, a.filter.tree, a.filter.roots = "", nil, nil
 }
 

@@ -15,6 +15,8 @@ import (
 	"sync"
 	"time"
 	"unicode/utf8"
+
+	"see/internal/fileobs"
 )
 
 const (
@@ -42,6 +44,16 @@ type Snapshot struct {
 	ID        string    `json:"id"`
 	CreatedAt time.Time `json:"createdAt"`
 	Text      string    `json:"text"`
+	// Digest is the full hex SHA-256 of Text, measured when the snapshot
+	// is written. Records written before digests existed carry an empty
+	// digest and stay unverifiable — they load as before rather than
+	// pretending an integrity check that was never measured.
+	Digest string `json:"digest,omitempty"`
+	// Corrupt is set at read time when the stored text no longer matches
+	// its digest: semantic corruption the JSON shape cannot reveal. A
+	// corrupt snapshot stays listed so the user sees when it was taken,
+	// but its text is dropped and it must never be restored.
+	Corrupt bool `json:"-"`
 }
 
 type fileHistory struct {
@@ -110,7 +122,11 @@ func (s *Store) Add(path, text string, at time.Time) (Snapshot, bool, error) {
 			return old, false, nil
 		}
 	}
-	snap := Snapshot{ID: snapshotID(canonical, at, text), CreatedAt: at, Text: text}
+	digest, err := fileobs.DigestSHA256(strings.NewReader(text))
+	if err != nil {
+		return Snapshot{}, false, err
+	}
+	snap := Snapshot{ID: snapshotID(canonical, at, text), CreatedAt: at, Text: text, Digest: fileobs.HexDigest(digest)}
 	record.Snapshots = append(record.Snapshots, snap)
 	record.Snapshots = retainSnapshots(record.Snapshots)
 	if err := writeHistory(name, record); err != nil {
@@ -139,12 +155,35 @@ func (s *Store) List(path string) ([]Snapshot, error) {
 	cutoff := time.Now().Add(-maxAge)
 	out := make([]Snapshot, 0, len(record.Snapshots))
 	for _, snap := range record.Snapshots {
-		if !snap.CreatedAt.Before(cutoff) {
-			out = append(out, snap)
+		if snap.CreatedAt.Before(cutoff) {
+			continue
 		}
+		if corruptSnap(snap) {
+			// The digest no longer matches the stored text. Keep the
+			// entry visible with its identity and timestamp, but drop
+			// the bytes so nothing downstream can restore them.
+			snap.Text = ""
+			snap.Corrupt = true
+		}
+		out = append(out, snap)
 	}
 	sortSnapshots(out)
 	return out, nil
+}
+
+// corruptSnap reports whether a digest-bearing snapshot's text fails its
+// integrity check. An empty digest means the record predates digests and
+// is honestly unverifiable, not corrupt; a malformed digest fails closed
+// because a corrupt manifest must never be trusted either.
+func corruptSnap(snap Snapshot) bool {
+	if snap.Digest == "" {
+		return false
+	}
+	want, err := fileobs.ParseHexDigest(snap.Digest)
+	if err != nil {
+		return true
+	}
+	return fileobs.VerifyContentDigest([]byte(snap.Text), want) != nil
 }
 
 func (s *Store) ensureDir() error {
