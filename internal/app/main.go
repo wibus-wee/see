@@ -79,7 +79,7 @@ func Main() {
 	)
 	refreshEditorPrefs := func() { applyEditorPrefsToProjects(projects) }
 	a.editorPrefsChanged = refreshEditorPrefs
-	refreshVibrancy := func() { applyVibrancyToProjects(projects, cfg.Vibrancy) }
+	refreshVibrancy := func() { applyVibrancyToProjects(projects, cfg) }
 	a.vibrancyChanged = refreshVibrancy
 	refreshGitDiscovery := func() {
 		for _, p := range projects {
@@ -138,7 +138,7 @@ func Main() {
 			Hidden:   true, // until a folder opens (windows.sync)
 			Content:  ui.View(func(c *ui.Context) { a.view(c); wins.sync(win) }),
 		})
-		win.SetVibrancy(projectWindowVibrancy(cfg.Vibrancy))
+		win.SetVibrancy(projectWindowVibrancy(cfg))
 		configureProjectWindowTabs(win)
 		// The welcome window, as Xcode's: of its own, of one size, its
 		// buttons over its left side.
@@ -239,7 +239,7 @@ func Main() {
 				TrafficLightPosition: &mygo.Point{X: 20, Y: (toolbarHeight - trafficLightSize) / 2},
 				Vibrancy:             mygo.VibrancySidebar, Content: ui.View(child.view),
 			})
-			childWin.SetVibrancy(projectWindowVibrancy(cfg.Vibrancy))
+			childWin.SetVibrancy(projectWindowVibrancy(cfg))
 			configureProjectWindowTabs(childWin)
 			p := &projectWindow{app: child, win: childWin}
 			projects = append(projects, p)

@@ -16,18 +16,18 @@ type BetaFeature struct {
 	Settings map[string]any `json:"settings,omitempty"`
 }
 
-type betaSettingKind int
+type BetaSettingKind int
 
 const (
-	betaBoolSetting betaSettingKind = iota
-	betaStringSetting
-	betaNumberSetting
-	betaIntSetting
-	betaChoiceSetting
+	BetaBoolSetting BetaSettingKind = iota
+	BetaStringSetting
+	BetaNumberSetting
+	BetaIntSetting
+	BetaChoiceSetting
 )
 
 type betaSettingSpec struct {
-	kind         betaSettingKind
+	kind         BetaSettingKind
 	defaultValue any
 	choices      []string
 }
@@ -43,12 +43,72 @@ type betaFeatureSpec struct {
 	retired bool
 }
 
+// BetaSidebarVibrancy gates the experimental window material behind the
+// project window. Its material parameter stays beta-only until the visual
+// behavior is settled enough to become a stable appearance setting.
+const BetaSidebarVibrancy = "sidebar-vibrancy"
+
 // betaFeatures is the lifecycle registry. New beta features add their settings
 // schema here; callers gate hidden UI with BetaEnabled and read parameters with
 // the typed Beta accessors. A feature whose beta state has shipped must keep a
 // graduate or retired entry forever, so old configuration is migrated or
 // discarded instead of accumulating.
-var betaFeatures = map[string]betaFeatureSpec{}
+var betaFeatures = map[string]betaFeatureSpec{
+	BetaSidebarVibrancy: {settings: map[string]betaSettingSpec{
+		"material": {
+			kind:         BetaChoiceSetting,
+			defaultValue: "sidebar",
+			choices:      []string{"sidebar", "window", "glass"},
+		},
+	}},
+}
+
+// BetaSettingInfo is the public schema of one beta parameter, used by the
+// settings UI to build a control without knowing the feature ahead of time.
+type BetaSettingInfo struct {
+	Key     string
+	Kind    BetaSettingKind
+	Choices []string
+}
+
+// BetaFeatureInfo is one active beta feature in stable id order.
+type BetaFeatureInfo struct {
+	ID       string
+	Settings []BetaSettingInfo
+}
+
+// ActiveBetaFeatures lists features that can still be enabled. Graduated and
+// retired features disappear from it; their lifecycle entries remain only to
+// migrate old configuration.
+func ActiveBetaFeatures() []BetaFeatureInfo {
+	ids := make([]string, 0, len(betaFeatures))
+	for id, spec := range betaFeatures {
+		if spec.active() {
+			ids = append(ids, id)
+		}
+	}
+	sort.Strings(ids)
+	features := make([]BetaFeatureInfo, 0, len(ids))
+	for _, id := range ids {
+		spec := betaFeatures[id]
+		keys := make([]string, 0, len(spec.settings))
+		for key := range spec.settings {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		info := BetaFeatureInfo{ID: id}
+		for _, key := range keys {
+			setting := spec.settings[key]
+			info.Settings = append(info.Settings, BetaSettingInfo{
+				Key:     key,
+				Kind:    setting.kind,
+				Choices: slices.Clone(setting.choices),
+			})
+		}
+		features = append(features, info)
+	}
+	return features
+}
 
 func init() {
 	for id, spec := range betaFeatures {
@@ -62,7 +122,7 @@ func init() {
 			if key == "" {
 				panic("beta feature " + id + " has a setting with an empty key")
 			}
-			if setting.kind == betaChoiceSetting && len(setting.choices) == 0 {
+			if setting.kind == BetaChoiceSetting && len(setting.choices) == 0 {
 				panic("beta setting " + id + "." + key + " has no choices")
 			}
 			if setting.defaultValue != nil {
@@ -85,22 +145,22 @@ func activeBetaFeature(feature string) (betaFeatureSpec, bool) {
 
 func (spec betaSettingSpec) normalize(value any) (any, bool) {
 	switch spec.kind {
-	case betaBoolSetting:
+	case BetaBoolSetting:
 		v, ok := value.(bool)
 		return v, ok
-	case betaStringSetting:
+	case BetaStringSetting:
 		v, ok := value.(string)
 		return v, ok
-	case betaNumberSetting:
+	case BetaNumberSetting:
 		v, ok := betaFloat(value)
 		return v, ok && finite(v)
-	case betaIntSetting:
+	case BetaIntSetting:
 		v, ok := betaFloat(value)
 		if !ok || !finite(v) || math.Trunc(v) != v || v < math.MinInt || v > math.MaxInt {
 			return nil, false
 		}
 		return int(v), true
-	case betaChoiceSetting:
+	case BetaChoiceSetting:
 		v, ok := value.(string)
 		return v, ok && slices.Contains(spec.choices, v)
 	}
@@ -144,13 +204,13 @@ func betaFloat(value any) (float64, bool) {
 func (spec betaSettingSpec) defaultOrZero() any {
 	if spec.defaultValue == nil {
 		switch spec.kind {
-		case betaBoolSetting:
+		case BetaBoolSetting:
 			return false
-		case betaStringSetting, betaChoiceSetting:
+		case BetaStringSetting, BetaChoiceSetting:
 			return ""
-		case betaNumberSetting:
+		case BetaNumberSetting:
 			return float64(0)
-		case betaIntSetting:
+		case BetaIntSetting:
 			return 0
 		}
 	}

@@ -43,13 +43,47 @@ func readConfigJSON(t *testing.T, p string) map[string]any {
 	return out
 }
 
+func TestSidebarVibrancyBetaFeatureIsRegistered(t *testing.T) {
+	var feature BetaFeatureInfo
+	for _, f := range ActiveBetaFeatures() {
+		if f.ID == BetaSidebarVibrancy {
+			feature = f
+		}
+	}
+	if feature.ID != BetaSidebarVibrancy {
+		t.Fatalf("sidebar vibrancy is not an active beta feature: %+v", ActiveBetaFeatures())
+	}
+	if len(feature.Settings) != 1 || feature.Settings[0].Key != "material" || feature.Settings[0].Kind != BetaChoiceSetting {
+		t.Fatalf("sidebar vibrancy settings: %+v", feature.Settings)
+	}
+	c := Load("")
+	if c.BetaEnabled(BetaSidebarVibrancy) {
+		t.Fatal("sidebar vibrancy beta should default disabled")
+	}
+	if got := c.BetaString(BetaSidebarVibrancy, "material"); got != "sidebar" {
+		t.Fatalf("default material = %q", got)
+	}
+}
+
+func TestUnreleasedStableVibrancyMovesIntoBeta(t *testing.T) {
+	p := writeConfig(t, `{"vibrancy": true}`)
+	c := Load(p)
+	if !c.BetaEnabled(BetaSidebarVibrancy) {
+		t.Fatalf("unreleased vibrancy setting did not move into beta: %+v", c.Beta)
+	}
+	raw := readConfigJSON(t, p)
+	if _, found := raw["vibrancy"]; found {
+		t.Fatalf("legacy vibrancy key survived: %+v", raw)
+	}
+}
+
 func TestBetaSettingsPersistNamespacedAndTyped(t *testing.T) {
 	withBetaFeature(t, "test-feature", betaFeatureSpec{settings: map[string]betaSettingSpec{
-		"enabledExtra": {kind: betaBoolSetting, defaultValue: true},
-		"mode":         {kind: betaChoiceSetting, defaultValue: "auto", choices: []string{"auto", "manual"}},
-		"ratio":        {kind: betaNumberSetting, defaultValue: 1.5},
-		"count":        {kind: betaIntSetting, defaultValue: 3},
-		"title":        {kind: betaStringSetting, defaultValue: "draft"},
+		"enabledExtra": {kind: BetaBoolSetting, defaultValue: true},
+		"mode":         {kind: BetaChoiceSetting, defaultValue: "auto", choices: []string{"auto", "manual"}},
+		"ratio":        {kind: BetaNumberSetting, defaultValue: 1.5},
+		"count":        {kind: BetaIntSetting, defaultValue: 3},
+		"title":        {kind: BetaStringSetting, defaultValue: "draft"},
 	}})
 
 	p := filepath.Join(t.TempDir(), "config.json")
@@ -94,8 +128,8 @@ func TestBetaSettingsPersistNamespacedAndTyped(t *testing.T) {
 
 func TestBetaSchemaPrunesObsoleteAndInvalidSettings(t *testing.T) {
 	withBetaFeature(t, "test-feature", betaFeatureSpec{settings: map[string]betaSettingSpec{
-		"mode":  {kind: betaChoiceSetting, defaultValue: "auto", choices: []string{"auto", "manual"}},
-		"count": {kind: betaIntSetting, defaultValue: 3},
+		"mode":  {kind: BetaChoiceSetting, defaultValue: "auto", choices: []string{"auto", "manual"}},
+		"count": {kind: BetaIntSetting, defaultValue: 3},
 	}})
 	p := writeConfig(t, `{
 		"betaFeatures": {
@@ -132,11 +166,11 @@ func TestBetaSchemaPrunesObsoleteAndInvalidSettings(t *testing.T) {
 func TestBetaMigrationGraduatesSettingsIntoStableConfig(t *testing.T) {
 	withBetaFeature(t, "test-feature", betaFeatureSpec{
 		settings: map[string]betaSettingSpec{
-			"width": {kind: betaNumberSetting},
+			"width": {kind: BetaNumberSetting},
 		},
 		graduate: func(c *Config, feature BetaFeature) {
-			if !c.hadStableKey("vibrancy") {
-				c.Vibrancy = feature.Enabled
+			if !c.hadStableKey("gitAutoDiscover") {
+				c.GitAutoDiscover = feature.Enabled
 			}
 			if width, ok := betaNumberValue(feature.Settings, "width"); ok && !c.hadStableKey("sidebarWidth") {
 				c.SidebarWidth = float32(width)
@@ -144,7 +178,7 @@ func TestBetaMigrationGraduatesSettingsIntoStableConfig(t *testing.T) {
 		},
 	})
 	p := writeConfig(t, `{
-		"vibrancy": false,
+		"gitAutoDiscover": false,
 		"betaFeatures": {
 			"test-feature": {
 				"enabled": true,
@@ -154,7 +188,7 @@ func TestBetaMigrationGraduatesSettingsIntoStableConfig(t *testing.T) {
 	}`)
 
 	c := Load(p)
-	if c.Vibrancy {
+	if c.GitAutoDiscover {
 		t.Fatal("explicit stable config lost to beta migration")
 	}
 	if c.SidebarWidth != 240 {
@@ -175,8 +209,8 @@ func TestBetaMigrationGraduatesSettingsIntoStableConfig(t *testing.T) {
 func TestBetaMigrationGraduatesEnabledStateWhenStableKeyIsAbsent(t *testing.T) {
 	withBetaFeature(t, "test-feature", betaFeatureSpec{
 		graduate: func(c *Config, feature BetaFeature) {
-			if !c.hadStableKey("vibrancy") {
-				c.Vibrancy = feature.Enabled
+			if !c.hadStableKey("gitAutoDiscover") {
+				c.GitAutoDiscover = feature.Enabled
 			}
 		},
 	})
@@ -185,10 +219,10 @@ func TestBetaMigrationGraduatesEnabledStateWhenStableKeyIsAbsent(t *testing.T) {
 	}`)
 
 	c := Load(p)
-	if !c.Vibrancy {
+	if !c.GitAutoDiscover {
 		t.Fatal("beta enabled state did not graduate")
 	}
-	if raw := readConfigJSON(t, p); raw["vibrancy"] != true {
+	if raw := readConfigJSON(t, p); raw["gitAutoDiscover"] != true {
 		t.Fatalf("graduated enabled state missing from saved config: %+v", raw)
 	}
 }
@@ -214,7 +248,7 @@ func TestBetaMigrationRetiresFeatureAndKeepsFutureUnknownFeatures(t *testing.T) 
 
 func TestBetaMigrationDropsEmptySettingObjects(t *testing.T) {
 	withBetaFeature(t, "test-feature", betaFeatureSpec{settings: map[string]betaSettingSpec{
-		"count": {kind: betaIntSetting},
+		"count": {kind: BetaIntSetting},
 	}})
 	p := writeConfig(t, `{
 		"betaFeatures": {"test-feature": {"enabled": true, "settings": {}}}
@@ -233,11 +267,11 @@ func TestBetaMigrationDropsEmptySettingObjects(t *testing.T) {
 
 func TestBetaMigrationIsIdempotentAndDropsMalformedBetaData(t *testing.T) {
 	p := writeConfig(t, `{
-		"vibrancy": true,
+		"gitAutoDiscover": true,
 		"betaFeatures": "broken"
 	}`)
 	c := Load(p)
-	if !c.Vibrancy {
+	if !c.GitAutoDiscover {
 		t.Fatal("malformed beta data discarded stable settings")
 	}
 	if c.Beta != nil {
@@ -248,7 +282,7 @@ func TestBetaMigrationIsIdempotentAndDropsMalformedBetaData(t *testing.T) {
 		t.Fatalf("malformed beta data was not cleaned: %+v", first)
 	}
 	again := Load(p)
-	if !again.Vibrancy || again.Beta != nil {
+	if !again.GitAutoDiscover || again.Beta != nil {
 		t.Fatalf("second load changed migrated config: %+v", again)
 	}
 }

@@ -43,21 +43,6 @@ func TestGitAutoDiscoverDefaultsOffAndPersists(t *testing.T) {
 	}
 }
 
-func TestVibrancyDefaultsOffAndPersists(t *testing.T) {
-	p := filepath.Join(t.TempDir(), "config.json")
-	c := Load(p)
-	if c.Vibrancy {
-		t.Fatal("sidebar vibrancy should default off")
-	}
-	c.Vibrancy = true
-	if err := c.Save(); err != nil {
-		t.Fatal(err)
-	}
-	if !Load(p).Vibrancy {
-		t.Fatal("sidebar vibrancy was not persisted")
-	}
-}
-
 func TestSoftWrapByLanguageDefaultsAndPersistence(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "config.json")
 	c := Load(p)

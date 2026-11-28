@@ -1,6 +1,10 @@
 package app
 
-import "github.com/egoist/mygo"
+import (
+	"github.com/egoist/mygo"
+
+	"see/internal/config"
+)
 
 type projectWindowHost interface {
 	Show()
@@ -16,15 +20,15 @@ type projectWindow struct {
 	win projectWindowHost
 }
 
-func projectWindowVibrancy(enabled bool) mygo.Vibrancy {
-	if enabled {
-		return mygo.VibrancySidebar
+func projectWindowVibrancy(cfg *config.Config) mygo.Vibrancy {
+	if !cfg.BetaEnabled(config.BetaSidebarVibrancy) {
+		return mygo.VibrancyNone
 	}
-	return mygo.VibrancyNone
+	return mygo.Vibrancy(cfg.BetaString(config.BetaSidebarVibrancy, "material"))
 }
 
-func applyVibrancyToProjects(projects []*projectWindow, enabled bool) {
-	material := projectWindowVibrancy(enabled)
+func applyVibrancyToProjects(projects []*projectWindow, cfg *config.Config) {
+	material := projectWindowVibrancy(cfg)
 	for _, project := range projects {
 		if project == nil || project.win == nil || project.win.IsDestroyed() {
 			continue

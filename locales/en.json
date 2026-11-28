@@ -954,7 +954,8 @@
   "msgCommitFileUnfoldHint": "Click to unfold; right-click to open its diff",
   "msgCommitFileOpenDiff": "Open diff in a tab",
   "msgSaveOrRevertUnsavedEditsFirst": "Save or revert unsaved edits first: stashing changes the files on disk.",
-  "msgCouldNotOpenSPath": "Could not open {path}: {reason}",  "msgGo": "Go",
+  "msgCouldNotOpenSPath": "Could not open {path}: {reason}",
+  "msgGo": "Go",
   "msgSearchCanceled": "Search canceled.",
   "msgNoMatchAfterTheCurrentByte": "No match after the current byte.",
   "msgSearchFailed": "Search failed: ",
@@ -1218,5 +1219,12 @@
   "gitNoRepositoryFound": "No Git repository found, or Git is unavailable.",
   "gitStashedChanges": "Stashed changes.",
   "gitRemote": "Remote",
-  "relativeFullDate": "{weekday}, {date} at {time}"
+  "relativeFullDate": "{weekday}, {date} at {time}",
+  "betaFeatures": "Beta Features",
+  "betaFeaturesDescription": "Try unfinished features. They may change or disappear, and their settings move automatically when they become stable.",
+  "betaVibrancyMaterial": "Material",
+  "betaVibrancyMaterialDescription": "Choose the experimental system material behind project windows.",
+  "betaVibrancyMaterialSidebar": "Sidebar",
+  "betaVibrancyMaterialWindow": "Window",
+  "betaVibrancyMaterialGlass": "Glass"
 }

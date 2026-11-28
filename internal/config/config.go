@@ -23,7 +23,6 @@ type Config struct {
 	InspectorTab         string               `json:"inspectorTab,omitempty"`       // its page: "quickhelp" (default), "file", or "history"
 	Appearance           string               `json:"appearance,omitempty"`         // "light", "dark", or "" for the system's
 	Language             string               `json:"language,omitempty"`           // "system", or a language tag
-	Vibrancy             bool                 `json:"vibrancy,omitempty"`           // the system material behind the sidebar
 	Trusted              []string             `json:"trustedWorkspaces,omitempty"`
 	FontFamily           string               `json:"editorFontFamily,omitempty"`
 	TermFontFallback     string               `json:"terminalFontFallback,omitempty"`
@@ -200,6 +199,11 @@ func (c *Config) unmarshal(data []byte) (bool, error) {
 	}
 	betaRaw, hasBeta := raw["betaFeatures"]
 	delete(raw, "betaFeatures")
+	legacyVibrancy, adoptVibrancy := raw["vibrancy"]
+	adoptVibrancy = adoptVibrancy && betaFeatures[BetaSidebarVibrancy].active()
+	if adoptVibrancy {
+		delete(raw, "vibrancy")
+	}
 	stableData, err := json.Marshal(raw)
 	if err != nil {
 		return false, err
@@ -210,6 +214,18 @@ func (c *Config) unmarshal(data []byte) (bool, error) {
 	betaChanged := false
 	if hasBeta {
 		c.Beta, betaChanged = parseBetaFeatures(betaRaw)
+	}
+	if adoptVibrancy {
+		betaChanged = true
+		var enabled bool
+		if err := json.Unmarshal(legacyVibrancy, &enabled); err == nil && enabled {
+			if _, exists := c.Beta[BetaSidebarVibrancy]; !exists {
+				if c.Beta == nil {
+					c.Beta = map[string]BetaFeature{}
+				}
+				c.Beta[BetaSidebarVibrancy] = BetaFeature{Enabled: true}
+			}
+		}
 	}
 	return betaChanged, nil
 }

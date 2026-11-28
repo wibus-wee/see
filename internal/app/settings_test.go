@@ -14,12 +14,12 @@ func TestVibrancySettingChangedAppliesAndPersists(t *testing.T) {
 	applied := 0
 	h.a.vibrancyChanged = func() { applied++ }
 
-	h.a.cfg.Vibrancy = true
+	h.a.cfg.SetBetaEnabled(config.BetaSidebarVibrancy, true)
 	h.a.vibrancySettingChanged()
 	if applied != 1 {
 		t.Fatalf("vibrancy applied %d times, want 1", applied)
 	}
-	if !config.Load(path).Vibrancy {
-		t.Fatal("sidebar vibrancy was not persisted")
+	if !config.Load(path).BetaEnabled(config.BetaSidebarVibrancy) {
+		t.Fatal("sidebar vibrancy beta state was not persisted")
 	}
 }
