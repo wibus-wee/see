@@ -14,6 +14,32 @@ import (
 type BetaFeature struct {
 	Enabled  bool           `json:"enabled,omitempty"`
 	Settings map[string]any `json:"settings,omitempty"`
+
+	extra map[string]json.RawMessage
+}
+
+// MarshalJSON preserves envelope fields unknown namespaces gain in newer
+// versions instead of rewriting them away on load.
+func (f BetaFeature) MarshalJSON() ([]byte, error) {
+	fields := make(map[string]json.RawMessage, len(f.extra)+2)
+	for key, value := range f.extra {
+		fields[key] = value
+	}
+	if f.Enabled {
+		enabled, err := json.Marshal(f.Enabled)
+		if err != nil {
+			return nil, err
+		}
+		fields["enabled"] = enabled
+	}
+	if len(f.Settings) > 0 {
+		settings, err := json.Marshal(f.Settings)
+		if err != nil {
+			return nil, err
+		}
+		fields["settings"] = settings
+	}
+	return json.Marshal(fields)
 }
 
 type BetaSettingKind int
@@ -374,7 +400,10 @@ func parseBetaFeatures(data json.RawMessage) (map[string]BetaFeature, bool) {
 					changed = true
 				}
 			default:
-				changed = true
+				if feature.extra == nil {
+					feature.extra = map[string]json.RawMessage{}
+				}
+				feature.extra[key] = value
 			}
 		}
 		features[id] = feature
@@ -387,6 +416,8 @@ func parseBetaFeatures(data json.RawMessage) (map[string]BetaFeature, bool) {
 
 func normalizeBetaSettings(feature BetaFeature, spec betaFeatureSpec) (BetaFeature, bool) {
 	changed := feature.Settings != nil && len(feature.Settings) == 0
+	changed = changed || len(feature.extra) > 0
+	feature.extra = nil
 	settings := map[string]any{}
 	for key, value := range feature.Settings {
 		setting, registered := spec.settings[key]
@@ -426,10 +457,6 @@ func (c *Config) migrateBeta() bool {
 		feature := c.Beta[id]
 		spec, registered := betaFeatures[id]
 		if !registered {
-			if !feature.Enabled && len(feature.Settings) == 0 {
-				delete(c.Beta, id)
-				changed = true
-			}
 			continue
 		}
 		if spec.retired {

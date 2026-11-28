@@ -232,7 +232,7 @@ func TestBetaMigrationRetiresFeatureAndKeepsFutureUnknownFeatures(t *testing.T) 
 	p := writeConfig(t, `{
 		"betaFeatures": {
 			"retired-feature": {"enabled": true, "settings": {"obsolete": 1}},
-			"future-feature": {"enabled": true, "settings": {"unknown-shape": {"nested": true}}}
+			"future-feature": {"enabled": true, "futureFlag": {"version": 2}, "settings": {"unknown-shape": {"nested": true}}}
 		}
 	}`)
 
@@ -243,6 +243,10 @@ func TestBetaMigrationRetiresFeatureAndKeepsFutureUnknownFeatures(t *testing.T) 
 	future, found := c.Beta["future-feature"]
 	if !found || !future.Enabled || future.Settings["unknown-shape"] == nil {
 		t.Fatalf("unknown newer feature was not preserved: %+v", c.Beta)
+	}
+	feature := readConfigJSON(t, p)["betaFeatures"].(map[string]any)["future-feature"].(map[string]any)
+	if flag, ok := feature["futureFlag"].(map[string]any); !ok || flag["version"] != float64(2) {
+		t.Fatalf("unknown envelope fields were rewritten away: %+v", feature)
 	}
 }
 
