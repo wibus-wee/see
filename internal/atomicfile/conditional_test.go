@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 func TestCommitIfPublishesWhenConditionPasses(t *testing.T) {
@@ -291,5 +292,93 @@ func TestPanicInWriteCallbackCleansUp(t *testing.T) {
 	data, err := os.ReadFile(path)
 	if err != nil || string(data) != "old" {
 		t.Fatalf("a panicking write touched the target: %q err=%v", data, err)
+	}
+}
+
+// A condition that calls back into its own session observes the finished
+// session instead of deadlocking: finished is set before cond runs, and
+// the lock no longer covers cond, because nothing a racing operation
+// could still change needs it. A re-entrant cond is a caller bug — its
+// Write fails — but the publish must survive it: the condition itself
+// decides, and the session never wedges.
+func TestCommitIfReentrantCondDoesNotDeadlock(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "f.txt")
+	if err := os.WriteFile(target, []byte("old"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s, err := Begin(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Write([]byte("new")); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() {
+		done <- s.CommitIf(func() error {
+			// The re-entrant call must fail fast on the finished
+			// session, not wait on a lock its own commit holds.
+			if _, werr := s.Write([]byte("x")); werr == nil {
+				return errors.New("write on a finished session succeeded")
+			}
+			return nil
+		})
+	}()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("commit with a re-entrant cond failed: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("commit with a re-entrant cond deadlocked")
+	}
+	data, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "new" {
+		t.Fatalf("target %q, want the published bytes", data)
+	}
+}
+
+// A racing Abort cannot have ended the session once commit won the
+// finished bit, and it must not wait behind cond either: it observes the
+// finished session and returns.
+func TestCommitIfAbortRacingCondReturns(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "f.txt")
+	if err := os.WriteFile(target, []byte("old"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s, err := Begin(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Write([]byte("new")); err != nil {
+		t.Fatal(err)
+	}
+	release := make(chan struct{})
+	done := make(chan error, 1)
+	go func() {
+		done <- s.CommitIf(func() error {
+			<-release
+			return nil
+		})
+	}()
+	// Give the commit a moment to enter cond, then abort: it must not
+	// block behind the condition.
+	time.Sleep(50 * time.Millisecond)
+	abortDone := make(chan error, 1)
+	go func() { abortDone <- s.Abort() }()
+	select {
+	case <-abortDone:
+	case <-time.After(2 * time.Second):
+		close(release)
+		t.Fatal("abort blocked behind the condition")
+	}
+	close(release)
+	if err := <-done; err != nil {
+		t.Fatalf("commit failed: %v", err)
 	}
 }
