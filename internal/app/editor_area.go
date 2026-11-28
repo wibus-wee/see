@@ -645,7 +645,10 @@ func (a *App) document(c *ui.Context, g *group, d *doc) {
 			// A navigation went here: the keys read on from it.
 			ed.Focus()
 			a.focusEditor = nil
-		case g == a.focus && !a.term.open:
+		case g == a.focus && !a.term.open && !d.previewOpened:
+			// An editor opened to be edited takes the keyboard as it
+			// appears; a preview's does not, so that a click in the tree
+			// keeps the keys walking its rows.
 			ed.AutoFocus()
 		}
 		if a.focusGroupTarget == nil && ed.FocusWithin() && a.focus != g {

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"sort"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
 
+	"see/internal/atomicfile"
 	"see/internal/langserver"
 	"see/internal/lsp"
 	"see/internal/operr"
@@ -532,5 +534,8 @@ func applyEditsToFile(path string, edits []lsp.TextEdit, enc string) error {
 		out.WriteString("\xef\xbb\xbf")
 	}
 	out.WriteString(text)
-	return os.WriteFile(path, out.Bytes(), 0o644)
+	return atomicfile.WriteFile(path, func(w io.Writer) error {
+		_, err := w.Write(out.Bytes())
+		return err
+	})
 }

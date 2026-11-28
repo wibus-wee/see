@@ -349,7 +349,14 @@ func TestBetaMigrationDropsEmptySettingObjects(t *testing.T) {
 	}
 }
 
-func TestBetaMigrationIsIdempotentAndDropsMalformedBetaData(t *testing.T) {
+func TestBetaMigrationIsIdempotentAndPreservesMalformedBetaData(t *testing.T) {
+	// A betaFeatures value no beta shape can represent is user data the
+	// in-memory configuration cannot hold: the configuration contract
+	// (SPEC-007, REQ-CFG-070) preserves it verbatim for the build it may
+	// belong to, and reports the schema failure through Issues. What the
+	// migration still guarantees is that stable settings around it are
+	// read, that nothing in memory pretends to be beta state it is not,
+	// and that loading the result is idempotent.
 	p := writeConfig(t, `{
 		"gitAutoDiscover": true,
 		"betaFeatures": "broken"
@@ -361,9 +368,18 @@ func TestBetaMigrationIsIdempotentAndDropsMalformedBetaData(t *testing.T) {
 	if c.Beta != nil {
 		t.Fatalf("malformed beta data survived: %+v", c.Beta)
 	}
+	reported := false
+	for _, issue := range c.Issues() {
+		if issue.Kind == IssueSchemaInvalid && issue.Key == "betaFeatures" {
+			reported = true
+		}
+	}
+	if !reported {
+		t.Fatalf("malformed beta namespace was not reported: %+v", c.Issues())
+	}
 	first := readConfigJSON(t, p)
-	if _, found := first["betaFeatures"]; found {
-		t.Fatalf("malformed beta data was not cleaned: %+v", first)
+	if first["betaFeatures"] != "broken" {
+		t.Fatalf("malformed beta data was not preserved verbatim: %+v", first)
 	}
 	again := Load(p)
 	if !again.GitAutoDiscover || again.Beta != nil {

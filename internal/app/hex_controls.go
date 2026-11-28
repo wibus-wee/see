@@ -5,14 +5,13 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io"
-	"os"
 	"strconv"
 	"strings"
 
 	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 	"see/internal/hexview"
+	"see/internal/rangeio"
 	"see/locales"
 )
 
@@ -74,28 +73,38 @@ func (a *App) findHex(d *doc, s *hexControl, list *ui.ListState) {
 		s.message = "Enter text or hex: followed by pairs of hex digits."
 		return
 	}
+	if d.hex == nil || d.hex.sess == nil {
+		return
+	}
 	if s.cancel != nil {
 		s.cancel()
 	}
 	start := int64(0)
 	if s.selected {
-		start = min(d.size, s.cursor+1)
+		start = min(hexViewSize(d), s.cursor+1)
 	}
 	ctx, cancel := context.WithCancel(a.wsCtx)
 	s.cancel = cancel
 	s.seq++
 	seq := s.seq
 	s.searching, s.message = true, "Searching…"
-	path, size, gen, version := d.path, d.size, a.gen, d.seq
+	path, sess, gen, version := d.path, d.hex.sess, a.gen, d.seq
 	go func() {
 		defer cancel()
-		off, err := hexview.Find(ctx, path, size, start, pattern)
+		off, err := hexview.Find(ctx, sess, start, pattern)
 		a.post.Post(func() {
 			if a.gen != gen || a.docs[path] != d || d.seq != version || s.seq != seq {
 				return
 			}
 			s.cancel = nil
 			s.searching = false
+			if errors.Is(err, rangeio.ErrChanged) {
+				// The scan ran into another version: drop the view built
+				// of the old one, so what the user sees next is the file
+				// as it is, not a mix.
+				d.hex = nil
+				return
+			}
 			if errors.Is(err, context.Canceled) {
 				s.message = locales.MsgSearchCanceled()
 				return
@@ -124,17 +133,19 @@ func (a *App) copyHex(d *doc, s *hexControl, services ui.Services) {
 		s.message = locales.MsgSelectAtMostAMiBToCopy()
 		return
 	}
-	path, gen, version := d.path, a.gen, d.seq
+	if d.hex == nil || d.hex.sess == nil {
+		return
+	}
+	path, sess, gen, version := d.path, d.hex.sess, a.gen, d.seq
 	go func() {
-		f, err := os.Open(path)
-		var data []byte
-		if err == nil {
-			data = make([]byte, int(end-start))
-			_, err = io.ReadFull(io.NewSectionReader(f, start, end-start), data)
-			f.Close()
-		}
+		data, _, err := sess.ReadAt(a.wsCtx, start, end-start)
 		a.post.Post(func() {
 			if a.gen != gen || a.docs[path] != d || d.seq != version {
+				return
+			}
+			if errors.Is(err, rangeio.ErrChanged) {
+				d.hex = nil
+				s.message = locales.MsgCouldNotCopyBytes() + err.Error()
 				return
 			}
 			if err != nil {

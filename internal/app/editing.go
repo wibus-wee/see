@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/egoist/mygo/ui/editor"
+	"see/internal/atomicfile"
 	"see/internal/config"
 	"see/internal/platform"
 	"see/internal/workspace"
@@ -121,53 +122,11 @@ func createDraft(path string) error {
 }
 
 // writeFileAtomically writes to a sibling and only moves it into place after
-// the contents are complete and closed. Rename deliberately replaces an
+// the contents are complete and durable. Rename deliberately replaces an
 // existing destination: the native save panel has already asked the user to
 // approve that overwrite.
 func writeFileAtomically(path string, write func(io.Writer) error) error {
-	if real, err := filepath.EvalSymlinks(path); err == nil {
-		path = real
-	}
-	dir, base := filepath.Split(path)
-	var tmp *os.File
-	for range 10 {
-		var id [8]byte
-		if _, err := rand.Read(id[:]); err != nil {
-			return err
-		}
-		name := filepath.Join(dir, fmt.Sprintf(".%s.%x.tmp", base, id))
-		f, err := os.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0666)
-		if os.IsExist(err) {
-			continue
-		}
-		if err != nil {
-			return err
-		}
-		tmp = f
-		break
-	}
-	if tmp == nil {
-		return fmt.Errorf("could not create a temporary file next to %s", path)
-	}
-	name := tmp.Name()
-	defer os.Remove(name)
-	if info, err := os.Stat(path); err == nil {
-		if err := tmp.Chmod(info.Mode().Perm()); err != nil {
-			_ = tmp.Close()
-			return err
-		}
-	}
-	err := write(tmp)
-	if err == nil {
-		err = tmp.Sync()
-	}
-	if closeErr := tmp.Close(); err == nil {
-		err = closeErr
-	}
-	if err != nil {
-		return err
-	}
-	return os.Rename(name, path)
+	return atomicfile.WriteFile(path, write)
 }
 
 func draftDir() (string, error) {
@@ -506,7 +465,13 @@ func (a *App) saveDoc(d *doc, overwrite bool) bool {
 		out.Write([]byte{0xef, 0xbb, 0xbf})
 	}
 	if _, err = d.buf.WriteTo(&out); err == nil {
-		err = os.WriteFile(d.path, out.Bytes(), 0666)
+		// The write publishes complete bytes or fails: a crash or disk
+		// error in the middle must not truncate the file the user last
+		// saw saved.
+		err = atomicfile.WriteFile(d.path, func(w io.Writer) error {
+			_, err := w.Write(out.Bytes())
+			return err
+		})
 	}
 	if err != nil {
 		a.note(locales.MsgCouldNotSave()+d.name+": "+err.Error(), true)

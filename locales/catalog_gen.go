@@ -1144,6 +1144,36 @@ func (msgs Messages) LocalHistoryCurrentUnsaved() string {
 	return Catalog.Format(msgs.locale, "localHistoryCurrentUnsaved", nil)
 }
 
+// LocalHistoryCorrupt says "This snapshot is corrupt and cannot be restored."
+// in the language the app shows.
+func LocalHistoryCorrupt() string { return In(i18n.Locale()).LocalHistoryCorrupt() }
+
+// LocalHistoryCorrupt says "This snapshot is corrupt and cannot be restored."
+// in the language of msgs.
+func (msgs Messages) LocalHistoryCorrupt() string {
+	return Catalog.Format(msgs.locale, "localHistoryCorrupt", nil)
+}
+
+// LocalHistoryCorruptDetail says "Its stored content no longer matches the digest recorded when it was written."
+// in the language the app shows.
+func LocalHistoryCorruptDetail() string { return In(i18n.Locale()).LocalHistoryCorruptDetail() }
+
+// LocalHistoryCorruptDetail says "Its stored content no longer matches the digest recorded when it was written."
+// in the language of msgs.
+func (msgs Messages) LocalHistoryCorruptDetail() string {
+	return Catalog.Format(msgs.locale, "localHistoryCorruptDetail", nil)
+}
+
+// LocalHistoryCorruptTag says "corrupt"
+// in the language the app shows.
+func LocalHistoryCorruptTag() string { return In(i18n.Locale()).LocalHistoryCorruptTag() }
+
+// LocalHistoryCorruptTag says "corrupt"
+// in the language of msgs.
+func (msgs Messages) LocalHistoryCorruptTag() string {
+	return Catalog.Format(msgs.locale, "localHistoryCorruptTag", nil)
+}
+
 // LocalHistoryNoSnapshots says "No local snapshots yet"
 // in the language the app shows.
 func LocalHistoryNoSnapshots() string { return In(i18n.Locale()).LocalHistoryNoSnapshots() }
@@ -4874,6 +4904,18 @@ func MsgNoMatches() string { return In(i18n.Locale()).MsgNoMatches() }
 // in the language of msgs.
 func (msgs Messages) MsgNoMatches() string {
 	return Catalog.Format(msgs.locale, "msgNoMatches", nil)
+}
+
+// MsgOnlyTheFirstCountFilesAreListed says "Only the first {count} files are listed — type more of the name."
+// in the language the app shows.
+func MsgOnlyTheFirstCountFilesAreListed(count string) string {
+	return In(i18n.Locale()).MsgOnlyTheFirstCountFilesAreListed(count)
+}
+
+// MsgOnlyTheFirstCountFilesAreListed says "Only the first {count} files are listed — type more of the name."
+// in the language of msgs.
+func (msgs Messages) MsgOnlyTheFirstCountFilesAreListed(count string) string {
+	return Catalog.Format(msgs.locale, "msgOnlyTheFirstCountFilesAreListed", map[string]any{"count": count})
 }
 
 // MsgImagePreviewArea says "Image preview area"
@@ -12594,4 +12636,16 @@ func MsgServerCrashedRepeatedly() string { return In(i18n.Locale()).MsgServerCra
 // in the language of msgs.
 func (msgs Messages) MsgServerCrashedRepeatedly() string {
 	return Catalog.Format(msgs.locale, "msgServerCrashedRepeatedly", nil)
+}
+
+// MsgConfigLoadProblem says "Some settings could not be loaded and were reset to defaults: {detail}"
+// in the language the app shows.
+func MsgConfigLoadProblem(detail string) string {
+	return In(i18n.Locale()).MsgConfigLoadProblem(detail)
+}
+
+// MsgConfigLoadProblem says "Some settings could not be loaded and were reset to defaults: {detail}"
+// in the language of msgs.
+func (msgs Messages) MsgConfigLoadProblem(detail string) string {
+	return Catalog.Format(msgs.locale, "msgConfigLoadProblem", map[string]any{"detail": detail})
 }

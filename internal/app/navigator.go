@@ -326,7 +326,7 @@ func (a *App) fileTree(c *ui.Context, roots []string) {
 		for i := range a.tree.Rows() {
 			if a.tree.Item(i) == a.reveal {
 				a.tree.List.Choose(i)
-				a.tree.List.ScrollTo(i, ui.Center)
+				a.tree.List.ScrollIntoView(i)
 				a.reveal = ""
 				break
 			}

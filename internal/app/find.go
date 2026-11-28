@@ -860,7 +860,7 @@ func (a *App) chooseQuick(i int) {
 		}
 		a.openFile(path, &pos)
 	} else {
-		a.previewOpen(a.workspaceFilePath(p))
+		a.previewOpen(a.workspaceFilePath(p), true)
 	}
 }
 
