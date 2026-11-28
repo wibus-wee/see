@@ -2,6 +2,7 @@ package atomicfile
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -47,7 +48,19 @@ func TestWriteFilePublishesExactBytesAndKeepsMode(t *testing.T) {
 	if err != nil || string(data) != string(want) {
 		t.Fatalf("target bytes differ: len(data)=%d err=%v", len(data), err)
 	}
-	if info, err := os.Stat(path); err != nil || info.Mode().Perm() != 0o640 {
+	if runtime.GOOS == "windows" {
+		// Windows has no POSIX permission bits; os.Chmod there only toggles
+		// the read-only attribute. The invariant that survives the rewrite
+		// is that the rewritten file is not read-only, since the pre-write
+		// file was writable.
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if info.Mode().Perm()&0o222 == 0 {
+			t.Fatalf("rewritten file became read-only: %v", info.Mode().Perm())
+		}
+	} else if info, err := os.Stat(path); err != nil || info.Mode().Perm() != 0o640 {
 		t.Fatalf("mode not preserved: %v err=%v", info.Mode().Perm(), err)
 	}
 	if stagingLeftovers(t, dir) {
@@ -244,6 +257,40 @@ func TestSymlinkTargetIsWrittenThrough(t *testing.T) {
 	}
 }
 
+// writeFileRetrying republishes the whole file when a publish fails.
+// On Windows a rename over the target loses to any concurrent open handle
+// on it — Go does not pass FILE_SHARE_DELETE — so a transient access
+// denial is environmental reality there, not a violation of the contract
+// under test (writes never interleave, readers never see torn bytes). The
+// package documents regenerating the bytes and retrying the whole write
+// as the remedy, which is what this does. The retry is bounded so a
+// permanent failure cannot hide inside it. On POSIX the first attempt
+// succeeds and the loop never iterates.
+func writeFileRetrying(t *testing.T, path, text string) error {
+	t.Helper()
+	var err error
+	for attempt := range 200 {
+		if attempt > 0 {
+			time.Sleep(time.Duration(attempt) * time.Millisecond)
+		}
+		rest := text
+		err = WriteFile(path, func(w io.Writer) error {
+			for len(rest) > 0 {
+				n := min(len(rest), 1500)
+				if _, err := w.Write([]byte(rest[:n])); err != nil {
+					return err
+				}
+				rest = rest[n:]
+			}
+			return nil
+		})
+		if err == nil {
+			return nil
+		}
+	}
+	return fmt.Errorf("write still failing after 200 whole-write retries: %w", err)
+}
+
 func TestConcurrentWritesNeverInterleave(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "file.txt")
@@ -253,10 +300,7 @@ func TestConcurrentWritesNeverInterleave(t *testing.T) {
 	write := func(text string) {
 		var err error
 		for range 20 {
-			if err = WriteFile(path, func(w io.Writer) error {
-				_, err := io.WriteString(w, text)
-				return err
-			}); err != nil {
+			if err = writeFileRetrying(t, path, text); err != nil {
 				break
 			}
 		}
@@ -317,17 +361,7 @@ func TestConcurrentReadersNeverSeeTornContent(t *testing.T) {
 					return
 				default:
 				}
-				if err := WriteFile(path, func(w io.Writer) error {
-					rest := text
-					for len(rest) > 0 {
-						n := min(len(rest), 1500)
-						if _, err := w.Write([]byte(rest[:n])); err != nil {
-							return err
-						}
-						rest = rest[n:]
-					}
-					return nil
-				}); err != nil {
+				if err := writeFileRetrying(t, path, text); err != nil {
 					failures <- "writer error: " + err.Error()
 					return
 				}
@@ -405,7 +439,14 @@ func crashHelper() {
 	if err := os.WriteFile(ready, []byte(stagingName(s)), 0o600); err != nil {
 		os.Exit(2)
 	}
-	select {} // wait to be killed mid-session: no Commit, no Abort
+	// Wait to be killed mid-session: no Commit, no Abort. The park must
+	// keep a timer pending — a bare select{} has no cases and no timers,
+	// so the runtime's deadlock detector would kill the helper itself
+	// with "all goroutines are asleep" if the parent is slow to notice
+	// the ready file, masquerading as a test-binary crash.
+	for {
+		time.Sleep(time.Hour)
+	}
 }
 
 func TestCrashLeavesOldBytesAndStagingImpersonatesNothing(t *testing.T) {
