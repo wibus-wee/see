@@ -45,7 +45,7 @@ type foldingRangeJSON struct {
 // FoldingRanges asks for the document's folding ranges.
 func (c *Client) FoldingRanges(ctx context.Context, uri string) ([]FoldingRange, error) {
 	var raw json.RawMessage
-	err := c.conn.Call(ctx, "textDocument/foldingRange", map[string]any{
+	err := c.call(ctx, "textDocument/foldingRange", map[string]any{
 		"textDocument": map[string]any{"uri": uri},
 	}, &raw)
 	if err != nil {

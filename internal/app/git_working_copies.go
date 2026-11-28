@@ -491,7 +491,7 @@ func (a *App) discardGitWorkingCopyChanges(root string, changes []git.Change) {
 					if firstErr != nil {
 						a.fail(locales.MsgCouldNotDiscardGitChanges() + firstErr.Error())
 					} else {
-						a.quick.files = nil
+						a.quick.files, a.quick.err = nil, nil
 						a.filter.forQuery = ""
 					}
 					if root == a.git.root {

@@ -1,6 +1,8 @@
 package app
 
 import (
+	"encoding/json"
+
 	"os"
 	"testing"
 
@@ -147,4 +149,32 @@ func TestCodeActionsClosedFileEdit(t *testing.T) {
 func readFileString(path string) (string, error) {
 	b, err := os.ReadFile(path)
 	return string(b), err
+}
+
+// A compound action must not edit a file and only then discover that its second step is unsupported.
+func TestCodeActionUnsupportedStepPreservesFile(t *testing.T) {
+	root := writeTree(t, map[string]string{"a.go": "package a\n"})
+	h := newHarness(t, root)
+	path := h.a.root + "/a.go"
+	edit := &lsp.WorkspaceEdit{Changes: map[string][]lsp.TextEdit{uri.FromPath(path): {{NewText: "modified"}}}}
+	h.fc.noCommands = true
+	h.a.applyCodeAction(&codeActions{client: h.fc, server: h.a.lsp}, &lsp.CodeAction{Edit: edit, Command: &lsp.Command{Command: "missing"}})
+	if text, err := readFileString(path); err != nil || text != "package a\n" {
+		t.Fatalf("unsupported command changed file: %q %v", text, err)
+	}
+	edit.DocumentChanges = []json.RawMessage{json.RawMessage(`{"kind":"delete","uri":"file:///elsewhere"}`)}
+	if err := h.a.applyWorkspaceEdit(edit, h.a.lsp); err == nil {
+		t.Fatal("accepted unsupported delete")
+	}
+	if text, err := readFileString(path); err != nil || text != "package a\n" {
+		t.Fatalf("unsupported delete changed file: %q %v", text, err)
+	}
+	edit.DocumentChanges = []json.RawMessage{json.RawMessage(`{"textDocument":{"uri":"file:///not-open","version":0},"edits":[]}`)}
+	if err := h.a.applyWorkspaceEdit(edit, h.a.lsp); err == nil {
+		t.Fatal("accepted unverifiable version zero")
+	}
+	if text, err := readFileString(path); err != nil || text != "package a\n" {
+		t.Fatalf("version conflict changed file: %q %v", text, err)
+	}
+
 }

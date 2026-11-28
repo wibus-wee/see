@@ -11,50 +11,81 @@ import (
 
 	"see/internal/langserver"
 	"see/internal/lsp"
+	"see/internal/proc"
 	"see/internal/shellpath"
 	"see/internal/uri"
-	"see/internal/workspace"
 )
 
 // ErrNoGopls is returned when no gopls is installed.
 var ErrNoGopls = errors.New("gopls is not installed")
 
-// FindGopls finds gopls: $SEE_GOPLS, then the copies an installation added
-// (in the order given), then PATH, then Go's bin directories. A gopls inside the workspace is never used.
-func FindGopls(root string, installed ...string) (string, error) {
-	var candidates []string
-	if p := os.Getenv("SEE_GOPLS"); p != "" {
-		candidates = append(candidates, p)
+// validateCandidate applies the launch boundary's trust check to a
+// candidate a finder is considering. A candidate the boundary denies
+// because it lives in the workspace is reported with denied set; any
+// other failure — missing, not a regular file — is only unusable.
+func validateCandidate(root, p string) (err error, denied bool) {
+	if err := proc.ValidateExecutable(root, p); err != nil {
+		return err, errors.Is(err, proc.ErrUntrustedExecutable)
 	}
-	candidates = append(candidates, installed...)
+	if fi, err := os.Stat(p); err != nil || !fi.Mode().IsRegular() {
+		if err == nil {
+			err = errors.New("not a regular file")
+		}
+		return err, false
+	}
+	return nil, false
+}
+
+// FindGopls finds gopls: $SEE_GOPLS, then the copies an installation added
+// (in the order given), then PATH, then Go's bin directories. A gopls
+// inside the workspace is never used; when a copy the user pointed at —
+// an environment variable or an installation — is denied for that, the
+// failure says so rather than claiming nothing is installed.
+func FindGopls(root string, installed ...string) (string, error) {
+	type candidate struct {
+		path     string
+		explicit bool
+	}
+	var candidates []candidate
+	if p := os.Getenv("SEE_GOPLS"); p != "" {
+		candidates = append(candidates, candidate{p, true})
+	}
+	for _, p := range installed {
+		candidates = append(candidates, candidate{p, true})
+	}
 	if p, err := exec.LookPath("gopls"); err == nil {
-		candidates = append(candidates, p)
+		candidates = append(candidates, candidate{p, false})
 	}
 	exe := "gopls"
 	if runtime.GOOS == "windows" {
 		exe = "gopls.exe"
 	}
 	if p := os.Getenv("GOBIN"); p != "" {
-		candidates = append(candidates, filepath.Join(p, exe))
+		candidates = append(candidates, candidate{filepath.Join(p, exe), false})
 	}
 	if p := os.Getenv("GOPATH"); p != "" {
 		for _, dir := range filepath.SplitList(p) {
-			candidates = append(candidates, filepath.Join(dir, "bin", exe))
+			candidates = append(candidates, candidate{filepath.Join(dir, "bin", exe), false})
 		}
 	}
 	if home, err := os.UserHomeDir(); err == nil {
-		candidates = append(candidates, filepath.Join(home, "go", "bin", exe))
+		candidates = append(candidates, candidate{filepath.Join(home, "go", "bin", exe), false})
 	}
-	for _, p := range candidates {
-		if !filepath.IsAbs(p) {
+	var denial error
+	for _, c := range candidates {
+		if !filepath.IsAbs(c.path) {
 			continue
 		}
-		if root != "" && workspace.Within(root, p) {
-			continue
+		err, denied := validateCandidate(root, c.path)
+		if err == nil {
+			return c.path, nil
 		}
-		if fi, err := os.Stat(p); err == nil && fi.Mode().IsRegular() {
-			return p, nil
+		if denied && c.explicit && denial == nil {
+			denial = err
 		}
+	}
+	if denial != nil {
+		return "", denial
 	}
 	return "", ErrNoGopls
 }
@@ -125,10 +156,16 @@ func TypeScriptLanguage(path string) string {
 	return ""
 }
 
+// FindTypeScript finds tsrs: $SEE_TYPESCRIPT_LANGUAGE_SERVER, then See's
+// own installation, then PATH. A tsrs inside the workspace is never used;
+// a copy the user pointed at being denied for that is a denial, not a
+// missing installation.
 func FindTypeScript(root string) (string, error) {
 	p := os.Getenv("SEE_TYPESCRIPT_LANGUAGE_SERVER")
+	explicit := p != ""
 	if p == "" && ManagedTypeScriptInstalled() {
 		p = ManagedTypeScriptEntry()
+		explicit = true
 	}
 	if p == "" {
 		p, _ = exec.LookPath("tsrs")
@@ -136,18 +173,10 @@ func FindTypeScript(root string) (string, error) {
 	if !filepath.IsAbs(p) {
 		return "", ErrNoTypeScriptServer
 	}
-	resolved, err := filepath.EvalSymlinks(p)
-	if err != nil {
-		return "", ErrNoTypeScriptServer
-	}
-	realRoot := root
-	if r, err := filepath.EvalSymlinks(root); err == nil {
-		realRoot = r
-	}
-	if root != "" && (workspace.Within(root, p) || workspace.Within(realRoot, resolved)) {
-		return "", ErrNoTypeScriptServer
-	}
-	if fi, err := os.Stat(resolved); err != nil || !fi.Mode().IsRegular() {
+	if err, denied := validateCandidate(root, p); err != nil {
+		if denied && explicit {
+			return "", err
+		}
 		return "", ErrNoTypeScriptServer
 	}
 	return p, nil

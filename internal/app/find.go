@@ -346,6 +346,7 @@ type quickOpen struct {
 	ranked          string // the query results are of
 	files           []string
 	listing         bool
+	scanGen         int // invalidations observed by the in-flight scan
 	filesSeq        uint64
 	filesCancel     context.CancelFunc
 	fileMatchLabels map[string]string
@@ -396,6 +397,9 @@ func (a *App) openQuickPanel(query string) {
 	q.line, q.col = 0, 0
 	q.fileLoaded = false
 	q.fileSymbols = nil
+	// Opening the panel is the user's retry after a scan failure: the
+	// sticky error clears here, so the scan below can run again.
+	q.err = nil
 	q.list.Selected = &q.sel
 	if !strings.HasPrefix(query, ":") && !strings.HasPrefix(query, "@") {
 		a.ensureFiles()
@@ -404,13 +408,20 @@ func (a *App) openQuickPanel(query string) {
 
 // ensureFiles lists the workspace's files for Open Quickly and the tree's
 // filter, once: the list lasts until the workspace changes or a refresh
-// forgets it.
+// forgets it. A scan failure is sticky — q.err holds it — because anything
+// else re-scans every frame forever: the failure post invalidates the
+// ranking, the re-rank calls here, and the loop never ends. Opening Open
+// Quickly clears the error, and workspace invalidations clear it alongside
+// the file list — and invalidate the open panel's ranking, so the re-rank
+// reaches this function and the scan is retried there. Those are the two
+// deliberate retry points; anywhere else the error stands.
 func (a *App) ensureFiles() {
 	q := &a.quick
-	if q.files != nil || q.listing || a.root == "" {
+	if q.files != nil || q.listing || q.err != nil || a.root == "" {
 		return
 	}
 	q.listing = true
+	scanGen := q.scanGen
 	gen := a.gen
 	rootsEpoch := a.workspaceRootsEpoch
 	q.filesSeq++
@@ -473,19 +484,42 @@ func (a *App) ensureFiles() {
 				break
 			}
 		}
-		a.post.Post(func() { a.finishQuickFileListing(gen, rootsEpoch, seq, files, truncated, err, cancel) })
+		a.post.Post(func() { a.finishQuickFileListing(gen, rootsEpoch, seq, scanGen, files, truncated, err, cancel) })
 	}()
 }
 
-func (a *App) finishQuickFileListing(gen int, rootsEpoch, seq uint64, files []string, truncated bool, err error, cancel context.CancelFunc) {
+func (a *App) finishQuickFileListing(gen int, rootsEpoch, seq uint64, scanGen int, files []string, truncated bool, err error, cancel context.CancelFunc) {
 	q := &a.quick
 	if a.gen != gen || a.workspaceRootsEpoch != rootsEpoch || q.filesSeq != seq {
 		return
 	}
 	cancel()
 	q.filesCancel = nil
-	q.listing, q.files, q.truncated, q.err = false, files, truncated, err
-	if q.files == nil {
+	q.listing = false
+	if scanGen != q.scanGen {
+		// The workspace changed while this scan ran: its result is
+		// behind the disk by at least one event, and committing it
+		// would serve that stale list indefinitely. Discard
+		// instead: files stays nil, and the ranking is invalidated
+		// so a consuming panel or filter re-enters the scan on its
+		// next pass — without this the nil list would already have
+		// been ranked, and nothing would scan again.
+		if !strings.HasPrefix(q.query, ">") && !strings.HasPrefix(q.query, "#") && !strings.HasPrefix(q.query, "@") {
+			q.ranked = "\x00"
+		}
+		a.filter.forQuery = ""
+		return
+	}
+	q.files, q.truncated, q.err = files, truncated, err
+	if err != nil {
+		// A failed scan leaves no file list behind: a partial list
+		// would pass for the workspace's contents while it is not,
+		// and an empty non-nil list would pass for an empty
+		// workspace. files stays nil — no valid list exists — and
+		// err stays set, sticky until the panel is opened or the
+		// workspace changes, so this frame does not re-scan forever.
+		q.files = nil
+	} else if q.files == nil {
 		q.files = []string{}
 	}
 	if !strings.HasPrefix(q.query, ">") && !strings.HasPrefix(q.query, "#") && !strings.HasPrefix(q.query, "@") {

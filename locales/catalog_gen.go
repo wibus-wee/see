@@ -1144,6 +1144,36 @@ func (msgs Messages) LocalHistoryCurrentUnsaved() string {
 	return Catalog.Format(msgs.locale, "localHistoryCurrentUnsaved", nil)
 }
 
+// LocalHistoryCorrupt says "This snapshot is corrupt and cannot be restored."
+// in the language the app shows.
+func LocalHistoryCorrupt() string { return In(i18n.Locale()).LocalHistoryCorrupt() }
+
+// LocalHistoryCorrupt says "This snapshot is corrupt and cannot be restored."
+// in the language of msgs.
+func (msgs Messages) LocalHistoryCorrupt() string {
+	return Catalog.Format(msgs.locale, "localHistoryCorrupt", nil)
+}
+
+// LocalHistoryCorruptDetail says "Its stored content no longer matches the digest recorded when it was written."
+// in the language the app shows.
+func LocalHistoryCorruptDetail() string { return In(i18n.Locale()).LocalHistoryCorruptDetail() }
+
+// LocalHistoryCorruptDetail says "Its stored content no longer matches the digest recorded when it was written."
+// in the language of msgs.
+func (msgs Messages) LocalHistoryCorruptDetail() string {
+	return Catalog.Format(msgs.locale, "localHistoryCorruptDetail", nil)
+}
+
+// LocalHistoryCorruptTag says "corrupt"
+// in the language the app shows.
+func LocalHistoryCorruptTag() string { return In(i18n.Locale()).LocalHistoryCorruptTag() }
+
+// LocalHistoryCorruptTag says "corrupt"
+// in the language of msgs.
+func (msgs Messages) LocalHistoryCorruptTag() string {
+	return Catalog.Format(msgs.locale, "localHistoryCorruptTag", nil)
+}
+
 // LocalHistoryNoSnapshots says "No local snapshots yet"
 // in the language the app shows.
 func LocalHistoryNoSnapshots() string { return In(i18n.Locale()).LocalHistoryNoSnapshots() }
@@ -12568,16 +12598,44 @@ func (msgs Messages) BetaVibrancyMaterialGlass() string {
 	return Catalog.Format(msgs.locale, "betaVibrancyMaterialGlass", nil)
 }
 
-// MsgConfigLoadProblem says "Some settings could not be loaded and were reset to defaults: {detail}"
+// Denied says "Denied"
 // in the language the app shows.
-func MsgConfigLoadProblem(detail string) string {
-	return In(i18n.Locale()).MsgConfigLoadProblem(detail)
+func Denied() string { return In(i18n.Locale()).Denied() }
+
+// Denied says "Denied"
+// in the language of msgs.
+func (msgs Messages) Denied() string {
+	return Catalog.Format(msgs.locale, "denied", nil)
 }
 
-// MsgConfigLoadProblem says "Some settings could not be loaded and were reset to defaults: {detail}"
+// MsgDegraded says "Degraded · "
+// in the language the app shows.
+func MsgDegraded() string { return In(i18n.Locale()).MsgDegraded() }
+
+// MsgDegraded says "Degraded · "
 // in the language of msgs.
-func (msgs Messages) MsgConfigLoadProblem(detail string) string {
-	return Catalog.Format(msgs.locale, "msgConfigLoadProblem", map[string]any{"detail": detail})
+func (msgs Messages) MsgDegraded() string {
+	return Catalog.Format(msgs.locale, "msgDegraded", nil)
+}
+
+// MsgDegradedExplanation says "Document sync failed once; it recovers when the next change reaches the server."
+// in the language the app shows.
+func MsgDegradedExplanation() string { return In(i18n.Locale()).MsgDegradedExplanation() }
+
+// MsgDegradedExplanation says "Document sync failed once; it recovers when the next change reaches the server."
+// in the language of msgs.
+func (msgs Messages) MsgDegradedExplanation() string {
+	return Catalog.Format(msgs.locale, "msgDegradedExplanation", nil)
+}
+
+// MsgServerCrashedRepeatedly says "crashed repeatedly — restart it with Retry"
+// in the language the app shows.
+func MsgServerCrashedRepeatedly() string { return In(i18n.Locale()).MsgServerCrashedRepeatedly() }
+
+// MsgServerCrashedRepeatedly says "crashed repeatedly — restart it with Retry"
+// in the language of msgs.
+func (msgs Messages) MsgServerCrashedRepeatedly() string {
+	return Catalog.Format(msgs.locale, "msgServerCrashedRepeatedly", nil)
 }
 
 // ErrorBannerMore says "{count, plural, one { +# more} other { +# more}}"
@@ -12598,4 +12656,16 @@ func Review() string { return In(i18n.Locale()).Review() }
 // in the language of msgs.
 func (msgs Messages) Review() string {
 	return Catalog.Format(msgs.locale, "review", nil)
+}
+
+// MsgConfigLoadProblem says "Some settings could not be loaded and were reset to defaults: {detail}"
+// in the language the app shows.
+func MsgConfigLoadProblem(detail string) string {
+	return In(i18n.Locale()).MsgConfigLoadProblem(detail)
+}
+
+// MsgConfigLoadProblem says "Some settings could not be loaded and were reset to defaults: {detail}"
+// in the language of msgs.
+func (msgs Messages) MsgConfigLoadProblem(detail string) string {
+	return Catalog.Format(msgs.locale, "msgConfigLoadProblem", map[string]any{"detail": detail})
 }

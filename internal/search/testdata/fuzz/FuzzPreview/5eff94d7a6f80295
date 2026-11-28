@@ -1,0 +1,4 @@
+go test fuzz v1
+string("\xc3")
+int(78)
+int(89)

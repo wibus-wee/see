@@ -1,6 +1,7 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"slices"
@@ -16,6 +17,7 @@ import (
 	"github.com/egoist/mygo/ui/editor"
 
 	"see/internal/config"
+	"see/internal/proc"
 	"see/internal/search"
 	"see/internal/workspace"
 
@@ -1089,9 +1091,10 @@ func (a *App) intelligencePane(c *ui.Context) {
 				st = s
 			}
 			idx := i
+			customPath, customErr := languages.FindConfigured(a.root, spec)
 			a.toolRow(c.Key("custom-"+spec.Name), toolRow{
 				id: spec.Name, language: customLanguageLabel(spec), server: spec.Name,
-				path: configuredPath(a.root, spec), state: st.state, serverErr: st.err,
+				path: customPath, findErr: customErr, state: st.state, serverErr: st.err,
 				retry: func() { a.retryCustomLSP(idx) },
 				hint:  strings.Join(spec.Command, " "),
 			})
@@ -1130,16 +1133,6 @@ func customLanguageLabel(spec config.LSPConfig) string {
 	return spec.Name
 }
 
-// configuredPath resolves a configured server's executable for display,
-// or "" when it is not found.
-func configuredPath(root string, spec config.LSPConfig) string {
-	p, err := languages.FindConfigured(root, spec)
-	if err != nil {
-		return ""
-	}
-	return p
-}
-
 // toolRow is a tool in Settings: a language server, or ripgrep, with See's
 // own installation of it.
 type toolRow struct {
@@ -1166,6 +1159,11 @@ func (a *App) toolRow(c *ui.Context, r toolRow) {
 		status = locales.Starting()
 	case r.state == langserver.Ready:
 		status = locales.Running()
+	case r.findErr != nil && errors.Is(r.findErr, proc.ErrUntrustedExecutable):
+		// The software may well be installed; it is where it is that
+		// cannot run. Saying NotInstalled would send the user to
+		// install what they have.
+		status, color = locales.Denied(), theme.Of(c).Err
 	case r.findErr != nil:
 		status = locales.NotInstalled()
 	}
@@ -1173,8 +1171,11 @@ func (a *App) toolRow(c *ui.Context, r toolRow) {
 	if r.path != "" {
 		detail += " · " + tildePath(r.path)
 	}
-	if r.state == langserver.Failed && r.serverErr != nil {
+	switch {
+	case r.state == langserver.Failed && r.serverErr != nil:
 		detail = r.server + " · " + shortErr(r.serverErr)
+	case r.findErr != nil && errors.Is(r.findErr, proc.ErrUntrustedExecutable):
+		detail = r.server + " · " + shortErr(r.findErr)
 	}
 	ui.Column(c).FillWidth().Padding(12, 0).Gap(10).Children(func() {
 		ui.Row(c).FillWidth().Gap(12).AlignItems(ui.Center).Children(func() {
@@ -1262,6 +1263,9 @@ func (a *App) searchPane(c *ui.Context) {
 	status := "Finds text in the workspace · " + tildePath(rg)
 	if err != nil {
 		status = "Not installed: Open Quickly lists files without it"
+		if errors.Is(err, proc.ErrUntrustedExecutable) {
+			status = "Denied: executables inside this workspace are never run"
+		}
 	}
 	r := toolRow{
 		id: "ripgrep", language: "ripgrep", server: "ripgrep",

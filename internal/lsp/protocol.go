@@ -176,7 +176,12 @@ const (
 // serverCapabilities holds the parts of the server's capabilities the
 // client reads.
 type serverCapabilities struct {
-	PositionEncoding          string          `json:"positionEncoding"`
+	HoverProvider           json.RawMessage `json:"hoverProvider"`
+	ReferencesProvider      json.RawMessage `json:"referencesProvider"`
+	DocumentSymbolProvider  json.RawMessage `json:"documentSymbolProvider"`
+	WorkspaceSymbolProvider json.RawMessage `json:"workspaceSymbolProvider"`
+
+	PositionEncoding          json.RawMessage `json:"positionEncoding"`
 	TextDocumentSync          json.RawMessage `json:"textDocumentSync"`
 	DefinitionProvider        json.RawMessage `json:"definitionProvider"`
 	DocumentHighlightProvider json.RawMessage `json:"documentHighlightProvider"`
@@ -226,22 +231,22 @@ func (s serverCapabilities) syncKind() (kind int, openClose bool) {
 
 func (s serverCapabilities) hasDefinition() bool {
 	raw := bytes.TrimSpace(s.DefinitionProvider)
-	return len(raw) > 0 && !bytes.Equal(raw, []byte("false")) && !bytes.Equal(raw, []byte("null"))
+	return providerEnabled(raw)
 }
 
 func (s serverCapabilities) hasDocumentHighlights() bool {
 	raw := bytes.TrimSpace(s.DocumentHighlightProvider)
-	return len(raw) > 0 && !bytes.Equal(raw, []byte("false")) && !bytes.Equal(raw, []byte("null"))
+	return providerEnabled(raw)
 }
 
 func (s serverCapabilities) hasInlayHints() bool {
 	raw := bytes.TrimSpace(s.InlayHintProvider)
-	return len(raw) > 0 && !bytes.Equal(raw, []byte("false")) && !bytes.Equal(raw, []byte("null"))
+	return providerEnabled(raw)
 }
 
 func (s serverCapabilities) hasDocumentLinks() bool {
 	raw := bytes.TrimSpace(s.DocumentLinkProvider)
-	return len(raw) > 0 && !bytes.Equal(raw, []byte("false")) && !bytes.Equal(raw, []byte("null"))
+	return providerEnabled(raw)
 }
 
 // documentLinkResolve reports whether the server fills a link's target
@@ -379,7 +384,7 @@ type SemanticTokensData struct {
 // its requests then count for nothing.
 func (s serverCapabilities) semanticTokens() (legend semanticTokensLegend, full, rng bool) {
 	raw := bytes.TrimSpace(s.SemanticTokensProvider)
-	if len(raw) == 0 || bytes.Equal(raw, []byte("false")) || bytes.Equal(raw, []byte("null")) {
+	if !providerEnabled(raw) {
 		return legend, false, false
 	}
 	if raw[0] != '{' {
@@ -390,29 +395,29 @@ func (s serverCapabilities) semanticTokens() (legend semanticTokensLegend, full,
 		Full   json.RawMessage      `json:"full"`
 		Range  json.RawMessage      `json:"range"`
 	}
-	if json.Unmarshal(raw, &opts) != nil {
+	if json.Unmarshal(raw, &opts) != nil || len(opts.Legend.TokenTypes) == 0 {
 		return legend, false, false
 	}
 	truthy := func(v json.RawMessage) bool {
 		v = bytes.TrimSpace(v)
-		return len(v) > 0 && !bytes.Equal(v, []byte("false")) && !bytes.Equal(v, []byte("null"))
+		return providerEnabled(v)
 	}
 	return opts.Legend, truthy(opts.Full), truthy(opts.Range)
 }
 
 func (s serverCapabilities) hasFoldingRange() bool {
 	raw := bytes.TrimSpace(s.FoldingRangeProvider)
-	return len(raw) > 0 && !bytes.Equal(raw, []byte("false")) && !bytes.Equal(raw, []byte("null"))
+	return providerEnabled(raw)
 }
 
 func (s serverCapabilities) hasSignatureHelp() bool {
 	raw := bytes.TrimSpace(s.SignatureHelpProvider)
-	return len(raw) > 0 && !bytes.Equal(raw, []byte("false")) && !bytes.Equal(raw, []byte("null"))
+	return providerEnabled(raw)
 }
 
 func (s serverCapabilities) hasCompletion() bool {
 	raw := bytes.TrimSpace(s.CompletionProvider)
-	return len(raw) > 0 && !bytes.Equal(raw, []byte("false")) && !bytes.Equal(raw, []byte("null"))
+	return providerEnabled(raw)
 }
 
 func (s serverCapabilities) completionItemResolve() bool {
@@ -428,12 +433,12 @@ func (s serverCapabilities) completionItemResolve() bool {
 
 func (s serverCapabilities) hasCallHierarchy() bool {
 	raw := bytes.TrimSpace(s.CallHierarchyProvider)
-	return len(raw) > 0 && !bytes.Equal(raw, []byte("false")) && !bytes.Equal(raw, []byte("null"))
+	return providerEnabled(raw)
 }
 
 func (s serverCapabilities) hasSelectionRanges() bool {
 	raw := bytes.TrimSpace(s.SelectionRangeProvider)
-	return len(raw) > 0 && !bytes.Equal(raw, []byte("false")) && !bytes.Equal(raw, []byte("null"))
+	return providerEnabled(raw)
 }
 
 // codeActionSupport is what a server says about textDocument/codeAction
@@ -446,7 +451,7 @@ type codeActionSupport struct {
 
 func (s serverCapabilities) codeActions() (codeActionSupport, bool) {
 	raw := bytes.TrimSpace(s.CodeActionProvider)
-	if len(raw) == 0 || bytes.Equal(raw, []byte("false")) || bytes.Equal(raw, []byte("null")) {
+	if !providerEnabled(raw) {
 		return codeActionSupport{}, false
 	}
 	if !bytes.Equal(raw, []byte("true")) {
@@ -458,14 +463,10 @@ func (s serverCapabilities) codeActions() (codeActionSupport, bool) {
 			return codeActionSupport{resolve: opts.ResolveProvider, kinds: opts.CodeActionKinds}, true
 		}
 	}
-	// true, or a literal the client cannot read: actions are on, of any
-	// kind, complete as they arrive.
+	if !bytes.Equal(raw, []byte("true")) {
+		return codeActionSupport{}, false
+	}
 	return codeActionSupport{}, true
-}
-
-func (s serverCapabilities) hasExecuteCommand() bool {
-	raw := bytes.TrimSpace(s.ExecuteCommandProvider)
-	return len(raw) > 0 && !bytes.Equal(raw, []byte("false")) && !bytes.Equal(raw, []byte("null"))
 }
 
 // hasRename reads renameProvider: a boolean, or a literal whose
@@ -473,7 +474,7 @@ func (s serverCapabilities) hasExecuteCommand() bool {
 // textDocument/prepareRename before textDocument/rename.
 func (s serverCapabilities) hasRename() (rename, prepare bool) {
 	raw := bytes.TrimSpace(s.RenameProvider)
-	if len(raw) == 0 || bytes.Equal(raw, []byte("false")) || bytes.Equal(raw, []byte("null")) {
+	if !providerEnabled(raw) {
 		return false, false
 	}
 	if !bytes.Equal(raw, []byte("true")) {
@@ -484,7 +485,7 @@ func (s serverCapabilities) hasRename() (rename, prepare bool) {
 			return true, opts.PrepareProvider
 		}
 	}
-	return true, false
+	return bytes.Equal(raw, []byte("true")), false
 }
 
 // FormattingOptions are the indentation settings a formatting request
@@ -496,12 +497,12 @@ type FormattingOptions struct {
 
 func (s serverCapabilities) hasDocumentFormatting() bool {
 	raw := bytes.TrimSpace(s.DocumentFormatting)
-	return len(raw) > 0 && !bytes.Equal(raw, []byte("false")) && !bytes.Equal(raw, []byte("null"))
+	return providerEnabled(raw)
 }
 
 func (s serverCapabilities) hasDocumentRangeFormatting() bool {
 	raw := bytes.TrimSpace(s.DocumentRangeFormatting)
-	return len(raw) > 0 && !bytes.Equal(raw, []byte("false")) && !bytes.Equal(raw, []byte("null"))
+	return providerEnabled(raw)
 }
 
 // ParseTextEdits decodes the result of a formatting request: null or a
@@ -549,7 +550,7 @@ type WorkspaceEdit struct {
 type TextDocumentEdit struct {
 	TextDocument struct {
 		URI     string `json:"uri"`
-		Version int64  `json:"version"`
+		Version *int64 `json:"version"`
 	} `json:"textDocument"`
 	Edits []json.RawMessage `json:"edits"`
 }

@@ -182,8 +182,11 @@ func (s *Session) Commit() error {
 // CommitIf shrinks is the window, from the entire staging write — which
 // grows with the file — to the rename boundary; callers must treat the
 // semantics as best-effort conflict detection, never as atomic compare-
-// and-publish. cond runs under the session lock, so it must be quick and
-// must not call the session.
+// and-publish. cond runs after the session is finished for every other
+// operation — the lock no longer needs to cover it because nothing a
+// racing Write, Abort or Commit could still change — so a cond that calls
+// back into the session does not deadlock: it observes the finished
+// session and fails like any late caller.
 func (s *Session) CommitIf(cond func() error) error {
 	return s.commit(cond, false)
 }
@@ -203,8 +206,8 @@ func (s *Session) CommitIfAbsent() error {
 
 func (s *Session) commit(cond func() error, ifAbsent bool) error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	if s.finished {
+		s.mu.Unlock()
 		return fmt.Errorf("atomicfile: commit on a finished session for %s", s.target)
 	}
 	s.finished = true
@@ -212,8 +215,14 @@ func (s *Session) commit(cond func() error, ifAbsent bool) error {
 	if s.poisoned {
 		_ = s.f.Close()
 		s.cleanup()
+		s.mu.Unlock()
 		return fmt.Errorf("atomicfile: commit after a failed write on %s", s.target)
 	}
+	// Once finished is set, every other operation on the session fails or
+	// no-ops under the lock, so nothing below needs its protection —
+	// holding it through cond would only buy a permanent self-deadlock
+	// the first time a condition calls back into the session.
+	s.mu.Unlock()
 	err := s.f.Sync()
 	if closeErr := s.f.Close(); err == nil {
 		err = closeErr

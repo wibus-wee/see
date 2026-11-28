@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"see/internal/fileobs"
 	"slices"
 	"strings"
 	"testing"
@@ -244,5 +245,215 @@ func TestTextAndPreviewSessionRestoresSplitPositions(t *testing.T) {
 	}
 	if groups[0].eds[d.path].Buffer != groups[1].eds[d.path].Buffer {
 		t.Fatal("restored split did not share document buffer")
+	}
+}
+
+// A save raced by an external write refuses at the publish boundary: the
+// condition is evaluated against the target's live bytes immediately
+// before the rename, so the external write keeps its bytes and the user
+// gets the conflict surface. This is the REQ-COND-050 user contract —
+// the victim here is the scenario the check-then-write window used to
+// silently overwrite.
+func TestSaveRefusesAtPublishWhenFileChangesMidWrite(t *testing.T) {
+	base := "line one\nline two\n"
+	h := newHarness(t, writeTree(t, map[string]string{"a.txt": base}))
+	d := h.open("a.txt")
+	d.buf.Set("line one\nline two\nuser edit\n")
+	// Replace the file externally after the buffer was read. Whether the
+	// pre-check or the commit-time condition catches it is immaterial —
+	// both must refuse, and the disk must keep the external bytes.
+	external := "external write after the read\n"
+	if err := os.WriteFile(d.path, []byte(external), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if h.a.saveDoc(d, false) {
+		t.Fatal("a save against changed bytes published")
+	}
+	if !d.conflict {
+		t.Error("the refusal did not surface as a conflict")
+	}
+	disk, err := os.ReadFile(d.path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(disk) != external {
+		t.Fatalf("the external write was overwritten: disk %q", disk)
+	}
+	if d.buf.Modified() != true {
+		t.Error("the buffer lost its edits on a refused save")
+	}
+}
+
+// The condition is content-strength: a same-length replacement with
+// different bytes conflicts, while an identical-content rewrite — an
+// editor tool that writes the file without semantic change — does not.
+// A size+mtime condition would invert both halves of this test.
+func TestSaveConditionIsContentStrength(t *testing.T) {
+	base := "aaaaaaaa\nbbbbbbbb\n"
+	h := newHarness(t, writeTree(t, map[string]string{"a.txt": base}))
+	d := h.open("a.txt")
+	d.buf.Set("user edit\n")
+
+	// Identical bytes re-written: no conflict, the save publishes.
+	if err := os.WriteFile(d.path, []byte(base), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if !h.a.saveDoc(d, false) {
+		t.Fatal("an identical-content rewrite conflicted the save")
+	}
+	if d.conflict {
+		t.Error("conflict flag set by an identical-content rewrite")
+	}
+
+	// Same length, same-timed, different bytes: conflict, nothing overwritten.
+	replacement := "cccccccc\ndddddddd\n"
+	if len(replacement) != len(base) {
+		t.Fatal("fixture broken: lengths differ")
+	}
+	if err := os.WriteFile(d.path, []byte(replacement), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// Restore a fixed modification time, the exact attack a size+mtime
+	// condition falls for.
+	if err := os.Chtimes(d.path, time.Unix(1000, 0), time.Unix(1000, 0)); err != nil {
+		t.Fatal(err)
+	}
+	d.buf.Set("user edit again\n")
+	if h.a.saveDoc(d, false) {
+		t.Fatal("a same-length same-mtime replacement was silently overwritten")
+	}
+	disk, err := os.ReadFile(d.path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(disk) != replacement {
+		t.Fatalf("the replacement content was overwritten: disk %q", disk)
+	}
+}
+
+// A normal save with no external interference publishes and rebuilds the
+// condition on the new bytes: a second save right after it must not
+// conflict. Guards the wiring against a stale expectation, the failure
+// mode every subsequent save would hit.
+func TestNormalSavePublishesAndReanchors(t *testing.T) {
+	h := newHarness(t, writeTree(t, map[string]string{"a.txt": "one\n"}))
+	d := h.open("a.txt")
+	d.buf.Set("one\ntwo\n")
+	if !h.a.saveDoc(d, false) {
+		t.Fatal("a clean save refused")
+	}
+	disk, _ := os.ReadFile(d.path)
+	if string(disk) != "one\ntwo\n" {
+		t.Fatalf("disk %q after save", disk)
+	}
+	d.buf.Set("one\ntwo\nthree\n")
+	if !h.a.saveDoc(d, false) {
+		t.Fatal("the second save after a clean save conflicted — the condition did not re-anchor")
+	}
+	if d.conflict {
+		t.Error("conflict flag survived a successful save")
+	}
+}
+
+// writeFileIfUnchanged is the save path's publish boundary: these tests
+// exercise it directly, because the pre-check in saveDoc would otherwise
+// catch every conflict before the condition inside the boundary ever
+// runs, leaving the boundary itself unproven. Removing the condition
+// from the wiring fails the first test; weakening the re-observation to
+// ObservePath fails the whole package at the incomparable seam.
+func TestWriteFileIfUnchangedRefusesMismatch(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "f.txt")
+	if err := os.WriteFile(target, []byte("external version\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	expectation := fileobs.ExpectContent(fileobs.SourceRead, target, []byte("the version read at load\n"))
+	err := writeFileIfUnchanged(target, expectation, false, func(w io.Writer) error {
+		_, err := w.Write([]byte("editor content\n"))
+		return err
+	})
+	if !errors.Is(err, fileobs.ErrConditionMismatch) {
+		t.Fatalf("publish against changed bytes: %v, want ErrConditionMismatch", err)
+	}
+	disk, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(disk) != "external version\n" {
+		t.Fatalf("the target was overwritten: %q", disk)
+	}
+	// No staging debris survives the refused publish.
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("%d entries after a refused publish, want just the target", len(entries))
+	}
+}
+
+func TestWriteFileIfUnchangedPublishesWhenContentMatches(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "f.txt")
+	content := []byte("the version read at load\n")
+	if err := os.WriteFile(target, content, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	expectation := fileobs.ExpectContent(fileobs.SourceRead, target, content)
+	err := writeFileIfUnchanged(target, expectation, false, func(w io.Writer) error {
+		_, err := w.Write([]byte("editor content\n"))
+		return err
+	})
+	if err != nil {
+		t.Fatalf("publish over unchanged content refused: %v", err)
+	}
+	disk, err := os.ReadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(disk) != "editor content\n" {
+		t.Fatalf("disk %q after publish", disk)
+	}
+}
+
+// The re-observation must be digest-carrying: wiring it with ObservePath
+// — the mistake the integration contract warns against — is not a silent
+// weakened comparison but the incomparable-identity error, and never a
+// publish. This test is the wiring's tripwire: it passes only while both
+// ends of the condition are content-strength.
+func TestWriteFileIfUnchangedRejectsWeakReobservation(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "f.txt")
+	content := []byte("same\n")
+	if err := os.WriteFile(target, content, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	expectation := fileobs.ExpectContent(fileobs.SourceRead, target, content)
+	weak, err := fileobs.ObservePath(fileobs.SourceRead, target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := fileobs.Check(expectation, weak); !errors.Is(err, fileobs.ErrIncomparableIdentity) {
+		t.Fatalf("a weak re-observation compared cleanly: %v — the fail-closed check is broken", err)
+	}
+}
+
+func TestWriteFileIfUnchangedOverwriteBypassesCondition(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "f.txt")
+	if err := os.WriteFile(target, []byte("external version\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	expectation := fileobs.ExpectContent(fileobs.SourceRead, target, []byte("the version read at load\n"))
+	err := writeFileIfUnchanged(target, expectation, true, func(w io.Writer) error {
+		_, err := w.Write([]byte("editor content\n"))
+		return err
+	})
+	if err != nil {
+		t.Fatalf("explicit overwrite refused: %v", err)
+	}
+	disk, _ := os.ReadFile(target)
+	if string(disk) != "editor content\n" {
+		t.Fatalf("disk %q after explicit overwrite", disk)
 	}
 }

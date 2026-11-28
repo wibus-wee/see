@@ -306,7 +306,17 @@ func (a *App) applyEventsAt(root string, evs []mygo.FileEvent) {
 		a.refreshDir(dir)
 	}
 	if len(evs) > 0 {
-		a.quick.files = nil // Open Quickly lists them again when next opened
+		a.quick.files, a.quick.err = nil, nil // Open Quickly lists them again when next opened
+		a.quick.scanGen++
+		if q := &a.quick; q.open && !strings.HasPrefix(q.query, ">") &&
+			!strings.HasPrefix(q.query, "#") && !strings.HasPrefix(q.query, "@") {
+			// An open panel consuming the file list re-ranks — and with the
+			// list gone, re-scans — on its next frame: the invalidation is
+			// the retry point for a sticky scan error, and the answer to a
+			// file list that no longer matches the disk. Command and symbol
+			// queries do not consume the list and keep their results.
+			q.ranked = "\x00"
+		}
 		a.filter.forQuery = ""
 	}
 }

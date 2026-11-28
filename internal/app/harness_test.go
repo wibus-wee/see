@@ -410,7 +410,8 @@ func (f *fakeClient) InlayHints(ctx context.Context, uri string, r lsp.Range) ([
 	}
 	return f.inlayHints(ctx, uri, r)
 }
-func (f *fakeClient) HasSemanticTokens() bool { return f.semanticTokens != nil }
+func (f *fakeClient) SemanticTokensFull() bool { return f.semanticTokens != nil }
+func (f *fakeClient) HasSemanticTokens() bool  { return f.semanticTokens != nil }
 func (f *fakeClient) SemanticTokens(ctx context.Context, uri string, first, last int) (*lsp.SemanticTokensData, error) {
 	f.record("semanticTokens")
 	if f.semanticTokens == nil {
@@ -469,7 +470,7 @@ func (f *fakeClient) HasCodeActions() bool { return f.codeActions != nil || f.co
 func (f *fakeClient) CodeActionKinds() []string {
 	return []string{"quickfix"}
 }
-func (f *fakeClient) HasExecuteCommand() bool { return !f.noCommands }
+func (f *fakeClient) SupportsCommand(string) bool { return !f.noCommands }
 func (f *fakeClient) CodeActions(ctx context.Context, uri string, r lsp.Range, ds []lsp.Diagnostic) ([]lsp.CodeAction, error) {
 	f.record("codeActions")
 	return f.codeActions, f.codeActionsErr

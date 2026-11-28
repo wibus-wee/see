@@ -109,6 +109,9 @@
   "localHistorySnapshotLines": "{lines} 行",
   "localHistoryWorkingTree": "工作区",
   "localHistoryCurrentUnsaved": "当前（未保存）",
+  "localHistoryCorrupt": "此快照已损坏，无法恢复。",
+  "localHistoryCorruptDetail": "其存储内容与写入时记录的摘要不一致。",
+  "localHistoryCorruptTag": "已损坏",
   "localHistoryNoSnapshots": "还没有本地快照",
   "localHistoryNoSnapshotsDetail": "编辑后稍作停顿或保存文件即可生成快照。",
   "localHistoryLoading": "正在加载本地快照…",
@@ -1238,7 +1241,11 @@
   "betaVibrancyMaterialSidebar": "边栏",
   "betaVibrancyMaterialWindow": "窗口",
   "betaVibrancyMaterialGlass": "玻璃",
-  "msgConfigLoadProblem": "部分设置无法加载，已重置为默认值：{detail}",
+  "denied": "已拒绝",
+  "msgDegraded": "已降级 · ",
+  "msgDegradedExplanation": "一次文档同步失败；下次更改送达服务器后恢复。",
+  "msgServerCrashedRepeatedly": "反复崩溃 — 点“重试”重新启动",
   "errorBannerMore": "{count, plural, other {（还有 # 个）}}",
-  "review": "查看"
+  "review": "查看",
+  "msgConfigLoadProblem": "部分设置无法加载，已重置为默认值：{detail}"
 }

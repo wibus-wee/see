@@ -634,7 +634,7 @@ func TestQuickOpenDropsListingCompletedAfterRootMembershipChanges(t *testing.T) 
 	gen, rootsEpoch, seq := h.a.gen, h.a.workspaceRootsEpoch, h.a.quick.filesSeq
 	h.a.removeWorkspaceFolder(client)
 	cancelled := false
-	h.a.finishQuickFileListing(gen, rootsEpoch, seq, []string{filepath.Join(client, "src", "stale.go")}, false, nil, func() { cancelled = true })
+	h.a.finishQuickFileListing(gen, rootsEpoch, seq, h.a.quick.scanGen, []string{filepath.Join(client, "src", "stale.go")}, false, nil, func() { cancelled = true })
 	if h.a.quick.listing || h.a.quick.files != nil {
 		t.Fatalf("stale file listing populated after membership edit: listing=%v files=%v", h.a.quick.listing, h.a.quick.files)
 	}
