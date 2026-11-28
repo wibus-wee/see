@@ -215,10 +215,16 @@ func (a *App) requestHexPage(d *doc, h *hexState, offset int64) {
 	go func() {
 		data, _, err := sess.ReadAt(ctx, offset, hexview.PageLen(offset, sess.Size()))
 		a.post.Post(func() {
+			// The read is over whatever the completion finds: pending
+			// must clear even for a dropped result, or the page is
+			// never asked for again. A refresh of the unchanged file
+			// moves d.seq without resetting d.hex (the reload takes
+			// loadDoc's stamp shortcut), so guarding the delete on the
+			// state being current would wedge the page forever.
+			delete(h.pending, offset)
 			if a.gen != gen || a.docs[path] != d || d.seq != seq || d.hex != h {
 				return
 			}
-			delete(h.pending, offset)
 			if errors.Is(err, rangeio.ErrChanged) {
 				// The pinned version is gone, so the view built of it
 				// is dropped entirely and the next frame pins the
