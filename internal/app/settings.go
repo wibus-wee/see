@@ -47,11 +47,12 @@ type settingsPane struct {
 }
 
 var settingsPanes = []settingsPane{
-	{"general", "General", icGear, ui.RGB(0x8e, 0x8e, 0x93), 0, "appearance light dark system theme vibrancy sidebar material 边栏 毛玻璃 材质 reopen launch recent folders shell command install uninstall path cli"},
+	{"general", "General", icGear, ui.RGB(0x8e, 0x8e, 0x93), 0, "appearance light dark system theme reopen launch recent folders shell command install uninstall path cli"},
 	{"editor", "Editor", icLines, ui.RGB(0x0a, 0x84, 0xff), 0, "font size line numbers relative soft wrap minimap page guide column 页面参考线"},
 	{"terminal", "Terminal", icPrompt, ui.RGB(0x2c, 0x2c, 0x2e), 0, "shell font size copy on select panel external ghostty rex seedmux"},
 	{"notifications", "Notifications", icPrompt, ui.RGB(0xff, 0x95, 0x00), 1, "notify waiting done failed sound dock badge bounce"},
 	{"intelligence", "Code Intelligence", icSparkle, ui.RGB(0xaf, 0x52, 0xde), 1, "gopls tsrs typescript javascript language server go to definition hover trusted folders trust"},
+	{"beta", "Beta Features", icSparkle, ui.RGB(0xff, 0x2d, 0x92), 2, "beta experimental unfinished vibrancy material glass sidebar 测试 实验 边栏 毛玻璃 材质"},
 	{"advanced", "Advanced", icGear, ui.RGB(0x8e, 0x8e, 0x93), 2, "config reset data folder"},
 	{"search", "Search", icSearch, ui.RGB(0xff, 0x95, 0x00), 1, "ripgrep rg find open quickly files"},
 	{"shortcuts", "Shortcuts", icCommand, ui.RGB(0x63, 0x63, 0x66), 2, "keys keyboard"},
@@ -86,6 +87,7 @@ type settingsState struct {
 	languageChoice      int
 	languageChoiceSet   bool
 	terminalIcons       map[string]*ui.Bitmap
+	betaDrafts          map[string]*string
 }
 
 func (a *App) settingsGo(pane string) {
@@ -354,6 +356,9 @@ func (a *App) settingsSidebar(c *ui.Context) {
 	group := -1
 	shown := 0
 	for _, p := range settingsPanes {
+		if p.id == "beta" && len(config.ActiveBetaFeatures()) == 0 {
+			continue
+		}
 		p.title = settingsPaneTitle(p.id)
 		if q != "" && !strings.Contains(strings.ToLower(p.title+" "+p.keywords), q) {
 			continue
@@ -392,6 +397,9 @@ func (a *App) settingsStep(q string, up bool) {
 		ids = append(ids, "about")
 	}
 	for _, p := range settingsPanes {
+		if p.id == "beta" && len(config.ActiveBetaFeatures()) == 0 {
+			continue
+		}
 		p.title = settingsPaneTitle(p.id)
 		if q == "" || strings.Contains(strings.ToLower(p.title+" "+p.keywords), q) {
 			ids = append(ids, p.id)
@@ -495,6 +503,8 @@ func (a *App) settingsContent(c *ui.Context, bar ui.TitleBar) {
 				a.notificationsPane(c)
 			case "intelligence":
 				a.intelligencePane(c)
+			case "beta":
+				a.betaPane(c)
 			case "search":
 				a.searchPane(c)
 			case "shortcuts":
@@ -588,12 +598,6 @@ func (a *App) generalPane(c *ui.Context) {
 			if ui.Segmented(c, &s.appearance, locales.System(), locales.Light(), locales.Dark()).Label(locales.Appearance()).Changed() {
 				a.chooseAppearance([]string{"", "light", "dark"}[s.appearance])
 				a.post.Post(func() {})
-			}
-		},
-		func() {
-			labeled(c, locales.SidebarVibrancy(), locales.SidebarVibrancyDescription())
-			if ui.Switch(c, &a.cfg.Vibrancy).Label(locales.SidebarVibrancy()).Changed() {
-				a.vibrancySettingChanged()
 			}
 		},
 		func() {
@@ -1289,6 +1293,143 @@ func (a *App) shortcutsPane(c *ui.Context) {
 	card(c, fns...)
 }
 
+func betaFeatureTitle(id string) string {
+	if id == config.BetaSidebarVibrancy {
+		return locales.SidebarVibrancy()
+	}
+	return id
+}
+
+func betaFeatureDescription(id string) string {
+	if id == config.BetaSidebarVibrancy {
+		return locales.SidebarVibrancyDescription()
+	}
+	return ""
+}
+
+func betaSettingTitle(feature, key string) string {
+	if feature == config.BetaSidebarVibrancy && key == "material" {
+		return locales.BetaVibrancyMaterial()
+	}
+	return key
+}
+
+func betaSettingDescription(feature, key string) string {
+	if feature == config.BetaSidebarVibrancy && key == "material" {
+		return locales.BetaVibrancyMaterialDescription()
+	}
+	return ""
+}
+
+func betaChoiceTitle(feature, key, choice string) string {
+	if feature == config.BetaSidebarVibrancy && key == "material" {
+		switch choice {
+		case "sidebar":
+			return locales.BetaVibrancyMaterialSidebar()
+		case "window":
+			return locales.BetaVibrancyMaterialWindow()
+		case "glass":
+			return locales.BetaVibrancyMaterialGlass()
+		}
+	}
+	return choice
+}
+
+func (a *App) betaSettingChanged(feature string) {
+	if feature == config.BetaSidebarVibrancy {
+		a.vibrancySettingChanged()
+		return
+	}
+	a.settingsChanged()
+}
+
+func (a *App) betaDraft(feature, key, value string) *string {
+	id := feature + "\x00" + key
+	if a.settings.betaDrafts == nil {
+		a.settings.betaDrafts = map[string]*string{}
+	}
+	if draft := a.settings.betaDrafts[id]; draft != nil {
+		return draft
+	}
+	draft := new(string)
+	*draft = value
+	a.settings.betaDrafts[id] = draft
+	return draft
+}
+
+func (a *App) betaSettingControl(c *ui.Context, feature string, setting config.BetaSettingInfo) {
+	label := betaSettingTitle(feature, setting.Key)
+	labeled(c, label, betaSettingDescription(feature, setting.Key))
+	switch setting.Kind {
+	case config.BetaBoolSetting:
+		value := a.cfg.BetaBool(feature, setting.Key)
+		ui.Switch(c, &value).Label(label).OnClick(func() {
+			if a.cfg.SetBetaSetting(feature, setting.Key, value) {
+				a.betaSettingChanged(feature)
+			}
+		})
+	case config.BetaChoiceSetting:
+		choice := a.cfg.BetaString(feature, setting.Key)
+		index := slices.Index(setting.Choices, choice)
+		if index < 0 {
+			index = 0
+		}
+		labels := make([]string, len(setting.Choices))
+		for i, choice := range setting.Choices {
+			labels[i] = betaChoiceTitle(feature, setting.Key, choice)
+		}
+		if ui.Segmented(c, &index, labels...).Label(label).Changed() {
+			if a.cfg.SetBetaSetting(feature, setting.Key, setting.Choices[index]) {
+				a.betaSettingChanged(feature)
+			}
+		}
+	case config.BetaStringSetting:
+		draft := a.betaDraft(feature, setting.Key, a.cfg.BetaString(feature, setting.Key))
+		if ui.TextInput(c, draft).Label(label).Width(170).Changed() {
+			if a.cfg.SetBetaSetting(feature, setting.Key, *draft) {
+				a.betaSettingChanged(feature)
+			}
+		}
+	case config.BetaNumberSetting:
+		draft := a.betaDraft(feature, setting.Key, strconv.FormatFloat(a.cfg.BetaNumber(feature, setting.Key), 'f', -1, 64))
+		if ui.TextInput(c, draft).Label(label).Width(110).Changed() {
+			if value, err := strconv.ParseFloat(strings.TrimSpace(*draft), 64); err == nil && a.cfg.SetBetaSetting(feature, setting.Key, value) {
+				a.betaSettingChanged(feature)
+			}
+		}
+	case config.BetaIntSetting:
+		draft := a.betaDraft(feature, setting.Key, strconv.Itoa(a.cfg.BetaInt(feature, setting.Key)))
+		if ui.TextInput(c, draft).Label(label).Width(110).Changed() {
+			if value, err := strconv.Atoi(strings.TrimSpace(*draft)); err == nil && a.cfg.SetBetaSetting(feature, setting.Key, value) {
+				a.betaSettingChanged(feature)
+			}
+		}
+	}
+}
+
+func (a *App) betaPane(c *ui.Context) {
+	features := config.ActiveBetaFeatures()
+	ui.Text(c, locales.BetaFeaturesDescription()).FontSize(12).TextColor(theme.Of(c).Muted).Padding(14, 4, 2, 4)
+	for _, feature := range features {
+		heading(c, betaFeatureTitle(feature.ID))
+		rows := []func(){func() {
+			labeled(c, betaFeatureTitle(feature.ID), betaFeatureDescription(feature.ID))
+			enabled := a.cfg.BetaEnabled(feature.ID)
+			ui.Switch(c, &enabled).Label(betaFeatureTitle(feature.ID)).OnClick(func() {
+				if a.cfg.SetBetaEnabled(feature.ID, enabled) {
+					a.betaSettingChanged(feature.ID)
+				}
+			})
+		}}
+		if a.cfg.BetaEnabled(feature.ID) {
+			for _, setting := range feature.Settings {
+				rows = append(rows, func() { a.betaSettingControl(c, feature.ID, setting) })
+			}
+		}
+		card(c, rows...)
+	}
+}
+
 func (a *App) advancedPane(c *ui.Context) {
 	card(c,
 		func() {
@@ -1310,6 +1451,7 @@ func (a *App) advancedPane(c *ui.Context) {
 				def.SetPath(a.cfg.Path())
 				def.SavedFindQueries = a.cfg.SavedFindQueries
 				*a.cfg = *def
+				a.settings.betaDrafts = nil
 				a.applyEditorPrefsAcrossWindows()
 				a.vibrancySettingChanged()
 			}
@@ -1629,6 +1771,8 @@ func settingsPaneTitle(id string) string {
 		return locales.Notifications()
 	case "intelligence":
 		return locales.CodeIntelligence()
+	case "beta":
+		return locales.BetaFeatures()
 	case "advanced":
 		return locales.Advanced()
 	case "search":

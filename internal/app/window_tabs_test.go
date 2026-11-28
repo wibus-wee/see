@@ -3,6 +3,8 @@ package app
 import (
 	"testing"
 
+	"see/internal/config"
+
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui/editor"
@@ -182,7 +184,17 @@ func TestApplyVibrancyToProjectsUpdatesEveryOpenWindow(t *testing.T) {
 	destroyed := &fakeProjectTabWindow{handle: 3, destroyed: true}
 	projects := []*projectWindow{{app: &App{}, win: first}, {app: &App{}, win: second}, {app: &App{}, win: destroyed}}
 
-	applyVibrancyToProjects(projects, true)
+	cfg := config.Load("")
+	cfg.SetBetaEnabled(config.BetaSidebarVibrancy, true)
+	if got := projectWindowVibrancy(cfg); got != mygo.VibrancySidebar {
+		t.Fatalf("default beta material = %q", got)
+	}
+	cfg.SetBetaSetting(config.BetaSidebarVibrancy, "material", "glass")
+	if got := projectWindowVibrancy(cfg); got != mygo.VibrancyGlass {
+		t.Fatalf("configured beta material = %q", got)
+	}
+	cfg.SetBetaSetting(config.BetaSidebarVibrancy, "material", "sidebar")
+	applyVibrancyToProjects(projects, cfg)
 	for i, window := range []*fakeProjectTabWindow{first, second} {
 		if len(window.vibrancy) != 1 || window.vibrancy[0] != mygo.VibrancySidebar || window.updates != 1 {
 			t.Fatalf("window %d vibrancy=%v updates=%d", i, window.vibrancy, window.updates)
@@ -192,7 +204,8 @@ func TestApplyVibrancyToProjectsUpdatesEveryOpenWindow(t *testing.T) {
 		t.Fatalf("destroyed window vibrancy=%v updates=%d", destroyed.vibrancy, destroyed.updates)
 	}
 
-	applyVibrancyToProjects(projects, false)
+	cfg.SetBetaEnabled(config.BetaSidebarVibrancy, false)
+	applyVibrancyToProjects(projects, cfg)
 	if got := first.vibrancy[1]; got != mygo.VibrancyNone {
 		t.Fatalf("disabled material = %q, want none", got)
 	}
