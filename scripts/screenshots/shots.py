@@ -744,11 +744,17 @@ def write_config(home, root, scene):
         json.dump(cfg, f)
 
 
+# The dock is about 75 DIPs tall here, plus a few pixels of clearance:
+# the screen's usable bottom for both centering and cropping.
+DOCK = 82
+
+
 def center_window():
     """macOS opens the window wherever it likes; the wallpaper crop wants
-    the same room on every side, so center it in the 1920x1080 screen."""
+    the same room on every side, so center it in the usable screen: below
+    the menu bar, above the dock."""
     x = int((1920 - 1440) / 2)
-    y = int(25 + (1080 - 25 - 860) / 2)
+    y = int(25 + (1080 - 25 - DOCK - 860) / 2)
     for proc in ("See", "see-e2e", "see"):
         script = (f'tell application "System Events" to set position of window 1 '
                   f'of process "{proc}" to {{{x}, {y}}}')
@@ -895,10 +901,17 @@ def compose_hero(screen_png, meta_json, out_png, margin_dips=110):
         # decides, never crossing the menu bar or the screen's edges.
         want = int(margin_dips * scale)
         menubar = int(25 * scale)
-        m = max(0, min(want, x, y - menubar, img.width - x2, img.height - y2))
+        dock = int(DOCK * scale)
+        # The wallpaper gap is equal on every side; the bottom edge then
+        # extends past the dock, so the dock stands inside the bottom
+        # margin rather than eating it.
+        m = max(0, min(want, x, y - menubar, img.width - x2))
     else:
         m = 0
-    x0, y0, x1, y1 = x - m, y - m, x2 + m, y2 + m
+        dock = 0
+    x0, y0 = x - m, y - m
+    x1 = x2 + m
+    y1 = min(img.height, y2 + m + dock) if margin_dips else y2 + m
     img.crop((x0, y0, x1, y1)).save(out_png)
     print(f"hero: {out_png} ({x1 - x0}x{y1 - y0})")
 
