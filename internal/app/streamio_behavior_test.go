@@ -127,9 +127,12 @@ func TestHexViewReanchorsToTheChangedVersion(t *testing.T) {
 
 	// The next frame pins the version now on disk: its stamp is the
 	// modification's, and the window it reads carries the marker the old
-	// version never had.
+	// version never had. The jump straddles a page boundary, so the
+	// frame requests both pages of the window concurrently; waiting for
+	// the one the assertion reads — rather than for any page — keeps
+	// the readiness condition the same fact the assertion checks.
 	h.tt.Frame()
-	h.settle(func() bool { return d.hex != nil && len(d.hex.pages) > 0 })
+	h.settle(func() bool { return d.hex != nil && d.hex.pages[hexview.PageBytes] != nil })
 	if d.hex.sess.Stamp() == pinned {
 		t.Fatalf("the re-pinned session is the old version: %+v", d.hex.sess.Stamp())
 	}
