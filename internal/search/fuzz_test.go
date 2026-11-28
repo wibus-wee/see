@@ -73,8 +73,11 @@ func FuzzUnflip(f *testing.F) {
 }
 
 // FuzzFiles exercises the multi-term ranking pipeline over arbitrary path
-// sets and queries, including its parallel shards. Whatever is matched,
-// result count stays within the limit and hits stay inside their paths.
+// sets and queries. Whatever is matched, result count stays within the
+// limit and hits stay inside their paths. The path budget is 512, so the
+// pipeline runs single-sharded here — Files shards at 4097 paths and up;
+// parallel/serial equivalence is the unit test
+// TestLargeFileQueriesKeepOrderAndHits's job, not this target's.
 func FuzzFiles(f *testing.F) {
 	f.Add("a.go\ninternal/app/model.go\ndocs/MainPage.md\nmain_test.go", "main", 60)
 	f.Add("x", "x x x x", 1)
