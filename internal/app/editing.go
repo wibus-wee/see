@@ -13,8 +13,8 @@ import (
 
 	"github.com/egoist/mygo/ui/editor"
 	"see/internal/atomicfile"
-	"see/internal/fileobs"
 	"see/internal/config"
+	"see/internal/fileobs"
 	"see/internal/platform"
 	"see/internal/workspace"
 )

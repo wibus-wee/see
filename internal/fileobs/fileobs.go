@@ -178,7 +178,9 @@ func ObservePath(source Source, path string) (Observation, error) {
 // digest, so both attributes describe the same opened file object even
 // when the path is replaced mid-read — a concurrent writer can still
 // produce a mismatch, but never a Frankenstein observation that matches
-// content it never was.
+// content it never was. ObserveContent observes files: a directory opens
+// but cannot be read, so it is an error, where ObservePath stats it into
+// a size+mtime observation happily.
 func ObserveContent(source Source, path string) (Observation, error) {
 	f, err := os.Open(path)
 	if errors.Is(err, os.ErrNotExist) {

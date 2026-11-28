@@ -1,11 +1,11 @@
 package app
 
 import (
-	"see/internal/fileobs"
 	"errors"
 	"io"
 	"os"
 	"path/filepath"
+	"see/internal/fileobs"
 	"slices"
 	"strings"
 	"testing"

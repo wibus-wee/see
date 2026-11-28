@@ -427,8 +427,8 @@ func (a *App) localHistoryContent(c *ui.Context, g *group, v *gitDiffTab) {
 				}
 			} else if lh.selected >= 0 && lh.selected < len(lh.snapshots) && lh.snapshots[lh.selected].Corrupt {
 				ui.Column(c).Grow(1).FillWidth().Center().Gap(8).Children(func() {
-					ui.Text(c, "This snapshot is corrupt and cannot be restored.").FontSize(13).TextColor(colors(c).Err)
-					ui.Text(c, "Its stored content no longer matches the digest recorded when it was written.").FontSize(12).TextColor(colors(c).Dim)
+					ui.Text(c, localHistoryText("localHistoryCorrupt")).FontSize(13).TextColor(colors(c).Err)
+					ui.Text(c, localHistoryText("localHistoryCorruptDetail")).FontSize(12).TextColor(colors(c).Dim)
 				})
 			} else {
 				ui.Box(c).Grow(1)
@@ -461,7 +461,7 @@ func (a *App) localHistoryStatusBar(c *ui.Context, g *group, v *gitDiffTab) {
 			for i, snapshot := range lh.snapshots {
 				label := snapshot.CreatedAt.Local().Format("2006-01-02 15:04:05")
 				if snapshot.Corrupt {
-					label += "  ·  corrupt"
+					label += "  ·  " + localHistoryText("localHistoryCorruptTag")
 				} else {
 					lines := localHistoryFormat("localHistorySnapshotLines", map[string]any{"lines": localHistoryLineCount(snapshot.Text)})
 					label = fmt.Sprintf("%s  ·  %s", label, lines)

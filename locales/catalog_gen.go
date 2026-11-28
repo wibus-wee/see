@@ -1144,6 +1144,36 @@ func (msgs Messages) LocalHistoryCurrentUnsaved() string {
 	return Catalog.Format(msgs.locale, "localHistoryCurrentUnsaved", nil)
 }
 
+// LocalHistoryCorrupt says "This snapshot is corrupt and cannot be restored."
+// in the language the app shows.
+func LocalHistoryCorrupt() string { return In(i18n.Locale()).LocalHistoryCorrupt() }
+
+// LocalHistoryCorrupt says "This snapshot is corrupt and cannot be restored."
+// in the language of msgs.
+func (msgs Messages) LocalHistoryCorrupt() string {
+	return Catalog.Format(msgs.locale, "localHistoryCorrupt", nil)
+}
+
+// LocalHistoryCorruptDetail says "Its stored content no longer matches the digest recorded when it was written."
+// in the language the app shows.
+func LocalHistoryCorruptDetail() string { return In(i18n.Locale()).LocalHistoryCorruptDetail() }
+
+// LocalHistoryCorruptDetail says "Its stored content no longer matches the digest recorded when it was written."
+// in the language of msgs.
+func (msgs Messages) LocalHistoryCorruptDetail() string {
+	return Catalog.Format(msgs.locale, "localHistoryCorruptDetail", nil)
+}
+
+// LocalHistoryCorruptTag says "corrupt"
+// in the language the app shows.
+func LocalHistoryCorruptTag() string { return In(i18n.Locale()).LocalHistoryCorruptTag() }
+
+// LocalHistoryCorruptTag says "corrupt"
+// in the language of msgs.
+func (msgs Messages) LocalHistoryCorruptTag() string {
+	return Catalog.Format(msgs.locale, "localHistoryCorruptTag", nil)
+}
+
 // LocalHistoryNoSnapshots says "No local snapshots yet"
 // in the language the app shows.
 func LocalHistoryNoSnapshots() string { return In(i18n.Locale()).LocalHistoryNoSnapshots() }
