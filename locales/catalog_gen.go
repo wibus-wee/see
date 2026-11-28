@@ -12638,6 +12638,26 @@ func (msgs Messages) MsgServerCrashedRepeatedly() string {
 	return Catalog.Format(msgs.locale, "msgServerCrashedRepeatedly", nil)
 }
 
+// ErrorBannerMore says "{count, plural, one { +# more} other { +# more}}"
+// in the language the app shows.
+func ErrorBannerMore(count int) string { return In(i18n.Locale()).ErrorBannerMore(count) }
+
+// ErrorBannerMore says "{count, plural, one { +# more} other { +# more}}"
+// in the language of msgs.
+func (msgs Messages) ErrorBannerMore(count int) string {
+	return Catalog.Format(msgs.locale, "errorBannerMore", map[string]any{"count": count})
+}
+
+// Review says "Review"
+// in the language the app shows.
+func Review() string { return In(i18n.Locale()).Review() }
+
+// Review says "Review"
+// in the language of msgs.
+func (msgs Messages) Review() string {
+	return Catalog.Format(msgs.locale, "review", nil)
+}
+
 // MsgConfigLoadProblem says "Some settings could not be loaded and were reset to defaults: {detail}"
 // in the language the app shows.
 func MsgConfigLoadProblem(detail string) string {

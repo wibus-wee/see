@@ -74,12 +74,12 @@ func (a *App) editAllInScopeFor(g *group, d *doc, st *editor.State) {
 	request := a.scopeSeq
 	d, st = a.scopeEditDocumentFor(g, d, st)
 	if d == nil || st == nil {
-		a.note(scopeEditText("scopeEditSourceOnly", nil), false)
+		a.flash(scopeEditText("scopeEditSourceOnly", nil))
 		return
 	}
 	m := a.serverFor(d.path)
 	if m == nil {
-		a.note(locales.MsgNoLanguageServerIsConfiguredForThisFile(), false)
+		a.flash(locales.MsgNoLanguageServerIsConfiguredForThisFile())
 		return
 	}
 	if !a.workspaceTrusted() {
@@ -92,7 +92,7 @@ func (a *App) editAllInScopeFor(g *group, d *doc, st *editor.State) {
 	cursor := st.Cursor()
 	name, offset, ok := scopeIdentifierAt(snap, cursor)
 	if !ok {
-		a.note(scopeEditText("scopeEditIdentifier", nil), false)
+		a.flash(scopeEditText("scopeEditIdentifier", nil))
 		return
 	}
 	selections := slices.Clone(st.Selections())
@@ -100,7 +100,6 @@ func (a *App) editAllInScopeFor(g *group, d *doc, st *editor.State) {
 	ctx, cancel := context.WithTimeout(a.wsCtx, 20*time.Second)
 	a.scopeCancel = cancel
 	a.scopePendingState, a.scopePendingGroup, a.scopePendingPath = st, g, path
-	a.notice = ""
 	go func() {
 		defer cancel()
 		client, err := m.Get(ctx)
@@ -134,17 +133,16 @@ func (a *App) editAllInScopeFor(g *group, d *doc, st *editor.State) {
 			}
 			switch {
 			case errors.Is(err, errDocumentHighlightsUnsupported):
-				a.note(scopeEditText("scopeEditUnsupported", nil), false)
+				a.flash(scopeEditText("scopeEditUnsupported", nil))
 			case errors.Is(err, context.Canceled):
 				return
 			case err != nil:
-				a.note(scopeEditText("scopeEditFailed", map[string]any{"error": err.Error()}), true)
+				a.fail(scopeEditText("scopeEditFailed", map[string]any{"error": err.Error()}))
 			case len(ranges) == 0:
-				a.note(scopeEditText("scopeEditEmpty", nil), false)
+				a.flash(scopeEditText("scopeEditEmpty", nil))
 			default:
 				st.SetSelections(ranges...)
 				a.scopeModeState, a.scopeModeGroup, a.scopeModePath = st, g, path
-				a.notice = ""
 			}
 		})
 	}()

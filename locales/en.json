@@ -1245,5 +1245,7 @@
   "msgDegraded": "Degraded · ",
   "msgDegradedExplanation": "Document sync failed once; it recovers when the next change reaches the server.",
   "msgServerCrashedRepeatedly": "crashed repeatedly — restart it with Retry",
+  "errorBannerMore": "{count, plural, one { +# more} other { +# more}}",
+  "review": "Review",
   "msgConfigLoadProblem": "Some settings could not be loaded and were reset to defaults: {detail}"
 }

@@ -777,10 +777,16 @@ func TestGitLogTagAndCherryPickActions(t *testing.T) {
 		t.Fatal("tag was not created on the chosen commit and reflected in the tree")
 	}
 	choose(locales.GitCherryPick())
-	h.settle(func() bool { return strings.HasPrefix(h.a.notice, "Cherry-picked ") || h.a.noticeError })
+	var feedback string
+	h.settle(func() bool {
+		for _, e := range h.feedback {
+			feedback = e.msg
+		}
+		return strings.HasPrefix(feedback, "Cherry-picked ") || len(h.a.feedback.errors) != 0
+	})
 	head := git.Resolve(ctx, root, "HEAD")
-	if h.a.noticeError || head == feature || !strings.HasPrefix(h.a.notice, "Cherry-picked ") {
-		t.Fatalf("cherry-pick: %q (HEAD %q, source %q)", h.a.notice, head, feature)
+	if len(h.a.feedback.errors) != 0 || head == feature || !strings.HasPrefix(feedback, "Cherry-picked ") {
+		t.Fatalf("cherry-pick: %q (HEAD %q, source %q)", feedback, head, feature)
 	}
 	h.settleFrames(func() bool {
 		return h.a.focus.diffs[gitLogTab].log.selected == head

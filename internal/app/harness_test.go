@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -93,13 +94,14 @@ const harnessWidth, harnessHeight = 1100, 700
 // harness runs the app's view in a tester, with background results
 // queued until the test lets them through.
 type harness struct {
-	t    *testing.T
-	a    *App
-	tt   *ui.Tester
-	q    chan func()
-	fc   *fakeClient
-	host *fakeHost
-	ran  int // queued results run
+	t        *testing.T
+	a        *App
+	tt       *ui.Tester
+	q        chan func()
+	fc       *fakeClient
+	host     *fakeHost
+	ran      int // queued results run
+	feedback []feedbackEntry
 }
 
 func newHarness(t *testing.T, root string) *harness {
@@ -137,6 +139,7 @@ func newHarnessWithConfig(t *testing.T, root string, cfg *config.Config) *harnes
 		}
 	}
 	h.tt = ui.NewTester(h.a.view, harnessWidth, harnessHeight)
+	h.installFeedbackLog()
 	if root != "" {
 		h.a.openWorkspace(root)
 		h.settle(func() bool { d := h.a.dirs[h.a.root]; return d != nil && d.loaded })
@@ -162,6 +165,58 @@ func testLogf(t *testing.T) func(string, ...any) {
 		}
 	}
 }
+
+// newHarness records the feedback the app reports in h.feedback: flash
+// events drain into toasts on the first frame after they land, after
+// which nothing observes them, so tests read the recording rather than
+// the state. Production leaves feedbackLog nil.
+func (h *harness) installFeedbackLog() {
+	feedbackLog = &h.feedback
+	h.t.Cleanup(func() { feedbackLog = nil })
+}
+
+// feedbackTexts is the feedback the test's app reported, errors as the
+// successes, in order.
+func (h *harness) feedbackTexts() []string {
+	var out []string
+	for _, e := range h.feedback {
+		out = append(out, e.msg)
+	}
+	return out
+}
+
+// hasFeedback reports whether the app reported exactly the message.
+func (h *harness) hasFeedback(msg string) bool {
+	for _, e := range h.feedback {
+		if e.msg == msg {
+			return true
+		}
+	}
+	return false
+}
+
+// feedbackContains reports whether some reported feedback carries part.
+func (h *harness) feedbackContains(part string) bool {
+	for _, e := range h.feedback {
+		if strings.Contains(e.msg, part) {
+			return true
+		}
+	}
+	return false
+}
+
+// feedbackError is the newest error the app reported, if any.
+func (h *harness) feedbackError() (string, bool) {
+	for i := len(h.feedback) - 1; i >= 0; i-- {
+		if h.feedback[i].err {
+			return h.feedback[i].msg, true
+		}
+	}
+	return "", false
+}
+
+// clearFeedback forgets what the app reported, as a test step ends.
+func (h *harness) clearFeedback() { h.feedback = nil }
 
 // treeHas reports whether the file tree shows a row of p.
 func (h *harness) treeHas(p string) bool {

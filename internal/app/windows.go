@@ -108,6 +108,9 @@ func (w *windows) reopen() {
 func (a *App) welcomeView(c *ui.Context) {
 	a.applyAppearance(c)
 	c.SetTheme(a.theme)
+	// The welcome window drains events too: what flashes while it is the
+	// window up front must not wait for the main one to build.
+	a.drainFeedback(c)
 	switch {
 	case c.Shortcut(ui.Cmd|ui.Shift, ui.KeyN):
 		a.host.OpenProjectWindow("")

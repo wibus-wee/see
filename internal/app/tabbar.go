@@ -36,7 +36,7 @@ func (a *App) tabFileMenu(c *ui.Context, m *ui.Menu, tab string, d *doc, diff *g
 	}
 	if runtime.GOOS == "darwin" && m.Item(locales.QuickLook()).Chosen() {
 		if err := a.host.PreviewItem(path); err != nil {
-			a.note(locales.MsgCouldNotPreviewFile()+err.Error(), true)
+			a.fail(locales.MsgCouldNotPreviewFile() + err.Error())
 		}
 	}
 	if m.Item(showInFolderLabel()).Chosen() {

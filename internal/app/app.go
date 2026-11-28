@@ -205,8 +205,7 @@ type App struct {
 	trustDismissed bool
 	trustAsk       bool   // asking whether to trust the workspace
 	afterTrust     func() // what to do once trusted
-	notice         string // the last message for the user
-	noticeError    bool
+	feedback       feedbackState
 
 	symbolHighlights symbolHighlightState
 
@@ -435,9 +434,6 @@ func newApp(cfg *config.Config) *App {
 
 func uriOf(path string) string { return uri.FromPath(path) }
 
-// note shows a message in the activity view.
-func (a *App) note(msg string, isErr bool) { a.notice, a.noticeError = msg, isErr }
-
 // activePath is the focused group's active document.
 func (a *App) activePath() string {
 	if isDiffTab(a.focus.active) {
@@ -464,7 +460,7 @@ func (a *App) openFolderDialog() {
 		a.post.Post(func() {
 			switch {
 			case err != nil:
-				a.note(locales.MsgCouldNotShowTheFolderDialog()+err.Error(), true)
+				a.fail(locales.MsgCouldNotShowTheFolderDialog() + err.Error())
 			case p != "":
 				a.openProject(p)
 			}
@@ -482,7 +478,7 @@ func (a *App) addWorkspaceFolderDialog() {
 		a.post.Post(func() {
 			switch {
 			case err != nil:
-				a.note(locales.MsgCouldNotShowTheFolderDialog()+err.Error(), true)
+				a.fail(locales.MsgCouldNotShowTheFolderDialog() + err.Error())
 			case p != "":
 				a.addWorkspaceFolder(p)
 			}
@@ -496,14 +492,14 @@ func (a *App) addWorkspaceFolder(path string) {
 	}
 	root, err := workspace.CanonicalRoot(path)
 	if err != nil {
-		a.note(locales.MsgCouldNotOpen()+path+": "+describeErr(err), true)
+		a.fail(locales.MsgCouldNotOpen() + path + ": " + describeErr(err))
 		return
 	}
 	var folders []workspace.Folder
 	if a.isCodeWorkspace() {
 		folders, err = workspace.AddCodeWorkspaceFolder(a.workspaceID, workspace.Folder{Path: root, Name: filepath.Base(root)})
 		if err != nil {
-			a.note(workspaceUpdateFailed(a.workspaceID, err), true)
+			a.fail(workspaceUpdateFailed(a.workspaceID, err))
 			return
 		}
 	} else {
@@ -514,7 +510,7 @@ func (a *App) addWorkspaceFolder(path string) {
 		}
 		workspaceFile, created, convertErr := a.plainWorkspaceFile(a.workspaceFolders)
 		if convertErr != nil {
-			a.note(locales.MsgCouldNotOpen()+workspaceFile+": "+describeErr(convertErr), true)
+			a.fail(locales.MsgCouldNotOpen() + workspaceFile + ": " + describeErr(convertErr))
 			return
 		}
 		folders = nil
@@ -531,7 +527,7 @@ func (a *App) addWorkspaceFolder(path string) {
 			if created {
 				_ = os.Remove(workspaceFile)
 			}
-			a.note(workspaceUpdateFailed(workspaceFile, err), true)
+			a.fail(workspaceUpdateFailed(workspaceFile, err))
 			return
 		}
 		a.adoptCodeWorkspace(workspaceFile)
@@ -605,7 +601,7 @@ func (a *App) removeWorkspaceFolder(path string) {
 		var err error
 		folders, err = workspace.RemoveCodeWorkspaceFolder(a.workspaceID, path)
 		if err != nil {
-			a.note(workspaceUpdateFailed(a.workspaceID, err), true)
+			a.fail(workspaceUpdateFailed(a.workspaceID, err))
 			return
 		}
 	} else {
@@ -901,7 +897,7 @@ func (a *App) closeWorkspace() {
 	a.watchErr, a.watching = nil, false
 	a.git = gitState{}
 	a.ignored = nil
-	a.notice = ""
+	a.feedback = feedbackState{}
 	a.hover = hoverState{}
 	a.find.reset()
 	a.quick = quickOpen{}
@@ -1336,7 +1332,7 @@ func (a *App) openInMode(g *group, path string, to goTo, addTab bool) *doc {
 		d = &doc{path: path, uri: uriOf(path), name: filepath.Base(path)}
 		if a.root == "" && !claimStandalonePath(a, d, path) {
 			a.host.RevealOpenFile(path)
-			a.note(locales.MsgThatFileIsAlreadyOpen(), true)
+			a.fail(locales.MsgThatFileIsAlreadyOpen())
 			return nil
 		}
 		// A previously discarded document can be opened and edited again in
@@ -1934,7 +1930,7 @@ func (a *App) goToLocation(g *group, d *doc, offset int, kind string) {
 	a.observeFocusedGroup(g)
 	m := a.serverFor(d.path)
 	if m == nil {
-		a.note(locales.MsgNoLanguageServerIsConfiguredForThisFile(), false)
+		a.flash(locales.MsgNoLanguageServerIsConfiguredForThisFile())
 		return
 	}
 	if !a.workspaceTrusted() {
@@ -1955,7 +1951,6 @@ func (a *App) goToLocation(g *group, d *doc, offset int, kind string) {
 	if kind != "definition" && kind != "peek" {
 		a.findingLabel = navigationText(kind, "Finding")
 	}
-	a.notice = ""
 	go func() {
 		defer cancel()
 		locs, enc, err := locationRequest(ctx, m, d.uri, snap, pos, line, kind)
@@ -2032,16 +2027,16 @@ func (a *App) locationFound(g *group, from nav.Entry, targets []target, enc stri
 		a.lspFailure(err)
 	case len(targets) == 0 && skipped > 0:
 		if kind != "definition" {
-			a.note(navigationText(kind, "Unavailable"), false)
+			a.flash(navigationText(kind, "Unavailable"))
 			return
 		}
-		a.note(locales.MsgTheDefinitionIsInAPlaceThatIs(), false)
+		a.flash(locales.MsgTheDefinitionIsInAPlaceThatIs())
 	case len(targets) == 0:
 		if kind != "definition" {
-			a.note(navigationText(kind, "Empty"), false)
+			a.flash(navigationText(kind, "Empty"))
 			return
 		}
-		a.note(locales.MsgNoDefinitionFound(), false)
+		a.flash(locales.MsgNoDefinitionFound())
 	case len(targets) == 1:
 		a.jump(g, from, targets[0], enc)
 	default:
@@ -2060,7 +2055,7 @@ func (a *App) lspFailure(err error) {
 	var failure *operr.Error
 	switch {
 	case errors.As(err, &failure) && failure.Kind == operr.Unsupported:
-		a.note(locales.Unavailable()+": "+failure.Operation, false)
+		a.flash(locales.Unavailable() + ": " + failure.Operation)
 	case errors.As(err, &failure) && failure.Status == operr.Persistent:
 		// A spent restart budget surfaces as bare "unexpected (persistent)"
 		// in Error(); the user needs the server named and the way back.
@@ -2068,22 +2063,22 @@ func (a *App) lspFailure(err error) {
 		if m := a.serverFor(a.activePath()); m != nil {
 			name = m.Name()
 		}
-		a.note(strings.TrimSpace(name+" "+locales.MsgServerCrashedRepeatedly()), true)
+		a.fail(strings.TrimSpace(name + " " + locales.MsgServerCrashedRepeatedly()))
 	case errors.Is(err, proc.ErrUntrustedExecutable):
-		a.note("Denied: executables inside this workspace are never run.", true)
+		a.fail("Denied: executables inside this workspace are never run.")
 	case errors.Is(err, languages.ErrNoGopls):
-		a.note(locales.MsgGoToDefinitionNeedsGoplsInstallItWith(), true)
+		a.fail(locales.MsgGoToDefinitionNeedsGoplsInstallItWith())
 	case errors.Is(err, languages.ErrNoCMakeServer):
-		a.note(locales.MsgInstallCmakeLanguageServerAndMakeItAvailable(), true)
+		a.fail(locales.MsgInstallCmakeLanguageServerAndMakeItAvailable())
 	case errors.Is(err, languages.ErrNoClangd):
-		a.note(locales.MsgInstallClangdAndMakeItAvailableOnPATH(), true)
+		a.fail(locales.MsgInstallClangdAndMakeItAvailableOnPATH())
 	case errors.Is(err, languages.ErrNoTypeScriptServer):
-		a.note(locales.MsgInstallTheTypeScriptLanguageServerInSettingsThen(), true)
+		a.fail(locales.MsgInstallTheTypeScriptLanguageServerInSettingsThen())
 	case errors.Is(err, context.DeadlineExceeded):
-		a.note(locales.MsgTheLanguageServerTookTooLongToAnswer(), true)
+		a.fail(locales.MsgTheLanguageServerTookTooLongToAnswer())
 	case errors.Is(err, context.Canceled):
 	default:
-		a.note(locales.MsgLanguageServerFailed()+err.Error(), true)
+		a.fail(locales.MsgLanguageServerFailed() + err.Error())
 	}
 }
 
@@ -2124,7 +2119,6 @@ func (a *App) retryLSP() {
 		a.invalidateHover()
 		a.lsp.Retry()
 		a.lspState, a.lspErr = a.lsp.Status()
-		a.notice = ""
 		a.openServerDocuments(a.lsp)
 		if a.problems.started {
 			a.startProblemServer(filepath.Join(a.root, "go.mod"))
@@ -2215,7 +2209,6 @@ func (a *App) retryCustomLSP(idx int) {
 		state langserver.State
 		err   error
 	}{s, err}
-	a.notice = ""
 	a.openServerDocuments(m)
 }
 
@@ -2224,7 +2217,6 @@ func (a *App) retryTypeScriptLSP() {
 		a.invalidateHover()
 		a.tsLSP.Retry()
 		a.tsState, a.tsErr = a.tsLSP.Status()
-		a.notice = ""
 		a.openServerDocuments(a.tsLSP)
 	}
 }
@@ -2380,7 +2372,7 @@ func (a *App) findUsagesAt(callers bool, anchor ui.Point, validAnchor bool) {
 	}
 	m := a.serverFor(d.path)
 	if m == nil {
-		a.note(locales.MsgNoLanguageServerIsConfiguredForThisFile(), false)
+		a.flash(locales.MsgNoLanguageServerIsConfiguredForThisFile())
 		return
 	}
 	if !a.workspaceTrusted() {
@@ -2400,7 +2392,6 @@ func (a *App) findUsagesAt(callers bool, anchor ui.Point, validAnchor bool) {
 	if callers {
 		a.findingLabel = "Finding callers…"
 	}
-	a.notice = ""
 	seq, gen := a.navSeq, a.gen
 	go func() {
 		defer cancel()
@@ -2448,10 +2439,10 @@ func (a *App) findUsagesAt(callers bool, anchor ui.Point, validAnchor bool) {
 			}
 			if len(targets) == 0 {
 				if skipped > 0 {
-					a.note(locales.MsgResultsAreNotInLocalFiles(), false)
+					a.flash(locales.MsgResultsAreNotInLocalFiles())
 				} else {
 					display := referenceTitle(name)
-					a.note(locales.Catalog.Format(i18n.Locale(), "msgNoSFound", map[string]any{"name": display}), false)
+					a.flash(locales.Catalog.Format(i18n.Locale(), "msgNoSFound", map[string]any{"name": display}))
 				}
 				return
 			}
@@ -2574,7 +2565,6 @@ func (a *App) retryClangd() {
 		a.invalidateHover()
 		a.clangLSP.Retry()
 		a.clangState, a.clangErr = a.clangLSP.Status()
-		a.notice = ""
 		a.openServerDocuments(a.clangLSP)
 	}
 }
@@ -2584,7 +2574,6 @@ func (a *App) retryCMake() {
 		a.invalidateHover()
 		a.cmakeLSP.Retry()
 		a.cmakeState, a.cmakeErr = a.cmakeLSP.Status()
-		a.notice = ""
 		a.openServerDocuments(a.cmakeLSP)
 	}
 }

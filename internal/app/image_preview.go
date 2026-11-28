@@ -68,7 +68,7 @@ func (a *App) imagePreview(c *ui.Context, g *group, d *doc) {
 
 func (a *App) copyFile(path string) {
 	if err := a.host.CopyFiles(path); err != nil {
-		a.note(locales.MsgCouldNotCopyFile()+describeErr(err), true)
+		a.fail(locales.MsgCouldNotCopyFile() + describeErr(err))
 	}
 }
 
@@ -80,7 +80,7 @@ func (a *App) copyPreviewImage(path string) {
 				err = a.host.CopyImage(bitmap)
 			}
 			if err != nil {
-				a.note(locales.MsgCouldNotCopyImage()+describeErr(err), true)
+				a.fail(locales.MsgCouldNotCopyImage() + describeErr(err))
 			}
 		})
 	}()

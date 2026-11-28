@@ -221,7 +221,7 @@ func (a *App) failPendingPreview(d *doc) {
 		if p := g.pendingPreview; p != nil && p.doc == d {
 			message := locales.MsgCouldNotOpen() + d.name + ": " + describeErr(d.err)
 			a.cancelPendingPreview(g)
-			a.note(message, true)
+			a.fail(message)
 			return
 		}
 	}
@@ -613,8 +613,9 @@ func (a *App) closeTab(g *group, path string) {
 	}
 	if v := g.diffs[path]; v != nil && v.search != nil && v.search.dirty() {
 		a.activateIn(g, path)
+		// The edit view carries the refusal inline, where the edits it
+		// guards are; a global banner would only repeat it.
 		v.search.note, v.search.noteErr = searchEditText("searchEditCloseDirty"), true
-		a.note(v.search.note, true)
 		return
 	}
 	if isDiffTab(path) {

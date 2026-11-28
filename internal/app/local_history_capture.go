@@ -129,7 +129,7 @@ func (a *App) writeLocalHistory(d *doc, text string, at time.Time) {
 	go func() {
 		defer a.localHistoryWrites.Done()
 		if _, _, err := store.Add(path, text, at); err != nil {
-			post(func() { a.note(localHistoryText("localHistoryWriteError")+err.Error(), true) })
+			post(func() { a.fail(localHistoryText("localHistoryWriteError") + err.Error()) })
 		}
 	}()
 }

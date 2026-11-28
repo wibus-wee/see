@@ -114,7 +114,7 @@ func TestTaskSourceBasenameInSubpackage(t *testing.T) {
 	h.a.quick.files = []string{"sub/a_test.go", "other/a_test.go"}
 	before := h.a.activeEditor().Cursor()
 	h.a.openTaskLocation(path, editor.Pos{})
-	if !h.a.noticeError || h.a.activeEditor().Cursor() != before {
+	if _, isErr := h.feedbackError(); !isErr || h.a.activeEditor().Cursor() != before {
 		t.Fatal("ambiguous source guessed a file")
 	}
 }

@@ -42,9 +42,15 @@ type welcomeClone struct {
 // welcomeWindow fills the welcome window (welcomeWindowSize), its title
 // bar hidden behind the left side, as Xcode's.
 func (a *App) welcomeWindow(c *ui.Context) {
-	ui.Row(c).Fill().DragWindow().Children(func() {
-		a.welcomeIntro(c)
-		a.welcomeRecent(c)
+	ui.Column(c).Fill().DragWindow().Children(func() {
+		// The banner shows here too: errors the welcome window's own
+		// actions produce, as a folder that does not open, must not wait
+		// for a workspace to appear under.
+		a.errorBanner(c)
+		ui.Row(c).Grow(1).FillWidth().Children(func() {
+			a.welcomeIntro(c)
+			a.welcomeRecent(c)
+		})
 	})
 	if a.clone.open {
 		a.clonePanel(c)

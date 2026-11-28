@@ -1245,5 +1245,7 @@
   "msgDegraded": "已降级 · ",
   "msgDegradedExplanation": "一次文档同步失败；下次更改送达服务器后恢复。",
   "msgServerCrashedRepeatedly": "反复崩溃 — 点“重试”重新启动",
+  "errorBannerMore": "{count, plural, other {（还有 # 个）}}",
+  "review": "查看",
   "msgConfigLoadProblem": "部分设置无法加载，已重置为默认值：{detail}"
 }

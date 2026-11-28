@@ -102,7 +102,7 @@ func (a *App) renameSymbolAt(g *group, d *doc, st *editor.State) {
 	a.observeFocusedGroup(g)
 	m := a.serverFor(d.path)
 	if m == nil {
-		a.note(locales.MsgNoLanguageServerIsConfiguredForThisFile(), false)
+		a.flash(locales.MsgNoLanguageServerIsConfiguredForThisFile())
 		return
 	}
 	if !a.workspaceTrusted() {
@@ -112,12 +112,12 @@ func (a *App) renameSymbolAt(g *group, d *doc, st *editor.State) {
 	}
 	c := m.Current()
 	if c == nil {
-		a.note(locales.MsgCodeActionUnavailable(), false)
+		a.flash(locales.MsgCodeActionUnavailable())
 		return
 	}
 	r, ok := c.(renameClient)
 	if !ok || !r.HasRename() {
-		a.note(locales.RenameUnsupported(), false)
+		a.flash(locales.RenameUnsupported())
 		return
 	}
 	a.cancelRename()
@@ -133,7 +133,6 @@ func (a *App) renameSymbolAt(g *group, d *doc, st *editor.State) {
 	a.renameCancel = cancel
 	a.finding = true
 	a.findingLabel = locales.RenamePreparing()
-	a.notice = ""
 	go func() {
 		defer cancel()
 		if err := m.Sync(ctx, c, d.uri, snap); err != nil {
@@ -156,7 +155,7 @@ func (a *App) renameSymbolAt(g *group, d *doc, st *editor.State) {
 						a.finding = false
 						a.renameCancel = nil
 						if errors.Is(err, lsp.ErrNoRename) {
-							a.note(locales.RenameNone(), false)
+							a.flash(locales.RenameNone())
 						} else {
 							a.lspFailure(err)
 						}
@@ -169,7 +168,7 @@ func (a *App) renameSymbolAt(g *group, d *doc, st *editor.State) {
 					if a.gen == gen && a.renameSeq == seq {
 						a.finding = false
 						a.renameCancel = nil
-						a.note(locales.RenameNone(), false)
+						a.flash(locales.RenameNone())
 					}
 				})
 				return
@@ -284,7 +283,7 @@ func (a *App) renameStrip(c *ui.Context, bounds ui.Rect, st *editor.State, d *do
 func (a *App) submitSymbolRename(r *renameState) {
 	name := strings.TrimSpace(r.name)
 	if name == "" {
-		a.note(locales.RenameEmpty(), false)
+		a.flash(locales.RenameEmpty())
 		return
 	}
 	r.applying = true
@@ -305,7 +304,7 @@ func (a *App) submitSymbolRename(r *renameState) {
 			}
 			if edit == nil || (len(edit.EditURIs()) == 0 && edit.ResourceChanges() == 0) {
 				a.cancelRename()
-				a.note(locales.RenameNone(), false)
+				a.flash(locales.RenameNone())
 				return
 			}
 			if err := a.applyWorkspaceEdit(edit, m); err != nil {

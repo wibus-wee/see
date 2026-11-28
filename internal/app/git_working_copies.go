@@ -358,10 +358,10 @@ func (a *App) runGitWorkingCopyAction(root string, args ...string) {
 				a.git.diffSeq++
 			}
 			if err != nil {
-				a.note(locales.MsgGit()+err.Error(), true)
+				a.fail(locales.MsgGit() + err.Error())
 			} else if args[0] == "commit" {
 				workingCopy.message = ""
-				a.note(locales.MsgCommittedStagedChanges(), false)
+				a.flash(locales.MsgCommittedStagedChanges())
 			}
 			if root == a.git.root {
 				a.refreshGit()
@@ -415,7 +415,7 @@ func (a *App) discardGitWorkingCopyChanges(root string, changes []git.Change) {
 		path := workspace.DocPath(a.root, a.realRoot, filepath.Join(root, filepath.FromSlash(change.Path)))
 		paths[i] = path
 		if doc := a.docs[path]; doc != nil && doc.buf != nil && doc.buf.Modified() {
-			a.note(locales.MsgSaveOrCloseTheFileSUnsavedEdits(), true)
+			a.fail(locales.MsgSaveOrCloseTheFileSUnsavedEdits())
 			return
 		}
 	}
@@ -435,7 +435,7 @@ func (a *App) discardGitWorkingCopyChanges(root string, changes []git.Change) {
 			a.deleteConfirm = nil
 			for i := range changes {
 				if doc := a.docs[paths[i]]; doc != nil && doc.buf != nil && doc.buf.Modified() {
-					a.note(locales.MsgSaveOrCloseTheFileSUnsavedEdits(), true)
+					a.fail(locales.MsgSaveOrCloseTheFileSUnsavedEdits())
 					return
 				}
 			}
@@ -489,7 +489,7 @@ func (a *App) discardGitWorkingCopyChanges(root string, changes []git.Change) {
 						a.git.diffSeq++
 					}
 					if firstErr != nil {
-						a.note(locales.MsgCouldNotDiscardGitChanges()+firstErr.Error(), true)
+						a.fail(locales.MsgCouldNotDiscardGitChanges() + firstErr.Error())
 					} else {
 						a.quick.files, a.quick.err = nil, nil
 						a.filter.forQuery = ""

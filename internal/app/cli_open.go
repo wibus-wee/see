@@ -49,13 +49,13 @@ func (a *App) revealRequest(req cli.Request) {
 func (a *App) openStdin(path string) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		a.note(locales.CouldNotReadStdin()+describeErr(err), true)
+		a.fail(locales.CouldNotReadStdin() + describeErr(err))
 		return
 	}
 	_ = os.Remove(path) // taken once read
 	draft, err := stdinDraftPath(data)
 	if err != nil {
-		a.note(locales.MsgCouldNotCreateRecoveryCache()+err.Error(), true)
+		a.fail(locales.MsgCouldNotCreateRecoveryCache() + err.Error())
 		return
 	}
 	if a.root == "" && len(a.docs) == 0 {
@@ -128,12 +128,12 @@ func (a *App) showCliDiff(old, new string) {
 	}
 	oldAbs, err := canonicalDiffPath(old)
 	if err != nil {
-		a.note(locales.MsgCouldNotOpen()+old+": "+describeErr(err), true)
+		a.fail(locales.MsgCouldNotOpen() + old + ": " + describeErr(err))
 		return
 	}
 	newAbs, err := canonicalDiffPath(new)
 	if err != nil {
-		a.note(locales.MsgCouldNotOpen()+new+": "+describeErr(err), true)
+		a.fail(locales.MsgCouldNotOpen() + new + ": " + describeErr(err))
 		return
 	}
 	if isDir(oldAbs) && isDir(newAbs) {
@@ -142,12 +142,12 @@ func (a *App) showCliDiff(old, new string) {
 	}
 	oldText, err := readDiffFile(oldAbs)
 	if err != nil {
-		a.note(locales.MsgCouldNotOpen()+filepath.Base(oldAbs)+": "+describeErr(err), true)
+		a.fail(locales.MsgCouldNotOpen() + filepath.Base(oldAbs) + ": " + describeErr(err))
 		return
 	}
 	newText, err := readDiffFile(newAbs)
 	if err != nil {
-		a.note(locales.MsgCouldNotOpen()+filepath.Base(newAbs)+": "+describeErr(err), true)
+		a.fail(locales.MsgCouldNotOpen() + filepath.Base(newAbs) + ": " + describeErr(err))
 		return
 	}
 	g := a.focus
@@ -186,12 +186,12 @@ func (a *App) showDirDiff(old, new string) {
 				return
 			}
 			if err != nil {
-				a.note(locales.MsgDiff()+gitErrLine(err), true)
+				a.fail(locales.MsgDiff() + gitErrLine(err))
 				return
 			}
 			patches, err := editor.ParsePatch(string(out))
 			if err != nil || len(patches) == 0 {
-				a.note(locales.MsgNoTextDiffAvailableFor()+old, true)
+				a.fail(locales.MsgNoTextDiffAvailableFor() + old)
 				return
 			}
 			g := a.focus
@@ -217,7 +217,7 @@ func (a *App) showDirDiff(old, new string) {
 				g.addTab(key, len(g.order))
 			}
 			if first == "" {
-				a.note(locales.MsgNoTextDiffAvailableFor()+old, true)
+				a.fail(locales.MsgNoTextDiffAvailableFor() + old)
 				return
 			}
 			a.activateIn(g, first)

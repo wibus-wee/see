@@ -226,7 +226,7 @@ func (a *App) diffLinkButton(c *ui.Context, v *gitDiffTab, t diffLinkTarget) {
 	})
 	if b.Clicked() {
 		a.services.WriteClipboard(link)
-		a.note(locales.MsgCopiedThe()+host+locales.MsgLink(), false)
+		a.flash(locales.MsgCopiedThe() + host + locales.MsgLink())
 	}
 }
 
@@ -259,13 +259,13 @@ func (a *App) linkItems(menu *ui.Menu, d *doc, st *editor.State) {
 	if menu.Item(editorContextMenuText("editorContextCopyCodeReference", nil)).Chosen() {
 		ref := a.codeReference(d, st)
 		a.services.WriteClipboard(ref)
-		a.note(locales.MsgCopied()+ref+".", false)
+		a.flash(locales.MsgCopied() + ref + ".")
 	}
 	if link := a.webLink(d, st); link != "" {
 		host := hostName(a.git.web)
 		if menu.Item(editorContextMenuText("editorContextCopyHostLink", map[string]any{"host": host})).Chosen() {
 			a.services.WriteClipboard(link)
-			a.note(locales.MsgCopiedThe()+host+locales.MsgLink(), false)
+			a.flash(locales.MsgCopiedThe() + host + locales.MsgLink())
 		}
 		if menu.Item(editorContextMenuText("editorContextOpenOnHost", map[string]any{"host": host})).Chosen() {
 			a.services.OpenURL(link)

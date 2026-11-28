@@ -87,7 +87,7 @@ func (a *App) runSyncGit(doing, done string, background bool, args ...string) {
 					}
 				} else {
 					a.git.offline = !git.Reachable(err)
-					a.note(locales.MsgGit()+gitErrLine(err), true)
+					a.fail(locales.MsgGit() + gitErrLine(err))
 				}
 			} else {
 				a.git.fetchFailures, a.git.offline = 0, false
@@ -97,7 +97,7 @@ func (a *App) runSyncGit(doing, done string, background bool, args ...string) {
 					// already looking.
 					a.git.fetchNotified = true
 				} else {
-					a.note(done, false)
+					a.flash(done)
 					a.git.history.stale = true
 					a.clearNotifyIncoming()
 				}
@@ -117,7 +117,7 @@ func (a *App) gitFetch() { a.syncGit("Fetching…", "Fetched.", "fetch", "--all"
 // as Peek's one-click pull: one that would need a merge says so.
 func (a *App) gitPull() {
 	if a.git.upstream == "" {
-		a.note(locales.MsgTheBranchTracksNoRemoteBranchToPull(), true)
+		a.fail(locales.MsgTheBranchTracksNoRemoteBranchToPull())
 		return
 	}
 	a.syncGit("Pulling…", "Pulled from "+a.git.upstream+".", "pull", "--ff-only")
@@ -130,7 +130,7 @@ func (a *App) gitPush() {
 	case a.git.upstream != "":
 		a.syncGit("Pushing…", "Pushed to "+a.git.upstream+".", "push")
 	case len(a.git.remotes) == 0:
-		a.note(locales.MsgTheRepositoryHasNoRemoteToPushTo(), true)
+		a.fail(locales.MsgTheRepositoryHasNoRemoteToPushTo())
 	default:
 		remote := a.git.remotes[0]
 		a.syncGit("Pushing…", "Pushed to "+remote+"/"+a.git.branch+".", "push", "--set-upstream", remote, "HEAD")

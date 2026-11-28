@@ -657,21 +657,7 @@ func (a *App) generalPane(c *ui.Context) {
 		},
 	)
 	heading(c, locales.MsgShellCommand())
-	card(c, func() {
-		detail := "Install see in ~/.local/bin to open files and folders from a terminal. Add ~/.local/bin to your PATH if needed."
-		if s.shellCommandMessage != "" {
-			detail = s.shellCommandMessage
-		}
-		labeled(c, locales.MsgSeeCommand(), detail)
-		ui.Button(c.Key("install-see"), locales.Install()).Label(locales.MsgInstallSeeCommand()).OnClick(func() {
-			a.installSee()
-			s.shellCommandMessage = a.notice
-		})
-		ui.Button(c.Key("uninstall-see"), locales.MsgUninstall()).Label(locales.MsgUninstallSeeCommand()).OnClick(func() {
-			a.uninstallSee()
-			s.shellCommandMessage = a.notice
-		})
-	})
+	a.shellCommandCard(c)
 	heading(c, locales.MsgRecentFolders())
 	card(c, func() {
 		n := len(a.cfg.Recent)
@@ -705,6 +691,27 @@ func (a *App) generalPane(c *ui.Context) {
 			}
 		},
 	)
+}
+
+// shellCommandCard is the install and uninstall of the see command, its
+// outcome inline in the card besides the feedback the window carries.
+// Its own method, not a line of generalPane, so tests can build it
+// without the panes that need the running application.
+func (a *App) shellCommandCard(c *ui.Context) {
+	s := &a.settings
+	card(c, func() {
+		detail := "Install see in ~/.local/bin to open files and folders from a terminal. Add ~/.local/bin to your PATH if needed."
+		if s.shellCommandMessage != "" {
+			detail = s.shellCommandMessage
+		}
+		labeled(c, locales.MsgSeeCommand(), detail)
+		ui.Button(c.Key("install-see"), locales.Install()).Label(locales.MsgInstallSeeCommand()).OnClick(func() {
+			s.shellCommandMessage = a.installSee()
+		})
+		ui.Button(c.Key("uninstall-see"), locales.MsgUninstall()).Label(locales.MsgUninstallSeeCommand()).OnClick(func() {
+			s.shellCommandMessage = a.uninstallSee()
+		})
+	})
 }
 
 func (a *App) initFontValues() {

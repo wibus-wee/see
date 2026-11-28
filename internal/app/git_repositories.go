@@ -366,7 +366,7 @@ func (a *App) submitTag(q *gitTagDialog) {
 				q.err = gitErrLine(err)
 			} else {
 				a.git.repositoryView.tag = nil
-				a.note(locales.GitTagCreated(name), false)
+				a.flash(locales.GitTagCreated(name))
 			}
 			a.refreshGit()
 		})
@@ -397,10 +397,10 @@ func (a *App) cherryPick(cm git.Commit) {
 				if paused {
 					msg += " " + locales.GitCherryPickPaused()
 				}
-				a.note(locales.MsgGit()+msg, true)
+				a.fail(locales.MsgGit() + msg)
 			} else {
 				a.git.diffSeq++
-				a.note(locales.GitCherryPicked(cm.Short), false)
+				a.flash(locales.GitCherryPicked(cm.Short))
 				a.revealLogCommit(head)
 			}
 			if !a.watching {

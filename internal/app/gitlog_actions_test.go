@@ -126,8 +126,8 @@ func TestRevealLogRef(t *testing.T) {
 		t.Fatalf("revealed %q, side's tip is %q", d.log.selected, tip.Hash)
 	}
 	h.a.revealLogRef("no-such")
-	h.settle(func() bool { return h.a.notice != "" })
-	if h.a.notice == "" {
+	h.settle(func() bool { return len(h.feedback) != 0 })
+	if len(h.feedback) == 0 {
 		t.Fatal("an unknown revision notes it")
 	}
 }

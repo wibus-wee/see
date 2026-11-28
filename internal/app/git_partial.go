@@ -236,7 +236,7 @@ func (a *App) applyGitDiffPart(v *gitDiffTab, part gitDiffPart) {
 				a.git.busy = false
 			}
 			if err != nil {
-				a.note(locales.MsgGit()+gitErrLine(err), true)
+				a.fail(locales.MsgGit() + gitErrLine(err))
 			}
 			if refreshErr == nil {
 				a.updateGitChangeViews(root, name, working, index)
@@ -318,7 +318,7 @@ func (a *App) refreshGitWorkingDiffs(root string, changes []git.Change) {
 						return
 					}
 					if err != nil {
-						a.note(locales.MsgGitDiff()+err.Error(), true)
+						a.fail(locales.MsgGitDiff() + err.Error())
 						updated = gitChangeView{}
 					}
 					hunk, _ := view.state.CurrentHunk()

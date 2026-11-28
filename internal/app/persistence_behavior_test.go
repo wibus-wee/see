@@ -171,8 +171,9 @@ func TestSaveFailureReportsErrorAndKeepsOldBytes(t *testing.T) {
 	t.Cleanup(func() { _ = os.Chmod(d.path, 0600) })
 	h.tt.Key(ui.Cmd, ui.KeyS)
 	h.tt.Frame()
-	if !h.a.noticeError || !strings.Contains(h.a.notice, d.name) {
-		t.Fatalf("the failed save reported no error: notice=%q err=%v", h.a.notice, h.a.noticeError)
+	errmsg, isErr := h.feedbackError()
+	if !isErr || !strings.Contains(errmsg, d.name) {
+		t.Fatalf("the failed save reported no error: feedback=%v", h.feedbackTexts())
 	}
 	if !d.buf.Modified() {
 		t.Fatal("the failed save marked the document saved")

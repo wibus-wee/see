@@ -62,7 +62,7 @@ func externalTerminalCommand(name, appPath, dir, platform string) (*exec.Cmd, er
 
 func (a *App) openExternalTerminal() {
 	if a.root == "" {
-		a.note(locales.MsgOpenAFolderFirst(), true)
+		a.fail(locales.MsgOpenAFolderFirst())
 		return
 	}
 	a.openExternalTerminalAt(a.root)
@@ -83,7 +83,7 @@ func (a *App) openExternalTerminalAt(dir string) {
 	name, gen := externalTerminalName(a.cfg.ExternalTerminal), a.gen
 	cmd, err := externalTerminalCommand(name, a.cfg.ExternalTerminalPath, dir, runtime.GOOS)
 	if err != nil {
-		a.note(err.Error(), true)
+		a.fail(err.Error())
 		return
 	}
 	go func() {
@@ -95,7 +95,7 @@ func (a *App) openExternalTerminalAt(dir string) {
 			}
 			a.post.Post(func() {
 				if a.gen == gen {
-					a.note(locales.MsgCouldNotOpen()+name+": "+detail, true)
+					a.fail(locales.MsgCouldNotOpen() + name + ": " + detail)
 				}
 			})
 		}

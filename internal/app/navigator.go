@@ -494,7 +494,7 @@ func (a *App) treeItem(c *ui.Context, p string) {
 		}
 		if runtime.GOOS == "darwin" && !isWorkspaceRoot && !e.Dir && m.Item(locales.QuickLook()).Chosen() {
 			if err := a.host.PreviewItem(p); err != nil {
-				a.note(locales.MsgCouldNotPreviewFile()+err.Error(), true)
+				a.fail(locales.MsgCouldNotPreviewFile() + err.Error())
 			}
 		}
 		if m.Item(showInFolderLabel()).Chosen() {

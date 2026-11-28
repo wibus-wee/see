@@ -51,7 +51,7 @@ func (a *App) resolveLogTarget(v *gitLogView) {
 			}
 			v.reading, v.pending = false, ""
 			if err != nil {
-				a.note(logText("blameRevealFailed")+gitErrLine(err), true)
+				a.fail(logText("blameRevealFailed") + gitErrLine(err))
 				return
 			}
 			a.chooseLogCommit(v, cm)

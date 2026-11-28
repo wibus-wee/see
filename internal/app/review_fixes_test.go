@@ -51,11 +51,15 @@ func TestLspFailureNamesTheServerOnBudgetExhaustion(t *testing.T) {
 	failure := operr.New(operr.Unexpected, operr.Persistent, errors.New("stopped"))
 	failure.Operation = "language-server session"
 	h.a.lspFailure(failure)
-	if !strings.Contains(h.a.notice, "gopls") {
-		t.Fatalf("notice does not name the server: %q", h.a.notice)
+	errmsg, isErr := h.feedbackError()
+	if !isErr {
+		t.Fatalf("a persistent server failure is not an error: %v", h.feedbackTexts())
 	}
-	if !strings.Contains(h.a.notice, "crashed repeatedly") {
-		t.Fatalf("notice does not explain: %q", h.a.notice)
+	if !strings.Contains(errmsg, "gopls") {
+		t.Fatalf("the error does not name the server: %q", errmsg)
+	}
+	if !strings.Contains(errmsg, "crashed repeatedly") {
+		t.Fatalf("the error does not explain: %q", errmsg)
 	}
 }
 
@@ -68,8 +72,8 @@ func TestLspFailureExplainsTrustDenial(t *testing.T) {
 	h.open("a.go")
 	denial := operr.New(operr.PermissionDenied, operr.Permanent, proc.ErrUntrustedExecutable)
 	h.a.lspFailure(denial)
-	if !strings.Contains(h.a.notice, "never run") {
-		t.Fatalf("denial not explained: %q", h.a.notice)
+	if !h.feedbackContains("never run") {
+		t.Fatalf("denial not explained: %v", h.feedbackTexts())
 	}
 }
 

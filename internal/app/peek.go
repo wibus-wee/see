@@ -56,9 +56,9 @@ func (a *App) peekFound(g *group, from nav.Entry, targets []target, enc string, 
 	case err != nil:
 		a.lspFailure(err)
 	case len(targets) == 0 && skipped > 0:
-		a.note(locales.MsgTheDefinitionIsInAPlaceThatIs(), false)
+		a.flash(locales.MsgTheDefinitionIsInAPlaceThatIs())
 	case len(targets) == 0:
-		a.note(locales.MsgNoDefinitionFound(), false)
+		a.flash(locales.MsgNoDefinitionFound())
 	case len(targets) == 1:
 		a.peekDefinitionFound(g, from, targets[0], enc)
 	default:

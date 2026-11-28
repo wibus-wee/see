@@ -66,7 +66,7 @@ func (a *App) revealLogRef(revision string) {
 				return
 			}
 			if hash == "" {
-				a.note(logText("gitLogNoRevision")+revision+"”", true)
+				a.fail(logText("gitLogNoRevision") + revision + "”")
 				return
 			}
 			a.revealLogCommit(hash)
@@ -197,16 +197,16 @@ func (a *App) copyChangedPaths(cm git.Commit) {
 				return
 			}
 			if err != nil {
-				a.note(locales.MsgGit()+gitErrLine(err), true)
+				a.fail(locales.MsgGit() + gitErrLine(err))
 				return
 			}
 			if len(d.Files) == 0 {
-				a.note(locales.MsgTheCommitChangesNoFiles(), false)
+				a.flash(locales.MsgTheCommitChangesNoFiles())
 				return
 			}
 			text := changedPaths(d.Files)
 			a.services.WriteClipboard(text)
-			a.note(locales.MsgCopied()+firstPath(text), false)
+			a.flash(locales.MsgCopied() + firstPath(text))
 		})
 	}()
 }

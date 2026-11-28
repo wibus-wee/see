@@ -228,7 +228,7 @@ func (a *App) newTerminalTabAt(dir string) {
 		tp.nextID++
 		p := &termPane{id: tp.nextID, title: a.shellTitle()}
 		if err := a.newTerm(p, dir); err != nil {
-			a.note(locales.MsgCouldNotStartATerminal()+err.Error(), true)
+			a.fail(locales.MsgCouldNotStartATerminal() + err.Error())
 			return
 		}
 		tab := &termTab{id: tp.nextID, panes: []*termPane{p}, active: p}
@@ -249,7 +249,7 @@ func (a *App) splitTerminal() {
 		tp.nextID++
 		p := &termPane{id: tp.nextID, title: a.shellTitle()}
 		if err := a.newTerm(p, a.paneDir(tab.active)); err != nil {
-			a.note(locales.MsgCouldNotStartATerminal()+err.Error(), true)
+			a.fail(locales.MsgCouldNotStartATerminal() + err.Error())
 			return
 		}
 		at := slices.Index(tab.panes, tab.active) + 1

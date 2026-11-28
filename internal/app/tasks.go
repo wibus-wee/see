@@ -125,14 +125,14 @@ func (a *App) openTaskLocation(path string, pos editor.Pos) {
 		for _, candidate := range a.quick.files {
 			if strings.HasSuffix("/"+filepath.ToSlash(candidate), suffix) {
 				if matched != "" {
-					a.note(taskMessage("tasksAmbiguousSource"), true)
+					a.fail(taskMessage("tasksAmbiguousSource"))
 					return
 				}
 				matched = filepath.Join(a.root, filepath.FromSlash(candidate))
 			}
 		}
 		if matched == "" {
-			a.note(taskMessage("tasksMissingSource"), true)
+			a.fail(taskMessage("tasksMissingSource"))
 			return
 		}
 		path = matched

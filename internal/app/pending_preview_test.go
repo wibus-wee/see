@@ -276,7 +276,7 @@ func TestPreviewReadErrorRestoresOutgoingDocument(t *testing.T) {
 	if g.active != a.path || g.preview != a.path || g.pendingPreview != nil || g.has(b.path) || h.a.docs[b.path] != nil || h.a.activeEditor() != g.eds[a.path] || a.buf.String() != "A-visible-marker\n" {
 		t.Fatalf("failed target displaced or survived beside the outgoing document: active=%q preview=%q pending=%+v tabs=%v", g.active, g.preview, g.pendingPreview, g.order)
 	}
-	if !h.a.noticeError {
+	if _, isErr := h.feedbackError(); !isErr {
 		t.Fatal("preview read failure was not reported")
 	}
 }

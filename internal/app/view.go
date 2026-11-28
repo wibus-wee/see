@@ -115,6 +115,7 @@ func (a *App) view(c *ui.Context) {
 	c.SetTheme(a.theme)
 	a.services = c.Services()
 	a.showCounterpartFeedback(c)
+	a.drainFeedback(c)
 	vibrant := c.Vibrancy()
 	if vibrant {
 		c.Root().Background(ui.Transparent)
@@ -157,6 +158,7 @@ func (a *App) view(c *ui.Context) {
 			q := a.deleteConfirm
 			a.banner(c, colors(c).WarnBg, q.message, q.actions)
 		}
+		a.errorBanner(c)
 		ui.Row(c).Grow(1).FillWidth().AlignItems(ui.Stretch).Children(func() {
 			if progress == 0 {
 				a.editorArea(c)

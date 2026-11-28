@@ -39,7 +39,7 @@ func TestOpensAWorkspaceEditsAndSaves(t *testing.T) {
 
 	// The edit reaches the disk, and the file is no longer dirty.
 	if !h.a.saveDoc(d, false) {
-		t.Fatalf("save refused: %s", h.a.notice)
+		t.Fatalf("save refused: %v", h.feedbackTexts())
 	}
 	h.settle(func() bool { return len(h.a.dirtyDocs()) == 0 })
 	on, err := os.ReadFile(filepath.Join(root, "a.go"))
@@ -68,7 +68,7 @@ func TestSaveRefusesAFileChangedOnDisk(t *testing.T) {
 		t.Fatal("the conflict is not shown")
 	}
 	if !h.a.saveDoc(d, true) { // Overwrite
-		t.Fatalf("overwrite refused: %s", h.a.notice)
+		t.Fatalf("overwrite refused: %v", h.feedbackTexts())
 	}
 	on, err := os.ReadFile(filepath.Join(root, "a.go"))
 	if err != nil {
