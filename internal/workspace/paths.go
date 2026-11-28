@@ -120,7 +120,19 @@ func cleanRel(rel string) (string, bool) {
 	if filepath.IsAbs(rel) {
 		return "", false
 	}
+	if filepath.VolumeName(rel) != "" {
+		// A drive letter makes the input anchored to a volume: C:\x is
+		// absolute, C:x is relative to the drive's own working
+		// directory, and joining either under the root rewrites what it
+		// names. The colon is no component of a portable relative path
+		// anyway.
+		return "", false
+	}
 	if runtime.GOOS == "windows" && strings.HasPrefix(rel, `\\`) {
+		// A leading separator is volume-anchored on Windows (\x is
+		// the current drive's root) even where filepath.IsAbs cannot
+		// call it absolute, since the drive is missing. UNC roots
+		// (\\server\share) are the same case with a volume.
 		return "", false
 	}
 	var parts []string

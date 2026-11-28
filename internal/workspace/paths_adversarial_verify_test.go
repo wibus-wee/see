@@ -216,13 +216,39 @@ func TestAdversarialFullFoldDivergence(t *testing.T) {
 	}
 }
 
+// fsMerges probes what the file system of dir does with a file reached
+// by a variant spelling of its name: true when the variant stats to the
+// file, as a case-insensitive or normalization-insensitive file system
+// answers. The file systems the app runs on answer both ways — APFS and
+// NTFS merge, ext4 keeps the spellings distinct — so a test asserts the
+// behavior of the answer it measured, never the platform's name.
+func fsMerges(t *testing.T, dir, name, variant string) bool {
+	t.Helper()
+	probe := filepath.Join(dir, name)
+	writeFile(t, probe, "x")
+	fi1, err1 := os.Lstat(probe)
+	fi2, err2 := os.Lstat(filepath.Join(dir, variant))
+	// SameFile must be answered while the probe still exists: on Windows
+	// it opens the file by its remembered path to compare volume and
+	// file index, and a removed probe reads as a false negative — the
+	// one error os.SameFile cannot distinguish from distinct files.
+	same := err1 == nil && err2 == nil && os.SameFile(fi1, fi2)
+	_ = os.Remove(probe)
+	t.Logf("fsMerges(%q, %q): lstat probe %v, lstat variant %v, same %v", name, variant, err1, err2, same)
+	return same
+}
+
 // TestAdversarialTOCTOURenameBetweenProbeAndOpen documents the time-of-check
 // hazard: after DiskSpelling resolves a spelling, an external case-rename
-// makes the stored identity stale. The path still opens the same file on a
-// merging filesystem (the filesystem folds), but a fresh open converges to
-// the NEW spelling — two keys for one file until something reconciles.
-// This is inherent to any lexical identity; the test measures what the
-// implementation leaves stale.
+// makes the stored identity stale. What the old spelling then resolves to
+// is the file system's own answer, so the test probes it: where spellings
+// merge, the file still answers the old spelling and a fresh probe
+// converges to the NEW spelling — two keys for one file until something
+// reconciles; where spellings are distinct, the renamed-away spelling names
+// nothing at all, so it stands as typed and opens as an absence. Both are
+// the contract of DiskSpelling; neither may adopt a spelling the file
+// system itself would not resolve. This is inherent to any lexical
+// identity; the test measures what the implementation leaves stale.
 func TestAdversarialCaseRenameReopenConverges(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "Rename.txt"), "x\n")
@@ -233,7 +259,20 @@ func TestAdversarialCaseRenameReopenConverges(t *testing.T) {
 	}
 	second := DiskSpelling(filepath.Join(dir, "Rename.txt")) // old spelling typed again
 	t.Logf("before rename: %q; after rename old input resolves to %q", first, second)
-	if filepath.Base(second) != "rename.txt" {
-		t.Errorf("after the rename the old spelling should converge to the disk spelling rename.txt, got %q", filepath.Base(second))
+	if fsMerges(t, dir, "merge-probe.txt", "MERGE-PROBE.TXT") {
+		if filepath.Base(second) != "rename.txt" {
+			t.Errorf("after the rename the old spelling should converge to the disk spelling rename.txt, got %q", filepath.Base(second))
+		}
+		return
+	}
+	// Distinct spellings: rename.txt and Rename.txt are different names
+	// now, the old one names nothing, and nothing else may be adopted
+	// for it. The probe must return the input as typed.
+	if second != filepath.Join(dir, "Rename.txt") {
+		t.Errorf("after the rename the old spelling names nothing on this file system; it must stand as typed, got %q adopting another file", second)
+	}
+	// And the new exact spelling round-trips unchanged.
+	if got := DiskSpelling(filepath.Join(dir, "rename.txt")); filepath.Base(got) != "rename.txt" {
+		t.Errorf("exact new spelling rewritten to %q", filepath.Base(got))
 	}
 }

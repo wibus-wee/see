@@ -25,8 +25,14 @@ func fsMerges(t *testing.T, dir, name, variant string) bool {
 	}
 	fi1, err1 := os.Lstat(probe)
 	fi2, err2 := os.Lstat(filepath.Join(dir, variant))
+	// SameFile must be answered while the probe still exists: on
+	// Windows it opens the file by its remembered path to compare
+	// volume and file index, so removing the probe first answers a
+	// merging file system as sensitive — the false negative the
+	// variant branches of these tests then misread.
+	same := err1 == nil && err2 == nil && os.SameFile(fi1, fi2)
 	_ = os.Remove(probe)
-	return err1 == nil && err2 == nil && os.SameFile(fi1, fi2)
+	return same
 }
 
 // openPath opens p as the user would, from the tree or a drop, and

@@ -94,11 +94,18 @@ func TestRealFileRoundTrip(t *testing.T) {
 		"plus+&.go",
 	}
 	seen := map[string]bool{}
+	created := 0
 	for _, name := range names {
 		p := filepath.Join(dir, name)
 		if err := os.WriteFile(p, []byte(name), 0o644); err != nil {
-			t.Fatalf("create %q: %v", name, err)
+			// A name the platform's file namespace cannot carry —
+			// what?.go under Win32, where ? is a wildcard — is not a
+			// test of the codec: the URI of such a file never exists
+			// there. The remaining names still cover the escapes.
+			t.Logf("skipping %q: unrepresentable here (%v)", name, err)
+			continue
 		}
+		created++
 		u := FromPath(p)
 		if seen[u] {
 			t.Errorf("%q and another name share URI %q", name, u)
@@ -123,8 +130,8 @@ func TestRealFileRoundTrip(t *testing.T) {
 			t.Errorf("double decode of %q: %q", u, back)
 		}
 	}
-	if len(seen) != len(names) {
-		t.Errorf("URI collision: %d URIs for %d names", len(seen), len(names))
+	if len(seen) != created {
+		t.Errorf("URI collision: %d URIs for %d names", len(seen), created)
 	}
 }
 
