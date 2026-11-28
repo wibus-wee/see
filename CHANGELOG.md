@@ -2,6 +2,22 @@
 
 User-facing changes are grouped by release. Earlier releases are documented on the [Releases page](https://github.com/wibus-wee/see/releases).
 
+## 0.3.12
+
+### Added
+
+- Open and edit VS Code `.code-workspace` files with multiple folders after enabling Multi-root Workspaces in Settings → Beta Features; root names, exclusions, search, language servers, Git repositories, watchers, and restored sessions follow each workspace folder.
+- Manage unfinished features in Settings → Beta Features, including experimental Sidebar Vibrancy with a choice of system materials.
+
+### Changed
+
+- Show the same commit subject, body, co-authors, hash, refs, signature key, and file diffs in commit tabs and Git Log, with folding and the whitespace preference in both places.
+- Fit Git Log columns to their content, keeping long branch names, authors, hashes, and timestamps readable.
+
+### Fixed
+
+- Keep editor groups opaque over the window material, so split editors do not show the desktop or windows behind them.
+
 ## 0.3.11
 
 ### Added
