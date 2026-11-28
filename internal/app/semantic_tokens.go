@@ -14,6 +14,7 @@ import (
 // semanticTokensClient is a language client that answers semantic
 // tokens requests and names its token stream.
 type semanticTokensClient interface {
+	SemanticTokensFull() bool
 	HasSemanticTokens() bool
 	SemanticTokens(ctx context.Context, uri string, first, last int) (*lsp.SemanticTokensData, error)
 	SemanticTokenTypes() []string
@@ -204,7 +205,11 @@ func (h *semanticHighlighter) fetch(snap editor.Snapshot) {
 	if err := h.server.Sync(h.ctx, c, h.uri, snap); err != nil {
 		return
 	}
-	data, err := sc.SemanticTokens(h.ctx, h.uri, -1, -1)
+	first, last := -1, -1
+	if !sc.SemanticTokensFull() {
+		first, last = 0, snap.LineCount()-1
+	}
+	data, err := sc.SemanticTokens(h.ctx, h.uri, first, last)
 	if err != nil {
 		return
 	}

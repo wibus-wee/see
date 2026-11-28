@@ -28,7 +28,7 @@ type documentSymbolResult struct {
 // DocumentSymbols accepts both hierarchical DocumentSymbol and flat SymbolInformation results.
 func (c *Client) DocumentSymbols(ctx context.Context, uri string) ([]DocumentSymbol, error) {
 	var result []documentSymbolResult
-	if err := c.conn.Call(ctx, "textDocument/documentSymbol", map[string]any{"textDocument": map[string]string{"uri": uri}}, &result); err != nil {
+	if err := c.call(ctx, "textDocument/documentSymbol", map[string]any{"textDocument": map[string]string{"uri": uri}}, &result); err != nil {
 		return nil, err
 	}
 	return flattenDocumentSymbols(result, uri), nil

@@ -565,8 +565,8 @@ func TestSignatureHelp(t *testing.T) {
 		t.Error("capability read of a server without it")
 	}
 	help, err = c2.SignatureHelp(context.Background(), "file:///w/a.go", Position{2, 8})
-	if err != nil || help != nil {
-		t.Errorf("null result: %v %v", help, err)
+	if err == nil || help != nil {
+		t.Errorf("unsupported result: %v %v", help, err)
 	}
 }
 
@@ -642,7 +642,10 @@ func TestSemanticTokensPartialCapability(t *testing.T) {
 	if !c.HasSemanticTokens() || c.SemanticTokensFull() || !c.SemanticTokensRange() {
 		t.Fatal("capability not read")
 	}
-	if _, err := c.SemanticTokens(context.Background(), "file:///w/a.go", -1, -1); err != nil {
+	if _, err := c.SemanticTokens(context.Background(), "file:///w/a.go", -1, -1); err == nil || method != "" {
+		t.Fatalf("whole-document request sent to range-only server: %v %s", err, method)
+	}
+	if _, err := c.SemanticTokens(context.Background(), "file:///w/a.go", 0, 4); err != nil {
 		t.Fatal(err)
 	}
 	if method != "textDocument/semanticTokens/range" {

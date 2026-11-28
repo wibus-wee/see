@@ -3,12 +3,8 @@ package tasks
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
-	"time"
-
-	"see/internal/proc"
 )
 
 const MaxOutput = 256 << 10
@@ -65,18 +61,5 @@ func (o *Output) Snapshot() (text string, truncated bool) {
 
 // Run invokes Go directly. Cancellation terminates the task's process tree.
 func Run(ctx context.Context, executable, root string, kind Kind, output *Output) error {
-	args := kind.Args()
-	if args == nil {
-		return fmt.Errorf("unknown Go task %q", kind)
-	}
-	cmd := proc.CommandContext(ctx, executable, args...)
-	cmd.Dir = root
-	cmd.Stdout, cmd.Stderr = output, output
-	cmd.WaitDelay = 2 * time.Second
-	configureProcess(cmd)
-	err := cmd.Run()
-	if ctx.Err() != nil {
-		return ctx.Err()
-	}
-	return err
+	return (Handle{}).Run(ctx, executable, root, kind, output)
 }

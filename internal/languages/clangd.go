@@ -12,7 +12,6 @@ import (
 	"see/internal/lsp"
 	"see/internal/shellpath"
 	"see/internal/uri"
-	"see/internal/workspace"
 )
 
 var ErrNoClangd = errors.New("clangd is not installed")
@@ -33,24 +32,17 @@ func ClangLanguage(path string) string {
 
 func FindClangd(root string) (string, error) {
 	p := os.Getenv("SEE_CLANGD")
+	explicit := p != ""
 	if p == "" {
 		p, _ = exec.LookPath("clangd")
 	}
 	if !filepath.IsAbs(p) {
 		return "", ErrNoClangd
 	}
-	resolved, err := filepath.EvalSymlinks(p)
-	if err != nil {
-		return "", ErrNoClangd
-	}
-	realRoot := root
-	if r, err := filepath.EvalSymlinks(root); err == nil {
-		realRoot = r
-	}
-	if root != "" && (workspace.Within(root, p) || workspace.Within(realRoot, resolved)) {
-		return "", ErrNoClangd
-	}
-	if fi, err := os.Stat(resolved); err != nil || !fi.Mode().IsRegular() {
+	if err, denied := validateCandidate(root, p); err != nil {
+		if denied && explicit {
+			return "", err
+		}
 		return "", ErrNoClangd
 	}
 	return p, nil
@@ -90,24 +82,17 @@ func CMakeLanguage(path string) string {
 
 func FindCMakeServer(root string) (string, error) {
 	p := os.Getenv("SEE_CMAKE_LANGUAGE_SERVER")
+	explicit := p != ""
 	if p == "" {
 		p, _ = exec.LookPath("cmake-language-server")
 	}
 	if !filepath.IsAbs(p) {
 		return "", ErrNoCMakeServer
 	}
-	resolved, err := filepath.EvalSymlinks(p)
-	if err != nil {
-		return "", ErrNoCMakeServer
-	}
-	realRoot := root
-	if r, err := filepath.EvalSymlinks(root); err == nil {
-		realRoot = r
-	}
-	if root != "" && (workspace.Within(root, p) || workspace.Within(realRoot, resolved)) {
-		return "", ErrNoCMakeServer
-	}
-	if fi, err := os.Stat(resolved); err != nil || !fi.Mode().IsRegular() {
+	if err, denied := validateCandidate(root, p); err != nil {
+		if denied && explicit {
+			return "", err
+		}
 		return "", ErrNoCMakeServer
 	}
 	return p, nil

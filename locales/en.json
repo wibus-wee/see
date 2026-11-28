@@ -109,6 +109,9 @@
   "localHistorySnapshotLines": "{lines} lines",
   "localHistoryWorkingTree": "Working Tree",
   "localHistoryCurrentUnsaved": "Current (unsaved)",
+  "localHistoryCorrupt": "This snapshot is corrupt and cannot be restored.",
+  "localHistoryCorruptDetail": "Its stored content no longer matches the digest recorded when it was written.",
+  "localHistoryCorruptTag": "corrupt",
   "localHistoryNoSnapshots": "No local snapshots yet",
   "localHistoryNoSnapshotsDetail": "Snapshots appear after edits and pauses or when the file is saved.",
   "localHistoryLoading": "Loading local snapshots…",
@@ -1238,5 +1241,9 @@
   "betaVibrancyMaterialSidebar": "Sidebar",
   "betaVibrancyMaterialWindow": "Window",
   "betaVibrancyMaterialGlass": "Glass",
+  "denied": "Denied",
+  "msgDegraded": "Degraded · ",
+  "msgDegradedExplanation": "Document sync failed once; it recovers when the next change reaches the server.",
+  "msgServerCrashedRepeatedly": "crashed repeatedly — restart it with Retry",
   "msgConfigLoadProblem": "Some settings could not be loaded and were reset to defaults: {detail}"
 }

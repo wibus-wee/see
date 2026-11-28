@@ -303,13 +303,17 @@ func (a *App) submitSymbolRename(r *renameState) {
 				a.lspFailure(err)
 				return
 			}
-			if edit == nil || len(edit.EditURIs()) == 0 {
+			if edit == nil || (len(edit.EditURIs()) == 0 && edit.ResourceChanges() == 0) {
 				a.cancelRename()
 				a.note(locales.RenameNone(), false)
 				return
 			}
+			if err := a.applyWorkspaceEdit(edit, m); err != nil {
+				r.applying = false
+				a.lspFailure(err)
+				return
+			}
 			a.cancelRename()
-			a.applyWorkspaceEdit(edit, m)
 		})
 	}()
 }
