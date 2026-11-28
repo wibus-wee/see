@@ -26,6 +26,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -109,6 +110,43 @@ func Missing(source Source, path string, at time.Time) Observation {
 	return Observation{path: path, source: source, at: at.UTC()}
 }
 
+// errNotDirectory reports that path cannot name anything because it
+// walks through a file: a child of a non-directory. POSIX answers such a
+// lookup with ENOTDIR, plainly an error. Windows answers it with
+// ERROR_PATH_NOT_FOUND — the same code a merely missing parent produces —
+// and Go folds both into os.ErrNotExist, so the raw lookup error cannot
+// separate a corrupted layout from absence there. The distinction
+// matters: absence is an observation a create-if-absent condition may
+// act on, while a layout violation is a failure that says nothing about
+// any file, so the ancestors are walked when the lookup reports absence.
+func errNotDirectory(path string) error {
+	dir := filepath.Dir(path)
+	for {
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return nil
+		}
+		info, err := os.Stat(dir)
+		if err == nil {
+			if !info.IsDir() {
+				return fmt.Errorf("%w: %s is not a directory", errBrokenPath, dir)
+			}
+			return nil
+		}
+		if !errors.Is(err, os.ErrNotExist) {
+			// The ancestor cannot be interrogated — permission, a failed
+			// volume. Nothing here proves the layout broken, and the
+			// original error is the better description.
+			return nil
+		}
+		dir = parent
+	}
+}
+
+// errBrokenPath marks a path that walks through a non-directory, a
+// corruption of the layout rather than the absence of a file.
+var errBrokenPath = errors.New("path walks through a file")
+
 // ObservePath stats path and snapshots it as source sees it now. A file
 // that does not exist is an absence observation, not an error; other
 // filesystem failures are errors, because they say nothing about the file.
@@ -121,6 +159,9 @@ func Missing(source Source, path string, at time.Time) Observation {
 func ObservePath(source Source, path string) (Observation, error) {
 	info, err := os.Stat(path)
 	if errors.Is(err, os.ErrNotExist) {
+		if broken := errNotDirectory(path); broken != nil {
+			return Observation{}, broken
+		}
 		return Missing(source, path, time.Now()), nil
 	}
 	if err != nil {
@@ -140,6 +181,9 @@ func ObservePath(source Source, path string) (Observation, error) {
 func ObserveContent(source Source, path string) (Observation, error) {
 	f, err := os.Open(path)
 	if errors.Is(err, os.ErrNotExist) {
+		if broken := errNotDirectory(path); broken != nil {
+			return Observation{}, broken
+		}
 		return Missing(source, path, time.Now()), nil
 	}
 	if err != nil {
