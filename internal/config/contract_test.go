@@ -310,14 +310,14 @@ func TestMissingFileIsNotAnIssue(t *testing.T) {
 }
 
 func TestUnreadableFileReportsReadFailure(t *testing.T) {
-	if os.Getuid() == 0 {
-		t.Skip("root reads anything")
-	}
-	p := writeConfig(t, `{"appearance": "dark"}`)
-	if err := os.Chmod(p, 0o000); err != nil {
+	// A directory where the file should be: reading it as a file fails
+	// on every platform and for every user. POSIX mode bits cannot
+	// express the same denial portably — root reads through them — and
+	// Windows has no owner-equivalent denial through chmod at all.
+	p := filepath.Join(t.TempDir(), "config.json")
+	if err := os.Mkdir(p, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = os.Chmod(p, 0o600) })
 	c := Load(p)
 	if len(c.Issues()) != 1 || c.Issues()[0].Kind != IssueReadFailed {
 		t.Fatalf("issues: %+v", c.Issues())

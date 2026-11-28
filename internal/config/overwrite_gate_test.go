@@ -1,6 +1,8 @@
 package config
 
 import (
+	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,19 +18,22 @@ import (
 // original is unprotected — and must heal, completing backup and
 // overwrite, when the transient failure is over.
 func TestFailedBackupBlocksOverwriteUntilBackupSucceeds(t *testing.T) {
-	if os.Getuid() == 0 {
-		t.Skip("root writes through permission bits")
-	}
 	dir := t.TempDir()
 	p := filepath.Join(dir, "config.json")
 	broken := `{"editorFontSize": 16, corrupted`
 	if err := os.WriteFile(p, []byte(broken), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	// The backup write fails because the configuration directory cannot
-	// be written right now — a full disk, a transient permission problem.
-	if err := os.Chmod(dir, 0o500); err != nil {
-		t.Fatal(err)
+	// The backup write fails as it does when the configuration directory
+	// cannot be written right now — a full disk, a transient permission
+	// problem. No file system shape expresses that state on every
+	// platform (POSIX mode bits do not bind root, Windows has none that
+	// deny creating a file in a directory), so the failure is injected
+	// at the backup write itself.
+	realWrite := writeBackupFile
+	t.Cleanup(func() { writeBackupFile = realWrite })
+	writeBackupFile = func(string, os.FileMode, func(io.Writer) error) error {
+		return errors.New("injected: the backup directory is unwritable")
 	}
 	c := Load(p)
 	issues := c.Issues()
@@ -53,9 +58,7 @@ func TestFailedBackupBlocksOverwriteUntilBackupSucceeds(t *testing.T) {
 	// The transient failure passes, as a freed disk or fixed permission
 	// does. The next save completes the backup first, then overwrites:
 	// at no moment was the original unprotected.
-	if err := os.Chmod(dir, 0o700); err != nil {
-		t.Fatal(err)
-	}
+	writeBackupFile = realWrite
 	if err := c.Save(); err != nil {
 		t.Fatalf("the save did not heal after the transient failure passed: %v", err)
 	}

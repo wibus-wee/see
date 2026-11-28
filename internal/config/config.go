@@ -15,6 +15,14 @@ import (
 	"see/internal/atomicfile"
 )
 
+// writeBackupFile publishes the backup copy of a corrupted original.
+// It is a variable so a test can fail it deterministically: the gate's
+// scenario is a directory that cannot be written right now and can be
+// written later, which no file system shape expresses on every
+// platform — Windows has no mode bits that deny creating a file in a
+// directory, and POSIX mode bits do not bind root.
+var writeBackupFile = atomicfile.WriteFilePerm
+
 // Config is what the app remembers between runs.
 type Config struct {
 	HideInlineDiagnostics bool `json:"hideInlineDiagnostics,omitempty"`
@@ -247,7 +255,7 @@ func (c *Config) decode(data []byte) (betaChanged bool) {
 		// left, and overwriting it is forbidden until the backup succeeds:
 		// the bytes stay in memory as the gate Save enforces.
 		backup := c.path + ".broken-" + time.Now().Format("20060102-150405.000000000")
-		if err := atomicfile.WriteFilePerm(backup, 0o600, func(w io.Writer) error {
+		if err := writeBackupFile(backup, 0o600, func(w io.Writer) error {
 			_, err := w.Write(data)
 			return err
 		}); err == nil {
@@ -560,7 +568,7 @@ func (c *Config) Save() error {
 	}
 	if len(c.unprotected) > 0 {
 		backup := c.path + ".broken-" + time.Now().Format("20060102-150405.000000000")
-		if err := atomicfile.WriteFilePerm(backup, 0o600, func(w io.Writer) error {
+		if err := writeBackupFile(backup, 0o600, func(w io.Writer) error {
 			_, err := w.Write(c.unprotected)
 			return err
 		}); err != nil {
