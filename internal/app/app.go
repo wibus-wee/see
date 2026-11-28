@@ -124,6 +124,12 @@ type App struct {
 	docs              map[string]*doc
 	localHistoryStore *localhistory.Store
 	localHistoryErr   error
+	// localHistoryWrites counts the captures whose store writes are in
+	// flight. Tests drain it before their temporary directories go away:
+	// a write landing in the teardown window can recreate a removed
+	// directory, which the harness cannot see and the cleanup cannot
+	// remove.
+	localHistoryWrites sync.WaitGroup
 	layout            *layout
 	maximized         *group
 	recents           []string // the files activated lately, across groups, most recent last

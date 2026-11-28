@@ -247,7 +247,7 @@ func TestLocalHistoryRestoreMethodRejectsStaleTarget(t *testing.T) {
 	}
 	h := newHarness(t, root)
 	store := localhistory.New(filepath.Join(t.TempDir(), "history"))
-	h.a.localHistoryStore = store
+	installLocalHistoryStore(t, h, store)
 	d := h.open("source.txt")
 	waitForLocalHistory(t, store, path, func(s []localhistory.Snapshot) bool { return len(s) == 1 })
 	if _, _, err := store.Add(path, "head\nold\n", time.Now().Add(-time.Minute)); err != nil {
@@ -273,7 +273,7 @@ func TestLocalHistoryCapturesUnsavedDeletionOutsideGit(t *testing.T) {
 	h := newHarness(t, root)
 	storeDir := filepath.Join(t.TempDir(), "history")
 	store := localhistory.New(storeDir)
-	h.a.localHistoryStore = store
+	installLocalHistoryStore(t, h, store)
 	d := h.open("source.go")
 	waitForLocalHistory(t, store, path, func(snapshots []localhistory.Snapshot) bool {
 		return len(snapshots) == 1 && snapshots[0].Text == disk
@@ -303,7 +303,7 @@ func TestLocalHistoryDebouncesUnsavedVersions(t *testing.T) {
 	}
 	h := newHarness(t, root)
 	store := localhistory.New(filepath.Join(t.TempDir(), "history"))
-	h.a.localHistoryStore = store
+	installLocalHistoryStore(t, h, store)
 	d := h.open("source.txt")
 	waitForLocalHistory(t, store, path, func(snapshots []localhistory.Snapshot) bool { return len(snapshots) == 1 })
 	for _, suffix := range []string{" one", " two", " three"} {
@@ -333,7 +333,7 @@ func TestLocalHistoryDiffTabLifecycleAndSession(t *testing.T) {
 	}
 	h := newHarness(t, root)
 	store := localhistory.New(filepath.Join(t.TempDir(), "history"))
-	h.a.localHistoryStore = store
+	installLocalHistoryStore(t, h, store)
 	d := h.open("source.go")
 	waitForLocalHistory(t, store, path, func(snapshots []localhistory.Snapshot) bool { return len(snapshots) == 1 })
 	if _, _, err := store.Add(path, "package p\nfunc value() int { return 1 }\n", time.Now().Add(-time.Minute)); err != nil {
@@ -423,7 +423,7 @@ func accountLabel(account Account) string {
 	h := newHarness(t, root)
 	h.tt.SetSize(1280, 800)
 	store := localhistory.New(filepath.Join(t.TempDir(), "history"))
-	h.a.localHistoryStore = store
+	installLocalHistoryStore(t, h, store)
 	d := h.open("account.go")
 	waitForLocalHistory(t, store, path, func(snapshots []localhistory.Snapshot) bool {
 		return len(snapshots) == 1 && snapshots[0].Text == disk
@@ -542,7 +542,7 @@ func TestLocalHistoryTesterSelectsLinesByGutterInSplitAndUnifiedDiff(t *testing.
 			h.tt.SetSize(1280, 800)
 			h.a.cfg.DiffUnified = unified
 			store := localhistory.New(filepath.Join(t.TempDir(), "history"))
-			h.a.localHistoryStore = store
+			installLocalHistoryStore(t, h, store)
 			d := h.open("source.txt")
 			waitForLocalHistory(t, store, path, func(s []localhistory.Snapshot) bool { return len(s) == 1 })
 			d.buf.Set(current)
@@ -577,7 +577,7 @@ func TestLocalHistoryLoadingTabsSurviveSplitAndMove(t *testing.T) {
 	}
 	h := newHarness(t, root)
 	store := localhistory.New(filepath.Join(t.TempDir(), "history"))
-	h.a.localHistoryStore = store
+	installLocalHistoryStore(t, h, store)
 	d := h.open("source.txt")
 	waitForLocalHistory(t, store, path, func(s []localhistory.Snapshot) bool { return len(s) == 1 })
 	main := h.a.focus
@@ -637,7 +637,7 @@ func TestLocalHistorySnapshotPickerClearsSelection(t *testing.T) {
 	}
 	h := newHarness(t, root)
 	store := localhistory.New(filepath.Join(t.TempDir(), "history"))
-	h.a.localHistoryStore = store
+	installLocalHistoryStore(t, h, store)
 	d := h.open("source.txt")
 	waitForLocalHistory(t, store, path, func(s []localhistory.Snapshot) bool { return len(s) == 1 })
 	if _, _, err := store.Add(path, "older\n", time.Now().Add(-time.Hour)); err != nil {
@@ -677,7 +677,7 @@ func TestLocalHistoryEmptyAndLoadErrorStates(t *testing.T) {
 		}
 		h := newHarness(t, root)
 		store := localhistory.New(filepath.Join(t.TempDir(), "initial"))
-		h.a.localHistoryStore = store
+		installLocalHistoryStore(t, h, store)
 		d := h.open("source.txt")
 		waitForLocalHistory(t, store, path, func(s []localhistory.Snapshot) bool { return len(s) == 1 })
 		h.a.localHistoryStore = localhistory.New(filepath.Join(t.TempDir(), "empty"))
@@ -748,6 +748,20 @@ func saveLocalHistoryScreenshot(t *testing.T, path string, h *harness) {
 		t.Fatal(err)
 	}
 	t.Logf("Screenshot: %s", path)
+}
+
+// installLocalHistoryStore points the harnessed app at store and drains
+// the writes its captures start before the test tears down. The drain
+// registers here, after the store's temporary directory exists, so it
+// runs before that directory is removed: a capture write landing in the
+// removal window recreates a directory the cleanup already scanned, and
+// the removal fails with the directory not empty. Debounced captures
+// cannot start a write afterwards — the queue that would run them is
+// never pumped again — so the started writes are everything to drain.
+func installLocalHistoryStore(t *testing.T, h *harness, store *localhistory.Store) {
+	t.Helper()
+	h.a.localHistoryStore = store
+	t.Cleanup(h.a.localHistoryWrites.Wait)
 }
 
 func waitForLocalHistory(t *testing.T, store *localhistory.Store, path string, ready func([]localhistory.Snapshot) bool) {
@@ -823,7 +837,7 @@ func TestLocalHistoryCorruptSnapshotNeverReachesBuffer(t *testing.T) {
 	h := newHarness(t, root)
 	storeDir := filepath.Join(t.TempDir(), "history")
 	store := localhistory.New(storeDir)
-	h.a.localHistoryStore = store
+	installLocalHistoryStore(t, h, store)
 	d := h.open("source.txt")
 	waitForLocalHistory(t, store, path, func(s []localhistory.Snapshot) bool { return len(s) == 1 })
 	if _, _, err := store.Add(path, "head\ntampered-original\n", time.Now().Add(-time.Minute)); err != nil {
@@ -881,7 +895,7 @@ func TestLocalHistoryLegacySnapshotWithoutDigestRestores(t *testing.T) {
 	h := newHarness(t, root)
 	storeDir := filepath.Join(t.TempDir(), "history")
 	store := localhistory.New(storeDir)
-	h.a.localHistoryStore = store
+	installLocalHistoryStore(t, h, store)
 	d := h.open("source.txt")
 	waitForLocalHistory(t, store, path, func(s []localhistory.Snapshot) bool { return len(s) == 1 })
 	if _, _, err := store.Add(path, "head\nold\n", time.Now().Add(-time.Minute)); err != nil {
