@@ -1238,5 +1238,7 @@
   "betaVibrancyMaterialSidebar": "边栏",
   "betaVibrancyMaterialWindow": "窗口",
   "betaVibrancyMaterialGlass": "玻璃",
-  "msgConfigLoadProblem": "部分设置无法加载，已重置为默认值：{detail}"
+  "msgConfigLoadProblem": "部分设置无法加载，已重置为默认值：{detail}",
+  "errorBannerMore": "{count, plural, other {（还有 # 个）}}",
+  "review": "查看"
 }

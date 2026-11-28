@@ -12579,3 +12579,23 @@ func MsgConfigLoadProblem(detail string) string {
 func (msgs Messages) MsgConfigLoadProblem(detail string) string {
 	return Catalog.Format(msgs.locale, "msgConfigLoadProblem", map[string]any{"detail": detail})
 }
+
+// ErrorBannerMore says "{count, plural, one { +# more} other { +# more}}"
+// in the language the app shows.
+func ErrorBannerMore(count int) string { return In(i18n.Locale()).ErrorBannerMore(count) }
+
+// ErrorBannerMore says "{count, plural, one { +# more} other { +# more}}"
+// in the language of msgs.
+func (msgs Messages) ErrorBannerMore(count int) string {
+	return Catalog.Format(msgs.locale, "errorBannerMore", map[string]any{"count": count})
+}
+
+// Review says "Review"
+// in the language the app shows.
+func Review() string { return In(i18n.Locale()).Review() }
+
+// Review says "Review"
+// in the language of msgs.
+func (msgs Messages) Review() string {
+	return Catalog.Format(msgs.locale, "review", nil)
+}

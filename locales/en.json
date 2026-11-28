@@ -1238,5 +1238,7 @@
   "betaVibrancyMaterialSidebar": "Sidebar",
   "betaVibrancyMaterialWindow": "Window",
   "betaVibrancyMaterialGlass": "Glass",
-  "msgConfigLoadProblem": "Some settings could not be loaded and were reset to defaults: {detail}"
+  "msgConfigLoadProblem": "Some settings could not be loaded and were reset to defaults: {detail}",
+  "errorBannerMore": "{count, plural, one { +# more} other { +# more}}",
+  "review": "Review"
 }
