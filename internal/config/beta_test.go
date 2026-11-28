@@ -1,11 +1,11 @@
 package config
 
 import (
+	"bytes"
 	"encoding/json"
 	"math"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -240,7 +240,8 @@ func TestBetaMigrationRetiresFeatureAndKeepsFutureUnknownFeatures(t *testing.T) 
 	p := writeConfig(t, `{
 		"betaFeatures": {
 			"retired-feature": {"enabled": true, "settings": {"obsolete": 1}},
-			"future-feature": {"enabled": true, "futureFlag": {"version": 2}, "settings": {"unknown-shape": {"nested": true, "large": 9007199254740993}}}
+			"future-feature": {"enabled": true, "futureFlag": {"version": 2}, "settings": {"unknown-shape": {"nested": true, "large": 9007199254740993}}},
+			"future-scalar": ["new-shape"]
 		}
 	}`)
 
@@ -260,8 +261,29 @@ func TestBetaMigrationRetiresFeatureAndKeepsFutureUnknownFeatures(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(data), "9007199254740993") {
-		t.Fatalf("unknown numeric setting lost precision: %s", data)
+	var saved map[string]any
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	if err := decoder.Decode(&saved); err != nil {
+		t.Fatal(err)
+	}
+	beta := saved["betaFeatures"].(map[string]any)
+	large := beta["future-feature"].(map[string]any)["settings"].(map[string]any)["unknown-shape"].(map[string]any)["large"]
+	if large.(json.Number).String() != "9007199254740993" {
+		t.Fatalf("unknown numeric setting lost precision: %#v", large)
+	}
+	scalar := beta["future-scalar"].([]any)
+	if len(scalar) != 1 || scalar[0] != "new-shape" {
+		t.Fatalf("unknown scalar feature was rewritten: %+v", scalar)
+	}
+	first := string(data)
+	Load(p)
+	second, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(second) != first {
+		t.Fatalf("preserved unknown settings were not idempotent:\nfirst:  %s\nsecond: %s", first, second)
 	}
 }
 

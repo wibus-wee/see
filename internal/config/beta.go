@@ -363,14 +363,19 @@ func parseBetaFeatures(data json.RawMessage) (map[string]BetaFeature, bool) {
 	features := map[string]BetaFeature{}
 	changed := len(rawFeatures) == 0
 	for id, raw := range rawFeatures {
+		_, registered := betaFeatures[id]
+		var feature BetaFeature
+		if !registered {
+			feature.raw = append(json.RawMessage(nil), raw...)
+		}
 		var object map[string]json.RawMessage
 		if err := json.Unmarshal(raw, &object); err != nil || object == nil {
-			changed = true
+			if registered {
+				changed = true
+				continue
+			}
+			features[id] = feature
 			continue
-		}
-		var feature BetaFeature
-		if _, registered := betaFeatures[id]; !registered {
-			feature.raw = append(json.RawMessage(nil), raw...)
 		}
 		for key, value := range object {
 			switch key {
@@ -378,18 +383,18 @@ func parseBetaFeatures(data json.RawMessage) (map[string]BetaFeature, bool) {
 				var enabled bool
 				if err := json.Unmarshal(value, &enabled); err == nil {
 					feature.Enabled = enabled
-				} else {
+				} else if registered {
 					changed = true
 				}
 			case "settings":
 				var settings map[string]any
 				if err := json.Unmarshal(value, &settings); err == nil && settings != nil {
 					feature.Settings = settings
-				} else {
+				} else if registered {
 					changed = true
 				}
 			default:
-				changed = true
+				changed = changed || registered
 			}
 		}
 		features[id] = feature
