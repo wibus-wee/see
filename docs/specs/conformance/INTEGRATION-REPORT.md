@@ -175,14 +175,14 @@ See the layer-by-layer log in the PR description. Summary:
 
 ## Known pre-existing issues (not introduced here, not fixed here)
 
-- `TestHexViewReanchorsToTheChangedVersion` flake: passes in most runs
-  and in both full-suite runs at the integration tip, but fails
-  intermittently in isolation (~half of sampled runs) with the re-pinned
-  view showing only page 0 where the test expects the jumped page — a
-  re-pin/re-request timing race. Reproduced identically on lane-d's own
-  branch (`108bc7c`), so it predates integration; lane-d's verification
-  sampled the passing side. Root-cause and fix belong to a lane-D
-  follow-up; it is recorded here rather than silently re-run until green.
+- `TestHexViewReanchorsToTheChangedVersion` — **fixed in the platform
+  repair round** (lane-d commit "wait for the page the hex re-pin
+  assertion reads"). What was recorded here as a re-pin timing race was
+  the test's readiness probe firing on the first of the two concurrently
+  requested pages to land: the jump straddles a page boundary, and when
+  page 0 landed first the assertion read page 1 before its read
+  completed. The probe now waits for the page the assertion checks —
+  20/20 consecutive runs pass in isolation.
 - `TestNewFileCacheFailureKeepsWelcome` flake: test-isolation race —
   the test deletes the shared cache dir while a debounced localhistory
   capture may still write it. Probabilistic; confirmed pre-existing on both
@@ -194,7 +194,13 @@ See the layer-by-layer log in the PR description. Summary:
 - Workspace-symlink dual identity: stale views unmarked (lane-B known gap,
   VS Code alike); case-only-rename + old-gone-tab save can overwrite
   invisibly (lane-B known gap F4).
-- Windows-only behaviors unverified throughout (suite runs on Darwin).
+- Windows-only behaviors verified by CI in the platform repair round:
+  the suite now runs on ubuntu/windows/macos runners. What that round
+  found and fixed — merging-filesystem assumptions in the case-identity
+  probes, os.SameFile's lazy re-open on Windows, volume-anchored joins,
+  PATHEXT resolution, Windows ERROR_PATH_NOT_FOUND folding — is
+  recorded in the lane commit messages and the lane-b conformance
+  addendum.
 
 ## Residual integration debt (explicit, none blocking)
 
