@@ -2,6 +2,8 @@ package uri
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -72,5 +74,89 @@ func TestRelativePathsStayWellFormed(t *testing.T) {
 	}
 	if got := FromPath("rel.go"); !strings.HasPrefix(got, "file:///") || strings.HasPrefix(got, "file:////") {
 		t.Errorf("FromPath relative: %q", got)
+	}
+}
+
+// TestRealFileRoundTrip exercises the codec against files that exist:
+// names with a percent sign, spaces, a question mark, a hash and
+// non-ASCII bytes are written to disk, their URIs decode back to the
+// one path the file answers, and decoding twice would have lost them.
+func TestRealFileRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	names := []string{
+		"100%.go",
+		"a b.go",
+		"what?.go",
+		"hash#x.go",
+		"文件 源码%.go",
+		"%25.go",   // the name IS the encoding of '%'
+		"%20.go",   // the name IS the encoding of a space
+		"plus+&.go",
+	}
+	seen := map[string]bool{}
+	created := 0
+	for _, name := range names {
+		p := filepath.Join(dir, name)
+		if err := os.WriteFile(p, []byte(name), 0o644); err != nil {
+			// A name the platform's file namespace cannot carry —
+			// what?.go under Win32, where ? is a wildcard — is not a
+			// test of the codec: the URI of such a file never exists
+			// there. The remaining names still cover the escapes.
+			t.Logf("skipping %q: unrepresentable here (%v)", name, err)
+			continue
+		}
+		created++
+		u := FromPath(p)
+		if seen[u] {
+			t.Errorf("%q and another name share URI %q", name, u)
+		}
+		seen[u] = true
+		back, err := ToPath(u)
+		if err != nil {
+			t.Fatalf("ToPath(%q): %v", u, err)
+		}
+		if back != p {
+			t.Errorf("round trip of %q: %q -> %q", name, u, back)
+			continue
+		}
+		// The decoded path must be the file on disk, byte for byte.
+		data, err := os.ReadFile(back)
+		if err != nil || string(data) != name {
+			t.Errorf("reading %q back: %q, %v", back, data, err)
+		}
+		// Decoding the URI a second time must not happen: %25 is the
+		// name, and a codec that decodes twice would look for '%'.
+		if strings.Contains(back, "%") != strings.Contains(p, "%") {
+			t.Errorf("double decode of %q: %q", u, back)
+		}
+	}
+	if len(seen) != created {
+		t.Errorf("URI collision: %d URIs for %d names", len(seen), created)
+	}
+}
+
+// TestToPathDoesNotDecodeTwice pins the codec against double decoding:
+// '%25' in a URI is the percent sign of the name, never the start of
+// another escape.
+func TestToPathDoesNotDecodeTwice(t *testing.T) {
+	p, err := ToPath("file:///tmp/100%25/x%25y.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(p, "100%"+string(filepath.Separator)+"x%y.go") && p != filepath.FromSlash("/tmp/100%/x%y.go") {
+		t.Errorf("got %q, want the percent signs literal", p)
+	}
+}
+
+func TestOpaqueAndMalformedURIsRejected(t *testing.T) {
+	for _, u := range []string{
+		"file:///tmp/%zz.go",     // invalid escape
+		"file:relative.go",       // opaque, not a path
+		"file:///tmp/%",          // truncated escape
+		"not a uri at all %",
+	} {
+		if _, err := ToPath(u); err == nil {
+			t.Errorf("ToPath(%q) succeeded", u)
+		}
 	}
 }

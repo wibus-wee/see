@@ -66,6 +66,12 @@ func toPath(raw string, windows bool) (string, error) {
 		if u.Host != "" && !strings.EqualFold(u.Host, "localhost") {
 			return `\\` + u.Host + strings.ReplaceAll(p, "/", `\`), nil
 		}
+		if p == "" {
+			// file:relative.go parses with an opaque part, not a path;
+			// accepting it here would return \\, the current drive's
+			// root, for input that named nothing.
+			return "", fmt.Errorf("invalid file URI %q: empty path", raw)
+		}
 		// /c:/x → C:\x
 		if len(p) >= 3 && p[0] == '/' && p[2] == ':' {
 			p = strings.ToUpper(p[1:2]) + p[2:]

@@ -1187,12 +1187,12 @@ func standalonePathKey(path string) string {
 		path = abs
 	}
 	if real, err := filepath.EvalSymlinks(path); err == nil {
-		return filepath.Clean(real)
+		return filepath.Clean(workspace.DiskSpelling(real))
 	}
 	if realParent, err := filepath.EvalSymlinks(filepath.Dir(path)); err == nil {
 		path = filepath.Join(realParent, filepath.Base(path))
 	}
-	return filepath.Clean(path)
+	return filepath.Clean(workspace.DiskSpelling(path))
 }
 
 // claimStandalonePath gives one document process-wide ownership of a saved
@@ -1309,6 +1309,11 @@ func (a *App) openInMode(g *group, path string, to goTo, addTab bool) *doc {
 	a.git.diffSeq++
 	a.git.peek = nil
 	path = a.docPath(path)
+	// However the path reached here — typed, dragged, restored or reported
+	// by a server — its identity is the disk's spelling, so that case and
+	// Unicode variants of one file share one document rather than two
+	// buffers editing the same bytes.
+	path = workspace.DiskSpelling(path)
 	d := a.docs[path]
 	if d == nil && a.root == "" {
 		d = standaloneDocForPath(a, path)
@@ -1960,7 +1965,10 @@ func targetsOf(locs []lsp.Location) (targets []target, skipped int) {
 			skipped++
 			continue
 		}
-		targets = append(targets, target{name: l.Name, path: p, pos: l.Range.Start, end: l.Range.End})
+		// Where a server answers is spelled as the server spells it;
+		// the disk's spelling is the identity the user lands in, so two
+		// spellings of one file are one target, not two windows into it.
+		targets = append(targets, target{name: l.Name, path: workspace.DiskSpelling(p), pos: l.Range.Start, end: l.Range.End})
 	}
 	return targets, skipped
 }

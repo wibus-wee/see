@@ -16,6 +16,7 @@ import (
 	"see/internal/langserver"
 	"see/internal/lsp"
 	"see/internal/uri"
+	"see/internal/workspace"
 	"see/locales"
 )
 
@@ -435,6 +436,12 @@ func (a *App) applyWorkspaceEdit(edit *lsp.WorkspaceEdit, m *langserver.Server) 
 			continue
 		}
 		path = a.docPath(path)
+		// The server's spelling of the path is not the disk's; writing or
+		// looking the document up by it unchanged would split one file
+		// into two identities. The trusted server may legitimately edit
+		// files outside the workspace, so the path is canonicalized, not
+		// confined.
+		path = workspace.DiskSpelling(path)
 		d := a.docs[path]
 		if d == nil || d.buf == nil {
 			if err := applyEditsToFile(path, edits); err != nil {

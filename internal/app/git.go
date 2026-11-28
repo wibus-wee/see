@@ -771,12 +771,27 @@ func (a *App) gitAction(args ...string) {
 	}()
 }
 
+// gitFilePath joins the path git reports of a change into its root,
+// false when the report is malformed. Git never reports a path out of
+// its tree, but discarding a change writes or trashes what this joins,
+// so the join is validated rather than trusted.
+func gitFilePath(root, rel string) (string, bool) {
+	if !workspace.ValidRel(rel) {
+		return "", false
+	}
+	p, err := workspace.JoinRel(root, rel)
+	return p, err == nil
+}
+
 func (a *App) openGitFile(ch git.Change) {
 	a.openGitFileIn(a.git.root, ch)
 }
 
 func (a *App) openGitFileIn(root string, ch git.Change) {
-	path := filepath.Join(root, filepath.FromSlash(ch.Path))
+	path, ok := gitFilePath(root, ch.Path)
+	if !ok {
+		return
+	}
 	a.term.maximized = false
 	if root == a.git.root {
 		a.git.diffSeq++
@@ -788,7 +803,11 @@ func (a *App) discardGitChange(ch git.Change) {
 	if a.git.busy || a.git.root == "" || a.deleteConfirm != nil {
 		return
 	}
-	path := workspace.DocPath(a.root, a.realRoot, filepath.Join(a.git.root, filepath.FromSlash(ch.Path)))
+	joined, ok := gitFilePath(a.git.root, ch.Path)
+	if !ok {
+		return
+	}
+	path := workspace.DocPath(a.root, a.realRoot, joined)
 	if d := a.docs[path]; d != nil && d.buf != nil && d.buf.Modified() {
 		a.note(locales.MsgSaveOrCloseTheFileSUnsavedEdits(), true)
 		return
@@ -853,7 +872,11 @@ func (a *App) discardGitChanges(chs []git.Change) {
 		return
 	}
 	for _, ch := range chs {
-		path := workspace.DocPath(a.root, a.realRoot, filepath.Join(a.git.root, filepath.FromSlash(ch.Path)))
+		joined, ok := gitFilePath(a.git.root, ch.Path)
+		if !ok {
+			continue
+		}
+		path := workspace.DocPath(a.root, a.realRoot, joined)
 		if d := a.docs[path]; d != nil && d.buf != nil && d.buf.Modified() {
 			a.note(locales.MsgSaveOrCloseTheFileSUnsavedEdits(), true)
 			return
@@ -872,7 +895,11 @@ func (a *App) discardGitChanges(chs []git.Change) {
 			go func() {
 				var firstErr error
 				for _, ch := range chs {
-					path := workspace.DocPath(a.root, a.realRoot, filepath.Join(root, filepath.FromSlash(ch.Path)))
+					joined, ok := gitFilePath(root, ch.Path)
+					if !ok {
+						continue
+					}
+					path := workspace.DocPath(a.root, a.realRoot, joined)
 					var err error
 					if ch.Index == '?' {
 						err = trash(path)

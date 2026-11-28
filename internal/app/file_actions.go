@@ -135,12 +135,16 @@ func (a *App) submitEntry(q *entryPrompt) {
 		return
 	}
 	name := strings.TrimSpace(q.name)
-	clean := filepath.Clean(name)
-	if name == "" || filepath.IsAbs(name) || clean == "." || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
+	// The name is user input relative to q.dir: normalize it through the
+	// same confined join the other root-relative inputs use, so nothing
+	// absolute, nothing with a leading .. and nothing NUL-bearing can
+	// create outside the folder it was typed in.
+	path, err := workspace.JoinRel(q.dir, name)
+	if err != nil || path == q.dir {
 		q.err = locales.MsgEnterARelativePathWithinThisFolder()
 		return
 	}
-	path, gen, post := filepath.Join(q.dir, clean), a.gen, a.post.Post
+	gen, post := a.gen, a.post.Post
 	a.createEntry = nil
 	go func() {
 		var err error
