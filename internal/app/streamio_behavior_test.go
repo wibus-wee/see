@@ -1,6 +1,7 @@
 package app
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -161,6 +162,114 @@ func TestQuickOpenShowsTheListingIsPartial(t *testing.T) {
 	h.tt.Frame()
 	if h.tt.HasText(locales.MsgOnlyTheFirstCountFilesAreListed("200000")) {
 		t.Fatalf("complete listing claims to be partial: %v", h.tt.Texts())
+	}
+}
+
+// TestHexPageSurvivesRefreshOfUnchangedFile is the regression test of
+// the wedge the independent verification of this lane reported: a file
+// the reload of an unchanged revision short-circuits on (its buffer or
+// player already exists, so loadDoc's stamp check skips the re-read and
+// never resets the hex state) keeps a pending page forever when the
+// refresh lands mid-read — d.seq moves, the completion is dropped as
+// stale, and the drop used to happen before the pending entry cleared.
+// The user scrolling to the page saw the placeholder permanently, and
+// eight such holes froze the view's page loading entirely. A text file
+// big enough for two pages reproduces it: the editor holds its buffer,
+// so the shortcut applies; a too-large file heals itself instead, its
+// full reload resetting the state.
+func TestHexPageSurvivesRefreshOfUnchangedFile(t *testing.T) {
+	root := t.TempDir()
+	big := bytes.Repeat([]byte("abcdefghij"), 10240) // 100KiB of text
+	if err := os.WriteFile(filepath.Join(root, "big.txt"), big, 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	h := newHarness(t, root)
+	d := h.open("big.txt")
+	path := d.path
+	g := h.a.focus
+	if g.hexPreview == nil {
+		g.hexPreview = map[string]bool{}
+	}
+	g.hexPreview[path] = true
+	h.tt.Frame()
+	h.settle(func() bool { return d.hex != nil && len(d.hex.pages) > 0 })
+
+	// Jump to the second page: the frame asks for its window, and the
+	// read is in flight.
+	control := g.hexControls[path]
+	state := g.hexLists[path]
+	control.jump = fmt.Sprintf("%x", hexview.PageBytes)
+	h.a.jumpHex(control, state, d.size)
+	h.tt.Frame()
+	if d.hex == nil || !d.hex.pending[hexview.PageBytes] {
+		t.Fatal("the second window was never requested")
+	}
+
+	// Before the read's completion runs, the tree's Refresh reloads every
+	// document. The file is untouched and the editor holds its buffer,
+	// so the reload takes loadDoc's stamp shortcut: it moves d.seq —
+	// invalidating the page read in flight — without resetting d.hex.
+	h.a.refreshAll()
+	drainHarnessPosts(h)
+	h.tt.Frame()
+
+	if d.hex == nil {
+		t.Fatal("refreshing the unchanged file reset the view state; the scenario did not occur")
+	}
+	// The dropped completion must still free the page, so a frame asks
+	// for it again and it arrives; wedged, the page would stay in
+	// pending forever. The loop drains and frames in turn because the
+	// recovery is a cycle: a completion frees the page, a frame
+	// re-requests it, a read posts the next completion.
+	deadline := time.Now().Add(5 * time.Second)
+	for d.hex.pages[hexview.PageBytes] == nil {
+		if time.Now().After(deadline) {
+			t.Fatalf("wedged: the second window never resolves after a refresh of the unchanged file: pending %v", d.hex.pending)
+		}
+		drainHarnessPosts(h)
+		h.tt.Frame()
+		time.Sleep(time.Millisecond)
+	}
+	want := fmt.Sprintf("%0*X  …", hexOffsetDigits(d.size), int64(hexview.PageBytes))
+	if h.tt.HasText(want) {
+		t.Fatalf("the second window is a permanent placeholder %q", want)
+	}
+}
+
+// TestHexCopyPutsTheSelectedBytesOnTheClipboard copies a hex selection
+// the way the copy button does and checks the clipboard carries the
+// bytes' hex, once, in order.
+func TestHexCopyPutsTheSelectedBytesOnTheClipboard(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "small.txt"), []byte("small"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	path, _ := sparseTooLarge(t, root, "HEAD")
+
+	h := newHarness(t, root)
+	d := h.open("big.bin")
+	g := h.a.focus
+	if g.hexPreview == nil {
+		g.hexPreview = map[string]bool{}
+	}
+	g.hexPreview[path] = true
+	h.tt.Frame()
+	h.settle(func() bool { return d.hex != nil && len(d.hex.pages) > 0 })
+
+	// A click on a byte cell selects it through selectByte; a shift
+	// click extends to it. The selection here covers HEAD, the file's
+	// first four bytes.
+	control := g.hexControls[path]
+	control.selectByte(0, false)
+	control.selectByte(3, true)
+	h.tt.Frame()
+	if err := h.tt.Click(locales.MsgCopyHex()); err != nil {
+		t.Fatalf("the copy button does not answer: %v", err)
+	}
+	h.settle(func() bool { return h.tt.Clipboard() != "" })
+	if got := h.tt.Clipboard(); got != "48 45 41 44" {
+		t.Fatalf("copy put %q on the clipboard, want the hex of HEAD", got)
 	}
 }
 
