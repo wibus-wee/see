@@ -301,31 +301,29 @@ func (a *App) openPalette() {
 	a.openQuickPanel(">")
 }
 
-func (a *App) installSee() {
+// installSee reports what it did, for the settings card to mirror
+// inline besides the feedback the toast or the banner carries.
+func (a *App) installSee() string {
+	fail := func(msg string) string { a.fail(msg); return msg }
 	exe, err := os.Executable()
 	if err != nil {
-		a.note(locales.MsgCouldNotLocateTheApplication()+err.Error(), true)
-		return
+		return fail(locales.MsgCouldNotLocateTheApplication() + err.Error())
 	}
 	exe, err = filepath.EvalSymlinks(exe)
 	if err != nil {
-		a.note(locales.MsgCouldNotLocateTheApplication()+err.Error(), true)
-		return
+		return fail(locales.MsgCouldNotLocateTheApplication() + err.Error())
 	}
 	if strings.Contains(filepath.ToSlash(exe), "/go-build") || strings.Contains(filepath.ToSlash(exe), "/.mygo/dev/") {
-		a.note(locales.MsgBuildAPermanentExecutableBeforeInstallingTheSee(), true)
-		return
+		return fail(locales.MsgBuildAPermanentExecutableBeforeInstallingTheSee())
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
-		a.note(locales.MsgCouldNotLocateYourHomeDirectory()+err.Error(), true)
-		return
+		return fail(locales.MsgCouldNotLocateYourHomeDirectory() + err.Error())
 	}
 	dir := filepath.Join(home, ".local", "bin")
 	path, already, err := installSeeCommand(exe, dir)
 	if err != nil {
-		a.note(fmt.Sprintf(locales.MsgCouldNotInstallSV(), path, err), true)
-		return
+		return fail(fmt.Sprintf(locales.MsgCouldNotInstallSV(), path, err))
 	}
 	msg := "Installed see at " + path
 	if already {
@@ -340,31 +338,34 @@ func (a *App) installSee() {
 	if !found {
 		msg += ". Add " + dir + " to your PATH."
 	}
-	a.note(msg, false)
+	a.flash(msg)
+	return msg
 }
 
-func (a *App) uninstallSee() {
+// uninstallSee reports what it did, as installSee does.
+func (a *App) uninstallSee() string {
+	fail := func(msg string) string { a.fail(msg); return msg }
 	exe, err := os.Executable()
 	if err == nil {
 		exe, err = filepath.EvalSymlinks(exe)
 	}
 	if err != nil {
-		a.note(locales.MsgCouldNotLocateTheApplication()+err.Error(), true)
-		return
+		return fail(locales.MsgCouldNotLocateTheApplication() + err.Error())
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
-		a.note(locales.MsgCouldNotLocateYourHomeDirectory()+err.Error(), true)
-		return
+		return fail(locales.MsgCouldNotLocateYourHomeDirectory() + err.Error())
 	}
 	path, removed, err := uninstallSeeCommand(exe, filepath.Join(home, ".local", "bin"))
 	if err != nil {
-		a.note(fmt.Sprintf(locales.MsgCouldNotUninstallSV(), path, err), true)
-	} else if !removed {
-		a.note(locales.MsgTheSeeCommandIsNotInstalledAt()+path, false)
-	} else {
-		a.note(locales.MsgUninstalledSeeFrom()+path, false)
+		return fail(fmt.Sprintf(locales.MsgCouldNotUninstallSV(), path, err))
 	}
+	msg := locales.MsgUninstalledSeeFrom() + path
+	if !removed {
+		msg = locales.MsgTheSeeCommandIsNotInstalledAt() + path
+	}
+	a.flash(msg)
+	return msg
 }
 
 func uninstallSeeLink(exe, dir string) (path string, removed bool, err error) {

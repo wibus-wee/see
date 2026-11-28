@@ -26,7 +26,7 @@ func (a *App) openFileDialog() {
 		a.post.Post(func() {
 			switch {
 			case err != nil:
-				a.note(locales.MsgCouldNotShowTheFileDialog()+err.Error(), true)
+				a.fail(locales.MsgCouldNotShowTheFileDialog() + err.Error())
 			case p != "":
 				if a.multiRootWorkspacesEnabled() && strings.EqualFold(filepath.Ext(p), ".code-workspace") {
 					a.openWorkspace(p)
@@ -101,7 +101,7 @@ func (a *App) untitledName() string {
 }
 
 func (a *App) newFileError(msg string) {
-	a.note(msg, true)
+	a.fail(msg)
 	if a.showWelcome {
 		a.welcomeNote = msg
 	}
@@ -152,12 +152,12 @@ func (a *App) cacheDraft(d *doc) {
 			return
 		}
 		if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
-			post(func() { a.note(locales.MsgCouldNotCacheUnsavedFile()+err.Error(), true) })
+			post(func() { a.fail(locales.MsgCouldNotCacheUnsavedFile() + err.Error()) })
 			return
 		}
 		tmp, err := os.CreateTemp(filepath.Dir(path), ".draft-")
 		if err != nil {
-			post(func() { a.note(locales.MsgCouldNotCacheUnsavedFile()+err.Error(), true) })
+			post(func() { a.fail(locales.MsgCouldNotCacheUnsavedFile() + err.Error()) })
 			return
 		}
 		name := tmp.Name()
@@ -174,7 +174,7 @@ func (a *App) cacheDraft(d *doc) {
 		}
 		post(func() {
 			if err != nil {
-				a.note(locales.MsgCouldNotCacheUnsavedFile()+err.Error(), true)
+				a.fail(locales.MsgCouldNotCacheUnsavedFile() + err.Error())
 			}
 		})
 	}()
@@ -246,7 +246,7 @@ func (a *App) guardDirty(docs []*doc, proceed func()) bool {
 			case errors.Is(err, platform.ErrNoDialog):
 				q.inWindow = true
 			case err != nil:
-				a.note(locales.MsgCouldNotShowTheConfirmation()+err.Error(), true)
+				a.fail(locales.MsgCouldNotShowTheConfirmation() + err.Error())
 				a.confirm = nil
 			default:
 				if choice < 0 || choice >= len(q.actions) {
@@ -322,7 +322,7 @@ func (a *App) saveUntitled(d *doc, done func(bool)) {
 			if err != nil || path == "" {
 				d.saving = false
 				if err != nil {
-					a.note(locales.MsgCouldNotShowTheSaveDialog()+err.Error(), true)
+					a.fail(locales.MsgCouldNotShowTheSaveDialog() + err.Error())
 				}
 				done(false)
 				return
@@ -334,7 +334,7 @@ func (a *App) saveUntitled(d *doc, done func(bool)) {
 			}
 			if alreadyOpen != nil {
 				d.saving = false
-				a.note(locales.MsgThatFileIsAlreadyOpen(), true)
+				a.fail(locales.MsgThatFileIsAlreadyOpen())
 				done(false)
 				return
 			}
@@ -342,94 +342,108 @@ func (a *App) saveUntitled(d *doc, done func(bool)) {
 			if claimed && !reserveStandalonePath(a, d, path) {
 				d.saving = false
 				a.host.RevealOpenFile(path)
-				a.note(locales.MsgThatFileIsAlreadyOpen(), true)
+				a.fail(locales.MsgThatFileIsAlreadyOpen())
 				done(false)
 				return
 			}
-			snap := d.buf.Snapshot()
-			go func() {
-				err := writeFileAtomically(path, func(w io.Writer) error {
-					_, err := snap.WriteTo(w)
-					return err
-				})
-				a.post.Post(func() {
-					if a.gen != gen || a.docs[d.path] != d {
-						if claimed {
-							releaseStandalonePath(a, d, path)
+			// write is the save's write, its own step so the Retry of a
+			// failed one runs it again, without the dialog another
+			// saveUntitled would show. var, not :=, as the closure
+			// refers to itself in the failure report.
+			var write func()
+			write = func() {
+				snap := d.buf.Snapshot()
+				go func() {
+					err := writeFileAtomically(path, func(w io.Writer) error {
+						_, err := snap.WriteTo(w)
+						return err
+					})
+					a.post.Post(func() {
+						if a.gen != gen || a.docs[d.path] != d {
+							if claimed {
+								releaseStandalonePath(a, d, path)
+							}
+							return
 						}
-						return
-					}
-					d.saving = false
-					if err != nil {
-						if claimed {
-							releaseStandalonePath(a, d, path)
+						d.saving = false
+						if err != nil {
+							if claimed {
+								releaseStandalonePath(a, d, path)
+							}
+							msg := locales.MsgCouldNotSaveFile() + err.Error()
+							if d.buf != nil {
+								a.failAction("save:"+d.path, msg, action{locales.Retry(), write})
+							} else {
+								a.fail(msg)
+							}
+							done(false)
+							return
 						}
-						a.note(locales.MsgCouldNotSaveFile()+err.Error(), true)
-						done(false)
-						return
-					}
-					if claimed {
-						finishStandalonePathWrite(a, d, path)
-					}
-					old := d.path
-					removeDraft(d)
-					delete(a.docs, old)
-					d.path, d.uri, d.name, d.untitled, d.cache = path, uriOf(path), filepath.Base(path), false, nil
-					d.diskText = snap.String()
-					if d.buf.Version() == snap.Version() {
-						d.buf.MarkSaved()
-					} else {
-						a.cacheRecovery(d)
-					}
-					a.setDocumentLanguage(d)
-					if fi, e := os.Stat(path); e == nil {
-						d.stamp = fileStamp{fi.Size(), fi.ModTime()}
-					}
-					a.docs[path] = d
-					d.blameKey = ""
-					a.syncBlame(d)
-					for _, g := range a.groups() {
-						for i, p := range g.order {
-							if p == old {
-								g.order[i] = path
+						a.resolveFeedback("save:" + d.path)
+						if claimed {
+							finishStandalonePathWrite(a, d, path)
+						}
+						old := d.path
+						removeDraft(d)
+						delete(a.docs, old)
+						d.path, d.uri, d.name, d.untitled, d.cache = path, uriOf(path), filepath.Base(path), false, nil
+						d.diskText = snap.String()
+						if d.buf.Version() == snap.Version() {
+							d.buf.MarkSaved()
+						} else {
+							a.cacheRecovery(d)
+						}
+						a.setDocumentLanguage(d)
+						if fi, e := os.Stat(path); e == nil {
+							d.stamp = fileStamp{fi.Size(), fi.ModTime()}
+						}
+						a.docs[path] = d
+						d.blameKey = ""
+						a.syncBlame(d)
+						for _, g := range a.groups() {
+							for i, p := range g.order {
+								if p == old {
+									g.order[i] = path
+								}
+							}
+							for i, p := range g.mru {
+								if p == old {
+									g.mru[i] = path
+								}
+							}
+							if g.active == old {
+								g.active = path
+							}
+							if g.preview == old {
+								g.preview = path
+							}
+							if st := g.eds[old]; st != nil {
+								delete(g.eds, old)
+								delete(g.minimaps, old)
+								g.eds[path] = st
+								st.Label = d.name
+								a.applyEditorPrefs(st)
+							}
+							if p, ok := g.pending[old]; ok {
+								delete(g.pending, old)
+								g.pending[path] = p
 							}
 						}
-						for i, p := range g.mru {
-							if p == old {
-								g.mru[i] = path
+						if m := a.serverFor(path); m != nil {
+							if a.workspaceTrusted() {
+								go a.openLanguageDocument(m, a.wsCtx, d, d.uri)
+							} else if !a.trustDismissed {
+								a.trustAsk = true
 							}
 						}
-						if g.active == old {
-							g.active = path
-						}
-						if g.preview == old {
-							g.preview = path
-						}
-						if st := g.eds[old]; st != nil {
-							delete(g.eds, old)
-							delete(g.minimaps, old)
-							g.eds[path] = st
-							st.Label = d.name
-							a.applyEditorPrefs(st)
-						}
-						if p, ok := g.pending[old]; ok {
-							delete(g.pending, old)
-							g.pending[path] = p
-						}
-					}
-					if m := a.serverFor(path); m != nil {
-						if a.workspaceTrusted() {
-							go a.openLanguageDocument(m, a.wsCtx, d, d.uri)
-						} else if !a.trustDismissed {
-							a.trustAsk = true
-						}
-					}
-					a.refreshDir(filepath.Dir(path))
-					a.saveConfig()
-					a.note(locales.MsgSaved()+d.name, false)
-					done(!d.buf.Modified())
-				})
-			}()
+						a.refreshDir(filepath.Dir(path))
+						a.saveConfig()
+						a.flash(locales.MsgSaved() + d.name)
+						done(!d.buf.Modified())
+					})
+				}()
+			}
+			write()
 		})
 	}()
 }
@@ -437,7 +451,7 @@ func (a *App) saveUntitled(d *doc, done func(bool)) {
 // saveDoc checks the last-read disk contents before writing, including the BOM.
 func (a *App) saveDoc(d *doc, overwrite bool) bool {
 	if a.git.resolvingPath != "" && a.git.resolvingPath == d.path {
-		a.note(gitConflictText("gitConflictSaving"), false)
+		a.flash(gitConflictText("gitConflictSaving"))
 		return false
 	}
 	if d.buf == nil || d.lossy {
@@ -448,7 +462,7 @@ func (a *App) saveDoc(d *doc, overwrite bool) bool {
 	}
 	current, err := os.ReadFile(d.path)
 	if err != nil && !os.IsNotExist(err) {
-		a.note(locales.MsgCouldNotSave()+d.name+": "+err.Error(), true)
+		a.failKeyed("save:"+d.path, locales.MsgCouldNotSave()+d.name+": "+err.Error(), nil)
 		return false
 	}
 	expected := []byte(d.diskText)
@@ -457,7 +471,16 @@ func (a *App) saveDoc(d *doc, overwrite bool) bool {
 	}
 	if !overwrite && (err != nil || !bytes.Equal(current, expected)) {
 		d.conflict = true
-		a.note(locales.MsgTheFileChangedOnDiskReviewItBefore(), true)
+		// The editor of the file carries this conflict as its own banner
+		// while it shows; the feedback one reports it only where that one
+		// cannot be seen, as a file Save All could not write in another
+		// group or behind a tab. Review goes to the file, where the
+		// editor banner's Overwrite resolves it.
+		if !a.conflictBannerVisible(d) {
+			a.failAction("conflict:"+d.path, locales.MsgTheFileChangedOnDiskReviewItBefore(), action{locales.Review(), func() {
+				a.openFile(d.path, nil)
+			}})
+		}
 		return false
 	}
 	var out bytes.Buffer
@@ -474,7 +497,7 @@ func (a *App) saveDoc(d *doc, overwrite bool) bool {
 		})
 	}
 	if err != nil {
-		a.note(locales.MsgCouldNotSave()+d.name+": "+err.Error(), true)
+		a.failAction("save:"+d.path, locales.MsgCouldNotSave()+d.name+": "+err.Error(), action{locales.Retry(), func() { a.saveDoc(d, overwrite) }})
 		return false
 	}
 	d.seq++ // an older asynchronous read must not replace the saved text
@@ -496,6 +519,20 @@ func (a *App) saveDoc(d *doc, overwrite bool) bool {
 		// A clean saved file is no longer crash-recovery state.
 		a.saveConfig()
 	}
-	a.note(locales.MsgSaved()+d.name, false)
+	a.resolveFeedback("save:" + d.path)
+	a.resolveFeedback("conflict:" + d.path)
+	a.flash(locales.MsgSaved() + d.name)
 	return true
+}
+
+// conflictBannerVisible reports whether d's file-changed-on-disk banner
+// can show: its document is the active tab of some group, the only place
+// the editor area builds one.
+func (a *App) conflictBannerVisible(d *doc) bool {
+	for _, g := range a.groups() {
+		if tabPath(g.active) == d.path {
+			return true
+		}
+	}
+	return false
 }
