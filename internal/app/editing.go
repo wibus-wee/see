@@ -13,6 +13,7 @@ import (
 
 	"github.com/egoist/mygo/ui/editor"
 	"see/internal/atomicfile"
+	"see/internal/fileobs"
 	"see/internal/config"
 	"see/internal/platform"
 	"see/internal/workspace"
@@ -119,6 +120,40 @@ func createDraft(path string) error {
 		return err
 	}
 	return nil
+}
+
+// writeFileIfUnchanged publishes through atomicfile like writeFileAtomically
+// and additionally guards the publish with the document's save condition:
+// unless overwrite is explicit, the target is replaced only while its
+// content still matches expectation — digest-strength, built from the
+// bytes the buffer was read from. The condition evaluates inside the
+// publish boundary, after the staging file is durable and closed and
+// immediately before the rename. POSIX cannot compare-and-rename in one
+// step, so this is best-effort conflict detection whose race window is
+// the rename boundary (documented per REQ-COND-070), never an atomic
+// compare-and-publish — and it shrinks the window from the entire
+// staging write to that boundary. Both ends of the condition are
+// digest-carrying observations: the re-observation is ObserveContent,
+// never ObservePath, so a weakened comparison cannot assemble silently.
+func writeFileIfUnchanged(path string, expectation fileobs.Observation, overwrite bool, write func(io.Writer) error) error {
+	s, err := atomicfile.Begin(path)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = s.Abort() }()
+	if err := write(s); err != nil {
+		return err
+	}
+	if overwrite {
+		return s.Commit()
+	}
+	return s.CommitIf(func() error {
+		current, err := fileobs.ObserveContent(fileobs.SourceRead, path)
+		if err != nil {
+			return err
+		}
+		return fileobs.Check(expectation, current)
+	})
 }
 
 // writeFileAtomically writes to a sibling and only moves it into place after
@@ -376,6 +411,7 @@ func (a *App) saveUntitled(d *doc, done func(bool)) {
 					delete(a.docs, old)
 					d.path, d.uri, d.name, d.untitled, d.cache = path, uriOf(path), filepath.Base(path), false, nil
 					d.diskText = snap.String()
+					expectOnDisk(d)
 					if d.buf.Version() == snap.Version() {
 						d.buf.MarkSaved()
 					} else {
@@ -434,6 +470,26 @@ func (a *App) saveUntitled(d *doc, done func(bool)) {
 	}()
 }
 
+// expectationBytes are the on-disk bytes a document's text represents:
+// the decoded text with its BOM prepended when it had one. The save
+// condition compares content, so the expectation is built from these
+// bytes rather than re-observed — re-observing would race the file
+// instead of measuring what the buffer was read from.
+func expectationBytes(text string, bom bool) []byte {
+	if !bom {
+		return []byte(text)
+	}
+	return append([]byte{0xef, 0xbb, 0xbf}, text...)
+}
+
+// expectOnDisk rebuilds the document's save condition: the digest of the
+// bytes last read from disk. The condition is content-strength by
+// construction — digest only, never size+mtime — so an identical-content
+// rewrite never conflicts and a same-length replacement always does.
+func expectOnDisk(d *doc) {
+	d.expectation = fileobs.ExpectContent(fileobs.SourceRead, d.path, expectationBytes(d.diskText, d.bom))
+}
+
 // saveDoc checks the last-read disk contents before writing, including the BOM.
 func (a *App) saveDoc(d *doc, overwrite bool) bool {
 	if a.git.resolvingPath != "" && a.git.resolvingPath == d.path {
@@ -446,34 +502,50 @@ func (a *App) saveDoc(d *doc, overwrite bool) bool {
 	if !d.buf.Modified() && !overwrite {
 		return true
 	}
-	current, err := os.ReadFile(d.path)
-	if err != nil && !os.IsNotExist(err) {
-		a.note(locales.MsgCouldNotSave()+d.name+": "+err.Error(), true)
-		return false
-	}
-	expected := []byte(d.diskText)
-	if d.bom {
-		expected = append([]byte{0xef, 0xbb, 0xbf}, expected...)
-	}
-	if !overwrite && (err != nil || !bytes.Equal(current, expected)) {
-		d.conflict = true
-		a.note(locales.MsgTheFileChangedOnDiskReviewItBefore(), true)
-		return false
+	if !overwrite {
+		// The cheap pre-check skips staging for the common conflict: it is
+		// a courtesy, never the condition. The condition is evaluated
+		// again inside the publish boundary below, so a file passing here
+		// still cannot be silently overwritten when it changes mid-write.
+		current, err := os.ReadFile(d.path)
+		if err != nil && !os.IsNotExist(err) {
+			a.note(locales.MsgCouldNotSave()+d.name+": "+err.Error(), true)
+			return false
+		}
+		if err != nil || !bytes.Equal(current, expectationBytes(d.diskText, d.bom)) {
+			d.conflict = true
+			a.note(locales.MsgTheFileChangedOnDiskReviewItBefore(), true)
+			return false
+		}
 	}
 	var out bytes.Buffer
 	if d.bom {
 		out.Write([]byte{0xef, 0xbb, 0xbf})
 	}
+	var err error
 	if _, err = d.buf.WriteTo(&out); err == nil {
-		// The write publishes complete bytes or fails: a crash or disk
-		// error in the middle must not truncate the file the user last
-		// saw saved.
-		err = atomicfile.WriteFile(d.path, func(w io.Writer) error {
+		// The publish is conditional: the target is replaced only while
+		// it still holds the bytes this buffer was read from. The
+		// condition evaluates after the staging file is durable and
+		// closed, immediately before the rename — the window in which an
+		// external write is silently overwritten shrinks from the entire
+		// staging write to the rename boundary, which POSIX cannot close
+		// for regular files. The re-observation is ObserveContent, never
+		// ObservePath: a digest-less observation here is incomparable
+		// with the content-strength expectation, which would be a wiring
+		// bug — ErrIncomparableIdentity surfaces as a save failure, and
+		// must never be "fixed" by weakening the expectation.
+		err = writeFileIfUnchanged(d.path, d.expectation, overwrite, func(w io.Writer) error {
 			_, err := w.Write(out.Bytes())
 			return err
 		})
 	}
 	if err != nil {
+		if errors.Is(err, fileobs.ErrConditionMismatch) {
+			d.conflict = true
+			a.note(locales.MsgTheFileChangedOnDiskReviewItBefore(), true)
+			return false
+		}
 		a.note(locales.MsgCouldNotSave()+d.name+": "+err.Error(), true)
 		return false
 	}
@@ -486,6 +558,7 @@ func (a *App) saveDoc(d *doc, overwrite bool) bool {
 	if d.bom {
 		d.diskText = d.diskText[3:]
 	}
+	expectOnDisk(d)
 	if fi, err := os.Stat(d.path); err == nil {
 		d.stamp = fileStamp{fi.Size(), fi.ModTime()}
 	}

@@ -25,6 +25,7 @@ import (
 
 	"see/internal/config"
 	"see/internal/filenesting"
+	"see/internal/fileobs"
 	"see/internal/git"
 	"see/internal/localhistory"
 	"see/internal/lsp"
@@ -303,6 +304,7 @@ type doc struct {
 	lossy             bool      // invalid UTF-8 shown with replacement characters
 	bom               bool
 	diskText          string
+	expectation       fileobs.Observation // the on-disk bytes this buffer saves against
 	conflict          bool
 	lspVersion        uint64
 	diagnostics       []editor.Diagnostic
@@ -1499,6 +1501,7 @@ func (a *App) loadDoc(d *doc) {
 				}
 				a.loaded(d, f, buf, false, nil)
 				d.diskText, d.bom = recovery.Base, recovery.BOM
+				expectOnDisk(d)
 				d.conflict = err == nil && (f.Text != recovery.Base || f.BOM != recovery.BOM)
 				d.gone = errors.Is(err, fs.ErrNotExist)
 			} else {
@@ -1564,6 +1567,7 @@ func (a *App) loaded(d *doc, f workspace.File, buf *editor.Buffer, same bool, er
 	}
 	d.err, d.gone, d.conflict = nil, false, false
 	d.bom, d.diskText = f.BOM, f.Text
+	expectOnDisk(d)
 	d.kind, d.size, d.plain = f.Kind, f.Size, f.Plain
 	d.video = isVideoPath(d.path) && f.Kind == workspace.Binary
 	d.stamp = fileStamp{f.Size, f.ModTime}

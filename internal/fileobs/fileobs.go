@@ -22,6 +22,7 @@
 package fileobs
 
 import (
+	"bytes"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -199,6 +200,29 @@ func ObserveContent(source Source, path string) (Observation, error) {
 		return Observation{}, err
 	}
 	return Observed(source, path, info, time.Now()).WithDigest(digest), nil
+}
+
+// ExpectContent is the expectation half of a content condition for bytes
+// the caller already holds, where observing the file again cannot produce
+// a more faithful snapshot: the editor saves against the bytes it read,
+// and a re-observation at that point would race the file instead of
+// removing doubt. The observation is digest-only by design — no size, no
+// modification time — so the condition it builds is exactly "the content
+// is unchanged": a rewrite of identical bytes passes, which a size+mtime
+// expectation would reject, and no weakened comparison can be silently
+// constructed from it. The current end of the condition must come from
+// ObserveContent for Check to evaluate at all — a weak re-observation is
+// incomparable, never a silent pass.
+func ExpectContent(source Source, path string, content []byte) Observation {
+	digest, _ := DigestSHA256(bytes.NewReader(content)) // bytes.Reader never fails
+	return Observation{
+		path:   path,
+		exists: true,
+		source: source,
+		at:     time.Now().UTC(),
+		attrs:  hasDigest,
+		digest: digest,
+	}
 }
 
 // WithDigest returns a copy of o that also carries the full-content
