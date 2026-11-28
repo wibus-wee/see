@@ -13,10 +13,11 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
-	"github.com/sahilm/fuzzy"
 	"github.com/egoist/mygo/ui/editor"
+	"github.com/sahilm/fuzzy"
 
 	"see/internal/config"
+	"see/internal/git"
 	"see/internal/lsp"
 	"see/internal/nav"
 	"see/internal/search"
@@ -87,11 +88,11 @@ func (f *findState) currentQuery() config.SavedFindQuery {
 }
 
 func (a *App) setSavedFindQuery(query config.SavedFindQuery, save bool) {
-	if a.root == "" || strings.TrimSpace(query.Query) == "" {
+	if a.workspaceID == "" || strings.TrimSpace(query.Query) == "" {
 		return
 	}
 	byWorkspace := a.cfg.SavedFindQueries
-	queries := byWorkspace[a.root]
+	queries := byWorkspace[a.workspaceID]
 	i := slices.Index(queries, query)
 	if save == (i >= 0) {
 		return
@@ -101,11 +102,11 @@ func (a *App) setSavedFindQuery(query config.SavedFindQuery, save bool) {
 			byWorkspace = make(map[string][]config.SavedFindQuery)
 			a.cfg.SavedFindQueries = byWorkspace
 		}
-		byWorkspace[a.root] = slices.Insert(queries, 0, query)
+		byWorkspace[a.workspaceID] = slices.Insert(queries, 0, query)
 	} else if len(queries) == 1 {
-		delete(byWorkspace, a.root)
+		delete(byWorkspace, a.workspaceID)
 	} else {
-		byWorkspace[a.root] = slices.Delete(queries, i, i+1)
+		byWorkspace[a.workspaceID] = slices.Delete(queries, i, i+1)
 	}
 	a.saveConfigSoon()
 }
@@ -168,7 +169,11 @@ func (a *App) runFind() {
 		f.running = false
 		return
 	}
-	seq, gen, opts, root, rg := f.seq, a.gen, f.opts, a.root, f.rg
+	seq, gen, opts, rg := f.seq, a.gen, f.opts, f.rg
+	roots := existingWorkspaceRoots(a.workspaceFolderPaths())
+	excludePatterns := mergedSearchExcludes(a.workspaceSettings)
+	excludeArgs := ripgrepExcludeGlobsForRules(excludePatterns)
+	ignoreFiles := ignoreFileOptions(a.workspaceSettings)
 	ctx, cancel := context.WithCancel(a.wsCtx)
 	f.cancel = cancel
 	f.running = true
@@ -186,44 +191,115 @@ func (a *App) runFind() {
 				return
 			}
 			a.post.Post(func() {
-				if a.gen == gen && a.find.seq == seq {
-					a.addFindResults(b)
-				}
+				a.addFindResultsForSearch(gen, seq, b)
 			})
 		}
-		st, err := search.Run(ctx, rg, root, opts, func(file search.File) {
-			mu.Lock()
-			batch = append(batch, file)
-			mu.Unlock()
-			if time.Since(last) > 80*time.Millisecond {
-				last = time.Now()
-				flush()
+		limit := opts.MaxMatches
+		if limit <= 0 {
+			limit = 20000
+		}
+		var total search.Stats
+		var searchErr error
+		for _, root := range roots {
+			rootOpts := opts
+			rootOpts.NoIgnoreFiles = ignoreFiles
+			rootOpts.MaxMatches = limit - total.Matches
+			if rootOpts.MaxMatches <= 0 {
+				break
 			}
-		})
+			st, err := search.Run(ctx, rg, root, rootOpts, append(slices.Clone(excludeArgs), nestedWorkspaceRootGlobs(root, roots)...), func(file search.File) {
+				if rel, relErr := filepath.Rel(root, file.Path); relErr == nil && excludedByRules(excludePatterns, root, filepath.ToSlash(rel)) {
+					return
+				}
+				mu.Lock()
+				batch = append(batch, file)
+				mu.Unlock()
+				if time.Since(last) > 80*time.Millisecond {
+					last = time.Now()
+					flush()
+				}
+			})
+			total.Files += st.Files
+			total.Matches += st.Matches
+			total.Truncated = total.Truncated || st.Truncated
+			if err != nil {
+				searchErr = errors.Join(searchErr, err)
+				if errors.Is(err, context.Canceled) {
+					break
+				}
+			}
+			if total.Truncated {
+				break
+			}
+		}
 		flush()
 		a.post.Post(func() {
-			if a.gen != gen || a.find.seq != seq {
+			if !a.findResultCurrent(gen, seq) {
 				return
 			}
 			a.find.running, a.find.cancel = false, nil
-			a.find.stats = st
-			if err != nil && !errors.Is(err, context.Canceled) {
-				a.find.err = err
+			a.find.stats.Files = len(a.find.results)
+			a.find.stats.Matches = 0
+			for _, file := range a.find.results {
+				a.find.stats.Matches += len(file.Matches)
+			}
+			a.find.stats.Truncated = total.Truncated
+			if searchErr != nil && !errors.Is(searchErr, context.Canceled) {
+				a.find.err = searchErr
 			}
 		})
 	}()
 }
 
-// addFindResults puts files of results in path order, open.
+func (a *App) findResultCurrent(gen int, seq int) bool {
+	return a.gen == gen && a.find.seq == seq
+}
+
+func (a *App) addFindResultsForSearch(gen int, seq int, files []search.File) {
+	if a.findResultCurrent(gen, seq) {
+		a.addFindResults(files)
+	}
+}
+
+// addFindResults puts files of results in path order, open. Overlapping
+// workspace roots can find the same file twice; its matches merge into one
+// file identity instead of becoming two replace targets.
 func (a *App) addFindResults(files []search.File) {
 	f := &a.find
 	for _, file := range files {
-		i, _ := slices.BinarySearchFunc(f.results, file.Path, func(r search.File, p string) int { return strings.Compare(r.Path, p) })
+		i, found := slices.BinarySearchFunc(f.results, file.Path, func(r search.File, p string) int { return strings.Compare(r.Path, p) })
+		if found {
+			before := len(f.results[i].Matches)
+			f.results[i].Matches = mergeFindMatches(f.results[i].Matches, file.Matches)
+			f.stats.Matches += len(f.results[i].Matches) - before
+			continue
+		}
 		f.results = slices.Insert(f.results, i, file)
 		f.tree.Open.Add(findKey{path: file.Path, match: -1})
 		f.stats.Files++
 		f.stats.Matches += len(file.Matches)
 	}
+}
+
+func mergeFindMatches(base, extra []search.Match) []search.Match {
+	type key struct{ line, col, end int }
+	seen := make(map[key]bool, len(base)+len(extra))
+	out := make([]search.Match, 0, len(base)+len(extra))
+	for _, m := range slices.Concat(base, extra) {
+		k := key{m.Line, m.Col, m.End}
+		if seen[k] {
+			continue
+		}
+		seen[k] = true
+		out = append(out, m)
+	}
+	slices.SortFunc(out, func(a, b search.Match) int {
+		if a.Line != b.Line {
+			return a.Line - b.Line
+		}
+		return a.Col - b.Col
+	})
+	return out
 }
 
 func (a *App) findFile(path string) *search.File {
@@ -265,32 +341,35 @@ func (a *App) openMatch(k findKey) {
 // ----- Open Quickly: files by name, ranked by sahilm/fuzzy -----
 
 type quickOpen struct {
-	open          bool
-	query         string
-	ranked        string // the query results are of
-	files         []string
-	listing       bool
-	truncated     bool
-	err           error
-	results       []search.Scored
-	commands      []command // palette rows results indexes, command mode only
-	list          ui.ListState
-	sel           int
-	line          int // line to open, from a trailing :N in the query
-	col           int // column to open, from a trailing :N:N
-	gen           int
-	symbols       []quickSymbol
-	symbolCancel  context.CancelFunc
-	symbolLoading bool
-	symbolErr     error
-	filePath      string
-	fileVersion   uint64
-	fileSymbols   []quickSymbol
-	fileLoaded    bool
-	targetQuery   string
-	targetFiles   []string
-	targetPath    string
-	targetLoading bool
+	open            bool
+	query           string
+	ranked          string // the query results are of
+	files           []string
+	listing         bool
+	filesSeq        uint64
+	filesCancel     context.CancelFunc
+	fileMatchLabels map[string]string
+	truncated       bool
+	err             error
+	results         []search.Scored
+	commands        []command // palette rows results indexes, command mode only
+	list            ui.ListState
+	sel             int
+	line            int // line to open, from a trailing :N in the query
+	col             int // column to open, from a trailing :N:N
+	gen             int
+	symbols         []quickSymbol
+	symbolCancel    context.CancelFunc
+	symbolLoading   bool
+	symbolErr       error
+	filePath        string
+	fileVersion     uint64
+	fileSymbols     []quickSymbol
+	fileLoaded      bool
+	targetQuery     string
+	targetFiles     []string
+	targetPath      string
+	targetLoading   bool
 }
 
 type quickSymbol struct {
@@ -332,25 +411,152 @@ func (a *App) ensureFiles() {
 		return
 	}
 	q.listing = true
-	gen, root := a.gen, a.root
-	rg, _ := findRipgrep(root) // "" lists by walking
-	ctx, ignored := a.wsCtx, a.ignored
+	gen := a.gen
+	rootsEpoch := a.workspaceRootsEpoch
+	q.filesSeq++
+	seq := q.filesSeq
+	logicalMultiRoot := len(a.workspaceFolderPaths()) > 1
+	roots := existingWorkspaceRoots(a.workspaceFolderPaths())
+	excludePatterns := mergedSearchExcludes(a.workspaceSettings)
+	ignoreFiles := ignoreFileOptions(a.workspaceSettings)
+	rg, _ := findRipgrep(a.root) // "" lists by walking
+	ctx, cancel := context.WithCancel(a.wsCtx)
+	q.filesCancel = cancel
+	ignored := make(map[string]*git.Ignored, len(a.ignored))
+	for root, ig := range a.ignored {
+		ignored[root] = ig
+	}
+	nested := make(map[string][]string, len(roots))
+	for _, root := range roots {
+		nested[root] = nestedWorkspaceRootPrefixes(root, roots)
+	}
 	go func() {
-		files, truncated, err := search.ListFiles(ctx, rg, root, maxQuickFiles, ignored.Dir)
-		a.post.Post(func() {
-			if a.gen != gen {
-				return
+		var files []string
+		seenFiles := map[string]bool{}
+		var truncated bool
+		var err error
+		for _, root := range roots {
+			limit := maxQuickFiles - len(files)
+			if limit <= 0 {
+				truncated = true
+				break
 			}
-			q.listing, q.files, q.truncated, q.err = false, files, truncated, err
-			if q.files == nil {
-				q.files = []string{}
+			ig := ignored[root]
+			if !ignoreFiles.All && (ignoreFiles.Global || ignoreFiles.Parent) {
+				ig, _ = git.ReadIgnoredSources(ctx, root, !ignoreFiles.Global, !ignoreFiles.Parent)
 			}
-			if !strings.HasPrefix(q.query, ">") && !strings.HasPrefix(q.query, "#") && !strings.HasPrefix(q.query, "@") {
-				q.ranked = "\x00" // rank files again
+			nestedPrefixes := nested[root]
+			skipDir := func(rel string) bool {
+				return withinNestedWorkspaceRoot(rel, nestedPrefixes) || !ignoreFiles.All && ig != nil && ig.Dir(rel)
 			}
-			a.filter.forQuery = "" // filter again over the new list
-		})
+			var rootFiles []string
+			var rootTruncated bool
+			rootFiles, rootTruncated, err = search.ListFiles(ctx, rg, root, limit, skipDir, func(rel string) bool {
+				return withinNestedWorkspaceRoot(rel, nestedPrefixes) || excludedByRules(excludePatterns, root, rel)
+			}, ignoreFiles)
+			if err != nil {
+				break
+			}
+			if logicalMultiRoot {
+				for i, rel := range rootFiles {
+					rootFiles[i] = filepath.Join(root, filepath.FromSlash(rel))
+				}
+			}
+			for _, file := range rootFiles {
+				if !seenFiles[file] {
+					seenFiles[file] = true
+					files = append(files, file)
+				}
+			}
+			truncated = truncated || rootTruncated
+			if rootTruncated {
+				break
+			}
+		}
+		a.post.Post(func() { a.finishQuickFileListing(gen, rootsEpoch, seq, files, truncated, err, cancel) })
 	}()
+}
+
+func (a *App) finishQuickFileListing(gen int, rootsEpoch, seq uint64, files []string, truncated bool, err error, cancel context.CancelFunc) {
+	q := &a.quick
+	if a.gen != gen || a.workspaceRootsEpoch != rootsEpoch || q.filesSeq != seq {
+		return
+	}
+	cancel()
+	q.filesCancel = nil
+	q.listing, q.files, q.truncated, q.err = false, files, truncated, err
+	if q.files == nil {
+		q.files = []string{}
+	}
+	if !strings.HasPrefix(q.query, ">") && !strings.HasPrefix(q.query, "#") && !strings.HasPrefix(q.query, "@") {
+		q.ranked = "\x00" // rank files again
+	}
+	a.filter.forQuery = "" // filter again over the new list
+}
+
+func (a *App) invalidateQuickFiles() {
+	q := &a.quick
+	if q.filesCancel != nil {
+		q.filesCancel()
+		q.filesCancel = nil
+	}
+	q.filesSeq++
+	q.listing, q.files, q.truncated, q.err = false, nil, false, nil
+	q.fileMatchLabels = nil
+	q.targetQuery, q.targetFiles, q.targetPath = "", nil, ""
+	q.ranked = "\x00"
+}
+
+func (a *App) searchWorkspaceFiles(files []string, query string, limit int) []search.Scored {
+	if limit <= 0 {
+		return nil
+	}
+	type candidate struct {
+		path, label string
+	}
+	var paths []string
+	owners := make(map[string][]candidate)
+	for _, path := range files {
+		root := a.workspaceRootForPath(path)
+		rel := path
+		if root != "" {
+			rel = workspace.RelPath(root, path)
+		}
+		labels := []string{a.workspacePath(path)}
+		if len(a.workspaceFolders) > 1 && root != "" {
+			labels = append(labels, filepath.ToSlash(filepath.Join(a.workspaceFolderName(root), filepath.FromSlash(rel))), filepath.ToSlash(filepath.Join(filepath.Base(root), filepath.FromSlash(rel))), rel)
+		}
+		labels = slices.Compact(labels)
+		for _, label := range labels {
+			paths = append(paths, label)
+			owners[label] = append(owners[label], candidate{path: path, label: label})
+		}
+	}
+	matches := search.Files(paths, query, min(len(paths), limit*4))
+	results := make([]search.Scored, 0, min(limit, len(matches)))
+	seen := make(map[string]bool)
+	labels := make(map[string]string)
+	used := make(map[string]int)
+	for _, match := range matches {
+		candidates := owners[match.Path]
+		index := used[match.Path]
+		if index >= len(candidates) {
+			continue
+		}
+		used[match.Path] = index + 1
+		owner := candidates[index]
+		if seen[owner.path] {
+			continue
+		}
+		seen[owner.path] = true
+		labels[owner.path] = owner.label
+		results = append(results, search.Scored{Path: owner.path, Hits: match.Hits})
+		if len(results) == limit {
+			break
+		}
+	}
+	a.quick.fileMatchLabels = labels
+	return results
 }
 
 // rankCommands lists the commands the palette offers, ranked against
@@ -423,13 +629,13 @@ func (a *App) rankQuick() {
 		a.ensureFiles()
 		if fileQuery != q.targetQuery || len(q.files) != len(q.targetFiles) || len(q.files) > 0 && &q.files[0] != &q.targetFiles[0] {
 			q.targetQuery, q.targetFiles, q.targetPath = fileQuery, q.files, ""
-			if files := search.Files(q.files, fileQuery, 60); len(files) > 0 {
-				q.targetPath = workspace.DocPath(a.root, a.realRoot, joinRoot(a.root, files[0].Path))
+			if files := a.searchWorkspaceFiles(q.files, fileQuery, 60); len(files) > 0 {
+				q.targetPath = a.docPath(a.workspaceFilePath(files[0].Path))
 			}
 		}
 		path, version, loading := q.targetPath, uint64(0), false
 		if path != "" {
-			if a.cfg.IsTrusted(a.root) {
+			if a.workspaceTrusted() {
 				d := a.docs[path]
 				if d == nil {
 					d = &doc{path: path, uri: uriOf(path), name: filepath.Base(path)}
@@ -483,7 +689,7 @@ func (a *App) rankQuick() {
 		q.commands, q.results = a.rankCommands(strings.TrimSpace(q.query[1:]))
 	} else if strings.HasPrefix(q.query, "@") || targeted {
 		q.results = nil
-		if q.filePath != "" && a.cfg.IsTrusted(a.root) {
+		if q.filePath != "" && a.workspaceTrusted() {
 			if d := a.docs[q.filePath]; targeted && d != nil && d.loading {
 				q.symbolLoading = true
 			} else if targeted && a.docs[q.filePath] != nil && a.docs[q.filePath].err != nil {
@@ -496,7 +702,7 @@ func (a *App) rankQuick() {
 		}
 	} else if strings.HasPrefix(q.query, "#") {
 		q.results = nil
-		if a.root != "" && a.cfg.IsTrusted(a.root) && strings.TrimSpace(q.query[1:]) != "" {
+		if a.root != "" && a.workspaceTrusted() && strings.TrimSpace(q.query[1:]) != "" {
 			a.searchSymbols(strings.TrimSpace(q.query[1:]))
 		}
 	} else {
@@ -510,7 +716,7 @@ func (a *App) rankQuick() {
 		if query == "" {
 			q.results = a.recentTabs()
 		} else {
-			q.results = search.Files(q.files, query, 60)
+			q.results = a.searchWorkspaceFiles(q.files, query, 60)
 		}
 	}
 	q.sel = 0
@@ -647,14 +853,14 @@ func (a *App) chooseQuick(i int) {
 		return
 	}
 	if q.line > 0 {
-		path := joinRoot(a.root, p)
+		path := a.workspaceFilePath(p)
 		pos := editor.Pos{Line: q.line - 1, Col: q.col}
 		if q.col > 0 {
 			pos.Col = q.col - 1
 		}
 		a.openFile(path, &pos)
 	} else {
-		a.previewOpen(joinRoot(a.root, p))
+		a.previewOpen(a.workspaceFilePath(p))
 	}
 }
 
@@ -683,13 +889,15 @@ func (a *App) recentTabs() []search.Scored {
 	var out []search.Scored
 	for i := len(a.recents) - 1; i >= 0 && len(out) < maxQuickRecents; i-- {
 		path := a.recents[i]
-		if a.root == "" || !workspace.Within(a.root, path) || path == a.activePath() {
+		if a.root == "" || !a.withinWorkspace(path) || path == a.activePath() {
 			continue
 		}
 		if fi, err := os.Stat(path); err != nil || !fi.Mode().IsRegular() {
 			continue
 		}
-		if rel := workspace.RelPath(a.root, path); rel != path {
+		if len(a.workspaceFolders) > 1 {
+			out = append(out, search.Scored{Path: path})
+		} else if rel := workspace.RelPath(a.root, path); rel != path {
 			out = append(out, search.Scored{Path: rel})
 		}
 	}

@@ -47,7 +47,12 @@ func (a *App) tabFileMenu(c *ui.Context, m *ui.Menu, tab string, d *doc, diff *g
 
 func (a *App) tabBar(c *ui.Context, g *group) {
 	// Names shown by more than one tab get their folder too.
+	type tabNameParent struct {
+		name   string
+		parent string
+	}
 	count := map[string]int{}
+	parentCount := map[tabNameParent]int{}
 	seen := map[string]bool{}
 	for _, p := range g.order {
 		path := tabPath(p)
@@ -55,7 +60,10 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 			path = v.localHistory.path
 		}
 		if !seen[path] {
-			count[filepath.Base(path)]++
+			name := filepath.Base(path)
+			parent := filepath.Base(filepath.Dir(path))
+			count[name]++
+			parentCount[tabNameParent{name: name, parent: parent}]++
 			seen[path] = true
 		}
 	}
@@ -138,7 +146,7 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 			} else if d.untitled {
 				tab.Tooltip(d.name)
 			} else {
-				tab.Tooltip(workspace.RelPath(a.root, path))
+				tab.Tooltip(a.workspacePath(path))
 			}
 			tab.Children(func() {
 				// The close button shows on the left, as Xcode's, while the
@@ -179,7 +187,11 @@ func (a *App) tabBar(c *ui.Context, g *group) {
 					name.TextColor(colors(c).Muted)
 				}
 				if count[d.name] > 1 {
-					ui.Text(c, filepath.Base(filepath.Dir(path))).FontSize(11).TextColor(colors(c).Dim).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(2)
+					parent := filepath.Base(filepath.Dir(path))
+					if parentCount[tabNameParent{name: filepath.Base(path), parent: parent}] > 1 {
+						parent = a.workspacePath(filepath.Dir(path))
+					}
+					ui.Text(c, parent).FontSize(11).TextColor(colors(c).Dim).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(2)
 				}
 				if d.loadingVisible {
 					ui.Spinner(c).FontSize(10)
@@ -211,7 +223,11 @@ func (a *App) diffJumpBar(c *ui.Context, g *group) {
 	ui.Row(c).FillWidth().Height(26).Padding(0, 6).Gap(5).AlignItems(ui.Center).Background(colors(c).Editor).
 		BorderWidth(0, 0, 1, 0).BorderColor(colors(c).Separator).Children(func() {
 		folderGlyph(c, false, 13)
-		ui.Text(c, filepath.Base(a.root)).FontSize(12).TextColor(colors(c).Muted).SingleLine()
+		repositoryLabel := a.workspaceTitle()
+		if a.git.root != "" {
+			repositoryLabel = a.gitRepositoryLabel(a.git.root)
+		}
+		ui.Text(c, repositoryLabel).FontSize(12).TextColor(colors(c).Muted).SingleLine()
 		symbolIcon(c, icChevron, 9, colors(c).Dim)
 		label := v.label()
 		if v.search != nil {
@@ -484,20 +500,26 @@ func (a *App) jumpBar(c *ui.Context, g *group) {
 		a.refreshOutline()
 	}
 	showSymbols := a.jumpSymbolsShown(g, p)
-	outside := !workspace.Within(a.root, p)
+	rootPath := a.workspaceRootForPath(p)
+	outside := rootPath == ""
 	if d := a.docs[p]; d != nil && d.untitled {
 		outside = false
 	}
-	parts := strings.Split(workspace.RelPath(a.root, p), "/")
+	parts := strings.Split(workspace.RelPath(rootPath, p), "/")
+	root := filepath.Base(rootPath)
+	if len(a.workspaceFolders) > 1 && rootPath != "" {
+		root = a.workspaceFolderLabel(rootPath)
+	}
 	if d := a.docs[p]; d != nil && d.untitled {
 		parts = []string{d.name}
 	} else if outside {
 		parts = []string{filepath.Base(p)}
 	}
 	filesMenu := !outside && !(a.docs[p] != nil && a.docs[p].untitled)
-	root := filepath.Base(a.root)
 	if outside {
 		root = tildePath(filepath.Dir(p))
+	} else if rootPath == "" {
+		root = a.workspaceTitle()
 	}
 	showClose := len(g.order) == 1 && len(a.groups()) == 1
 	showBytes := !isMarkdownTab(tab) && a.canViewBytes(p)
@@ -620,7 +642,7 @@ func (a *App) jumpBar(c *ui.Context, g *group) {
 							ui.Row(c.Key(i)).Gap(4).AlignItems(ui.Center).Padding(1, 3).Shrink(1).MinWidth(0).Children(children)
 							continue
 						}
-						item := filepath.Join(append([]string{a.root}, parts[:i+1]...)...)
+						item := filepath.Join(append([]string{rootPath}, parts[:i+1]...)...)
 						var open *bool
 						if last {
 							open = &g.jumpFiles

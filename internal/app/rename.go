@@ -20,7 +20,7 @@ type renamePrompt struct {
 }
 
 func (a *App) beginRename(path string) {
-	if path == a.root || !workspace.Within(a.root, path) || isPlaceholder(path) {
+	if a.isWorkspaceFolder(path) || !a.withinWorkspace(path) || isPlaceholder(path) {
 		return
 	}
 	a.renameEntry = &renamePrompt{path: path, name: filepath.Base(path)}
@@ -201,7 +201,7 @@ func (a *App) renamed(old, dst string) {
 			if d.buf.Modified() {
 				a.cacheRecovery(d)
 			}
-			if m := a.serverFor(next); m != nil && a.cfg.IsTrusted(a.root) {
+			if m := a.serverFor(next); m != nil && a.workspaceTrusted() {
 				go a.openLanguageDocument(m, a.wsCtx, d, d.uri)
 			}
 		}

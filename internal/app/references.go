@@ -115,7 +115,7 @@ func (a *App) relatedList(c *ui.Context, ch *defChoices, collapsed map[string]bo
 		if filter != "" && len(visible) == 0 {
 			continue
 		}
-		file := ui.ButtonBase(c.Key(path)).FillWidth().Padding(5, 8).Gap(6).Label(locales.MsgToggle() + ch.title + locales.MsgIn() + workspace.RelPath(a.root, path)).Tooltip(path)
+		file := ui.ButtonBase(c.Key(path)).FillWidth().Padding(5, 8).Gap(6).Label(locales.MsgToggle() + ch.title + locales.MsgIn() + a.workspacePath(path)).Tooltip(path)
 		if file.Hovered() {
 			file.Background(colors(c).Pill)
 		}
@@ -126,7 +126,7 @@ func (a *App) relatedList(c *ui.Context, ch *defChoices, collapsed map[string]bo
 			}
 			ui.Text(c, arrow).TextColor(colors(c).Muted)
 			ui.Text(c, filepath.Base(path)).FontSize(12).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(1)
-			ui.Text(c, workspace.RelPath(a.root, filepath.Dir(path))).FontSize(11).TextColor(colors(c).Muted).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Grow(1).Shrink(1)
+			ui.Text(c, a.workspacePath(filepath.Dir(path))).FontSize(11).TextColor(colors(c).Muted).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Grow(1).Shrink(1)
 			ui.Text(c, fmt.Sprint(len(visible))).FontSize(11).TextColor(colors(c).Muted)
 		})
 		file.OnClick(func() { collapsed[path] = !collapsed[path] })
@@ -135,7 +135,7 @@ func (a *App) relatedList(c *ui.Context, ch *defChoices, collapsed map[string]bo
 		}
 		for _, i := range visible {
 			t := ch.locs[i]
-			label := fmt.Sprintf("%s:%d", workspace.RelPath(a.root, t.path), t.pos.Line+1)
+			label := fmt.Sprintf("%s:%d", a.workspacePath(t.path), t.pos.Line+1)
 			text := t.name
 			if n := t.pos.Line - t.previewStart; n >= 0 && n < len(t.preview) {
 				text = strings.TrimSpace(t.preview[n])
@@ -229,7 +229,7 @@ func (a *App) findUsagesPinned() {
 		return
 	}
 	rl.noServer = false
-	if !a.cfg.IsTrusted(a.root) {
+	if !a.workspaceTrusted() {
 		rl.pending = true
 		a.trustAsk = true
 		a.afterTrust = func() { a.findUsagesPinned() }
@@ -506,10 +506,10 @@ func (a *App) referencesView(c *ui.Context) {
 			ui.Text(c, locales.MsgNoLanguageServerIsConfiguredForThisFile()).FontSize(12).TextColor(pal.Muted).Padding(12)
 		case rl.pending && a.trustAsk:
 			ui.Column(c).FillWidth().Padding(8, 12).Gap(8).Children(func() {
-				ui.Text(c, locales.TrustBannerLead(filepath.Base(a.root))).FontSize(12).FontWeight(600).FillWidth()
+				ui.Text(c, a.trustBannerLead()).FontSize(12).FontWeight(600).FillWidth()
 				ui.Text(c, locales.TrustBannerDetail()).FontSize(11).TextColor(pal.Muted).FillWidth()
 				ui.Row(c).Gap(8).Children(func() {
-					ui.Button(c, locales.TrustFolder()).Label(locales.TrustFolder()).OnClick(a.trust)
+					ui.Button(c, a.trustButtonLabel()).Label(a.trustButtonLabel()).OnClick(a.trust)
 					ui.Button(c, locales.NotNow()).Label(locales.NotNow()).OnClick(func() {
 						a.trustAsk, a.afterTrust, rl.pending = false, nil, false
 						a.trustDismissed = true

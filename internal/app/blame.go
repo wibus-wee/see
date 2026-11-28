@@ -110,7 +110,7 @@ func (a *App) editorInlays(d *doc, st *editor.State) []editor.Inlay {
 		inlays = append(inlays, d.languageInlays...)
 	}
 	modifier := parameterHintModifier(runtime.GOOS)
-	if a.modifiers&modifier == modifier && a.cfg.IsTrusted(a.root) {
+	if a.modifiers&modifier == modifier && a.workspaceTrusted() {
 		inlays = append(inlays, d.parameterInlays...)
 	}
 	cursorDiagnostic := false

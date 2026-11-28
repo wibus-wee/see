@@ -26,7 +26,7 @@ func TestBetaSettingsPaneControlsVibrancyFeature(t *testing.T) {
 	settings := ui.NewTester(h.a.settingsView, 900, 680)
 	settings.Frame()
 
-	if !settings.HasText(locales.BetaFeatures()) || !settings.HasText(locales.BetaFeaturesDescription()) || !settings.HasText(locales.SidebarVibrancy()) {
+	if !settings.HasText(locales.BetaFeatures()) || !settings.HasText(locales.BetaFeaturesDescription()) || !settings.HasText(locales.SidebarVibrancy()) || !settings.HasText(locales.BetaMultiRootWorkspaces()) {
 		t.Fatalf("beta pane missing feature copy: %v", settings.AccessAll())
 	}
 	if settings.HasText(locales.BetaVibrancyMaterial()) {

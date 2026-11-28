@@ -32,7 +32,7 @@ type symbolHighlightState struct {
 }
 
 func (a *App) symbolHighlightTarget() symbolHighlightTarget {
-	if a.cfg.HideSymbolHighlights || !a.cfg.IsTrusted(a.root) {
+	if a.cfg.HideSymbolHighlights || !a.workspaceTrusted() {
 		return symbolHighlightTarget{}
 	}
 	d, st := a.scopeEditDocument()

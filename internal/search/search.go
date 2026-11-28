@@ -62,6 +62,10 @@ func InstallHint() string {
 }
 
 // Options say what to find and where.
+type IgnoreFileOptions struct {
+	All, Global, Parent bool
+}
+
 type Options struct {
 	Query         string
 	CaseSensitive bool
@@ -71,6 +75,8 @@ type Options struct {
 	Include, Exclude string
 	// MaxMatches stops the search once this many are found; 0 is 20000.
 	MaxMatches int
+	// NoIgnoreFiles disables ignore files as rg's --no-ignore* flags.
+	NoIgnoreFiles IgnoreFileOptions
 }
 
 // Match is one place the query was found.
@@ -110,6 +116,16 @@ func ignoreGlobs() []string {
 // Args are ripgrep's arguments for o.
 func Args(o Options) []string {
 	args := []string{"--json", "--max-filesize", "4M", "--max-columns", "4000", "--no-config"}
+	if o.NoIgnoreFiles.All {
+		args = append(args, "--no-ignore")
+	} else {
+		if o.NoIgnoreFiles.Global {
+			args = append(args, "--no-ignore-global")
+		}
+		if o.NoIgnoreFiles.Parent {
+			args = append(args, "--no-ignore-parent")
+		}
+	}
 	if !o.Regexp {
 		args = append(args, "--fixed-strings")
 	}
@@ -156,7 +172,7 @@ type rgText struct {
 // Run searches root with the ripgrep at rg, calling emit with each
 // file's matches as ripgrep finishes it, until ctx is canceled or
 // MaxMatches is reached.
-func Run(ctx context.Context, rg, root string, o Options, emit func(File)) (Stats, error) {
+func Run(ctx context.Context, rg, root string, o Options, extraExcludes []string, emit func(File)) (Stats, error) {
 	if o.Query == "" {
 		return Stats{}, errors.New("empty query")
 	}
@@ -166,7 +182,16 @@ func Run(ctx context.Context, rg, root string, o Options, emit func(File)) (Stat
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	cmd := proc.CommandContext(ctx, rg, Args(o)...)
+	args := Args(o)
+	if len(extraExcludes) > 0 {
+		tail := append([]string(nil), args[len(args)-4:]...)
+		args = args[:len(args)-4]
+		for _, glob := range extraExcludes {
+			args = append(args, "-g", "!"+glob)
+		}
+		args = append(args, tail...)
+	}
+	cmd := proc.CommandContext(ctx, rg, args...)
 	cmd.Dir = root
 	var stderr strings.Builder
 	cmd.Stderr = &stderr
@@ -289,13 +314,23 @@ func preview(line int, text string, start, end int) Match {
 // ListFiles lists the files under root for quick open, relative to it
 // and separated by slashes: with `rg --files` when rg is given, which
 // leaves out what .gitignore does, else by walking the tree. It stops
-// at limit files. The walk also leaves out the folders skipDir names,
+// at limit matching files. The walk also leaves out the folders skipDir names,
 // by their slash-separated path relative to root, when it is given.
-func ListFiles(ctx context.Context, rg, root string, limit int, skipDir func(rel string) bool) ([]string, bool, error) {
+func ListFiles(ctx context.Context, rg, root string, limit int, skipDir func(rel string) bool, skipFile func(rel string) bool, noIgnoreFiles IgnoreFileOptions) ([]string, bool, error) {
 	if rg == "" {
-		return walkFiles(ctx, root, limit, skipDir)
+		return walkFiles(ctx, root, limit, skipDir, skipFile)
 	}
 	args := append([]string{"--files", "--no-config"}, ignoreGlobs()...)
+	if noIgnoreFiles.All {
+		args = append(args, "--no-ignore")
+	} else {
+		if noIgnoreFiles.Global {
+			args = append(args, "--no-ignore-global")
+		}
+		if noIgnoreFiles.Parent {
+			args = append(args, "--no-ignore-parent")
+		}
+	}
 	cmd := proc.CommandContext(ctx, rg, args...)
 	cmd.Dir = root
 	var stderr strings.Builder
@@ -311,11 +346,15 @@ func ListFiles(ctx context.Context, rg, root string, limit int, skipDir func(rel
 	truncated := false
 	sc := bufio.NewScanner(out)
 	for sc.Scan() {
+		rel := filepath.ToSlash(sc.Text())
+		if skipFile != nil && skipFile(rel) {
+			continue
+		}
 		if len(files) >= limit {
 			truncated = true
 			break
 		}
-		files = append(files, filepath.ToSlash(sc.Text()))
+		files = append(files, rel)
 	}
 	if truncated || sc.Err() != nil {
 		_ = cmd.Process.Kill()
@@ -337,7 +376,7 @@ func ListFiles(ctx context.Context, rg, root string, limit int, skipDir func(rel
 }
 
 // walkFiles lists files without ripgrep.
-func walkFiles(ctx context.Context, root string, limit int, skipDir func(rel string) bool) ([]string, bool, error) {
+func walkFiles(ctx context.Context, root string, limit int, skipDir func(rel string) bool, skipFile func(rel string) bool) ([]string, bool, error) {
 	var files []string
 	truncated := false
 	err := filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
@@ -367,6 +406,9 @@ func walkFiles(ctx context.Context, root string, limit int, skipDir func(rel str
 			return filepath.SkipAll
 		}
 		rel, _ := filepath.Rel(root, p)
+		if skipFile != nil && skipFile(filepath.ToSlash(rel)) {
+			return nil
+		}
 		files = append(files, filepath.ToSlash(rel))
 		return nil
 	})

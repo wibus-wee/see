@@ -123,7 +123,7 @@ func (a *App) showHierarchyAt(g *group, types bool) {
 		a.note(locales.MsgNoLanguageServerIsConfiguredForThisFile(), false)
 		return
 	}
-	if !a.cfg.IsTrusted(a.root) {
+	if !a.workspaceTrusted() {
 		a.trustAsk = true
 		a.afterTrust = func() { a.showHierarchyAt(g, types) }
 		return
@@ -536,7 +536,7 @@ func (a *App) loadCallBuffer(path string) {
 	if cs.buffers == nil {
 		cs.buffers = map[string]*editor.Buffer{}
 	}
-	if d := a.docs[workspace.DocPath(a.root, a.realRoot, path)]; d != nil && d.buf != nil {
+	if d := a.docs[a.docPath(path)]; d != nil && d.buf != nil {
 		cs.buffers[path] = d.buf
 		return
 	}

@@ -16,7 +16,7 @@ func (a *App) removeTrust(path string) {
 }
 
 func (a *App) enforceTrust() {
-	if a.root == "" || a.cfg.IsTrusted(a.root) {
+	if a.root == "" || a.workspaceTrusted() {
 		return
 	}
 	a.stopLanguageServers()

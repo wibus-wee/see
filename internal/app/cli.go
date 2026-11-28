@@ -3,6 +3,7 @@ package app
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/egoist/mygo/i18n"
 
@@ -23,6 +24,10 @@ func (a *App) openCLIPath(path string) {
 		return
 	}
 	if fi.IsDir() {
+		a.openWorkspace(path)
+		return
+	}
+	if a.multiRootWorkspacesEnabled() && strings.EqualFold(filepath.Ext(path), ".code-workspace") {
 		a.openWorkspace(path)
 		return
 	}

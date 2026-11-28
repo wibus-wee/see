@@ -20,7 +20,7 @@ type entryPrompt struct {
 }
 
 func (a *App) requestTrash(path string) {
-	if path == a.root || !workspace.Within(a.root, path) || a.deleteConfirm != nil {
+	if a.isWorkspaceFolder(path) || !a.withinWorkspace(path) || a.deleteConfirm != nil {
 		return
 	}
 	var dirty []*doc

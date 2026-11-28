@@ -73,3 +73,21 @@ func TestBuildTreeKeepsFilesInsideRoot(t *testing.T) {
 		t.Errorf("roots = %v, want %v", baseNames(roots), want)
 	}
 }
+
+func TestBuildWorkspaceTreeKeepsDuplicateFilesUnderTheirRoots(t *testing.T) {
+	left, right := t.TempDir(), t.TempDir()
+	files := []string{
+		filepath.Join(left, "src", "main.go"),
+		filepath.Join(right, "src", "main.go"),
+	}
+	tree, roots, matches := BuildWorkspaceTree([]string{left, right}, files, "main")
+	if matches != 2 || !slices.Equal(roots, []string{left, right}) {
+		t.Fatalf("matches/roots = %d/%v", matches, roots)
+	}
+	for _, root := range roots {
+		dir := filepath.Join(root, "src")
+		if got := tree[dir]; len(got) != 1 || got[0] != filepath.Join(dir, "main.go") {
+			t.Errorf("tree[%q] = %v", dir, got)
+		}
+	}
+}

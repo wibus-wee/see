@@ -106,6 +106,17 @@ func newHarness(t *testing.T, root string) *harness {
 	return newHarnessWithConfig(t, root, &config.Config{ConfirmClose: true})
 }
 
+func newMultiRootHarness(t *testing.T, root string) *harness {
+	t.Helper()
+	return newMultiRootHarnessWithConfig(t, root, &config.Config{ConfirmClose: true})
+}
+
+func newMultiRootHarnessWithConfig(t *testing.T, root string, cfg *config.Config) *harness {
+	t.Helper()
+	cfg.SetBetaEnabled(config.BetaMultiRootWorkspaces, true)
+	return newHarnessWithConfig(t, root, cfg)
+}
+
 func newHarnessWithConfig(t *testing.T, root string, cfg *config.Config) *harness {
 	t.Helper()
 	h := &harness{t: t, q: make(chan func(), 1024), fc: &fakeClient{enc: lsp.UTF16}, host: &fakeHost{}}
@@ -118,7 +129,7 @@ func newHarnessWithConfig(t *testing.T, root string, cfg *config.Config) *harnes
 	resetNotify()
 	t.Cleanup(resetNotify)
 	h.a.startLSP = func(func(string, ...any)) langserver.Starter {
-		return func(ctx context.Context, root string, onExit func(error)) (langserver.Client, error) {
+		return func(ctx context.Context, root string, _ []lsp.WorkspaceFolder, onExit func(error)) (langserver.Client, error) {
 			if h.fc.startErr != nil {
 				return nil, h.fc.startErr
 			}
@@ -216,6 +227,7 @@ type fakeClient struct {
 	prepareRename     func(ctx context.Context, uri string, pos lsp.Position) (*lsp.PrepareRenameResult, error)
 	noRename          bool // server without renameProvider
 	format            formatFake
+	watched           []lsp.FileChange
 	log               []string
 	shutdown          bool
 }
@@ -260,6 +272,19 @@ type callFake struct {
 	prepare  error
 	incoming func(lsp.CallItem) ([]lsp.CallEdge, error)
 	outgoing func(lsp.CallItem) ([]lsp.CallEdge, error)
+}
+
+func (f *fakeClient) DidChangeWatchedFiles(changes []lsp.FileChange) error {
+	f.mu.Lock()
+	f.watched = append(f.watched, changes...)
+	f.mu.Unlock()
+	return nil
+}
+
+func (f *fakeClient) watchedFiles() []lsp.FileChange {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]lsp.FileChange(nil), f.watched...)
 }
 
 func (f *fakeClient) record(s string) {
@@ -464,7 +489,9 @@ func writeTree(t *testing.T, files map[string]string) string {
 }
 
 func serverOf(root string, c langserver.Client) *langserver.Server {
-	return langserver.New(langserver.Options{Name: "gopls", Root: root, Start: func(context.Context, string, func(error)) (langserver.Client, error) { return c, nil }})
+	return langserver.New(langserver.Options{Name: "gopls", Root: root, Start: func(context.Context, string, []lsp.WorkspaceFolder, func(error)) (langserver.Client, error) {
+		return c, nil
+	}})
 }
 
 // fakeHost is a desktop without a window, as platform.NoDesktop, but for what a test

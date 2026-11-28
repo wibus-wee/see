@@ -44,6 +44,21 @@ func readConfigJSON(t *testing.T, p string) map[string]any {
 	return out
 }
 
+func TestMultiRootWorkspacesBetaFeatureIsRegistered(t *testing.T) {
+	for _, feature := range ActiveBetaFeatures() {
+		if feature.ID == BetaMultiRootWorkspaces {
+			if len(feature.Settings) != 0 {
+				t.Fatalf("multi-root workspaces should not have beta parameters: %+v", feature.Settings)
+			}
+			if Load("").BetaEnabled(BetaMultiRootWorkspaces) {
+				t.Fatal("multi-root workspaces beta should default disabled")
+			}
+			return
+		}
+	}
+	t.Fatalf("multi-root workspaces is not an active beta feature: %+v", ActiveBetaFeatures())
+}
+
 func TestSidebarVibrancyBetaFeatureIsRegistered(t *testing.T) {
 	var feature BetaFeatureInfo
 	for _, f := range ActiveBetaFeatures() {

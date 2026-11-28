@@ -34,7 +34,7 @@ func ripgrep(t *testing.T) string {
 func run(t *testing.T, rg, root string, o Options) (map[string][]Match, Stats) {
 	t.Helper()
 	got := map[string][]Match{}
-	st, err := Run(context.Background(), rg, root, o, func(f File) {
+	st, err := Run(context.Background(), rg, root, o, nil, func(f File) {
 		rel, _ := filepath.Rel(root, f.Path)
 		got[filepath.ToSlash(rel)] = f.Matches
 	})
@@ -104,12 +104,12 @@ func TestRipgrep(t *testing.T) {
 	if !st.Truncated || st.Matches != 2 {
 		t.Errorf("limit: %+v", st)
 	}
-	if _, err := Run(context.Background(), rg, root, Options{Query: "[", Regexp: true}, func(File) {}); err == nil || !strings.Contains(err.Error(), "unclosed character class") {
+	if _, err := Run(context.Background(), rg, root, Options{Query: "[", Regexp: true}, nil, func(File) {}); err == nil || !strings.Contains(err.Error(), "unclosed character class") {
 		t.Errorf("missing regexp error reason: %v", err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if _, err := Run(ctx, rg, root, Options{Query: "hello"}, func(File) {}); !errors.Is(err, context.Canceled) {
+	if _, err := Run(ctx, rg, root, Options{Query: "hello"}, nil, func(File) {}); !errors.Is(err, context.Canceled) {
 		t.Errorf("canceled: %v", err)
 	}
 }
@@ -120,18 +120,18 @@ func TestListFiles(t *testing.T) {
 		"docs/MainPage.md": "", "node_modules/m/main.js": "",
 	})
 	want := []string{"docs/MainPage.md", "internal/app/main_test.go", "internal/app/model.go", "main.go"}
-	walked, _, err := ListFiles(context.Background(), "", root, 100, nil)
+	walked, _, err := ListFiles(context.Background(), "", root, 100, nil, nil, IgnoreFileOptions{})
 	slices.Sort(walked)
 	if err != nil || !slices.Equal(walked, want) {
 		t.Errorf("walk: %v %v", walked, err)
 	}
 	if rg, err := FindRipgrep(""); err == nil {
-		files, _, err := ListFiles(context.Background(), rg, root, 100, nil)
+		files, _, err := ListFiles(context.Background(), rg, root, 100, nil, nil, IgnoreFileOptions{})
 		slices.Sort(files)
 		if err != nil || !slices.Equal(files, want) {
 			t.Errorf("rg: %v %v", files, err)
 		}
-		files, truncated, _ := ListFiles(context.Background(), rg, root, 2, nil)
+		files, truncated, _ := ListFiles(context.Background(), rg, root, 2, nil, nil, IgnoreFileOptions{})
 		if !truncated || len(files) != 2 {
 			t.Errorf("limit: %v %v", files, truncated)
 		}
@@ -172,7 +172,7 @@ func TestListFilesWalkSkipsFolders(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	files, _, err := ListFiles(context.Background(), "", root, 100, func(rel string) bool { return rel == "out" })
+	files, _, err := ListFiles(context.Background(), "", root, 100, func(rel string) bool { return rel == "out" }, nil, IgnoreFileOptions{})
 	if err != nil || !slices.Equal(files, []string{"a.go", "src/out/c.go"}) {
 		t.Fatalf("%q %v", files, err)
 	}

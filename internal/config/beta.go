@@ -62,12 +62,16 @@ type betaFeatureSpec struct {
 // behavior is settled enough to become a stable appearance setting.
 const BetaSidebarVibrancy = "sidebar-vibrancy"
 
+// BetaMultiRootWorkspaces gates opening and editing VS Code workspaces with multiple folders.
+const BetaMultiRootWorkspaces = "multi-root-workspaces"
+
 // betaFeatures is the lifecycle registry. New beta features add their settings
 // schema here; callers gate hidden UI with BetaEnabled and read parameters with
 // the typed Beta accessors. A feature whose beta state has shipped must keep a
 // graduate or retired entry forever, so old configuration is migrated or
 // discarded instead of accumulating.
 var betaFeatures = map[string]betaFeatureSpec{
+	BetaMultiRootWorkspaces: {},
 	BetaSidebarVibrancy: {settings: map[string]betaSettingSpec{
 		"material": {
 			kind:         BetaChoiceSetting,

@@ -177,7 +177,7 @@ func (a *App) inspectorTarget() (*doc, *editor.State) {
 func (a *App) requestInspector(sub inspectorSubject) {
 	in := &a.inspector
 	m := a.serverFor(sub.path)
-	if m == nil || !a.cfg.IsTrusted(a.root) {
+	if m == nil || !a.workspaceTrusted() {
 		in.subject = sub
 		in.hasSubject = true
 		in.err = nil
@@ -356,14 +356,14 @@ func inspectorSymbolKind(a *App) int {
 func (a *App) inspectorBody(c *ui.Context) {
 	in := &a.inspector
 	switch {
-	case !a.cfg.IsTrusted(a.root):
+	case !a.workspaceTrusted():
 		// Symbol help needs the servers; the editor's banner already
 		// explains what they may do, so the pane carries only the decision
 		// and its button rather than repeating the detail.
 		ui.Column(c).FillWidth().Gap(8).Padding(10, 12).Children(func() {
-			ui.Text(c, locales.TrustBannerLead(filepath.Base(a.root))).FontSize(12).FontWeight(600).FillWidth()
+			ui.Text(c, a.trustBannerLead()).FontSize(12).FontWeight(600).FillWidth()
 			ui.Row(c).Gap(8).Children(func() {
-				ui.Button(c, locales.TrustFolder()).OnClick(a.trust)
+				ui.Button(c, a.trustButtonLabel()).OnClick(a.trust)
 				ui.Button(c, locales.NotNow()).OnClick(func() { a.trustAsk, a.afterTrust = false, nil; a.trustDismissed = true })
 			})
 		})
@@ -496,12 +496,7 @@ func inspectorSection(c *ui.Context, label string, children func()) {
 func (a *App) inspectorSourceRow(c *ui.Context) {
 	in := &a.inspector
 	t := in.declared
-	path := t.path
-	if rel, err := filepath.Rel(a.root, path); err == nil && a.root != "" {
-		path = rel
-	} else {
-		path = filepath.Base(path)
-	}
+	path := a.workspacePath(t.path)
 	line := fmt.Sprintf("%s:%d", filepath.ToSlash(path), t.pos.Line+1)
 	inspectorSection(c, quickHelpText("quickHelpDeclaredIn"), func() {
 		row := ui.ButtonBase(c).Label(line).Tooltip(t.path).FillWidth().Padding(7, 10)

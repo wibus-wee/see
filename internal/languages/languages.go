@@ -61,7 +61,7 @@ func FindGopls(root string, installed ...string) (string, error) {
 
 // StartGopls is the langserver.Starter of the real gopls.
 func StartGopls(logf func(string, ...any)) langserver.Starter {
-	return func(ctx context.Context, root string, onExit func(error)) (langserver.Client, error) {
+	return func(ctx context.Context, root string, folders []lsp.WorkspaceFolder, onExit func(error)) (langserver.Client, error) {
 		if err := shellpath.Wait(ctx); err != nil {
 			return nil, err
 		}
@@ -70,12 +70,13 @@ func StartGopls(logf func(string, ...any)) langserver.Starter {
 			return nil, err
 		}
 		c, err := lsp.Start(ctx, path, nil, lsp.Options{
-			RootPath: root,
-			RootURI:  uri.FromPath(root),
-			ServerID: "gopls",
-			Name:     filepath.Base(root),
-			Logf:     logf,
-			OnExit:   onExit,
+			RootPath:         root,
+			RootURI:          uri.FromPath(root),
+			WorkspaceFolders: folders,
+			ServerID:         "gopls",
+			Name:             filepath.Base(root),
+			Logf:             logf,
+			OnExit:           onExit,
 		})
 		if err != nil {
 			return nil, err
@@ -89,11 +90,12 @@ var ErrNoTypeScriptServer = errors.New("tsrs is not installed")
 // NewTypeScriptServer returns the manager of tsrs for root. When tsrs was
 // missing, it starts once tsrs is found, as another window or process may
 // have installed it since.
-func NewTypeScriptServer(root string, start langserver.Starter, onState func(langserver.State, error),
+func NewTypeScriptServer(root string, folders []lsp.WorkspaceFolder, start langserver.Starter, onState func(langserver.State, error),
 	onDiagnostics langserver.DiagnosticsHandler, logf func(string, ...any)) *langserver.Server {
 	return langserver.New(langserver.Options{
 		Name:          "tsrs",
 		Root:          root,
+		Folders:       folders,
 		Start:         start,
 		Language:      TypeScriptLanguage,
 		OnState:       onState,
@@ -152,7 +154,7 @@ func FindTypeScript(root string) (string, error) {
 }
 
 func StartTypeScript(logf func(string, ...any)) langserver.Starter {
-	return func(ctx context.Context, root string, onExit func(error)) (langserver.Client, error) {
+	return func(ctx context.Context, root string, folders []lsp.WorkspaceFolder, onExit func(error)) (langserver.Client, error) {
 		if err := shellpath.Wait(ctx); err != nil {
 			return nil, err
 		}
@@ -172,6 +174,6 @@ func StartTypeScript(logf func(string, ...any)) langserver.Starter {
 			args = append([]string{path}, args...)
 			path = runtimePath
 		}
-		return lsp.Start(ctx, path, args, lsp.Options{RootPath: root, RootURI: uri.FromPath(root), Name: filepath.Base(root), Logf: logf, OnExit: onExit})
+		return lsp.Start(ctx, path, args, lsp.Options{RootPath: root, RootURI: uri.FromPath(root), WorkspaceFolders: folders, Name: filepath.Base(root), Logf: logf, OnExit: onExit})
 	}
 }

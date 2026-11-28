@@ -11,6 +11,7 @@ import (
 	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 	"github.com/egoist/mygo/ui/editor"
+	"see/internal/git"
 	"see/internal/langserver"
 	"see/internal/languages"
 	"see/internal/lsp"
@@ -51,10 +52,10 @@ func (a *App) problemLocations() []problemLocation {
 	}
 	query := strings.ToLower(strings.TrimSpace(a.problems.query))
 	matches := func(path, message, source string) bool {
-		return query == "" || strings.Contains(strings.ToLower(workspace.RelPath(a.root, path)+" "+message+" "+source), query)
+		return query == "" || strings.Contains(strings.ToLower(a.workspacePath(path)+" "+message+" "+source), query)
 	}
 	for path, d := range a.docs {
-		if !currentProblemBuffer(d) || !workspace.Within(a.root, path) {
+		if !currentProblemBuffer(d) || !a.withinWorkspace(path) {
 			continue
 		}
 		for i, diagnostic := range d.diagnostics {
@@ -140,12 +141,25 @@ func (a *App) showProblems() {
 }
 
 func (a *App) startProjectDiagnostics() {
-	if a.root == "" || a.problems.started || !a.cfg.IsTrusted(a.root) {
+	if a.root == "" || a.problems.started || !a.workspaceTrusted() {
 		return
 	}
 	a.problems.started = true
 	a.problems.starting++
-	root, realRoot, gen, ctx, ignored := a.root, a.realRoot, a.gen, a.wsCtx, a.ignored
+	gen, ctx := a.gen, a.wsCtx
+	folders := slices.Clone(a.workspaceFolders)
+	type scanRoot struct {
+		root, realRoot string
+		ignored        *git.Ignored
+	}
+	roots := make([]scanRoot, 0, len(folders))
+	for _, folder := range folders {
+		realRoot := folder.Path
+		if resolved, err := filepath.EvalSymlinks(folder.Path); err == nil {
+			realRoot = resolved
+		}
+		roots = append(roots, scanRoot{root: folder.Path, realRoot: realRoot, ignored: a.ignored[folder.Path]})
+	}
 	type lane struct {
 		server *langserver.Server
 		covers func(string) bool
@@ -164,38 +178,49 @@ func (a *App) startProjectDiagnostics() {
 	}
 	go func() {
 		found := map[*langserver.Server]string{}
-		err := filepath.WalkDir(realRoot, func(path string, entry fs.DirEntry, err error) error {
-			if ctx.Err() != nil || len(found) == len(lanes) {
-				return fs.SkipAll
+		var scanErr error
+		for _, scan := range roots {
+			if len(found) == len(lanes) || ctx.Err() != nil {
+				break
 			}
-			if err != nil {
-				return nil
-			}
-			rel, _ := filepath.Rel(realRoot, path)
-			if entry.IsDir() {
-				if path != realRoot && (workspace.Ignored(entry.Name()) || ignored.Dir(filepath.ToSlash(rel))) {
-					return fs.SkipDir
+			err := filepath.WalkDir(scan.realRoot, func(path string, entry fs.DirEntry, err error) error {
+				if ctx.Err() != nil || len(found) == len(lanes) {
+					return fs.SkipAll
 				}
-				return nil
-			}
-			if entry.Type().IsRegular() {
-				p := filepath.Join(root, rel)
-				for _, lane := range lanes {
-					if lane.covers(p) {
-						found[lane.server] = p
-						break
+				if err != nil {
+					return nil
+				}
+				rel, _ := filepath.Rel(scan.realRoot, path)
+				if entry.IsDir() {
+					if path != scan.realRoot && (workspace.Ignored(entry.Name()) || scan.ignored.Dir(filepath.ToSlash(rel))) {
+						return fs.SkipDir
+					}
+					return nil
+				}
+				if entry.Type().IsRegular() {
+					p := filepath.Join(scan.root, rel)
+					for _, lane := range lanes {
+						if lane.server != nil && lane.covers(p) {
+							if _, ok := found[lane.server]; !ok {
+								found[lane.server] = p
+							}
+							break
+						}
 					}
 				}
+				return nil
+			})
+			if err != nil && scanErr == nil {
+				scanErr = err
 			}
-			return nil
-		})
+		}
 		a.post.Post(func() {
 			if gen != a.gen {
 				return
 			}
 			a.problems.starting--
-			if err != nil {
-				a.logf("project diagnostics: %v", err)
+			if scanErr != nil {
+				a.logf("project diagnostics: %v", scanErr)
 			}
 			for _, path := range found {
 				a.startProblemServer(path)
@@ -205,6 +230,9 @@ func (a *App) startProjectDiagnostics() {
 }
 
 func (a *App) startProblemServer(path string) {
+	if !a.workspaceTrusted() {
+		return
+	}
 	m := a.diagnosticsServerFor(path)
 	if m == nil {
 		return
@@ -232,10 +260,10 @@ func (a *App) problemsNavigator(c *ui.Context) {
 	})
 	rows := a.problemLocations()
 	if len(rows) == 0 {
-		if a.root != "" && !a.cfg.IsTrusted(a.root) {
+		if a.root != "" && !a.workspaceTrusted() {
 			ui.Column(c).Padding(6, 10).Gap(6).Children(func() {
-				ui.Text(c, problemText("problemsTrust")).TextColor(colors(c).Muted).FillWidth()
-				ui.Button(c, locales.TrustFolder()).OnClick(func() { a.trustAsk = true })
+				ui.Text(c, a.trustProblemDetail()).TextColor(colors(c).Muted).FillWidth()
+				ui.Button(c, a.trustButtonLabel()).OnClick(func() { a.trustAsk = true })
 			})
 			return
 		}
@@ -262,7 +290,7 @@ func (a *App) problemsNavigator(c *ui.Context) {
 		case editor.SeverityHint:
 			label, color = problemText("problemHint"), colors(c).Dim
 		}
-		location := fmt.Sprintf("%s:%d:%d", workspace.RelPath(a.root, p.path), p.pos.Line+1, p.pos.Col+1)
+		location := fmt.Sprintf("%s:%d:%d", a.workspacePath(p.path), p.pos.Line+1, p.pos.Col+1)
 		row := ui.ButtonBase(c).FillWidth().Padding(7, 10).Label(label + ": " + p.diagnostic.Message + " — " + location).AlignItems(ui.Start)
 		row.OnClick(func() { a.openProblem(p) })
 		row.Children(func() {

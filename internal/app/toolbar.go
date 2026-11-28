@@ -125,7 +125,11 @@ func (a *App) quickButton(c *ui.Context, centered bool, x, y float32) {
 // native menu of the recent folders, with the one open checked, so the
 // window's title is also the way between projects.
 func (a *App) projectTitle(c *ui.Context) {
-	b := ui.ButtonBase(c).Label(locales.MsgSwitchProject()).Tooltip(tildePath(a.root)).
+	titlePath := a.workspaceID
+	if titlePath == "" {
+		titlePath = a.root
+	}
+	b := ui.ButtonBase(c).Label(locales.MsgSwitchProject()).Tooltip(tildePath(titlePath)).
 		Padding(0, 5, 0, 0).Radius(6).Shrink(1).Bind(&a.titleButton)
 	if b.Hovered() || b.Pressed() {
 		b.Background(colors(c).Pill)
@@ -140,7 +144,7 @@ func (a *App) projectTitle(c *ui.Context) {
 	}
 	b.Children(func() {
 		ui.Row(c).Gap(4).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, filepath.Base(a.root)).Bold().SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
+			ui.Text(c, a.workspaceTitle()).Bold().SingleLine().Ellipsis("…").MinWidth(0).Shrink(1)
 			symbolIcon(c, icChevron, 9, colors(c).Dim).Shrink(0)
 		})
 	})
@@ -149,7 +153,7 @@ func (a *App) projectTitle(c *ui.Context) {
 func (a *App) projectPopoverMenu(m *ui.Menu) {
 	for _, p := range a.cfg.Recent {
 		p := p
-		if m.Item(projectLabel(a.cfg.Recent, p)).ID(p).Radio(p == a.root).Tooltip(p).Chosen() {
+		if m.Item(projectLabel(a.cfg.Recent, p)).ID(p).Radio(p == a.workspaceID).Tooltip(p).Chosen() {
 			a.openRecent(p)
 		}
 	}
@@ -172,7 +176,7 @@ func (a *App) projectMenu(x, y int) {
 			Label:   projectLabel(a.cfg.Recent, p),
 			ToolTip: p,
 			Type:    mygo.MenuItemCheckbox,
-			Checked: p == a.root,
+			Checked: p == a.workspaceID,
 			Click: func(*mygo.MenuItem, *mygo.Window) {
 				a.post.Post(func() { a.openRecent(p) })
 			},

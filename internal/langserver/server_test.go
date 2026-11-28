@@ -61,7 +61,7 @@ func (c *fakeClient) Hover(context.Context, string, lsp.Position) (string, *lsp.
 func (c *fakeClient) Shutdown(time.Duration) {}
 
 func serving(c Client, starts *int) Starter {
-	return func(context.Context, string, func(error)) (Client, error) {
+	return func(context.Context, string, []lsp.WorkspaceFolder, func(error)) (Client, error) {
 		*starts++
 		return c, nil
 	}
@@ -92,7 +92,7 @@ func TestStartsOnceAndReportsStates(t *testing.T) {
 func TestFailureHoldsUntilRetry(t *testing.T) {
 	starts := 0
 	boom := errors.New("boom")
-	s := New(Options{Start: func(context.Context, string, func(error)) (Client, error) {
+	s := New(Options{Start: func(context.Context, string, []lsp.WorkspaceFolder, func(error)) (Client, error) {
 		starts++
 		return nil, boom
 	}})
@@ -121,7 +121,7 @@ func TestRecoverRestartsOnce(t *testing.T) {
 	starts := 0
 	missing := errors.New("missing")
 	s := New(Options{
-		Start: func(context.Context, string, func(error)) (Client, error) {
+		Start: func(context.Context, string, []lsp.WorkspaceFolder, func(error)) (Client, error) {
 			starts++
 			return nil, missing
 		},
@@ -138,7 +138,7 @@ func TestRecoverRestartsOnce(t *testing.T) {
 
 func TestExitOfAnOldServerIsIgnored(t *testing.T) {
 	var exits []func(error)
-	s := New(Options{Name: "fake", Start: func(_ context.Context, _ string, onExit func(error)) (Client, error) {
+	s := New(Options{Name: "fake", Start: func(_ context.Context, _ string, _ []lsp.WorkspaceFolder, onExit func(error)) (Client, error) {
 		exits = append(exits, onExit)
 		return &fakeClient{}, nil
 	}})
@@ -263,7 +263,7 @@ func TestExitedServerRestartsOnBackoff(t *testing.T) {
 	var mu sync.Mutex
 	var exits []func(error)
 	var starts atomic.Int32
-	s := New(Options{Name: "fake", Start: func(_ context.Context, _ string, onExit func(error)) (Client, error) {
+	s := New(Options{Name: "fake", Start: func(_ context.Context, _ string, _ []lsp.WorkspaceFolder, onExit func(error)) (Client, error) {
 		mu.Lock()
 		defer mu.Unlock()
 		exits = append(exits, onExit)
@@ -304,7 +304,7 @@ func TestNeverReadyExitIsNotRestarted(t *testing.T) {
 	var mu sync.Mutex
 	var exits []func(error)
 	var starts atomic.Int32
-	s := New(Options{Name: "fake", Start: func(_ context.Context, _ string, onExit func(error)) (Client, error) {
+	s := New(Options{Name: "fake", Start: func(_ context.Context, _ string, _ []lsp.WorkspaceFolder, onExit func(error)) (Client, error) {
 		mu.Lock()
 		defer mu.Unlock()
 		exits = append(exits, onExit)

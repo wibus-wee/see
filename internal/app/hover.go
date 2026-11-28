@@ -110,7 +110,7 @@ func (a *App) hoverAt(d *doc, st *editor.State, r editor.HoverRequest) {
 		return
 	}
 	m := a.serverFor(d.path)
-	if m == nil || !a.cfg.IsTrusted(a.root) {
+	if m == nil || !a.workspaceTrusted() {
 		return
 	}
 	if s, _ := m.Status(); s == langserver.Failed {
@@ -331,7 +331,7 @@ func (a *App) quickHelpAt(g *group, d *doc, st *editor.State, offset int) {
 		a.cancelQuickHelpRequest()
 	}
 	m := a.serverFor(d.path)
-	if m == nil || d.buf == nil || !a.cfg.IsTrusted(a.root) {
+	if m == nil || d.buf == nil || !a.workspaceTrusted() {
 		return
 	}
 	if state, _ := m.Status(); state == langserver.Failed {

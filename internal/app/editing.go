@@ -27,7 +27,9 @@ func (a *App) openFileDialog() {
 			case err != nil:
 				a.note(locales.MsgCouldNotShowTheFileDialog()+err.Error(), true)
 			case p != "":
-				if a.root == "" {
+				if a.multiRootWorkspacesEnabled() && strings.EqualFold(filepath.Ext(p), ".code-workspace") {
+					a.openWorkspace(p)
+				} else if a.root == "" {
 					a.showWelcome = false
 					a.openFile(p, nil)
 				} else {
@@ -366,7 +368,7 @@ func (a *App) saveUntitled(d *doc, done func(bool)) {
 				done(false)
 				return
 			}
-			path = workspace.DocPath(a.root, a.realRoot, path)
+			path = a.docPath(path)
 			alreadyOpen := a.docs[path]
 			if alreadyOpen == nil && a.root == "" {
 				alreadyOpen = standaloneDocForPath(a, path)
@@ -457,7 +459,7 @@ func (a *App) saveUntitled(d *doc, done func(bool)) {
 						}
 					}
 					if m := a.serverFor(path); m != nil {
-						if a.cfg.IsTrusted(a.root) {
+						if a.workspaceTrusted() {
 							go a.openLanguageDocument(m, a.wsCtx, d, d.uri)
 						} else if !a.trustDismissed {
 							a.trustAsk = true

@@ -31,7 +31,7 @@ func (a *App) syncInlayHints(d *doc, st *editor.State) {
 		a.clearInlayHints(d)
 	}
 	m := a.serverFor(d.path)
-	served := m != nil && a.cfg.IsTrusted(a.root)
+	served := m != nil && a.workspaceTrusted()
 	if !served || d.buf == nil || d.lossy || d.plain || st == nil || a.wsCtx == nil {
 		// Clear only the lane the requests filled: inlayKey set marks it,
 		// and nothing unserved reaches here having asked for hints.
@@ -107,7 +107,7 @@ func (a *App) fetchInlayHints(ctx context.Context, d *doc, m *langserver.Server,
 		if a.gen != gen || a.docs[d.path] != d || d.inlaySeq != seq || d.buf == nil || d.buf.Version() != snap.Version() {
 			return
 		}
-		if !a.cfg.IsTrusted(a.root) {
+		if !a.workspaceTrusted() {
 			return
 		}
 		a.upgradeLanguage(d, m, c)

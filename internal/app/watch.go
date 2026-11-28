@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"os"
 	"path"
 	"path/filepath"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"github.com/egoist/mygo"
 
 	"see/internal/git"
+	"see/internal/langserver"
 	"see/internal/lsp"
 	"see/internal/workspace"
 )
@@ -33,7 +35,123 @@ func (a *App) startWatch() {
 	if watchFiles == nil {
 		return
 	}
-	root, ctx, gen := a.root, a.wsCtx, a.gen
+	for _, folder := range a.workspaceFolders {
+		a.startWatchFolder(folder.Path)
+	}
+	a.startWorkspaceFileWatch()
+}
+
+// startWorkspaceFileWatch follows the workspace file itself. It normally
+// lives outside every root, so the folder watches never see VS Code adding
+// or removing a member.
+func (a *App) startWorkspaceFileWatch() {
+	watch := watchFiles
+	if watch == nil || !a.isCodeWorkspace() {
+		return
+	}
+	if a.workspaceFileCancel != nil {
+		a.workspaceFileCancel()
+	}
+	ctx, cancel := context.WithCancel(a.wsCtx)
+	a.workspaceFileCancel = cancel
+	workspaceFile := a.workspaceID
+	targets := workspaceFileWatchTargets(workspaceFile)
+	gen := a.gen
+	for dir, bases := range targets {
+		go func(dir string, bases map[string]bool) {
+			w, err := watch(ctx, dir, mygo.FileWatchOptions{})
+			if err != nil {
+				a.post.Post(func() {
+					if a.gen == gen {
+						a.logf("workspace watch: %v", err)
+					}
+				})
+				return
+			}
+			defer w.Close()
+			for {
+				evs, err := w.Next(ctx)
+				if err != nil {
+					return
+				}
+				touched := false
+				for _, ev := range evs {
+					if bases[ev.Path] || bases[ev.OldPath] {
+						touched = true
+						break
+					}
+				}
+				if touched {
+					a.post.Post(func() {
+						if a.gen == gen {
+							a.reloadCodeWorkspace(workspaceFile)
+						}
+					})
+				}
+			}
+		}(dir, bases)
+	}
+}
+
+func workspaceFileWatchTargets(workspaceFile string) map[string]map[string]bool {
+	targets := map[string]map[string]bool{}
+	add := func(file string) {
+		dir, base := filepath.Dir(file), filepath.Base(file)
+		if targets[dir] == nil {
+			targets[dir] = map[string]bool{}
+		}
+		targets[dir][base] = true
+	}
+	add(workspaceFile)
+	target := ""
+	if resolved, err := filepath.EvalSymlinks(workspaceFile); err == nil {
+		target = resolved
+	} else if link, err := os.Readlink(workspaceFile); err == nil {
+		if !filepath.IsAbs(link) {
+			link = filepath.Join(filepath.Dir(workspaceFile), link)
+		}
+		target = filepath.Clean(link)
+	}
+	if target != "" && target != workspaceFile {
+		add(target)
+	}
+	return targets
+}
+
+func (a *App) reloadCodeWorkspace(workspaceFile string) {
+	if !a.isCodeWorkspace() || a.workspaceID != workspaceFile {
+		return
+	}
+	parsed, err := workspace.ReadCodeWorkspace(workspaceFile)
+	if err != nil {
+		// Editors replace workspace files through a temporary name; a remove
+		// or half-written rename is followed by the complete file. Keeping the
+		// last valid membership is safer than dropping the workspace under the user.
+		a.logf("workspace reload: %v", err)
+		return
+	}
+	a.applyWorkspaceSettings(parsed.Settings)
+	a.syncWorkspaceFolders(parsed.Folders)
+}
+
+func (a *App) startWatchFolder(root string) {
+	watch := watchFiles
+	if watch == nil || root == "" {
+		return
+	}
+	if a.watchCancels == nil {
+		a.watchCancels = map[string]context.CancelFunc{}
+	}
+	if cancel := a.watchCancels[root]; cancel != nil {
+		cancel()
+	}
+	ctx, cancel := context.WithCancel(a.wsCtx)
+	a.watchCancels[root] = cancel
+	gen := a.gen
+	watchExclude := workspaceExcludeRules{patterns: a.workspaceSettings.FilesWatcherExclude, clauses: a.workspaceSettings.FilesWatcherExcludeWhen}
+	current := func() bool {
+		return a.gen == gen && ctx.Err() == nil && a.isWorkspaceFolder(root)
+	}
 	go func() {
 		// What git ignores is left out first, as build output, so that a
 		// large project stays within what a watch can follow file by file.
@@ -41,20 +159,23 @@ func (a *App) startWatch() {
 		// a tab.
 		ignored := readIgnored(ctx, root)
 		a.post.Post(func() {
-			if a.gen == gen {
-				a.ignored = ignored
+			if current() {
+				if a.ignored == nil {
+					a.ignored = map[string]*git.Ignored{}
+				}
+				a.ignored[root] = ignored
 			}
 		})
 		ignore := func(rel string, isDir bool) bool {
-			return isDir && (workspace.IgnoredRel(rel) || ignored.Dir(rel))
+			return excludedByRules(watchExclude, root, filepath.ToSlash(rel)) || isDir && (workspace.IgnoredRel(rel) || ignored.Dir(rel))
 		}
-		w, err := watchFiles(ctx, root, mygo.FileWatchOptions{Recursive: true, Ignore: ignore})
+		w, err := watch(ctx, root, mygo.FileWatchOptions{Recursive: true, Ignore: ignore})
 		if errors.Is(err, mygo.ErrWatchLimit) {
 			a.logf("watch: too many entries, falling back to hints")
-			w, err = watchFiles(ctx, root, mygo.FileWatchOptions{Recursive: true, Ignore: ignore, HintsOnly: true})
+			w, err = watch(ctx, root, mygo.FileWatchOptions{Recursive: true, Ignore: ignore, HintsOnly: true})
 		}
 		a.post.Post(func() {
-			if a.gen == gen {
+			if current() {
 				a.watching, a.watchErr = err == nil, err
 			}
 		})
@@ -70,7 +191,7 @@ func (a *App) startWatch() {
 						err = errors.New("the folder was removed or moved")
 					}
 					a.post.Post(func() {
-						if a.gen == gen {
+						if current() {
 							a.watching, a.watchErr = false, err
 						}
 					})
@@ -78,8 +199,8 @@ func (a *App) startWatch() {
 				return
 			}
 			a.post.Post(func() {
-				if a.gen == gen {
-					a.applyEvents(evs)
+				if current() {
+					a.applyEventsAt(root, evs)
 				}
 			})
 		}
@@ -89,20 +210,37 @@ func (a *App) startWatch() {
 // applyEvents refreshes what changes on disk touch: the loaded
 // directories they are in, and the open documents they name.
 func (a *App) applyEvents(evs []mygo.FileEvent) {
+	root := a.root
+	if root == "" {
+		return
+	}
+	a.applyEventsAt(root, evs)
+}
+
+func (a *App) applyEventsAt(root string, evs []mygo.FileEvent) {
+	if !a.withinWorkspace(root) {
+		return
+	}
 	if len(evs) > 0 {
 		a.refreshGit()
 		a.invalidateHover()
 	}
 	dirs := map[string]bool{}
-	var changes []lsp.FileChange
+	changes := map[*langserver.Server][]lsp.FileChange{}
 	notify := func(p string, kind lsp.FileChangeType) {
-		changes = append(changes, lsp.FileChange{URI: uriOf(p), Type: kind})
+		server := a.serverFor(p)
+		if name := filepath.Base(p); name == "go.mod" || name == "go.work" {
+			server = a.lsp
+		}
+		if server != nil {
+			changes[server] = append(changes[server], lsp.FileChange{URI: uriOf(p), Type: kind})
+		}
 	}
 	for _, ev := range evs {
 		if path.Base(ev.Path) == ".gitignore" || path.Base(ev.Path) == "exclude" && strings.Contains(ev.Path, ".git/info") {
-			a.rereadIgnored()
+			a.rereadIgnoredAt(root, a.wsCtx, a.gen)
 		}
-		p := filepath.Join(a.root, filepath.FromSlash(ev.Path))
+		p := filepath.Join(root, filepath.FromSlash(ev.Path))
 		switch ev.Op {
 		case mygo.FileHint:
 			notify(p, lsp.FileChanged)
@@ -120,7 +258,7 @@ func (a *App) applyEvents(evs []mygo.FileEvent) {
 			}
 			continue
 		case mygo.FileRename:
-			old := filepath.Join(a.root, filepath.FromSlash(ev.OldPath))
+			old := filepath.Join(root, filepath.FromSlash(ev.OldPath))
 			dirs[filepath.Dir(old)] = true
 			a.removed(old)
 			notify(old, lsp.FileDeleted)
@@ -149,8 +287,8 @@ func (a *App) applyEvents(evs []mygo.FileEvent) {
 			dirs[p] = true
 		}
 	}
-	if a.lsp != nil && len(changes) > 0 {
-		a.lsp.WatchedFiles(changes)
+	for server, serverChanges := range changes {
+		server.WatchedFiles(serverChanges)
 	}
 	for dir := range dirs {
 		a.refreshDir(dir)
@@ -200,11 +338,19 @@ var readIgnored = func(ctx context.Context, root string) *git.Ignored {
 // workspace opens again.
 func (a *App) rereadIgnored() {
 	root, ctx, gen := a.root, a.wsCtx, a.gen
+	a.rereadIgnoredAt(root, ctx, gen)
+}
+
+func (a *App) rereadIgnoredAt(root string, ctx context.Context, gen int) {
+	rootsEpoch := a.workspaceRootsEpoch
 	go func() {
 		ig := readIgnored(ctx, root)
 		a.post.Post(func() {
-			if a.gen == gen {
-				a.ignored = ig
+			if a.gen == gen && a.workspaceRootsEpoch == rootsEpoch && a.isWorkspaceFolder(root) {
+				if a.ignored == nil {
+					a.ignored = map[string]*git.Ignored{}
+				}
+				a.ignored[root] = ig
 			}
 		})
 	}()
@@ -213,9 +359,14 @@ func (a *App) rereadIgnored() {
 // gitIgnores reports whether git ignores p, a path of the workspace,
 // which the tree dims, as VS Code does.
 func (a *App) gitIgnores(p string) bool {
-	if a.ignored == nil || !workspace.Within(a.root, p) || p == a.root {
+	root := a.workspaceRootForPath(p)
+	if root == "" {
+		root = a.root
+	}
+	ignored := a.ignored[root]
+	if ignored == nil || !workspace.Within(root, p) || p == root {
 		return false
 	}
-	rel, err := filepath.Rel(a.root, p)
-	return err == nil && a.ignored.Has(filepath.ToSlash(rel))
+	rel, err := filepath.Rel(root, p)
+	return err == nil && ignored.Has(filepath.ToSlash(rel))
 }

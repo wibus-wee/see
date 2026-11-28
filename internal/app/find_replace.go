@@ -54,9 +54,35 @@ func (f *findState) canReplace() bool {
 	return f.showReplace && !f.running && !f.replacing && f.err == nil && f.opts == f.ran && f.stats.Matches > 0
 }
 
+func canonicalDiskPath(path string) string {
+	clean := filepath.Clean(path)
+	if resolved, err := filepath.EvalSymlinks(clean); err == nil {
+		return resolved
+	}
+	return clean
+}
+
+func sameDiskPath(a, b string) bool {
+	return canonicalDiskPath(a) == canonicalDiskPath(b)
+}
+
+func (a *App) docsForDiskPath(path string) []*doc {
+	var out []*doc
+	for docPath, d := range a.docs {
+		if docPath == path || sameDiskPath(docPath, path) {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
 func (a *App) replaceProtected(path string) bool {
-	d := a.docs[path]
-	return d != nil && (d.lossy || d.conflict || d.saving || d.buf != nil && d.buf.Modified())
+	for _, d := range a.docsForDiskPath(path) {
+		if d.lossy || d.conflict || d.saving || d.buf != nil && d.buf.Modified() {
+			return true
+		}
+	}
+	return false
 }
 
 // replaceFind writes only the matches from the displayed search, not a new search.
@@ -88,49 +114,73 @@ func (a *App) replaceFind(one *findKey) {
 		}
 		targets = append(targets, file)
 	}
-	root, ctx, gen, replacement := a.root, a.wsCtx, a.gen, f.replacement
+	ctx, gen, replacement := a.wsCtx, a.gen, f.replacement
+	targetRoots := make([]string, len(targets))
+	for i, file := range targets {
+		targetRoots[i] = a.workspaceRootForPath(file.Path)
+	}
 	go func() {
 		var updated []string
+		roots := make(map[string]*os.Root)
+		rootErrors := make(map[string]error)
 		count := 0
-		dir, rootErr := os.OpenRoot(root)
-		if rootErr == nil {
-			defer dir.Close()
-			for _, file := range targets {
-				if ctx.Err() != nil {
-					break
+		for i, file := range targets {
+			if ctx.Err() != nil {
+				break
+			}
+			root := targetRoots[i]
+			if root == "" {
+				skipped++
+				if firstIssue == "" {
+					firstIssue = replaceIssue(file.Path, os.ErrInvalid)
 				}
-				rel, err := filepath.Rel(root, file.Path)
-				var n int
-				if err == nil {
-					n, err = search.ReplaceFile(ctx, dir, rel, file.Matches, replacement)
-				}
-				if err != nil {
-					skipped++
-					if firstIssue == "" {
-						firstIssue = replaceIssue(file.Path, err)
-					}
-				} else if n > 0 {
-					updated = append(updated, file.Path)
-					count += n
+				continue
+			}
+			dir := roots[root]
+			if dir == nil && rootErrors[root] == nil {
+				dir, rootErrors[root] = os.OpenRoot(root)
+				if dir != nil {
+					roots[root] = dir
 				}
 			}
+			if dir == nil {
+				err := rootErrors[root]
+				skipped++
+				if firstIssue == "" {
+					firstIssue = replaceIssue(file.Path, err)
+				}
+				continue
+			}
+			rel, err := filepath.Rel(root, file.Path)
+			var n int
+			if err == nil {
+				n, err = search.ReplaceFile(ctx, dir, rel, file.Matches, replacement)
+			}
+			if err != nil {
+				skipped++
+				if firstIssue == "" {
+					firstIssue = replaceIssue(file.Path, err)
+				}
+			} else if n > 0 {
+				updated = append(updated, file.Path)
+				count += n
+			}
+		}
+		for _, dir := range roots {
+			_ = dir.Close()
 		}
 		a.post.Post(func() {
 			if gen != a.gen {
 				return
 			}
 			f.replacing = false
-			f.replaceErr = rootErr != nil || skipped > 0
-			if rootErr != nil {
-				f.replaceNote = locales.MsgWorkspaceReplaceFailed(rootErr.Error())
-				return
-			}
+			f.replaceErr = skipped > 0
 			f.replaceNote = locales.MsgWorkspaceReplaced(count)
 			if skipped > 0 {
 				f.replaceNote += " " + locales.MsgWorkspaceReplaceSkipped(skipped) + " " + firstIssue
 			}
 			for _, path := range updated {
-				if d := a.docs[path]; d != nil {
+				for _, d := range a.docsForDiskPath(path) {
 					d.stamp = fileStamp{}
 					a.loadDoc(d)
 				}

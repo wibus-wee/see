@@ -7,6 +7,7 @@ import (
 
 	"see/internal/config"
 	"see/internal/langserver"
+	"see/internal/lsp"
 )
 
 // aConfiguredWorkspace returns a harness whose config names one language
@@ -62,7 +63,7 @@ func TestUntrustedWorkspaceDoesNotStartConfiguredServer(t *testing.T) {
 	m.Stop()
 	h.a.customLSPs[h.a.customIndex(m)] = langserver.New(langserver.Options{
 		Name: "custom-lsp", Root: root,
-		Start: func(ctx context.Context, _ string, _ func(error)) (langserver.Client, error) {
+		Start: func(ctx context.Context, _ string, _ []lsp.WorkspaceFolder, _ func(error)) (langserver.Client, error) {
 			return h.fc, nil
 		},
 	})
@@ -93,7 +94,7 @@ func TestConfiguredServerThatFailsToStartReportsFailed(t *testing.T) {
 	m.Stop()
 	h.a.customLSPs[h.a.customIndex(m)] = langserver.New(langserver.Options{
 		Name: "custom-lsp", Root: root,
-		Start: func(ctx context.Context, _ string, _ func(error)) (langserver.Client, error) {
+		Start: func(ctx context.Context, _ string, _ []lsp.WorkspaceFolder, _ func(error)) (langserver.Client, error) {
 			return nil, errNoServer
 		},
 	})

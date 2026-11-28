@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -152,6 +153,84 @@ func TestChildGitRepositoryDiscoveryIsOptInAndSelectionStaysExplicit(t *testing.
 		v := h.a.focus.diffs[diffTab(change.Path, false)]
 		return v != nil && v.state != nil
 	})
+}
+
+func TestCodeWorkspaceSelectsEachConfiguredRepositoryWithoutNestedDiscovery(t *testing.T) {
+	base := t.TempDir()
+	if runtime.GOOS != "windows" {
+		alias := filepath.Join(filepath.Dir(base), filepath.Base(base)+"-alias")
+		if err := os.Symlink(base, alias); err != nil {
+			t.Fatal(err)
+		}
+		base = alias
+	}
+	workspaceDir := filepath.Join(base, "comparison")
+	if err := os.MkdirAll(workspaceDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	frontend := nestedGitRepo(t, filepath.Join(base, "frontend"), "main.go", "base\n", "frontend change\n")
+	backend := nestedGitRepo(t, filepath.Join(base, "backend"), "main.go", "base\n", "backend change\n")
+	workspaceFile := filepath.Join(workspaceDir, "repositories.code-workspace")
+	if err := os.WriteFile(workspaceFile, []byte(`{"folders":[{"name":"Frontend","path":"../frontend"},{"name":"Backend","path":"../backend"}]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	h := newMultiRootHarness(t, workspaceFile)
+	h.a.refreshGitDiscovery()
+	h.settle(func() bool { return h.a.git.repositoriesLoaded && !h.a.git.repositoryScanLoading })
+	if h.a.cfg.GitAutoDiscover || !h.a.gitRepositorySelectionEnabled() || !slices.Equal(h.a.git.repositories, []string{backend, frontend}) {
+		t.Fatalf("configured repository selection = enabled %v, repositories %v, nested discovery %v", h.a.gitRepositorySelectionEnabled(), h.a.git.repositories, h.a.cfg.GitAutoDiscover)
+	}
+
+	h.a.navigator = navGit
+	h.a.git.repositoryView.page = 1
+	h.tt.Frame()
+	if err := h.tt.Click("Backend"); err != nil {
+		t.Fatalf("select backend repository: %v; text=%q", err, h.tt.Texts())
+	}
+	h.settle(func() bool { return h.a.git.root == backend && !h.a.git.loading })
+	if len(h.a.git.changes) != 1 || h.a.git.changes[0].Path != "main.go" {
+		t.Fatalf("backend working changes = %+v", h.a.git.changes)
+	}
+	h.a.loadHistory(true)
+	h.settle(func() bool { return !h.a.git.history.loading && len(h.a.git.history.commits) > 0 })
+	if got := h.a.git.history.commits[0].Subject; got != "backend first" {
+		t.Fatalf("selected repository history = %q", got)
+	}
+	change := h.a.git.changes[0]
+	h.a.showGitDiff(change, false)
+	h.settle(func() bool {
+		view := h.a.focus.diffs[diffTab(change.Path, false)]
+		return view != nil && view.state != nil
+	})
+	if view := h.a.focus.diffs[diffTab(change.Path, false)]; view.root != backend {
+		t.Fatalf("selected repository diff root = %q, want %q", view.root, backend)
+	}
+}
+
+func TestCodeWorkspacePreservesNestedDiscoveryForEachRoot(t *testing.T) {
+	base := t.TempDir()
+	workspaceDir := filepath.Join(base, "comparison")
+	if err := os.MkdirAll(workspaceDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	frontend := nestedGitRepo(t, filepath.Join(base, "frontend"), "main.go", "base\n", "frontend change\n")
+	backend := nestedGitRepo(t, filepath.Join(base, "backend"), "main.go", "base\n", "backend change\n")
+	nested := nestedGitRepo(t, filepath.Join(frontend, "tools"), "tool.go", "base\n", "tool change\n")
+	workspaceFile := filepath.Join(workspaceDir, "repositories.code-workspace")
+	if err := os.WriteFile(workspaceFile, []byte(`{"folders":[{"path":"../frontend"},{"path":"../backend"}]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	h := newMultiRootHarness(t, workspaceFile)
+	h.a.cfg.GitAutoDiscover = true
+	h.a.refreshGitDiscovery()
+	h.settle(func() bool {
+		return h.a.git.repositoriesLoaded && len(h.a.git.repositories) == 3 && !h.a.git.repositoryScanLoading
+	})
+	want := []string{backend, frontend, nested}
+	slices.Sort(want)
+	if !slices.Equal(h.a.git.repositories, want) {
+		t.Fatalf("auto-discovered repositories = %v, want %v", h.a.git.repositories, want)
+	}
 }
 
 func TestDiscoveredRepositoryChangesStayGroupedAndScoped(t *testing.T) {

@@ -104,3 +104,44 @@ func readFindTestFile(t *testing.T, path string) string {
 	}
 	return string(b)
 }
+
+func TestWorkspaceReplaceProtectsDirtyBufferAcrossSymlinkAlias(t *testing.T) {
+	base := t.TempDir()
+	work := filepath.Join(base, "work")
+	project := filepath.Join(work, "project")
+	if err := os.MkdirAll(project, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	realFile := filepath.Join(project, "a.txt")
+	if err := os.WriteFile(realFile, []byte("seed\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	alias := filepath.Join(base, "alias")
+	if err := os.Symlink(project, alias); err != nil {
+		t.Skipf("symlink: %v", err)
+	}
+	workspaceFile := filepath.Join(base, "team.code-workspace")
+	if err := os.WriteFile(workspaceFile, []byte(`{"folders":[{"path":"alias"},{"path":"work"}]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	h := newHarness(t, "")
+	h.a.openWorkspace(workspaceFile)
+	h.a.userOpen(realFile)
+	h.settle(func() bool {
+		for _, d := range h.a.docs {
+			return !d.loading
+		}
+		return false
+	})
+	var d *doc
+	for _, openDoc := range h.a.docs {
+		d = openDoc
+	}
+	if d == nil {
+		t.Fatal("document did not open")
+	}
+	d.buf.Set("seed and unsaved work\n")
+	if !h.a.replaceProtected(realFile) {
+		t.Fatalf("dirty buffer at %q did not protect real path %q", d.path, realFile)
+	}
+}

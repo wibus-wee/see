@@ -28,7 +28,7 @@ const foldSettle = 150 * time.Millisecond
 // leaves the last good ranges in place.
 func (a *App) syncFoldingRanges(d *doc, st *editor.State) {
 	m := a.serverFor(d.path)
-	served := m != nil && a.cfg.IsTrusted(a.root)
+	served := m != nil && a.workspaceTrusted()
 	if !served || d.buf == nil || d.lossy || d.plain || st == nil || a.wsCtx == nil {
 		// Clear only the lane the requests filled: foldSeq > 0 marks it.
 		if d.foldSeq > 0 {

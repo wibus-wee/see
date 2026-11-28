@@ -55,7 +55,7 @@ func (a *App) expandSelection() {
 		return
 	}
 	m := a.serverFor(d.path)
-	if m == nil || !a.cfg.IsTrusted(a.root) || a.wsCtx == nil {
+	if m == nil || !a.workspaceTrusted() || a.wsCtx == nil {
 		st.Run(editor.SelectLarger)
 		return
 	}

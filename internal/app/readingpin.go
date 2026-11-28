@@ -80,7 +80,7 @@ func (a *App) refreshPin(g *group, d *doc) {
 	p := &g.pin
 	o := &a.outline
 	key := outlineKey{path: d.path, doc: d, version: d.buf.Version(), server: a.serverFor(d.path)}
-	if !a.cfg.IsTrusted(a.root) {
+	if !a.workspaceTrusted() {
 		p.cancelRequest()
 		p.requested, p.symbols, p.loading = outlineKey{}, nil, false
 		return

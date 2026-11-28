@@ -39,8 +39,8 @@ func treeArrowSpace(c *ui.Context) {
 	ui.Box(c).Size(treeArrowSize, treeArrowSize).Shrink(0)
 }
 
-// treeLabelOptions are what treeLabel draws: a folder's open or closed
-// icon, or a file's icon, then the name.
+// treeLabelOptions are what treeLabel draws: a workspace member's project
+// icon or a folder's open or closed icon or file icon, then the name.
 type treeLabelOptions struct {
 	Name     string
 	Dir      bool
@@ -48,6 +48,7 @@ type treeLabelOptions struct {
 	IconSize float32
 	FontSize float32
 	Dim      bool
+	Project  bool
 }
 
 // treeIcon draws a folder's open or closed icon, or a file's icon.
@@ -62,7 +63,11 @@ func treeIcon(c *ui.Context, name string, dir, open bool, size float32) {
 // treeLabel draws a row of a file tree and returns its name's text, for
 // callers to decorate as their tree needs.
 func treeLabel(c *ui.Context, o treeLabelOptions) ui.Element {
-	treeIcon(c, o.Name, o.Dir, o.Open, o.IconSize)
+	if o.Project {
+		symbolIcon(c, icRelated, o.IconSize, colors(c).Muted)
+	} else {
+		treeIcon(c, o.Name, o.Dir, o.Open, o.IconSize)
+	}
 	t := ui.Text(c, o.Name).SingleLine().Ellipsis("…").TruncateMiddle().MinWidth(0).Shrink(1)
 	if o.FontSize > 0 {
 		t.FontSize(o.FontSize)

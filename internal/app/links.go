@@ -23,9 +23,16 @@ func (a *App) gitRelPath(path string) (string, bool) {
 	if root == "" {
 		return "", false
 	}
-	if !workspace.Within(root, path) && a.realRoot != "" && workspace.Within(a.root, path) {
-		if sub, err := filepath.Rel(a.root, path); err == nil {
-			path = filepath.Join(a.realRoot, sub)
+	if !workspace.Within(root, path) {
+		workspaceRoot := a.workspaceRootForPath(path)
+		if workspaceRoot != "" {
+			realRoot := workspaceRoot
+			if resolved, err := filepath.EvalSymlinks(workspaceRoot); err == nil {
+				realRoot = resolved
+			}
+			if sub, err := filepath.Rel(workspaceRoot, path); err == nil {
+				path = filepath.Join(realRoot, sub)
+			}
 		}
 	}
 	rel, err := filepath.Rel(root, path)
@@ -51,7 +58,7 @@ func selectedLines(st *editor.State) (first, last int) {
 // workspace's root.
 func (a *App) codeReference(d *doc, st *editor.State) string {
 	first, last := selectedLines(st)
-	ref := fmt.Sprintf("%s:%d", workspace.RelPath(a.root, d.path), first)
+	ref := fmt.Sprintf("%s:%d", a.workspacePath(d.path), first)
 	if last > first {
 		ref += fmt.Sprintf("-%d", last)
 	}

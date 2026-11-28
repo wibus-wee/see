@@ -178,7 +178,7 @@ func (a *App) deferSignature(g *group, d *doc) {
 func (a *App) askSignature(g *group, d *doc) {
 	s := &a.signature
 	m := a.serverFor(d.path)
-	if m == nil || d.buf == nil || !a.cfg.IsTrusted(a.root) {
+	if m == nil || d.buf == nil || !a.workspaceTrusted() {
 		s.asked = false
 		return
 	}
