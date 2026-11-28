@@ -116,7 +116,7 @@ func (a *App) entryPanel(c *ui.Context) {
 			} else {
 				fileIcon(c, q.name, 16)
 			}
-			field := ui.TextInput(c, &q.name).Label(title+locales.MsgName()).Placeholder(locales.MsgPath()).Grow(1).Height(20).Padding(0, 4).FontSize(12).AutoFocus()
+			field := ui.TextInput(c, &q.name).Label(title+locales.MsgName()).Placeholder(locales.MsgPath()).Grow(1).Height(20).Padding(0, 4).FontSize(12).TextColor(colors(c).Text).AutoFocus()
 			if field.Submitted() {
 				a.submitEntry(q)
 			}
