@@ -175,6 +175,14 @@ See the layer-by-layer log in the PR description. Summary:
 
 ## Known pre-existing issues (not introduced here, not fixed here)
 
+- `TestHexViewReanchorsToTheChangedVersion` flake: passes in most runs
+  and in both full-suite runs at the integration tip, but fails
+  intermittently in isolation (~half of sampled runs) with the re-pinned
+  view showing only page 0 where the test expects the jumped page — a
+  re-pin/re-request timing race. Reproduced identically on lane-d's own
+  branch (`108bc7c`), so it predates integration; lane-d's verification
+  sampled the passing side. Root-cause and fix belong to a lane-D
+  follow-up; it is recorded here rather than silently re-run until green.
 - `TestNewFileCacheFailureKeepsWelcome` flake: test-isolation race —
   the test deletes the shared cache dir while a debounced localhistory
   capture may still write it. Probabilistic; confirmed pre-existing on both
