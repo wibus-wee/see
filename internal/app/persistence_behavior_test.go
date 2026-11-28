@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -152,6 +153,52 @@ func TestAtomicWriteFailureLeavesNoPartialDestination(t *testing.T) {
 				t.Fatalf("failed write left new destination: data=%q err=%v", data, readErr)
 			}
 		})
+	}
+}
+
+func TestSaveFailureReportsErrorAndKeepsOldBytes(t *testing.T) {
+	const base = "the last saved truth\n"
+	h := newHarness(t, writeTree(t, map[string]string{"a.txt": base}))
+	d := h.open("a.txt")
+	d.buf.Set("unsaved new text\n")
+	// A read-only file makes the save fail before any write begins, as a
+	// permission problem does; the failure must surface rather than
+	// report success, and the file must not change.
+	if err := os.Chmod(d.path, 0400); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(d.path, 0600) })
+	h.tt.Key(ui.Cmd, ui.KeyS)
+	h.tt.Frame()
+	if !h.a.noticeError || !strings.Contains(h.a.notice, d.name) {
+		t.Fatalf("the failed save reported no error: notice=%q err=%v", h.a.notice, h.a.noticeError)
+	}
+	if !d.buf.Modified() {
+		t.Fatal("the failed save marked the document saved")
+	}
+	disk, err := os.ReadFile(d.path)
+	if err != nil || string(disk) != base {
+		t.Fatalf("the failed save changed the file: %q err=%v", disk, err)
+	}
+	// The retry succeeds once the file is writable again, and the write
+	// is the complete new content in one publish.
+	if err := os.Chmod(d.path, 0600); err != nil {
+		t.Fatal(err)
+	}
+	h.tt.Key(ui.Cmd, ui.KeyS)
+	h.tt.Frame()
+	disk, err = os.ReadFile(d.path)
+	if err != nil || string(disk) != "unsaved new text\n" || d.buf.Modified() {
+		t.Fatalf("the retry did not save: %q modified=%v err=%v", disk, d.buf.Modified(), err)
+	}
+	entries, err := os.ReadDir(filepath.Dir(d.path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		if strings.HasSuffix(e.Name(), ".tmp") {
+			t.Fatalf("the writes left staging behind: %s", e.Name())
+		}
 	}
 }
 

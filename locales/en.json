@@ -1240,5 +1240,6 @@
   "denied": "Denied",
   "msgDegraded": "Degraded · ",
   "msgDegradedExplanation": "Document sync failed once; it recovers when the next change reaches the server.",
-  "msgServerCrashedRepeatedly": "crashed repeatedly — restart it with Retry"
+  "msgServerCrashedRepeatedly": "crashed repeatedly — restart it with Retry",
+  "msgConfigLoadProblem": "Some settings could not be loaded and were reset to defaults: {detail}"
 }

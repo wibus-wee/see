@@ -2548,3 +2548,17 @@ func (a *App) retryCMake() {
 		a.openServerDocuments(a.cmakeLSP)
 	}
 }
+
+// configLoadNote is what the startup tells the user when the settings
+// file degraded on load, or nothing when it loaded cleanly.
+func configLoadNote(cfg *config.Config) string {
+	issues := cfg.Issues()
+	if len(issues) == 0 {
+		return ""
+	}
+	details := make([]string, len(issues))
+	for i, issue := range issues {
+		details[i] = issue.Error()
+	}
+	return locales.Catalog.Format(i18n.Locale(), "msgConfigLoadProblem", map[string]any{"detail": strings.Join(details, "; ")})
+}
